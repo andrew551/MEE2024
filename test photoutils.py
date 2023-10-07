@@ -1,0 +1,2 @@
+import photutils
+photutils.test()
