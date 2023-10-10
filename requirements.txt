@@ -1,0 +1,11 @@
+#Python 3
+NumPy
+Astropy
+Photutils
+SciPy
+Matplotlib
+scikit-image
+Astroquery
+PySimpleGUI
+OpenCV-python
+
