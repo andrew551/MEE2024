@@ -41,6 +41,9 @@ def LoadFITSData(file_name):
 file_path = 'C:\\Users\\15035\\Documents\\Images\\AMO 2017 Eclipse Data\\2018-02-20 SixMonths_Calibrated\\'
 data_name = 'LeoSixMonths-000110s.fts'
 
+data_name = 'ZenithCenteredStack_20x3s.fit'
+file_path = 'E:/stardata/'
+
 imgdata = LoadFITSData(file_path+data_name)
 #dark = LoadFITSData(file_path+dark_name)
 #flat = LoadFITSData(file_path+flat_name)
@@ -59,6 +62,10 @@ wht_pt = ImAvg+2.0*ImStd
 
 #hdu = load_star_image()
 # data = LoadFITSData(file_path + data_name)
+
+print(imgdata)
+plt.imshow(imgdata, cmap='gray', vmin=blk_pt, vmax=wht_pt, interpolation='nearest')
+plt.show()
 
 mean, median, std = sigma_clipped_stats(imgdata, sigma=3.0)
 daofind = DAOStarFinder(fwhm=3.0, threshold=5.0 * std)

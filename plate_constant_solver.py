@@ -12,7 +12,7 @@ Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source" #GAIA catalog from 2016
 
 
 #open directory folder
-cal_path = r"C:\Users\kyleg\OneDrive\Desktop\1_14_23\hi_1_ref.fts"
+cal_path = r"C:\Users\kyleg\OneDrive\Desktop\MEE 2024\Testing\Testing_1_ref.fts"
 Gaia.ROW_LIMIT = 10                                         #limit of number of rows that can be returned
 with fits.open(cal_path) as hdul:                           #benefit of this: automatically closes fits file without clos()
     hdr = hdul[0].header                                    #Header information
@@ -93,8 +93,6 @@ with fits.open(cal_path) as hdul:                           #benefit of this: au
                 ra_error_from_epoch = 'INVALID'
             else:
                 ra_error_from_epoch = float(ra_error_from_epoch) #redefined as float for math purposes
-
-
 
             #if no error can be found, not a valid choice
             if len(dec_error_from_epoch) == 2:
