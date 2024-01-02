@@ -12,16 +12,17 @@ Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source" #GAIA catalog from 2016
 
 
 #open directory folder
-cal_path = r"C:\Users\kyleg\OneDrive\Desktop\MEE 2024\Testing\Testing_1_ref.fts"
+cal_path = "D:/stardata/MEE2024.00000971.Zenith-Center2.fit"
+#r"C:\Users\kyleg\OneDrive\Desktop\MEE 2024\Testing\Testing_1_ref.fts"
 Gaia.ROW_LIMIT = 10                                         #limit of number of rows that can be returned
 with fits.open(cal_path) as hdul:                           #benefit of this: automatically closes fits file without clos()
     hdr = hdul[0].header                                    #Header information
     image_data = hdul[0].data                               #Data information
-
+    print(str(hdr))
     print()
     print(repr(hdr))                                        #prints all info regarding the header
     print()
-
+    '''
     indices_of_ref_star = int(hdr["NUMREF"]) - 1            #stores info on length of list 
     avg_date = (hdr["DATE-SRT"] + hdr["DATE-END"])/2        #averages the julian date of exposure
     alpha_0 = float(hdr['RA']) * 15 * (np.pi/180)           #Center of fits image RA in radians. 
@@ -29,8 +30,18 @@ with fits.open(cal_path) as hdul:                           #benefit of this: au
     focal = hdr['FOCAL']                                    #focal length of telesope
     xpixel = hdr['PIXELX'] * 1e-6                           #xpixel length in meters
     ypixel = hdr['PIXELY'] * 1e-6                           #ypixel length in meters
+    '''
+    #indices_of_ref_star = int(hdr["NUMREF"]) - 1            #stores info on length of list 
+    avg_date = hdr["DATE-OBS"]        #averages the julian date of exposure
 
+    sc = SkyCoord(ra=hdr['OBJCTRA'], dec=hdr['OBJCTDEC'], unit=(u.hourangle, u.deg))
+    print(sc)
 
+    alpha_0 = sc.ra * (np.pi/180)           #Center of fits image RA in radians. 
+    delta_0 = sc.dec * (np.pi/180)               #Center of fits image DEC in radians. 
+    #focal = hdr['FOCAL']                                    #focal length of telesope
+    xpixel = hdr['XPIXSZ'] * 1e-6                           #xpixel length in meters
+    ypixel = hdr['XPIXSZ'] * 1e-6                           #ypixel length in meters
 
     #This creates a list of dictionaries containing the name of the reference stars, and their ra and dec from GAIA
     cele_name_list = []         
