@@ -6,7 +6,10 @@ from PIL import Image
 from pathlib import Path
 import matplotlib.pyplot as plt
 import tetra3
-
+from photutils.aperture import CircularAperture
+from astropy.visualization import SqrtStretch
+from astropy.visualization.mpl_normalize import ImageNormalize
+import numpy as np
 '''
 # to generate a database from hip_main
 t3 = tetra3.Tetra3()
@@ -27,6 +30,14 @@ for impath in path.glob('*'):
         if 1:
             plt.imshow(img)
             plt.scatter(centroids[:10, 1], centroids[:10, 0])
+            plt.show()
+            positions = np.transpose((centroids[:, 1], centroids[:, 0]))
+            print(positions)
+            apertures = CircularAperture(positions, r=4.0)
+            norm = ImageNormalize(stretch=SqrtStretch())
+            plt.imshow(img, cmap='Greys', origin='lower', norm=norm,
+                       interpolation='nearest')
+            apertures.plot(color='blue', lw=1.5, alpha=0.5)
             plt.show()
         # Here you can add e.g. `fov_estimate`/`fov_max_error` to improve speed or a
         # `distortion` range to search (default assumes undistorted image). There

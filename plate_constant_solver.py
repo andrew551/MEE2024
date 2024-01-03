@@ -12,7 +12,7 @@ Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source" #GAIA catalog from 2016
 
 
 #open directory folder
-cal_path = "D:/stardata/MEE2024.00000971.Zenith-Center2.fit"
+cal_path = "E:/stardata/MEE2024.00000971.Zenith-Center2.fit"
 #r"C:\Users\kyleg\OneDrive\Desktop\MEE 2024\Testing\Testing_1_ref.fts"
 Gaia.ROW_LIMIT = 10                                         #limit of number of rows that can be returned
 with fits.open(cal_path) as hdul:                           #benefit of this: automatically closes fits file without clos()

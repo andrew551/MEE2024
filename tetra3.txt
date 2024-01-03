@@ -9120,3 +9120,1129 @@
 2024-01-02 18:38:35,531:tetra3.Tetra3-DEBUG: Prob: 1.229e-40, corr: 1.985e-33
 2024-01-02 18:38:35,531:tetra3.Tetra3-DEBUG: Calculated focal length to 23.27 and distortion to -0.001
 2024-01-02 18:38:35,532:tetra3.Tetra3-DEBUG: {'RA': 326.3580012467246, 'Dec': 44.81474169956526, 'Roll': 178.33200417076057, 'FOV': 4.92182094161896, 'distortion': -0.0011780230703051483, 'RMSE': 1.1046147203510832, 'Matches': 20, 'Prob': 1.984588340877052e-33, 'epoch_equinox': 2000, 'epoch_proper_motion': 2024.0, 'T_solve': 9.87519999999975}
+2024-01-03 00:36:15,852:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 00:36:15,853:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 00:36:15,853:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 00:36:15,853:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 00:36:15,853:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 00:36:15,926:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 00:36:16,874:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 00:36:16,875:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 00:36:16,876:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 00:36:16,876:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 00:36:16,876:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 00:36:16,876:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 00:36:16,876:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 00:36:16,876:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 00:36:16,877:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 00:36:16,877:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 00:36:16,877:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 00:36:16,877:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 00:36:16,877:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 00:36:16,877:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 00:36:16,878:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 00:36:16,878:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 00:36:16,878:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 00:36:16,878:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 00:36:33,043:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 00:36:33,043:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 00:36:33,043:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 00:36:33,043:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 00:36:33,043:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 00:36:33,050:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 00:36:33,996:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 00:36:33,997:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 00:36:33,998:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 00:36:33,998:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 00:37:08,007:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 00:37:08,007:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 00:37:08,007:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 00:37:08,007:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 00:37:08,007:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 00:37:08,042:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 00:37:09,008:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 00:37:09,009:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 00:37:09,010:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 00:37:09,010:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 00:37:09,010:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 00:37:09,010:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 00:37:09,010:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 00:37:09,010:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 00:37:09,010:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 00:37:09,010:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 00:37:49,217:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 00:37:49,217:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 00:37:49,217:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 00:37:49,217:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 00:37:49,217:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 00:37:49,223:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 00:37:50,168:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 00:37:50,169:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 00:37:50,170:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 00:37:50,170:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 00:38:20,466:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 00:38:20,466:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 00:38:20,466:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 00:38:20,466:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 00:38:20,466:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 00:38:20,481:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 00:38:21,421:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 00:38:21,422:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 00:38:21,423:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 00:38:21,423:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 00:38:21,423:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 00:38:21,423:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 00:38:45,519:tetra3.Tetra3-DEBUG: Got solve from image with input: (<PIL.TiffImagePlugin.TiffImageFile image mode=I;16 size=3296x2472 at 0x1AE72C22FA0>, 5, None, 10, 0.01, 0.001, None, None, False, {})
+2024-01-03 00:38:45,519:tetra3.Tetra3-DEBUG: Image (height, width): (2472, 3296)
+2024-01-03 00:38:45,845:tetra3.Tetra3-DEBUG: Found this many centroids, in time: (19, 325.36599999999896)
+2024-01-03 00:38:45,845:tetra3.Tetra3-DEBUG: Got solve from centroids with input: (19, (2472, 3296), 5, None, 10, 0.01, 0.001, None, None, 0, False, False)
+2024-01-03 00:38:45,845:tetra3.Tetra3-DEBUG: Set threshold to: 6.195080994179164e-11, have 16141839 patterns.
+2024-01-03 00:38:45,845:tetra3.Tetra3-DEBUG: Trimmed centroid input shape to: (19, 2)
+2024-01-03 00:38:45,845:tetra3.Tetra3-DEBUG: Undistorted centroids with k=0
+2024-01-03 00:38:45,850:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,850:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 14.73071deg
+2024-01-03 00:38:45,855:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,855:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.88272deg
+2024-01-03 00:38:45,855:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 0
+2024-01-03 00:38:45,856:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 3.62180deg
+2024-01-03 00:38:45,856:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,856:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.96484deg
+2024-01-03 00:38:45,859:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,859:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.43323deg
+2024-01-03 00:38:45,860:tetra3.Tetra3-DEBUG: Number of nearby stars: 9, total matched: 5
+2024-01-03 00:38:45,860:tetra3.Tetra3-DEBUG: Mismatch probability = 6.99e-07, at FOV = 3.48423deg
+2024-01-03 00:38:45,861:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:45,861:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 7.65593deg
+2024-01-03 00:38:45,861:tetra3.Tetra3-DEBUG: Number of nearby stars: 7, total matched: 0
+2024-01-03 00:38:45,861:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 2.39511deg
+2024-01-03 00:38:45,864:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,864:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.66445deg
+2024-01-03 00:38:45,865:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:45,865:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 10.80983deg
+2024-01-03 00:38:45,865:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:45,866:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.06309deg
+2024-01-03 00:38:45,867:tetra3.Tetra3-DEBUG: Number of nearby stars: 10, total matched: 4
+2024-01-03 00:38:45,867:tetra3.Tetra3-DEBUG: Mismatch probability = 1.69e-04, at FOV = 4.46426deg
+2024-01-03 00:38:45,869:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:45,869:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.20068deg
+2024-01-03 00:38:45,872:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:45,872:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 9.70420deg
+2024-01-03 00:38:45,875:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:45,875:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 13.55566deg
+2024-01-03 00:38:45,876:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:45,876:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.99960deg
+2024-01-03 00:38:45,880:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,880:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.21659deg
+2024-01-03 00:38:45,882:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,882:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.76327deg
+2024-01-03 00:38:45,885:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,885:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.62673deg
+2024-01-03 00:38:45,885:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,885:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.91700deg
+2024-01-03 00:38:45,886:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,886:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.21732deg
+2024-01-03 00:38:45,891:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 4
+2024-01-03 00:38:45,891:tetra3.Tetra3-DEBUG: Mismatch probability = 2.85e-04, at FOV = 3.51669deg
+2024-01-03 00:38:45,894:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:45,894:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.92542deg
+2024-01-03 00:38:45,898:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:45,898:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.89773deg
+2024-01-03 00:38:45,899:tetra3.Tetra3-DEBUG: Number of nearby stars: 14, total matched: 4
+2024-01-03 00:38:45,899:tetra3.Tetra3-DEBUG: Mismatch probability = 3.30e-04, at FOV = 3.30845deg
+2024-01-03 00:38:45,900:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,900:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.11245deg
+2024-01-03 00:38:45,901:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,901:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.71890deg
+2024-01-03 00:38:45,902:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,902:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.10953deg
+2024-01-03 00:38:45,903:tetra3.Tetra3-DEBUG: Number of nearby stars: 18, total matched: 2
+2024-01-03 00:38:45,903:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.77694deg
+2024-01-03 00:38:45,904:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:45,904:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 9.64918deg
+2024-01-03 00:38:45,906:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,906:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.82935deg
+2024-01-03 00:38:45,908:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,908:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.64932deg
+2024-01-03 00:38:45,908:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 3
+2024-01-03 00:38:45,908:tetra3.Tetra3-DEBUG: Mismatch probability = 2.44e-02, at FOV = 4.17818deg
+2024-01-03 00:38:45,909:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:45,909:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.02443deg
+2024-01-03 00:38:45,910:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 4
+2024-01-03 00:38:45,910:tetra3.Tetra3-DEBUG: Mismatch probability = 2.04e-04, at FOV = 3.74673deg
+2024-01-03 00:38:45,911:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:45,911:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.75375deg
+2024-01-03 00:38:45,912:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:45,912:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 7.66871deg
+2024-01-03 00:38:45,916:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:45,916:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 15.15154deg
+2024-01-03 00:38:45,918:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,918:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.48873deg
+2024-01-03 00:38:45,921:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,921:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 15.50393deg
+2024-01-03 00:38:45,922:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,922:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.92722deg
+2024-01-03 00:38:45,943:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,943:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.75396deg
+2024-01-03 00:38:45,946:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,946:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.36018deg
+2024-01-03 00:38:45,947:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,948:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.23793deg
+2024-01-03 00:38:45,949:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,949:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.31761deg
+2024-01-03 00:38:45,950:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,950:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.01330deg
+2024-01-03 00:38:45,953:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:45,953:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 8.48318deg
+2024-01-03 00:38:45,953:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 4
+2024-01-03 00:38:45,954:tetra3.Tetra3-DEBUG: Mismatch probability = 2.43e-04, at FOV = 4.36531deg
+2024-01-03 00:38:45,954:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:45,955:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.97674deg
+2024-01-03 00:38:45,955:tetra3.Tetra3-DEBUG: Number of nearby stars: 16, total matched: 4
+2024-01-03 00:38:45,955:tetra3.Tetra3-DEBUG: Mismatch probability = 4.30e-04, at FOV = 5.68387deg
+2024-01-03 00:38:45,957:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 4
+2024-01-03 00:38:45,957:tetra3.Tetra3-DEBUG: Mismatch probability = 2.85e-04, at FOV = 3.86116deg
+2024-01-03 00:38:45,964:tetra3.Tetra3-DEBUG: Number of nearby stars: 15, total matched: 4
+2024-01-03 00:38:45,965:tetra3.Tetra3-DEBUG: Mismatch probability = 3.78e-04, at FOV = 3.93018deg
+2024-01-03 00:38:45,966:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,966:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.62194deg
+2024-01-03 00:38:45,966:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 4
+2024-01-03 00:38:45,966:tetra3.Tetra3-DEBUG: Mismatch probability = 2.43e-04, at FOV = 2.88731deg
+2024-01-03 00:38:45,969:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,969:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.43892deg
+2024-01-03 00:38:45,970:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,970:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 10.11790deg
+2024-01-03 00:38:45,971:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 4
+2024-01-03 00:38:45,971:tetra3.Tetra3-DEBUG: Mismatch probability = 4.85e-04, at FOV = 3.86369deg
+2024-01-03 00:38:45,973:tetra3.Tetra3-DEBUG: Number of nearby stars: 18, total matched: 4
+2024-01-03 00:38:45,973:tetra3.Tetra3-DEBUG: Mismatch probability = 5.43e-04, at FOV = 4.25502deg
+2024-01-03 00:38:45,974:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:45,975:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 9.92623deg
+2024-01-03 00:38:45,975:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,975:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.91829deg
+2024-01-03 00:38:45,976:tetra3.Tetra3-DEBUG: Number of nearby stars: 15, total matched: 1
+2024-01-03 00:38:45,976:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.75135deg
+2024-01-03 00:38:45,976:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,976:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.58574deg
+2024-01-03 00:38:45,977:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:45,977:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.91782deg
+2024-01-03 00:38:45,978:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 4
+2024-01-03 00:38:45,978:tetra3.Tetra3-DEBUG: Mismatch probability = 2.04e-04, at FOV = 4.71682deg
+2024-01-03 00:38:45,979:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,980:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.38461deg
+2024-01-03 00:38:45,982:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,982:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.50826deg
+2024-01-03 00:38:45,982:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,983:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.08796deg
+2024-01-03 00:38:45,983:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,983:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 4.80126deg
+2024-01-03 00:38:45,984:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 0
+2024-01-03 00:38:45,984:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 3.44854deg
+2024-01-03 00:38:45,987:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:45,987:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.67059deg
+2024-01-03 00:38:45,991:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:45,991:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.68545deg
+2024-01-03 00:38:45,991:tetra3.Tetra3-DEBUG: Number of nearby stars: 18, total matched: 4
+2024-01-03 00:38:45,992:tetra3.Tetra3-DEBUG: Mismatch probability = 5.43e-04, at FOV = 5.79741deg
+2024-01-03 00:38:45,992:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,992:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.06145deg
+2024-01-03 00:38:45,993:tetra3.Tetra3-DEBUG: Number of nearby stars: 14, total matched: 4
+2024-01-03 00:38:45,993:tetra3.Tetra3-DEBUG: Mismatch probability = 3.30e-04, at FOV = 4.22161deg
+2024-01-03 00:38:45,994:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 5
+2024-01-03 00:38:45,994:tetra3.Tetra3-DEBUG: Mismatch probability = 1.27e-06, at FOV = 3.74677deg
+2024-01-03 00:38:45,996:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 4
+2024-01-03 00:38:45,996:tetra3.Tetra3-DEBUG: Mismatch probability = 2.43e-04, at FOV = 4.51739deg
+2024-01-03 00:38:45,997:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:45,998:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.53321deg
+2024-01-03 00:38:45,998:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:45,998:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.12804deg
+2024-01-03 00:38:45,999:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:45,999:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.77302deg
+2024-01-03 00:38:46,001:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,002:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.56218deg
+2024-01-03 00:38:46,002:tetra3.Tetra3-DEBUG: Number of nearby stars: 15, total matched: 4
+2024-01-03 00:38:46,002:tetra3.Tetra3-DEBUG: Mismatch probability = 3.78e-04, at FOV = 6.64598deg
+2024-01-03 00:38:46,003:tetra3.Tetra3-DEBUG: Number of nearby stars: 14, total matched: 4
+2024-01-03 00:38:46,003:tetra3.Tetra3-DEBUG: Mismatch probability = 3.30e-04, at FOV = 4.15520deg
+2024-01-03 00:38:46,004:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,004:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.77403deg
+2024-01-03 00:38:46,004:tetra3.Tetra3-DEBUG: Number of nearby stars: 15, total matched: 4
+2024-01-03 00:38:46,005:tetra3.Tetra3-DEBUG: Mismatch probability = 3.78e-04, at FOV = 4.75533deg
+2024-01-03 00:38:46,005:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,006:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.81142deg
+2024-01-03 00:38:46,006:tetra3.Tetra3-DEBUG: Number of nearby stars: 10, total matched: 3
+2024-01-03 00:38:46,006:tetra3.Tetra3-DEBUG: Mismatch probability = 1.88e-02, at FOV = 3.29888deg
+2024-01-03 00:38:46,007:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,007:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.15998deg
+2024-01-03 00:38:46,008:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,008:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 7.36931deg
+2024-01-03 00:38:46,008:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,009:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.15998deg
+2024-01-03 00:38:46,010:tetra3.Tetra3-DEBUG: Number of nearby stars: 15, total matched: 4
+2024-01-03 00:38:46,010:tetra3.Tetra3-DEBUG: Mismatch probability = 3.78e-04, at FOV = 3.07628deg
+2024-01-03 00:38:46,010:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 4
+2024-01-03 00:38:46,010:tetra3.Tetra3-DEBUG: Mismatch probability = 4.85e-04, at FOV = 4.30782deg
+2024-01-03 00:38:46,011:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,011:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.12658deg
+2024-01-03 00:38:46,012:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,012:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.22468deg
+2024-01-03 00:38:46,013:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 4
+2024-01-03 00:38:46,013:tetra3.Tetra3-DEBUG: Mismatch probability = 2.43e-04, at FOV = 5.78233deg
+2024-01-03 00:38:46,013:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,014:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.28599deg
+2024-01-03 00:38:46,014:tetra3.Tetra3-DEBUG: Number of nearby stars: 10, total matched: 4
+2024-01-03 00:38:46,014:tetra3.Tetra3-DEBUG: Mismatch probability = 1.69e-04, at FOV = 3.14795deg
+2024-01-03 00:38:46,018:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,018:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.71480deg
+2024-01-03 00:38:46,021:tetra3.Tetra3-DEBUG: Number of nearby stars: 16, total matched: 4
+2024-01-03 00:38:46,021:tetra3.Tetra3-DEBUG: Mismatch probability = 4.30e-04, at FOV = 5.00340deg
+2024-01-03 00:38:46,022:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,022:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.88250deg
+2024-01-03 00:38:46,023:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,023:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.05106deg
+2024-01-03 00:38:46,024:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,024:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.76713deg
+2024-01-03 00:38:46,027:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 4
+2024-01-03 00:38:46,027:tetra3.Tetra3-DEBUG: Mismatch probability = 2.04e-04, at FOV = 5.16762deg
+2024-01-03 00:38:46,028:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 4
+2024-01-03 00:38:46,028:tetra3.Tetra3-DEBUG: Mismatch probability = 2.04e-04, at FOV = 5.16762deg
+2024-01-03 00:38:46,034:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 1
+2024-01-03 00:38:46,034:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 4.18966deg
+2024-01-03 00:38:46,035:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,035:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.98513deg
+2024-01-03 00:38:46,036:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,036:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 4.51926deg
+2024-01-03 00:38:46,038:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,038:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 4.75629deg
+2024-01-03 00:38:46,039:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,039:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 10.73437deg
+2024-01-03 00:38:46,040:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,040:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 11.63078deg
+2024-01-03 00:38:46,046:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,046:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.74321deg
+2024-01-03 00:38:46,047:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,047:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.79167deg
+2024-01-03 00:38:46,047:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,048:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.56705deg
+2024-01-03 00:38:46,048:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,048:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 11.01434deg
+2024-01-03 00:38:46,049:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,049:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 13.52513deg
+2024-01-03 00:38:46,050:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,050:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 3.93981deg
+2024-01-03 00:38:46,051:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,051:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.61712deg
+2024-01-03 00:38:46,052:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,052:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.51507deg
+2024-01-03 00:38:46,053:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,053:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 11.69729deg
+2024-01-03 00:38:46,053:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,054:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.89298deg
+2024-01-03 00:38:46,071:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 4
+2024-01-03 00:38:46,072:tetra3.Tetra3-DEBUG: Mismatch probability = 2.85e-04, at FOV = 3.88177deg
+2024-01-03 00:38:46,074:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,074:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.04163deg
+2024-01-03 00:38:46,074:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,074:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.37788deg
+2024-01-03 00:38:46,075:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,075:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 13.67412deg
+2024-01-03 00:38:46,076:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,076:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.66743deg
+2024-01-03 00:38:46,076:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,076:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.00528deg
+2024-01-03 00:38:46,077:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,077:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.35848deg
+2024-01-03 00:38:46,078:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,079:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.45980deg
+2024-01-03 00:38:46,080:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,081:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.02659deg
+2024-01-03 00:38:46,082:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,082:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.37588deg
+2024-01-03 00:38:46,084:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,084:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.86844deg
+2024-01-03 00:38:46,087:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,088:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.99493deg
+2024-01-03 00:38:46,089:tetra3.Tetra3-DEBUG: Number of nearby stars: 9, total matched: 4
+2024-01-03 00:38:46,089:tetra3.Tetra3-DEBUG: Mismatch probability = 1.37e-04, at FOV = 3.71991deg
+2024-01-03 00:38:46,089:tetra3.Tetra3-DEBUG: Number of nearby stars: 16, total matched: 4
+2024-01-03 00:38:46,090:tetra3.Tetra3-DEBUG: Mismatch probability = 4.30e-04, at FOV = 5.31478deg
+2024-01-03 00:38:46,090:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,090:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.47202deg
+2024-01-03 00:38:46,091:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,091:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 6.45951deg
+2024-01-03 00:38:46,092:tetra3.Tetra3-DEBUG: Number of nearby stars: 18, total matched: 4
+2024-01-03 00:38:46,093:tetra3.Tetra3-DEBUG: Mismatch probability = 5.43e-04, at FOV = 5.69887deg
+2024-01-03 00:38:46,097:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,097:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 8.10183deg
+2024-01-03 00:38:46,098:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,098:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.90691deg
+2024-01-03 00:38:46,100:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,100:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 13.86278deg
+2024-01-03 00:38:46,100:tetra3.Tetra3-DEBUG: Number of nearby stars: 9, total matched: 4
+2024-01-03 00:38:46,101:tetra3.Tetra3-DEBUG: Mismatch probability = 1.37e-04, at FOV = 3.83145deg
+2024-01-03 00:38:46,102:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,103:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.87730deg
+2024-01-03 00:38:46,111:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,111:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 12.12246deg
+2024-01-03 00:38:46,116:tetra3.Tetra3-DEBUG: Number of nearby stars: 10, total matched: 4
+2024-01-03 00:38:46,116:tetra3.Tetra3-DEBUG: Mismatch probability = 1.69e-04, at FOV = 3.94791deg
+2024-01-03 00:38:46,117:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,117:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 3.80261deg
+2024-01-03 00:38:46,117:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,117:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 3.80261deg
+2024-01-03 00:38:46,118:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,118:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 10.86529deg
+2024-01-03 00:38:46,119:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,119:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.48768deg
+2024-01-03 00:38:46,121:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,121:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 14.35137deg
+2024-01-03 00:38:46,122:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,122:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.31830deg
+2024-01-03 00:38:46,122:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,123:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 15.13271deg
+2024-01-03 00:38:46,123:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,123:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.10044deg
+2024-01-03 00:38:46,125:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,126:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.00896deg
+2024-01-03 00:38:46,126:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 4
+2024-01-03 00:38:46,127:tetra3.Tetra3-DEBUG: Mismatch probability = 4.85e-04, at FOV = 4.19212deg
+2024-01-03 00:38:46,127:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,127:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 12.49359deg
+2024-01-03 00:38:46,128:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,128:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.46051deg
+2024-01-03 00:38:46,131:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,131:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.80297deg
+2024-01-03 00:38:46,133:tetra3.Tetra3-DEBUG: Number of nearby stars: 18, total matched: 4
+2024-01-03 00:38:46,133:tetra3.Tetra3-DEBUG: Mismatch probability = 5.43e-04, at FOV = 5.88662deg
+2024-01-03 00:38:46,134:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,134:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.86139deg
+2024-01-03 00:38:46,135:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,135:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 14.79264deg
+2024-01-03 00:38:46,136:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,136:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.94650deg
+2024-01-03 00:38:46,137:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,137:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 10.46609deg
+2024-01-03 00:38:46,138:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,138:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.32432deg
+2024-01-03 00:38:46,139:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,139:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.76404deg
+2024-01-03 00:38:46,139:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,140:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.11951deg
+2024-01-03 00:38:46,149:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,149:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.88604deg
+2024-01-03 00:38:46,150:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,150:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 13.63275deg
+2024-01-03 00:38:46,153:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,153:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 20.38115deg
+2024-01-03 00:38:46,153:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,154:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.25794deg
+2024-01-03 00:38:46,156:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,157:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.53237deg
+2024-01-03 00:38:46,160:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,160:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.51709deg
+2024-01-03 00:38:46,162:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,162:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.00206deg
+2024-01-03 00:38:46,162:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,162:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.10385deg
+2024-01-03 00:38:46,168:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,169:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 4.15929deg
+2024-01-03 00:38:46,179:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,179:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 11.54169deg
+2024-01-03 00:38:46,190:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,190:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 8.86992deg
+2024-01-03 00:38:46,192:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,192:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 3.68865deg
+2024-01-03 00:38:46,192:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,192:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.95044deg
+2024-01-03 00:38:46,197:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,197:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 11.70796deg
+2024-01-03 00:38:46,203:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,204:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.14984deg
+2024-01-03 00:38:46,210:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,210:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.59317deg
+2024-01-03 00:38:46,211:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,211:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.15834deg
+2024-01-03 00:38:46,212:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,212:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 10.10935deg
+2024-01-03 00:38:46,215:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,215:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.72915deg
+2024-01-03 00:38:46,216:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,216:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.11605deg
+2024-01-03 00:38:46,222:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,222:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 9.60030deg
+2024-01-03 00:38:46,230:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,230:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.97394deg
+2024-01-03 00:38:46,250:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,250:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.29018deg
+2024-01-03 00:38:46,250:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,251:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.11378deg
+2024-01-03 00:38:46,251:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,251:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.08099deg
+2024-01-03 00:38:46,252:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,252:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.30077deg
+2024-01-03 00:38:46,254:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,255:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.01859deg
+2024-01-03 00:38:46,258:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,258:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.30508deg
+2024-01-03 00:38:46,259:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,259:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.07522deg
+2024-01-03 00:38:46,263:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,264:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.13641deg
+2024-01-03 00:38:46,264:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,265:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 7.18888deg
+2024-01-03 00:38:46,266:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,267:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.38523deg
+2024-01-03 00:38:46,268:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,268:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.96978deg
+2024-01-03 00:38:46,270:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,270:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.67658deg
+2024-01-03 00:38:46,271:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,272:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 7.58357deg
+2024-01-03 00:38:46,273:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,273:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.21900deg
+2024-01-03 00:38:46,274:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,274:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.51819deg
+2024-01-03 00:38:46,277:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,277:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.83032deg
+2024-01-03 00:38:46,279:tetra3.Tetra3-DEBUG: Number of nearby stars: 8, total matched: 1
+2024-01-03 00:38:46,280:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 4.13408deg
+2024-01-03 00:38:46,282:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,282:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.10662deg
+2024-01-03 00:38:46,286:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,286:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.87041deg
+2024-01-03 00:38:46,288:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,288:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.83408deg
+2024-01-03 00:38:46,290:tetra3.Tetra3-DEBUG: Number of nearby stars: 18, total matched: 3
+2024-01-03 00:38:46,290:tetra3.Tetra3-DEBUG: Mismatch probability = 3.37e-02, at FOV = 5.10992deg
+2024-01-03 00:38:46,292:tetra3.Tetra3-DEBUG: Number of nearby stars: 14, total matched: 4
+2024-01-03 00:38:46,292:tetra3.Tetra3-DEBUG: Mismatch probability = 3.30e-04, at FOV = 5.63939deg
+2024-01-03 00:38:46,294:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,294:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.91152deg
+2024-01-03 00:38:46,294:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 4
+2024-01-03 00:38:46,294:tetra3.Tetra3-DEBUG: Mismatch probability = 2.85e-04, at FOV = 3.62192deg
+2024-01-03 00:38:46,295:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,295:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.92920deg
+2024-01-03 00:38:46,297:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,297:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.52771deg
+2024-01-03 00:38:46,298:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,298:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 7.17671deg
+2024-01-03 00:38:46,299:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,299:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.83131deg
+2024-01-03 00:38:46,299:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,300:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.89273deg
+2024-01-03 00:38:46,300:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,301:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.24556deg
+2024-01-03 00:38:46,302:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,302:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.14756deg
+2024-01-03 00:38:46,303:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,303:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.61484deg
+2024-01-03 00:38:46,305:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,305:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.30642deg
+2024-01-03 00:38:46,305:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,306:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.01606deg
+2024-01-03 00:38:46,306:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,306:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.71538deg
+2024-01-03 00:38:46,310:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,310:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.15436deg
+2024-01-03 00:38:46,311:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,311:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.37658deg
+2024-01-03 00:38:46,311:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,312:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.45898deg
+2024-01-03 00:38:46,313:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,313:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.50780deg
+2024-01-03 00:38:46,314:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,314:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.50780deg
+2024-01-03 00:38:46,316:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,316:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 8.76166deg
+2024-01-03 00:38:46,318:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,318:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.61402deg
+2024-01-03 00:38:46,319:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,319:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.65658deg
+2024-01-03 00:38:46,320:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,320:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.61402deg
+2024-01-03 00:38:46,320:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,320:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.96512deg
+2024-01-03 00:38:46,321:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,321:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.28484deg
+2024-01-03 00:38:46,322:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,322:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 11.05706deg
+2024-01-03 00:38:46,322:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,323:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.12181deg
+2024-01-03 00:38:46,325:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,325:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.93541deg
+2024-01-03 00:38:46,325:tetra3.Tetra3-DEBUG: Number of nearby stars: 15, total matched: 5
+2024-01-03 00:38:46,326:tetra3.Tetra3-DEBUG: Mismatch probability = 3.21e-06, at FOV = 4.19140deg
+2024-01-03 00:38:46,326:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,326:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.03601deg
+2024-01-03 00:38:46,329:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,329:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 5.10824deg
+2024-01-03 00:38:46,330:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,330:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 7.26507deg
+2024-01-03 00:38:46,330:tetra3.Tetra3-DEBUG: Number of nearby stars: 15, total matched: 4
+2024-01-03 00:38:46,330:tetra3.Tetra3-DEBUG: Mismatch probability = 3.78e-04, at FOV = 2.78528deg
+2024-01-03 00:38:46,331:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,331:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.56833deg
+2024-01-03 00:38:46,332:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 4
+2024-01-03 00:38:46,332:tetra3.Tetra3-DEBUG: Mismatch probability = 4.85e-04, at FOV = 6.32708deg
+2024-01-03 00:38:46,333:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,333:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.20516deg
+2024-01-03 00:38:46,334:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,334:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.90645deg
+2024-01-03 00:38:46,337:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,338:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.22826deg
+2024-01-03 00:38:46,338:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 4
+2024-01-03 00:38:46,338:tetra3.Tetra3-DEBUG: Mismatch probability = 2.85e-04, at FOV = 4.97194deg
+2024-01-03 00:38:46,344:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,344:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 8.39108deg
+2024-01-03 00:38:46,345:tetra3.Tetra3-DEBUG: Number of nearby stars: 7, total matched: 4
+2024-01-03 00:38:46,345:tetra3.Tetra3-DEBUG: Mismatch probability = 8.31e-05, at FOV = 3.46865deg
+2024-01-03 00:38:46,349:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,349:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.08473deg
+2024-01-03 00:38:46,351:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,351:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.12262deg
+2024-01-03 00:38:46,352:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,352:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.34134deg
+2024-01-03 00:38:46,353:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,353:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 10.77823deg
+2024-01-03 00:38:46,355:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,355:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.73799deg
+2024-01-03 00:38:46,355:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,355:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.73799deg
+2024-01-03 00:38:46,356:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,357:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 12.31577deg
+2024-01-03 00:38:46,357:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,357:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.60906deg
+2024-01-03 00:38:46,358:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,358:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.59621deg
+2024-01-03 00:38:46,359:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,359:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 7.38876deg
+2024-01-03 00:38:46,361:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,361:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.38896deg
+2024-01-03 00:38:46,364:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,364:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.84484deg
+2024-01-03 00:38:46,366:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 4
+2024-01-03 00:38:46,366:tetra3.Tetra3-DEBUG: Mismatch probability = 2.04e-04, at FOV = 4.04881deg
+2024-01-03 00:38:46,367:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 0
+2024-01-03 00:38:46,367:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 4.24074deg
+2024-01-03 00:38:46,376:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,376:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.70817deg
+2024-01-03 00:38:46,379:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,379:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 10.12184deg
+2024-01-03 00:38:46,380:tetra3.Tetra3-DEBUG: Number of nearby stars: 16, total matched: 4
+2024-01-03 00:38:46,381:tetra3.Tetra3-DEBUG: Mismatch probability = 4.30e-04, at FOV = 4.70611deg
+2024-01-03 00:38:46,381:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 5
+2024-01-03 00:38:46,381:tetra3.Tetra3-DEBUG: Mismatch probability = 4.66e-06, at FOV = 5.59850deg
+2024-01-03 00:38:46,384:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 4
+2024-01-03 00:38:46,385:tetra3.Tetra3-DEBUG: Mismatch probability = 2.04e-04, at FOV = 3.77711deg
+2024-01-03 00:38:46,385:tetra3.Tetra3-DEBUG: Number of nearby stars: 7, total matched: 4
+2024-01-03 00:38:46,385:tetra3.Tetra3-DEBUG: Mismatch probability = 8.31e-05, at FOV = 2.21668deg
+2024-01-03 00:38:46,386:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,386:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.37466deg
+2024-01-03 00:38:46,387:tetra3.Tetra3-DEBUG: Number of nearby stars: 16, total matched: 4
+2024-01-03 00:38:46,387:tetra3.Tetra3-DEBUG: Mismatch probability = 4.30e-04, at FOV = 4.50896deg
+2024-01-03 00:38:46,387:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,387:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.47408deg
+2024-01-03 00:38:46,388:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,388:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.53321deg
+2024-01-03 00:38:46,390:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,390:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.91519deg
+2024-01-03 00:38:46,391:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,391:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 4.92036deg
+2024-01-03 00:38:46,393:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,394:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.90665deg
+2024-01-03 00:38:46,395:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,395:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.29309deg
+2024-01-03 00:38:46,396:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,396:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.91792deg
+2024-01-03 00:38:46,397:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,398:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 7.16355deg
+2024-01-03 00:38:46,406:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,406:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.56336deg
+2024-01-03 00:38:46,413:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,413:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.83741deg
+2024-01-03 00:38:46,413:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,413:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.01717deg
+2024-01-03 00:38:46,414:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,414:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.63424deg
+2024-01-03 00:38:46,415:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,415:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 11.97793deg
+2024-01-03 00:38:46,417:tetra3.Tetra3-DEBUG: Number of nearby stars: 18, total matched: 0
+2024-01-03 00:38:46,417:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.80566deg
+2024-01-03 00:38:46,418:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,418:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.90718deg
+2024-01-03 00:38:46,419:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,419:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.27373deg
+2024-01-03 00:38:46,421:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,421:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 8.63769deg
+2024-01-03 00:38:46,422:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 4
+2024-01-03 00:38:46,422:tetra3.Tetra3-DEBUG: Mismatch probability = 2.43e-04, at FOV = 4.01862deg
+2024-01-03 00:38:46,423:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,423:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 8.66886deg
+2024-01-03 00:38:46,424:tetra3.Tetra3-DEBUG: Number of nearby stars: 11, total matched: 4
+2024-01-03 00:38:46,424:tetra3.Tetra3-DEBUG: Mismatch probability = 2.04e-04, at FOV = 3.75338deg
+2024-01-03 00:38:46,426:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,426:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.77054deg
+2024-01-03 00:38:46,428:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,428:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.70569deg
+2024-01-03 00:38:46,430:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,431:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 6.58014deg
+2024-01-03 00:38:46,431:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,431:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.24178deg
+2024-01-03 00:38:46,432:tetra3.Tetra3-DEBUG: Number of nearby stars: 9, total matched: 5
+2024-01-03 00:38:46,432:tetra3.Tetra3-DEBUG: Mismatch probability = 6.99e-07, at FOV = 3.36203deg
+2024-01-03 00:38:46,433:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 4
+2024-01-03 00:38:46,433:tetra3.Tetra3-DEBUG: Mismatch probability = 4.85e-04, at FOV = 5.50325deg
+2024-01-03 00:38:46,433:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,433:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 4.68813deg
+2024-01-03 00:38:46,434:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,434:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.17450deg
+2024-01-03 00:38:46,435:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,435:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.76849deg
+2024-01-03 00:38:46,435:tetra3.Tetra3-DEBUG: Number of nearby stars: 9, total matched: 3
+2024-01-03 00:38:46,435:tetra3.Tetra3-DEBUG: Mismatch probability = 1.70e-02, at FOV = 4.61407deg
+2024-01-03 00:38:46,436:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,436:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.53274deg
+2024-01-03 00:38:46,437:tetra3.Tetra3-DEBUG: Number of nearby stars: 15, total matched: 4
+2024-01-03 00:38:46,437:tetra3.Tetra3-DEBUG: Mismatch probability = 3.78e-04, at FOV = 4.67126deg
+2024-01-03 00:38:46,437:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,438:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.90513deg
+2024-01-03 00:38:46,438:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,438:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.21743deg
+2024-01-03 00:38:46,439:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,440:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.88961deg
+2024-01-03 00:38:46,440:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,440:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 6.49226deg
+2024-01-03 00:38:46,441:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 3
+2024-01-03 00:38:46,441:tetra3.Tetra3-DEBUG: Mismatch probability = 2.26e-02, at FOV = 3.36038deg
+2024-01-03 00:38:46,446:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,446:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.59053deg
+2024-01-03 00:38:46,448:tetra3.Tetra3-DEBUG: Number of nearby stars: 12, total matched: 4
+2024-01-03 00:38:46,448:tetra3.Tetra3-DEBUG: Mismatch probability = 2.43e-04, at FOV = 3.98573deg
+2024-01-03 00:38:46,449:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,449:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 8.78820deg
+2024-01-03 00:38:46,449:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,449:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 4.74311deg
+2024-01-03 00:38:46,450:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,450:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.80624deg
+2024-01-03 00:38:46,451:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,451:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 8.50442deg
+2024-01-03 00:38:46,453:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,453:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.30706deg
+2024-01-03 00:38:46,453:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,453:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.87004deg
+2024-01-03 00:38:46,454:tetra3.Tetra3-DEBUG: Number of nearby stars: 16, total matched: 0
+2024-01-03 00:38:46,454:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 4.76641deg
+2024-01-03 00:38:46,458:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,458:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.89658deg
+2024-01-03 00:38:46,465:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,465:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 9.12995deg
+2024-01-03 00:38:46,467:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,467:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.36866deg
+2024-01-03 00:38:46,471:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,471:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.99599deg
+2024-01-03 00:38:46,477:tetra3.Tetra3-DEBUG: Number of nearby stars: 16, total matched: 4
+2024-01-03 00:38:46,477:tetra3.Tetra3-DEBUG: Mismatch probability = 4.30e-04, at FOV = 4.60577deg
+2024-01-03 00:38:46,479:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,479:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.16233deg
+2024-01-03 00:38:46,487:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,487:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.40607deg
+2024-01-03 00:38:46,490:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,490:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 15.36037deg
+2024-01-03 00:38:46,491:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,491:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.20216deg
+2024-01-03 00:38:46,496:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,496:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.72921deg
+2024-01-03 00:38:46,497:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,497:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.53206deg
+2024-01-03 00:38:46,500:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 0
+2024-01-03 00:38:46,500:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 4.76637deg
+2024-01-03 00:38:46,502:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,503:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.84232deg
+2024-01-03 00:38:46,504:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,504:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 17.01432deg
+2024-01-03 00:38:46,504:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,505:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 10.86782deg
+2024-01-03 00:38:46,505:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,505:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 13.11082deg
+2024-01-03 00:38:46,506:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,506:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.68302deg
+2024-01-03 00:38:46,507:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,507:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.46932deg
+2024-01-03 00:38:46,508:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,509:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.65970deg
+2024-01-03 00:38:46,509:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,509:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.74122deg
+2024-01-03 00:38:46,515:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,515:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 11.38904deg
+2024-01-03 00:38:46,517:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,517:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 11.75349deg
+2024-01-03 00:38:46,517:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,517:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 11.34218deg
+2024-01-03 00:38:46,518:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,518:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 18.14642deg
+2024-01-03 00:38:46,519:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,519:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.05193deg
+2024-01-03 00:38:46,520:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,520:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.18350deg
+2024-01-03 00:38:46,524:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,524:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 13.84860deg
+2024-01-03 00:38:46,528:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,528:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 12.03453deg
+2024-01-03 00:38:46,529:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,529:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 15.64732deg
+2024-01-03 00:38:46,531:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,531:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.04253deg
+2024-01-03 00:38:46,532:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,532:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.31148deg
+2024-01-03 00:38:46,533:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,533:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.60872deg
+2024-01-03 00:38:46,533:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,533:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.34083deg
+2024-01-03 00:38:46,535:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,535:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 16.80865deg
+2024-01-03 00:38:46,539:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,539:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 11.52313deg
+2024-01-03 00:38:46,541:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,541:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 10.48837deg
+2024-01-03 00:38:46,542:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 4
+2024-01-03 00:38:46,542:tetra3.Tetra3-DEBUG: Mismatch probability = 4.85e-04, at FOV = 5.00485deg
+2024-01-03 00:38:46,543:tetra3.Tetra3-DEBUG: Number of nearby stars: 17, total matched: 4
+2024-01-03 00:38:46,543:tetra3.Tetra3-DEBUG: Mismatch probability = 4.85e-04, at FOV = 5.00485deg
+2024-01-03 00:38:46,544:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 4
+2024-01-03 00:38:46,544:tetra3.Tetra3-DEBUG: Mismatch probability = 2.85e-04, at FOV = 5.12739deg
+2024-01-03 00:38:46,544:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,544:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.71101deg
+2024-01-03 00:38:46,545:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,545:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 9.62831deg
+2024-01-03 00:38:46,547:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,548:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 5.14073deg
+2024-01-03 00:38:46,549:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,549:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.84971deg
+2024-01-03 00:38:46,550:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,550:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 8.24482deg
+2024-01-03 00:38:46,551:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,551:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 8.24482deg
+2024-01-03 00:38:46,554:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,554:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.26774deg
+2024-01-03 00:38:46,555:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,555:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.23691deg
+2024-01-03 00:38:46,557:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,557:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.15109deg
+2024-01-03 00:38:46,560:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,561:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 15.07068deg
+2024-01-03 00:38:46,562:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,563:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 11.61406deg
+2024-01-03 00:38:46,563:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,563:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.13917deg
+2024-01-03 00:38:46,564:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,565:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.77846deg
+2024-01-03 00:38:46,567:tetra3.Tetra3-DEBUG: Number of nearby stars: 14, total matched: 4
+2024-01-03 00:38:46,568:tetra3.Tetra3-DEBUG: Mismatch probability = 3.30e-04, at FOV = 4.85846deg
+2024-01-03 00:38:46,568:tetra3.Tetra3-DEBUG: Number of nearby stars: 14, total matched: 4
+2024-01-03 00:38:46,568:tetra3.Tetra3-DEBUG: Mismatch probability = 3.30e-04, at FOV = 4.85846deg
+2024-01-03 00:38:46,570:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,570:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.33087deg
+2024-01-03 00:38:46,575:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,575:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.36908deg
+2024-01-03 00:38:46,576:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,576:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.09096deg
+2024-01-03 00:38:46,577:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,577:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 4.75571deg
+2024-01-03 00:38:46,580:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,580:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.43923deg
+2024-01-03 00:38:46,580:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,580:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.66438deg
+2024-01-03 00:38:46,582:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,582:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.63776deg
+2024-01-03 00:38:46,583:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 5
+2024-01-03 00:38:46,583:tetra3.Tetra3-DEBUG: Mismatch probability = 6.50e-06, at FOV = 5.85023deg
+2024-01-03 00:38:46,584:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,584:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 12.16993deg
+2024-01-03 00:38:46,584:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,585:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.75562deg
+2024-01-03 00:38:46,586:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,586:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.48062deg
+2024-01-03 00:38:46,587:tetra3.Tetra3-DEBUG: Number of nearby stars: 13, total matched: 0
+2024-01-03 00:38:46,587:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 4.25787deg
+2024-01-03 00:38:46,587:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,588:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.89090deg
+2024-01-03 00:38:46,588:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,588:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.21489deg
+2024-01-03 00:38:46,590:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,590:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.95698deg
+2024-01-03 00:38:46,592:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,593:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 7.19097deg
+2024-01-03 00:38:46,593:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,593:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 11.06796deg
+2024-01-03 00:38:46,594:tetra3.Tetra3-DEBUG: Number of nearby stars: 9, total matched: 4
+2024-01-03 00:38:46,594:tetra3.Tetra3-DEBUG: Mismatch probability = 1.37e-04, at FOV = 4.24950deg
+2024-01-03 00:38:46,595:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,595:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 14.75171deg
+2024-01-03 00:38:46,599:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,599:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.00731deg
+2024-01-03 00:38:46,599:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,600:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 6.38840deg
+2024-01-03 00:38:46,600:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,600:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 6.25643deg
+2024-01-03 00:38:46,601:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,601:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.56277deg
+2024-01-03 00:38:46,601:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,602:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 4.32881deg
+2024-01-03 00:38:46,602:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,602:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.45756deg
+2024-01-03 00:38:46,604:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,605:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 7.82717deg
+2024-01-03 00:38:46,605:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,605:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 5.81136deg
+2024-01-03 00:38:46,606:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,606:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 13.27870deg
+2024-01-03 00:38:46,607:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,607:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 12.40885deg
+2024-01-03 00:38:46,608:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,608:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 12.03712deg
+2024-01-03 00:38:46,609:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,609:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 9.90724deg
+2024-01-03 00:38:46,610:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,610:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 15.51423deg
+2024-01-03 00:38:46,615:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,615:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 13.95274deg
+2024-01-03 00:38:46,616:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,616:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.94972deg
+2024-01-03 00:38:46,618:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 2
+2024-01-03 00:38:46,618:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 14.79363deg
+2024-01-03 00:38:46,618:tetra3.Tetra3-DEBUG: Number of nearby stars: 18, total matched: 4
+2024-01-03 00:38:46,618:tetra3.Tetra3-DEBUG: Mismatch probability = 5.43e-04, at FOV = 6.09894deg
+2024-01-03 00:38:46,619:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,620:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 10.57976deg
+2024-01-03 00:38:46,620:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 0
+2024-01-03 00:38:46,620:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 8.22198deg
+2024-01-03 00:38:46,621:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 1
+2024-01-03 00:38:46,621:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 13.05145deg
+2024-01-03 00:38:46,622:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 4
+2024-01-03 00:38:46,622:tetra3.Tetra3-DEBUG: Mismatch probability = 6.04e-04, at FOV = 5.22889deg
+2024-01-03 00:38:46,623:tetra3.Tetra3-DEBUG: Number of nearby stars: 19, total matched: 3
+2024-01-03 00:38:46,623:tetra3.Tetra3-DEBUG: Mismatch probability = 3.55e-02, at FOV = 8.20462deg
+2024-01-03 00:38:46,623:tetra3.Tetra3-DEBUG: FAIL: Did not find a match to the stars! It took 778 ms.
+2024-01-03 00:38:59,043:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 00:38:59,043:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 00:38:59,043:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 00:38:59,043:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 00:38:59,043:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 00:38:59,094:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 00:39:00,034:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 00:39:00,035:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 00:39:00,036:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 00:39:00,036:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 00:39:00,036:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 00:39:00,036:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 00:39:00,036:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 00:39:00,036:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 17:32:23,290:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 17:32:23,291:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 17:32:23,291:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 17:32:23,291:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 17:32:23,292:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 17:32:23,366:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 17:32:24,383:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 17:32:24,384:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 17:32:24,385:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 17:32:50,210:tetra3.Tetra3-DEBUG: Got solve from centroids with input: (644, (6388, 9576), None, None, 8, 0.01, 0.001, None, None, 0, False, False)
+2024-01-03 17:32:50,210:tetra3.Tetra3-DEBUG: Set threshold to: 6.195080994179164e-11, have 16141839 patterns.
+2024-01-03 17:32:50,210:tetra3.Tetra3-DEBUG: Trimmed centroid input shape to: (30, 2)
+2024-01-03 17:32:50,210:tetra3.Tetra3-DEBUG: Undistorted centroids with k=0
+2024-01-03 17:32:50,219:tetra3.Tetra3-DEBUG: Number of nearby stars: 30, total matched: 0
+2024-01-03 17:32:50,219:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 14.15926deg
+2024-01-03 17:32:50,220:tetra3.Tetra3-DEBUG: Number of nearby stars: 30, total matched: 5
+2024-01-03 17:32:50,220:tetra3.Tetra3-DEBUG: Mismatch probability = 1.03e-04, at FOV = 15.31738deg
+2024-01-03 17:32:50,221:tetra3.Tetra3-DEBUG: Number of nearby stars: 22, total matched: 21
+2024-01-03 17:32:50,221:tetra3.Tetra3-DEBUG: Mismatch probability = 1.71e-43, at FOV = 4.91944deg
+2024-01-03 17:32:50,221:tetra3.Tetra3-DEBUG: MATCH ACCEPTED
+2024-01-03 17:32:50,221:tetra3.Tetra3-DEBUG: Prob: 1.712e-43, corr: 2.763e-36
+2024-01-03 17:32:50,222:tetra3.Tetra3-DEBUG: Calculated focal length to 23.27 and distortion to -0.001
+2024-01-03 17:32:50,222:tetra3.Tetra3-DEBUG: {'RA': 326.3541470814385, 'Dec': 44.81479336755238, 'Roll': 178.33001359450324, 'FOV': 4.9216708933594875, 'distortion': -0.0009437543058853537, 'RMSE': 1.3378339468895877, 'Matches': 21, 'Prob': 2.7631156770511275e-36, 'epoch_equinox': 2000, 'epoch_proper_motion': 2024.0, 'T_solve': 11.52889999998763}
+2024-01-03 17:41:43,107:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 17:41:43,107:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 17:41:43,107:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 17:41:43,107:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 17:41:43,107:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 17:41:43,167:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 17:41:44,168:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 17:41:44,169:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 17:41:44,170:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 17:41:44,170:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 17:41:44,170:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 17:41:44,170:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 17:41:44,170:tetra3.Tetra3-DEBUG: Got solve from centroids with input: (644, (6388, 9576), None, None, 8, 0.01, 0.001, None, None, 0, False, False)
+2024-01-03 17:41:44,170:tetra3.Tetra3-DEBUG: Set threshold to: 6.195080994179164e-11, have 16141839 patterns.
+2024-01-03 17:41:44,170:tetra3.Tetra3-DEBUG: Trimmed centroid input shape to: (30, 2)
+2024-01-03 17:41:44,170:tetra3.Tetra3-DEBUG: Undistorted centroids with k=0
+2024-01-03 17:41:44,178:tetra3.Tetra3-DEBUG: Number of nearby stars: 30, total matched: 0
+2024-01-03 17:41:44,178:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 14.15926deg
+2024-01-03 17:41:44,179:tetra3.Tetra3-DEBUG: Number of nearby stars: 30, total matched: 5
+2024-01-03 17:41:44,179:tetra3.Tetra3-DEBUG: Mismatch probability = 1.03e-04, at FOV = 15.31738deg
+2024-01-03 17:41:44,180:tetra3.Tetra3-DEBUG: Number of nearby stars: 22, total matched: 21
+2024-01-03 17:41:44,180:tetra3.Tetra3-DEBUG: Mismatch probability = 1.71e-43, at FOV = 4.91944deg
+2024-01-03 17:41:44,180:tetra3.Tetra3-DEBUG: MATCH ACCEPTED
+2024-01-03 17:41:44,181:tetra3.Tetra3-DEBUG: Prob: 1.712e-43, corr: 2.763e-36
+2024-01-03 17:41:44,181:tetra3.Tetra3-DEBUG: Calculated focal length to 23.27 and distortion to -0.001
+2024-01-03 17:41:44,181:tetra3.Tetra3-DEBUG: {'RA': 326.3541470814385, 'Dec': 44.81479336755238, 'Roll': 178.33001359450324, 'FOV': 4.9216708933594875, 'distortion': -0.0009437543058853537, 'RMSE': 1.3378339468895877, 'Matches': 21, 'Prob': 2.7631156770511275e-36, 'epoch_equinox': 2000, 'epoch_proper_motion': 2024.0, 'T_solve': 11.69640000000527}
+2024-01-03 17:55:30,437:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 17:55:30,438:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 17:55:30,438:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 17:55:30,438:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 17:55:30,438:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 17:55:30,459:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 17:55:31,424:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 17:55:31,425:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Got solve from centroids with input: (644, (6388, 9576), None, None, 8, 0.01, 0.001, None, None, 0, False, False)
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Set threshold to: 6.195080994179164e-11, have 16141839 patterns.
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Trimmed centroid input shape to: (30, 2)
+2024-01-03 17:55:31,426:tetra3.Tetra3-DEBUG: Undistorted centroids with k=0
+2024-01-03 17:55:31,435:tetra3.Tetra3-DEBUG: Number of nearby stars: 30, total matched: 0
+2024-01-03 17:55:31,435:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 14.15926deg
+2024-01-03 17:55:31,436:tetra3.Tetra3-DEBUG: Number of nearby stars: 30, total matched: 5
+2024-01-03 17:55:31,437:tetra3.Tetra3-DEBUG: Mismatch probability = 1.03e-04, at FOV = 15.31738deg
+2024-01-03 17:55:31,437:tetra3.Tetra3-DEBUG: Number of nearby stars: 22, total matched: 21
+2024-01-03 17:55:31,438:tetra3.Tetra3-DEBUG: Mismatch probability = 1.71e-43, at FOV = 4.91944deg
+2024-01-03 17:55:31,438:tetra3.Tetra3-DEBUG: MATCH ACCEPTED
+2024-01-03 17:55:31,438:tetra3.Tetra3-DEBUG: Prob: 1.712e-43, corr: 2.763e-36
+2024-01-03 17:55:31,438:tetra3.Tetra3-DEBUG: Calculated focal length to 23.27 and distortion to -0.001
+2024-01-03 17:55:31,438:tetra3.Tetra3-DEBUG: {'RA': 326.3541470814385, 'Dec': 44.81479336755238, 'Roll': 178.33001359450324, 'FOV': 4.9216708933594875, 'distortion': -0.0009437543058853537, 'RMSE': 1.3378339468895877, 'Matches': 21, 'Prob': 2.7631156770511275e-36, 'epoch_equinox': 2000, 'epoch_proper_motion': 2024.0, 'T_solve': 11.765900000000329}
+2024-01-03 18:27:39,158:tetra3.Tetra3-DEBUG: Tetra3 Constructor called with load_database=hip_database938
+2024-01-03 18:27:39,158:tetra3.Tetra3-DEBUG: Trying to load database
+2024-01-03 18:27:39,158:tetra3.Tetra3-DEBUG: Got load database with: hip_database938
+2024-01-03 18:27:39,158:tetra3.Tetra3-DEBUG: String given, append to tetra3 directory
+2024-01-03 18:27:39,158:tetra3.Tetra3-INFO: Loading database from: C:\Users\andre\AppData\Local\Programs\Python\Python39\lib\site-packages\tetra3\data\hip_database938.npz
+2024-01-03 18:27:39,195:tetra3.Tetra3-DEBUG: Loaded database, unpack files
+2024-01-03 18:27:40,203:tetra3.Tetra3-DEBUG: Database does not have largest edge stored, set to None.
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacking properties
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked pattern_mode to: edge_ratio
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked pattern_size to: 4
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked pattern_bins to: 50
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked pattern_max_error to: 0.005
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked max_fov to: 9.0
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked min_fov to: 3.0
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked star_catalog to: hip_main
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked epoch_equinox to: 2000
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked epoch_proper_motion to: 2024.0
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked pattern_stars_per_fov to: 10
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked verification_stars_per_fov to: 30
+2024-01-03 18:27:40,204:tetra3.Tetra3-DEBUG: Unpacked star_max_magnitude to: 8.0
+2024-01-03 18:27:40,205:tetra3.Tetra3-DEBUG: Unpacked simplify_pattern to: False
+2024-01-03 18:27:40,205:tetra3.Tetra3-DEBUG: Unpacked range_ra to: [nan nan]
+2024-01-03 18:27:40,205:tetra3.Tetra3-DEBUG: Unpacked range_dec to: [nan nan]
+2024-01-03 18:27:40,205:tetra3.Tetra3-DEBUG: Unpacked presort_patterns to: True
+2024-01-03 18:27:40,205:tetra3.Tetra3-DEBUG: Got solve from centroids with input: (644, (6388, 9576), None, None, 8, 0.01, 0.001, None, None, 0, False, False)
+2024-01-03 18:27:40,205:tetra3.Tetra3-DEBUG: Set threshold to: 6.195080994179164e-11, have 16141839 patterns.
+2024-01-03 18:27:40,205:tetra3.Tetra3-DEBUG: Trimmed centroid input shape to: (30, 2)
+2024-01-03 18:27:40,205:tetra3.Tetra3-DEBUG: Undistorted centroids with k=0
+2024-01-03 18:27:40,214:tetra3.Tetra3-DEBUG: Number of nearby stars: 30, total matched: 0
+2024-01-03 18:27:40,214:tetra3.Tetra3-DEBUG: Mismatch probability = 1.00e+00, at FOV = 14.15926deg
+2024-01-03 18:27:40,215:tetra3.Tetra3-DEBUG: Number of nearby stars: 30, total matched: 5
+2024-01-03 18:27:40,215:tetra3.Tetra3-DEBUG: Mismatch probability = 1.03e-04, at FOV = 15.31738deg
+2024-01-03 18:27:40,216:tetra3.Tetra3-DEBUG: Number of nearby stars: 22, total matched: 21
+2024-01-03 18:27:40,216:tetra3.Tetra3-DEBUG: Mismatch probability = 1.71e-43, at FOV = 4.91944deg
+2024-01-03 18:27:40,217:tetra3.Tetra3-DEBUG: MATCH ACCEPTED
+2024-01-03 18:27:40,217:tetra3.Tetra3-DEBUG: Prob: 1.712e-43, corr: 2.763e-36
+2024-01-03 18:27:40,217:tetra3.Tetra3-DEBUG: Calculated focal length to 23.27 and distortion to -0.001
+2024-01-03 18:27:40,217:tetra3.Tetra3-DEBUG: {'RA': 326.3541470814385, 'Dec': 44.81479336755238, 'Roll': 178.33001359450324, 'FOV': 4.9216708933594875, 'distortion': -0.0009437543058853537, 'RMSE': 1.3378339468895877, 'Matches': 21, 'Prob': 2.7631156770511275e-36, 'epoch_equinox': 2000, 'epoch_proper_motion': 2024.0, 'T_solve': 11.809200000001852}

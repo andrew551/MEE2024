@@ -43,6 +43,12 @@ flat_name = 'Master_Flat_Frame_(2107-08-26)(128x0p16s).fts'
 #file_path = 'C:\\Users\\15035\\Documents\\Images\\AMO 2017 Eclipse Data\\2018-02-20 SixMonths_Calibrated\\'
 #data_name = 'LeoSixMonths-000110s.fts'
 
+
+file_path = 'E:/stardata/'
+data_name = 'MEE2024.00000912.Zenith-Center1.fit'
+dark_name = 'Dark_Stack.fit'
+flat_name = 'Bias_Stack.fit'
+
 imgdata = LoadFITSData(file_path+data_name)
 dark = LoadFITSData(file_path+dark_name)
 flat = LoadFITSData(file_path+flat_name)
