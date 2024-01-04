@@ -183,3 +183,4 @@ if __name__ == '__main__':
     t3 = tetra3.Tetra3(load_database='hip_database938', debug_folder=Path(__file__).parent)
     solution = t3.solve_from_centroids(centroids1, size=img1.shape)
     print(solution)
+    

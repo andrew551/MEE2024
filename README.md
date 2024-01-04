@@ -7,6 +7,8 @@ Modern Eddington Experiment codebase
 If you are installing an update of this software, double click on window_update batch file to make sure you are using the most recent Python libraries. 
 It is important that the PIP package manager itself is up to date for some of the libraries to install correctly.
 
+*** Tetra3 installation is more involved as you need to install a database. See https://tetra3.readthedocs.io/en/latest/api_docs.html
+
 ### **Usage**
 
 **Graphical User Interface**:
