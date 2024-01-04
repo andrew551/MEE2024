@@ -24,16 +24,16 @@ import PySimpleGUI as sg
 
 # TODO: replace usage of np.roll with something which only translates (currently pixels near the edges of the image will be messed up)
 
-# return 3d np array of images
+# return fit file image as np array
+def open_image(file):
+    with fits.open(file) as hdul:
+        if 'PRIMARY' in hdul:
+            return hdul['PRIMARY'].data
+        else:
+            return hdul[0].data
+
 def open_images(files):
-    images = []
-    for file in files:
-        with fits.open(file) as hdul:
-            if 'PRIMARY' in hdul:
-                images.append(hdul['PRIMARY'].data)
-            else:
-                images.append(hdul[0].data)
-    return images
+    return [open_image(file) for file in files]
     
 # apply a min-filter to the image
 # effective at removing random speckles of bright noise,
@@ -105,6 +105,7 @@ def do_loop_with_progress_bar(items, fxn, message='Progress', **kwargs):
     window = sg.Window('Progress Meter', layout, finalize=True)
     progress_bar = window['progress']
     ret = []
+    progress_bar.update_bar(0)
     for i in range(len(items)): 
         ret.append(fxn(items[i], **kwargs))
         progress_bar.update_bar(i+1)
@@ -125,7 +126,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     print('using flats:'+str(flatfiles))
 
 
-    imgs = open_images(files)
+    imgs = do_loop_with_progress_bar(files, open_image, message='Opening files...')
     dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs[0].shape, dtype=imgs[0].dtype)
     flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs[0].shape, dtype=float)
 
@@ -136,10 +137,11 @@ def do_stack(files, darkfiles, flatfiles, options):
             fits.writeto(output_path('FLAT_STACK'+starttime+'.fit', options), flat)
 
     reg_imgs = [(img-dark)/flat for img in imgs]
-    
-    filtered_imgs = [filter_min(img, d2=4) for img in reg_imgs]
+    filtered_imgs = do_loop_with_progress_bar(imgs, filter_min, message='Processing images...', d2=4)
+    #filtered_imgs = [filter_min(img, d2=4) for img in reg_imgs]
+    centroids = do_loop_with_progress_bar(filtered_imgs, tetra3.get_centroids_from_image, message='Finding centroids...')
 
-    centroids = [tetra3.get_centroids_from_image(img) for img in filtered_imgs]
+    #centroids = [tetra3.get_centroids_from_image(img) for img in filtered_imgs]
     # simple stacking: use the first image as the "key" and fit all others to it
     shifts = []
     rms_errors = []
