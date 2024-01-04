@@ -83,7 +83,7 @@ def get_img_data(f, maxsize=(30, 18), first=False):
     
 
 def inputUI(options):
-    popup_messages = {"no_file_error": "Error: file not entered! Please enter file(s)", "no_folder_error": "Error: folder not entered! Please enter folder"}
+    popup_messages = {"no_file_error": "Error: file not entered! Please enter file(s)", "no_folder_error": "Error: Output folder not entered! Please enter folder"}
         
     sg.theme('Dark2')
     sg.theme_button_color(('white', '#500000'))
@@ -151,6 +151,9 @@ def inputUI(options):
                 # display pop-up file not entered
                 input_okay_flag = False
                 sg.Popup(popup_messages['no_file_error'], keep_on_top=True)
+            if not values['output_dir'].strip():
+                input_okay_flag = False
+                sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
             
             if input_okay_flag:
                 try:

@@ -38,6 +38,8 @@ def open_images(files):
 # apply a min-filter to the image
 # effective at removing random speckles of bright noise,
 # while maintaining acceptable errors in centroid positions
+# upon further investigation, this filter has been found to not be so useful
+# and has been disabled
 def filter_min(img, d2=4):
     return img # currently disabled
     result = np.copy(img)
@@ -121,11 +123,12 @@ def do_stack(files, darkfiles, flatfiles, options):
     logme(logpath, options, 'stacking files:'+str(files))
     logme(logpath, options, 'using darks:'+str(darkfiles))
     logme(logpath, options, 'using flats:'+str(flatfiles))
+    logme(logpath, options, 'using database:'+str(options['database']))
     print('using options:'+str(options))
     print('stacking files:'+str(files))
     print('using darks:'+str(darkfiles))
     print('using flats:'+str(flatfiles))
-
+    print('using database:'+str(options['database']))
 
     imgs = do_loop_with_progress_bar(files, open_image, message='Opening files...')
     dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs[0].shape, dtype=imgs[0].dtype)
@@ -137,13 +140,10 @@ def do_stack(files, darkfiles, flatfiles, options):
         if flatfiles:
             fits.writeto(output_path('FLAT_STACK'+starttime+'.fit', options), flat)
 
-    #reg_imgs = [(img-dark)/flat for img in imgs]
     reg_imgs = do_loop_with_progress_bar(imgs, lambda img: (img-dark)/flat, message='Processing images (1)...')
     filtered_imgs = do_loop_with_progress_bar(reg_imgs, filter_min, message='Processing images(2)...', d2=4)
-    #filtered_imgs = [filter_min(img, d2=4) for img in reg_imgs]
     centroids = do_loop_with_progress_bar(filtered_imgs, tetra3.get_centroids_from_image, message='Finding centroids...')
 
-    #centroids = [tetra3.get_centroids_from_image(img) for img in filtered_imgs]
     # simple stacking: use the first image as the "key" and fit all others to it
     shifts = []
     rms_errors = []
@@ -171,7 +171,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         lbl = '$\\Delta_{0' + str(i) + ',rms} = ' + format(rms_errors[i-1], '.3f') + '$'
         plt.scatter(deltas[i-1][:, 1], deltas[i-1][:, 0], label = lbl)
     plt.gca().set_aspect('equal')
-    plt.legend()
+    plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('2D residuals between centroids')
     plt.grid()
     plt.savefig(output_path('TWOD_RESIDUALS'+starttime+'.png', options))
@@ -185,10 +185,10 @@ def do_stack(files, darkfiles, flatfiles, options):
             continue
         plt.scatter(centroids[i][:, 1]+shifts[i-1][1], centroids[i][:, 0]+shifts[i-1][0], label = str(i))
     plt.gca().set_aspect('equal')
-    plt.legend()
+    plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('Centroids found on each image')
     plt.grid()
-    plt.savefig(output_path('CentroidsALL'+starttime+'.png', options))
+    plt.savefig(output_path('CentroidsALL'+starttime+'.png', options), bbox_inches="tight")
     if options['flag_display']:
         plt.show()
 
@@ -211,25 +211,32 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.title('Largest 20 stars found on stacked image')
     plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
     plt.scatter(centroids_stacked[:20, 1], centroids_stacked[:20, 0], marker='x')
-    plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options))
+    plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options), bbox_inches="tight")
     if options['flag_display']:
         plt.show()
         
     
     np.savetxt(output_path('STACKED_CENTROIDS'+starttime+'.txt', options), centroids_stacked)
     logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
-    t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
-    solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
-    #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
-    print(solution)
-    logme(logpath, options, str(solution))
-    # TODO identify stars using catalogue
-    # and save catalogue ids of each identified star (currently only around 20 are matched by the tetra software "for free"
 
-    df = pd.DataFrame({'px': np.array(solution['matched_centroids'])[:, 1],
-                       'py': np.array(solution['matched_centroids'])[:, 0],
-                       'ID': solution['matched_catID']})
-    
-    df.to_csv(output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options))
+    if options['database']:
+        t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
+        solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
+        #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
+        print(solution)
+        logme(logpath, options, str(solution))
+        # TODO identify stars using catalogue
+        # and save catalogue ids of each identified star (currently only around 20 are matched by the tetra software "for free"
+        if not solution['RA'] is None:
+            df = pd.DataFrame({'px': np.array(solution['matched_centroids'])[:, 1],
+                               'py': np.array(solution['matched_centroids'])[:, 0],
+                               'ID': solution['matched_catID']})
+            
+            df.to_csv(output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options))
+        else:
+            print("ERROR: platesolve failed to identify location")
+    else:
+        print('no database provided, so skipping platesolve')
+        logme(logpath, options, 'no database provided, so skipping platesolve')
     write_complete(logpath, options)
 
