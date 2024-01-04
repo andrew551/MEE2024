@@ -36,6 +36,7 @@ options = {
     'k':8,
     'm':30,
     'n':30,
+    'd':50,
     'pxl_tol':10,
     'cutoff':100,
 }
@@ -70,7 +71,6 @@ def write_ini():
         print('ERROR: failed to write config file: ' + mydir_ini)
 
 def precheck_files(files, options, flag_write_ini=False):
-
     good_tasks = []
     for file in files:
         if file=='':

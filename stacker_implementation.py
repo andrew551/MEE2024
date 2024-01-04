@@ -20,7 +20,7 @@ from MEE2024util import output_path, logme, clearlog, write_complete
 import datetime
 import pandas as pd
 import PySimpleGUI as sg
-
+from collections import Counter
 
 # TODO: replace usage of np.roll with something which only translates (currently pixels near the edges of the image will be messed up)
 
@@ -149,6 +149,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     rms_errors = []
     deltas = []
     prev = (0, 0)
+    used_stars_stacking = Counter()
     for i in range(1, len(filtered_imgs)):
         shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options, guess=prev)
         print(shift, shift2, fun2)
@@ -161,8 +162,24 @@ def do_stack(files, darkfiles, flatfiles, options):
         prev = shift2
         rms_errors.append(fun2)
         deltas.append(np.array([centroids[0][j] - centroids[i][matches1[j]] for j in matches1 if j < options['n']]))
+        used_stars_stacking.update(matches1.keys())
+        print(matches1)
     print(rms_errors)
     print(shifts)
+    # show stars used in stacking
+    used_centroids = np.array([centroids[0][s] for s in used_stars_stacking])
+    plt.clf()
+    plt.gca().set_aspect('equal')
+    plt.scatter(used_centroids[:, 1], used_centroids[:, 0], marker='x')
+    plt.title('Used stars for stacking')
+    plt.grid()
+    for k, v in used_stars_stacking.items():
+        plt.gca().annotate(str(v), tuple(reversed(centroids[0][k])))
+    plt.savefig(output_path('USEDSTARS'+starttime+'.png', options), dpi=600)
+    if options['flag_display']:
+        plt.show()    
+
+    
     # show residual 2D errors
     plt.clf()
     for i in range(1, len(filtered_imgs)):
@@ -174,7 +191,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('2D residuals between centroids')
     plt.grid()
-    plt.savefig(output_path('TWOD_RESIDUALS'+starttime+'.png', options))
+    plt.savefig(output_path('TWOD_RESIDUALS'+starttime+'.png', options), dpi=600)
     if options['flag_display']:
         plt.show()
     #TODO: can add linear correlation of Dx, Dy to {px, py}. If it is non-zero it may indicate a rotation
@@ -188,7 +205,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('Centroids found on each image')
     plt.grid()
-    plt.savefig(output_path('CentroidsALL'+starttime+'.png', options), bbox_inches="tight")
+    plt.savefig(output_path('CentroidsALL'+starttime+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
         plt.show()
 
@@ -197,28 +214,15 @@ def do_stack(files, darkfiles, flatfiles, options):
     shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts) if not shift is None]
 
     stacked = np.mean(np.array(shifted_images), axis = 0)
-    #plt.clf()
-    #plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
-    #if options['flag_display']:
-    #    plt.show()
     # rescale stacked to 16 bit integers
     stacked16 = ((stacked-np.min(stacked)) / (np.max(stacked) - np.min(stacked)) * 65535).astype(np.uint16)
     fits.writeto(output_path('STACKED'+starttime+'.fit', options), stacked16)
-
-    # plate solve
+    # find centroids on the stacked image
     centroids_stacked = tetra3.get_centroids_from_image(stacked)
-    plt.clf()
-    plt.title('Largest 20 stars found on stacked image')
-    plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
-    plt.scatter(centroids_stacked[:20, 1], centroids_stacked[:20, 0], marker='x')
-    plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options), bbox_inches="tight")
-    if options['flag_display']:
-        plt.show()
-        
-    
     np.savetxt(output_path('STACKED_CENTROIDS'+starttime+'.txt', options), centroids_stacked)
     logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
-
+    # plate solve
+    flag_found_IDs = False
     if options['database']:
         t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
         solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
@@ -233,10 +237,24 @@ def do_stack(files, darkfiles, flatfiles, options):
                                'ID': solution['matched_catID']})
             
             df.to_csv(output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options))
+            flag_found_IDs = True
         else:
             print("ERROR: platesolve failed to identify location")
     else:
         print('no database provided, so skipping platesolve')
         logme(logpath, options, 'no database provided, so skipping platesolve')
+
+    plt.clf()
+    plt.title(f'Largest {options["d"]} stars found on stacked image')
+    plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
+    plt.scatter(centroids_stacked[:options["d"], 1]-0.5, centroids_stacked[:options["d"], 0]-0.5, marker='x') # subtract half pixel to align with image properly
+    if flag_found_IDs:
+        for index, row in df.iterrows():
+            plt.gca().annotate(str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']), (row['px'], row['py']))
+    plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options), bbox_inches="tight", dpi=600)
+    if options['flag_display']:
+        plt.show()
+    
+        
     write_complete(logpath, options)
 

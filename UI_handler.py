@@ -41,7 +41,10 @@ def interpret_UI_values(options, ui_values, no_file = False):
         options['pxl_tol'] = float(ui_values['-pxl_tol-']) if ui_values['-pxl_tol-'] else 5
     except ValueError : 
         raise Exception('invalid pxl_tol value!')
-
+    try : 
+        options['d'] = int(ui_values['-d-']) if ui_values['-d-'] else 10
+    except ValueError : 
+        raise Exception('invalid d value!')
 
     
     stack_files=ui_values['-FILE-'].split(';')
@@ -112,7 +115,8 @@ def inputUI(options):
     layout_base = [
     
     [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics')],
-    
+    [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
+    [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
     [sg.Text('m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
     [sg.Text('n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],
     [sg.Text('pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
@@ -124,7 +128,7 @@ def inputUI(options):
         layout_title + layout_file_input + layout_folder_output + layout_base    
     ]  
     
-    window = sg.Window('MEE2024 V0.1', layout, finalize=True)
+    window = sg.Window('MEE2024 V0.1.1', layout, finalize=True)
     window.BringToFront()
 
     while True:
