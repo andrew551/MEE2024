@@ -8,4 +8,5 @@ scikit-image
 Astroquery
 PySimpleGUI
 OpenCV-python
-
+Pandas
+Tetra3

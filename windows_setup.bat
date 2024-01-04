@@ -6,3 +6,5 @@ pip install scikit-image
 pip install astroquery
 pip install pysimplegui
 pip install opencv-python
+pip install pandas
+pip install git+https://github.com/esa/tetra3.git

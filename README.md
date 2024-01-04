@@ -7,13 +7,15 @@ Modern Eddington Experiment codebase
 If you are installing an update of this software, double click on window_update batch file to make sure you are using the most recent Python libraries. 
 It is important that the PIP package manager itself is up to date for some of the libraries to install correctly.
 
-*** Tetra3 installation is more involved as you need to install a database. See https://tetra3.readthedocs.io/en/latest/api_docs.html
+*** You must download a database of stars for plate-solving in addition to these program files ***
+Platesolving and centroid findinf is done with the Tetra3 libary. For information about Tetra3, see https://tetra3.readthedocs.io/en/latest/api_docs.html.
+
 
 ### **Usage**
 
-**Graphical User Interface**:
+**Graphical User Interface**: TODO
 
-**Command Line Interface example**:
+**Command Line Interface example**: unimplemented
 
-**Command line options**:
+**Command line options**: unimplemented
 
