@@ -28,10 +28,11 @@ import glob
 import MEE2024util
 
 options = {
-    'flag_display':False,
-    'save_dark_flat':True,
+    'flag_display':True,
+    'save_dark_flat':False,
     'workDir': '',                  
-    'output_dir': '',               
+    'output_dir': '',
+    'database':'hip_database938',
     'k':8,
     'm':30,
     'n':30,

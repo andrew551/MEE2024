@@ -218,7 +218,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     
     np.savetxt(output_path('STACKED_CENTROIDS'+starttime+'.txt', options), centroids_stacked)
     logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
-    t3 = tetra3.Tetra3(load_database='hip_database938') #tyc_dbase_test3 #hip_database938
+    t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
     solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
     #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
     print(solution)
