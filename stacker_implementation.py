@@ -39,6 +39,7 @@ def open_images(files):
 # effective at removing random speckles of bright noise,
 # while maintaining acceptable errors in centroid positions
 def filter_min(img, d2=4):
+    return img # currently disabled
     result = np.copy(img)
     a = math.floor(d2**0.5)
     for i in range(-a, a+1):
@@ -50,8 +51,7 @@ def filter_min(img, d2=4):
 
 # try to find the optimal alignment vector between two sets of centroids
 # two-step implementation (first rough, then more accurate)
-def attempt_align(c1, c2, options):
-
+def attempt_align(c1, c2, options, guess = (0,0)):
     m = min(min(c1.shape[0], c2.shape[0]), options['m'])
     c1a = c1[:m, :]
     c2a = c2[:m, :]
@@ -60,7 +60,7 @@ def attempt_align(c1, c2, options):
         d = c1a*a - np.swapaxes(c2a*a, 0, 1) - b
         norms = np.minimum(np.linalg.norm(d, axis=2)**1.5, options['cutoff']) # 1.5 power norms of distances (capped?)
         return np.sum(np.min(norms, axis = 0)) / c1.shape[0]
-    result = minimize(loss_fxn, (0, 0))
+    result = minimize(loss_fxn, guess)
     print(result)
 
     #plt.scatter(c1a[:, 1], c1a[:, 0])
@@ -89,13 +89,14 @@ def attempt_align(c1, c2, options):
     matches1, matches2 = enumerate_matches(result.x, eps=options['pxl_tol'])
     if len(matches1) == 0:
         print("ERROR: no matched stars between images ... problably this means failure")
+        return None, None, None, None, None
     vec1 = np.array([c1[i, :] for i in matches1 if i < options['n']])
     vec2 = np.array([c2[matches1[i], :] for i in matches1 if i < options['n']])
     #print(vec1, vec2)
     def loss_fxn2(b):
         return np.linalg.norm(vec1 - vec2 - b) ** 2
 
-    result2 = minimize(loss_fxn2, (0,0))
+    result2 = minimize(loss_fxn2, guess)
     print(result2)
     print(vec1.shape)
     return result.x, matches1, matches2, result2.x, (result2.fun/vec1.shape[0])**0.5
@@ -136,8 +137,9 @@ def do_stack(files, darkfiles, flatfiles, options):
         if flatfiles:
             fits.writeto(output_path('FLAT_STACK'+starttime+'.fit', options), flat)
 
-    reg_imgs = [(img-dark)/flat for img in imgs]
-    filtered_imgs = do_loop_with_progress_bar(imgs, filter_min, message='Processing images...', d2=4)
+    #reg_imgs = [(img-dark)/flat for img in imgs]
+    reg_imgs = do_loop_with_progress_bar(imgs, lambda img: (img-dark)/flat, message='Processing images (1)...')
+    filtered_imgs = do_loop_with_progress_bar(reg_imgs, filter_min, message='Processing images(2)...', d2=4)
     #filtered_imgs = [filter_min(img, d2=4) for img in reg_imgs]
     centroids = do_loop_with_progress_bar(filtered_imgs, tetra3.get_centroids_from_image, message='Finding centroids...')
 
@@ -146,10 +148,17 @@ def do_stack(files, darkfiles, flatfiles, options):
     shifts = []
     rms_errors = []
     deltas = []
+    prev = (0, 0)
     for i in range(1, len(filtered_imgs)):
-        shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options)
+        shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options, guess=prev)
         print(shift, shift2, fun2)
         shifts.append(shift2)
+        if shift2 is None:
+            print(f'NOTE: failure to find centroid match on frame # {i}')
+            rms_errors.append(None)
+            deltas.append(None)
+            continue
+        prev = shift2
         rms_errors.append(fun2)
         deltas.append(np.array([centroids[0][j] - centroids[i][matches1[j]] for j in matches1 if j < options['n']]))
     print(rms_errors)
@@ -157,6 +166,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     # show residual 2D errors
     plt.clf()
     for i in range(1, len(filtered_imgs)):
+        if shifts[i-1] is None:
+            continue
         lbl = '$\\Delta_{0' + str(i) + ',rms} = ' + format(rms_errors[i-1], '.3f') + '$'
         plt.scatter(deltas[i-1][:, 1], deltas[i-1][:, 0], label = lbl)
     plt.gca().set_aspect('equal')
@@ -170,6 +181,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.clf()
     plt.scatter(centroids[0][:, 1], centroids[0][:, 0], label = str(0))
     for i in range(1, len(filtered_imgs)):
+        if shifts[i-1] is None:
+            continue
         plt.scatter(centroids[i][:, 1]+shifts[i-1][1], centroids[i][:, 0]+shifts[i-1][0], label = str(i))
     plt.gca().set_aspect('equal')
     plt.legend()
@@ -181,23 +194,33 @@ def do_stack(files, darkfiles, flatfiles, options):
 
     # now do actual stacking
 
-    shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts)]
+    shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts) if not shift is None]
 
     stacked = np.mean(np.array(shifted_images), axis = 0)
-    plt.clf()
-    plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
-    if options['flag_display']:
-        plt.show()
+    #plt.clf()
+    #plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
+    #if options['flag_display']:
+    #    plt.show()
     # rescale stacked to 16 bit integers
     stacked16 = ((stacked-np.min(stacked)) / (np.max(stacked) - np.min(stacked)) * 65535).astype(np.uint16)
     fits.writeto(output_path('STACKED'+starttime+'.fit', options), stacked16)
 
     # plate solve
     centroids_stacked = tetra3.get_centroids_from_image(stacked)
+    plt.clf()
+    plt.title('Largest 20 stars found on stacked image')
+    plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
+    plt.scatter(centroids_stacked[:20, 1], centroids_stacked[:20, 0], marker='x')
+    plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options))
+    if options['flag_display']:
+        plt.show()
+        
+    
     np.savetxt(output_path('STACKED_CENTROIDS'+starttime+'.txt', options), centroids_stacked)
     logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
-    t3 = tetra3.Tetra3(load_database='hip_database938')
+    t3 = tetra3.Tetra3(load_database='hip_database938') #tyc_dbase_test3 #hip_database938
     solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
+    #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
     print(solution)
     logme(logpath, options, str(solution))
     # TODO identify stars using catalogue

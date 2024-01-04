@@ -1,12 +1,12 @@
 {
     "cutoff": 100,
     "cutoff_dist": 250,
-    "flag_display": false,
+    "flag_display": true,
     "k": 10,
     "m": 30,
     "n": 30,
     "output_dir": "E:/stardata/outputfolder",
     "pxl_tol": 10.0,
     "save_dark_flat": true,
-    "workDir": "E:/stardata/"
+    "workDir": "E:/ZWO#1 2023-10-28/Zenith-3s/"
 }

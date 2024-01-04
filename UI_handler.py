@@ -94,11 +94,11 @@ def inputUI(options):
 
     layout_file_input = [
         [sg.Text('File(s)', size=(7, 1), key = 'File(s)'), sg.InputText(default_text=options['workDir'],size=(75,1),key='-FILE-'),
-         sg.FilesBrowse('Choose images to stack', key = 'Choose images to stack', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.tif *tiff"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose images to stack', key = 'Choose images to stack', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
         [sg.Text('File(s)', size=(7, 1), key = 'File(s)'), sg.InputText(default_text='',size=(75,1),key='-DARK-'),
-         sg.FilesBrowse('Choose Dark image(s)', key = 'Choose Dark image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.tif *tiff"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose Dark image(s)', key = 'Choose Dark image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
         [sg.Text('File(s)', size=(7, 1), key = 'File(s)'), sg.InputText(default_text='',size=(75,1),key='-FLAT-'),
-         sg.FilesBrowse('Choose Flat image(s)', key = 'Choose Flat image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.tif *tiff"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose Flat image(s)', key = 'Choose Flat image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
     ]
 
     layout_folder_output = [
