@@ -326,7 +326,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         logme(logpath, options, 'no database provided, so skipping platesolve')
 
     plt.clf()
-    plt.title(f'Largest {options["d"]} stars found on stacked image')
+    plt.title(f'Largest {min(options["d"], len(centroids_stacked))} of {len(centroids_stacked)} stars found on stacked image')
     plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
     plt.scatter(centroids_stacked[:options["d"], 1]-0.5, centroids_stacked[:options["d"], 0]-0.5, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
