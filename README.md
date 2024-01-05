@@ -28,8 +28,9 @@ Depending on the database used (Hipparcos or Tycho), you can use a search tool t
 
 See, for example, https://hipparcos-tools.cosmos.esa.int/HIPcatalogueSearch.html.
 
+HIP identifiers are in the form _aaaaa_.
+
 TYC identifiers are in the form _aaaa-bbbbb-1_.
 
-HIP identifiers are in the form _ccccc_.
 
 
