@@ -21,6 +21,10 @@ import datetime
 import pandas as pd
 import PySimpleGUI as sg
 from collections import Counter
+from skimage import measure
+import cv2
+from skimage.morphology import convex_hull_image
+from skimage.transform import downscale_local_mean, resize
 
 # TODO: replace usage of np.roll with something which only translates (currently pixels near the edges of the image will be messed up)
 
@@ -51,10 +55,63 @@ def filter_min(img, d2=4):
             result = np.minimum(result, np.roll(img, (i, j), axis=(0, 1)))
     return result
 
+# find the largest connected region of saturated pixels
+# and set it to a dark value
+
+def remove_saturated_blob(img, sat_val=65535, radius=100, min_size=20000, downscale=8, perform=True):
+    if not perform:
+        return img, np.zeros(img.shape, dtype=int)
+    if sat_val is None:
+        sat_val = np.max(img)
+    down_downscaled = downscale_local_mean(img, (downscale, downscale))
+    
+    is_sat = down_downscaled==sat_val
+    #print(np.max(img),np.max(down_downscaled))
+
+    labels = measure.label(is_sat, connectivity=1)
+    areas = [region.area for region in measure.regionprops(labels)]
+    #print(areas)
+    if not areas or max(areas)*downscale**2 < min_size:
+        return img, np.zeros(img.shape, dtype=int)
+    mask = labels == (np.argmax(areas)+1)
+    chull = convex_hull_image(mask)
+    #contours_mask = measure.find_contours(mask) # alternative method could use contours...
+    mask_expand = np.copy(chull)
+    radius = radius // downscale
+    for i in range(-1, 2):
+        for j in range(-1, 2):
+            mask_t = np.roll(chull, (i*radius, j*radius), axis=(0,1))
+            if j > 0:
+                mask_t[:, :j*radius] = 0
+            elif j < 0:
+                mask_t[:, j*radius:] = 0
+            if i > 0:
+                mask_t[:i*radius, :] = 0
+            elif i < 0:
+                mask_t[i*radius:, :] = 0
+            mask_expand = np.logical_or(mask_expand, mask_t)
+    
+    #plt.imshow(mask_expand^chull)
+    #plt.show()
+    #print(np.sum(mask_expand), np.sum(chull))
+    #plt.show()
+    
+    up_scaled = resize(mask_expand, img.shape).astype(bool)
+    img = np.copy(img) # deep copy
+    img[up_scaled] = np.percentile(img, 5) # make it dark
+    return (img, up_scaled)
+
+
 # try to find the optimal alignment vector between two sets of centroids
 # two-step implementation (first rough, then more accurate)
 def attempt_align(c1, c2, options, guess = (0,0)):
+    if not c1.size or not c2.size:
+        print("ERROR: no star centroids found")
+        return None, None, None, None, None
     m = min(min(c1.shape[0], c2.shape[0]), options['m'])
+    c1 = c1.reshape((c1.shape[0], -1))
+    c2 = c2.reshape((c2.shape[0], -1))
+
     c1a = c1[:m, :]
     c2a = c2[:m, :]
     a = np.ones((m, m, 2))
@@ -115,6 +172,22 @@ def do_loop_with_progress_bar(items, fxn, message='Progress', **kwargs):
     window.close()
     return ret
 
+def filter_bad_centroids(centroids, mask, r=20):
+    ret = []
+    for centroid in centroids:
+        x0, x1 = int(centroid[0]), int(centroid[1])
+        flag = True
+        for i in range(x0-r, x0+r+1):
+            for j in range(x1-r, x1+r+1):
+                if i < 0 or j < 0 or i >= mask.shape[0] or j >= mask.shape[0]:
+                    continue
+                if mask[i, j]:
+                    flag = False
+        if flag:
+            ret.append(centroid)
+    return np.array(ret)
+        
+
 def do_stack(files, darkfiles, flatfiles, options):
     starttime = str(time.time())
     logpath = 'LOG'+starttime+'.txt'
@@ -140,9 +213,13 @@ def do_stack(files, darkfiles, flatfiles, options):
         if flatfiles:
             fits.writeto(output_path('FLAT_STACK'+starttime+'.fit', options), flat)
 
-    reg_imgs = do_loop_with_progress_bar(imgs, lambda img: (img-dark)/flat, message='Processing images (1)...')
-    filtered_imgs = do_loop_with_progress_bar(reg_imgs, filter_min, message='Processing images(2)...', d2=4)
-    centroids = do_loop_with_progress_bar(filtered_imgs, tetra3.get_centroids_from_image, message='Finding centroids...')
+    desatblob = do_loop_with_progress_bar(imgs, remove_saturated_blob, message='Processing images (step 1)...', sat_val=None, radius = options['blob_radius_extra'], perform=options['delete_saturated_blob'])
+    deblobbed_imgs = [t[0] for t in desatblob]
+    masks = [t[1] for t in desatblob]
+    reg_imgs = do_loop_with_progress_bar(deblobbed_imgs, lambda img: (img-dark)/flat, message='Processing images (step 2)...')
+    #filtered_imgs = do_loop_with_progress_bar(reg_imgs, remove_saturated_blob, message='Processing images(2)...', d2=4)
+    centroids = do_loop_with_progress_bar(reg_imgs, tetra3.get_centroids_from_image, message='Finding centroids...')
+    centroids = [filter_bad_centroids(x, mask, r=options['centroid_gap_blob']) for x, mask in zip(centroids, masks)]
 
     # simple stacking: use the first image as the "key" and fit all others to it
     shifts = []
@@ -150,7 +227,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     deltas = []
     prev = (0, 0)
     used_stars_stacking = Counter()
-    for i in range(1, len(filtered_imgs)):
+    for i in range(1, len(imgs)):
         shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options, guess=prev)
         print(shift, shift2, fun2)
         shifts.append(shift2)
@@ -182,7 +259,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     
     # show residual 2D errors
     plt.clf()
-    for i in range(1, len(filtered_imgs)):
+    for i in range(1, len(imgs)):
         if shifts[i-1] is None:
             continue
         lbl = '$\\Delta_{0' + str(i) + ',rms} = ' + format(rms_errors[i-1], '.3f') + '$'
@@ -197,7 +274,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     #TODO: can add linear correlation of Dx, Dy to {px, py}. If it is non-zero it may indicate a rotation
     plt.clf()
     plt.scatter(centroids[0][:, 1], centroids[0][:, 0], label = str(0))
-    for i in range(1, len(filtered_imgs)):
+    for i in range(1, len(imgs)):
         if shifts[i-1] is None:
             continue
         plt.scatter(centroids[i][:, 1]+shifts[i-1][1], centroids[i][:, 0]+shifts[i-1][0], label = str(i))
@@ -210,15 +287,16 @@ def do_stack(files, darkfiles, flatfiles, options):
         plt.show()
 
     # now do actual stacking
-
     shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts) if not shift is None]
-
     stacked = np.mean(np.array(shifted_images), axis = 0)
+    
     # rescale stacked to 16 bit integers
     stacked16 = ((stacked-np.min(stacked)) / (np.max(stacked) - np.min(stacked)) * 65535).astype(np.uint16)
     fits.writeto(output_path('STACKED'+starttime+'.fit', options), stacked16)
     # find centroids on the stacked image
     centroids_stacked = tetra3.get_centroids_from_image(stacked)
+    centroids_stacked = filter_bad_centroids(centroids_stacked, masks[0], r=options['centroid_gap_blob']) # use 0th mask here
+    
     np.savetxt(output_path('STACKED_CENTROIDS'+starttime+'.txt', options), centroids_stacked)
     logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
     # plate solve
@@ -234,7 +312,10 @@ def do_stack(files, darkfiles, flatfiles, options):
         if not solution['RA'] is None:
             df = pd.DataFrame({'px': np.array(solution['matched_centroids'])[:, 1],
                                'py': np.array(solution['matched_centroids'])[:, 0],
-                               'ID': solution['matched_catID']})
+                               'ID': solution['matched_catID'],
+                               'RA': np.array(solution['matched_stars'])[:, 0],
+                               'DEC': np.array(solution['matched_stars'])[:, 1],
+                               'magV': np.array(solution['matched_stars'])[:, 2]})
             
             df.to_csv(output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options))
             flag_found_IDs = True
@@ -250,7 +331,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.scatter(centroids_stacked[:options["d"], 1]-0.5, centroids_stacked[:options["d"], 0]-0.5, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
         for index, row in df.iterrows():
-            plt.gca().annotate(str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']), (row['px'], row['py']))
+            plt.gca().annotate(str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
     plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
         plt.show()

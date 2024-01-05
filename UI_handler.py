@@ -25,6 +25,7 @@ def check_files(files):
 
 def interpret_UI_values(options, ui_values, no_file = False):
     options['flag_display'] = ui_values['Show graphics']
+    options['delete_saturated_blob'] = ui_values['delete_saturated_blob']
     try : 
         options['m'] = int(ui_values['-m-']) if ui_values['-m-'] else 10
     except ValueError : 
@@ -115,6 +116,7 @@ def inputUI(options):
     layout_base = [
     
     [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics')],
+    [sg.Checkbox('Remove big bright object', default=options['delete_saturated_blob'], key='delete_saturated_blob')],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
     [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
     [sg.Text('m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
@@ -128,7 +130,7 @@ def inputUI(options):
         layout_title + layout_file_input + layout_folder_output + layout_base    
     ]  
     
-    window = sg.Window('MEE2024 V0.1.1', layout, finalize=True)
+    window = sg.Window('MEE2024 V0.1.2', layout, finalize=True)
     window.BringToFront()
 
     while True:

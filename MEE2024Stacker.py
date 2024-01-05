@@ -39,6 +39,9 @@ options = {
     'd':50,
     'pxl_tol':10,
     'cutoff':100,
+    'delete_saturated_blob':True,
+    'blob_radius_extra':150,
+    'centroid_gap_blob':30,
 }
 
 files = []
