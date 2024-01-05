@@ -5,3 +5,4 @@ stars_database/hip_database938.npz
 
 data/hip_database938.npz
 MEE_config.txt
+*.pyc
