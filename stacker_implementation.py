@@ -25,6 +25,7 @@ from skimage import measure
 import cv2
 from skimage.morphology import convex_hull_image
 from skimage.transform import downscale_local_mean, resize
+import skimage.data._fetchers # fix py2exe bug
 
 # TODO: replace usage of np.roll with something which only translates (currently pixels near the edges of the image will be messed up)
 
@@ -249,6 +250,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.gca().set_aspect('equal')
     plt.scatter(used_centroids[:, 1], used_centroids[:, 0], marker='x')
     plt.title('Used stars for stacking')
+    plt.gca().invert_yaxis()
     plt.grid()
     for k, v in used_stars_stacking.items():
         plt.gca().annotate(str(v), tuple(reversed(centroids[0][k])))
@@ -281,6 +283,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.gca().set_aspect('equal')
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('Centroids found on each image')
+    plt.gca().invert_yaxis()
     plt.grid()
     plt.savefig(output_path('CentroidsALL'+starttime+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
