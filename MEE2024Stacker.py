@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 @author: Andrew Smith
-Version 3 January 2024
+Version 6 January 2024
 
 --------------------------------------------------------------
 Front end of MEE2024 Stacker
@@ -32,11 +32,11 @@ options = {
     'save_dark_flat':False,
     'workDir': '',                  
     'output_dir': '',
-    'database':'hip_database938',
+    'database':'',
     'k':8,
     'm':30,
     'n':30,
-    'd':50,
+    'd':100,
     'pxl_tol':10,
     'cutoff':100,
     'delete_saturated_blob':True,

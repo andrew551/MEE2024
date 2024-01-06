@@ -1,6 +1,6 @@
 """
 @author: Andrew Smith
-Version 3 January 2024
+Version 6 January 2024
 """
 from astropy.io import fits
 from pathlib import Path
