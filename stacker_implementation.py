@@ -273,6 +273,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.grid()
     plt.savefig(output_path('TWOD_RESIDUALS'+starttime+'.png', options), dpi=600)
     if options['flag_display']:
+        plt.tight_layout()
         plt.show()
     #TODO: can add linear correlation of Dx, Dy to {px, py}. If it is non-zero it may indicate a rotation
     plt.clf()
@@ -288,6 +289,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.grid()
     plt.savefig(output_path('CentroidsALL'+starttime+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
+        plt.tight_layout()
         plt.show()
 
     # now do actual stacking
@@ -329,8 +331,10 @@ def do_stack(files, darkfiles, flatfiles, options):
         print('no database provided, so skipping platesolve')
         logme(logpath, options, 'no database provided, so skipping platesolve')
 
-    plt.clf()
-    plt.title(f'Largest {min(options["d"], len(centroids_stacked))} of {len(centroids_stacked)} stars found on stacked image')
+    plt.close()
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    ax.set_title(f'Largest {min(options["d"], len(centroids_stacked))} of {len(centroids_stacked)} stars found on stacked image')
     plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
     plt.scatter(centroids_stacked[:options["d"], 1]-0.5, centroids_stacked[:options["d"], 0]-0.5, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
@@ -338,7 +342,39 @@ def do_stack(files, darkfiles, flatfiles, options):
             plt.gca().annotate(str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
     plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
-        plt.show()
+        fig2, ax2 = plt.subplots(dpi=100, figsize=(5, 5))
+        fig3, ax3 = plt.subplots(dpi=100, figsize=(5, 5))
+        ax2.set_title('X-transcept')
+        ax3.set_title('Y-transcept')
+        line_x, = ax2.plot([], [], label='x-line')
+        line_y, = ax3.plot([], [], label='y-line', color='orange')
+        def plot_lines(x, y, xlim, ylim):
+            x1, x2 = int(xlim[0]), int(xlim[1])
+            ax2.set_xlim((x1, x2))
+            data = stacked[int(y), x1:x2]
+            if not data.size:
+                return
+            line_x.set_data(np.arange(x1, x2), data)
+            ax2.set_ylim(np.min(data)*0.7, np.max(data)*1.3)
+
+            y1, y2 = int(ylim[0]), int(ylim[1])
+            y1, y2 = min(y1, y2), max(y1, y2)
+            ax3.set_xlim((y1, y2))
+            data2 = stacked[y1:y2, int(x)]
+            if not data2.size:
+                return
+            line_y.set_data(np.arange(y1, y2), data2)
+            ax3.set_ylim(np.min(data2)*0.7, np.max(data2)*1.3)
+        def mouse_move(event):
+            x = event.xdata
+            y = event.ydata
+            if x is not None and y is not None and x >= 0 and x < stacked.shape[1] and y > 0 and y < stacked.shape[0]:
+                plot_lines(x, y, ax.get_xlim(), ax.get_ylim())
+                fig2.canvas.draw_idle()
+                fig3.canvas.draw_idle()
+        cid = fig.canvas.mpl_connect('motion_notify_event', mouse_move)
+        #plt.legend()
+        plt.show(block=True)
     
         
     write_complete(logpath, options)
