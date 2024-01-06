@@ -41,7 +41,7 @@ HIP identifiers are in the form _aaaaa_.
 TYC identifiers are in the form _aaaa-bbbbb-1_.
 
 The file _generate_database_ can be used to create new plate solving databases (with different fields of view and limiting magnitudes).
-Both the HIP and TYC star catalogues can be used. The large database can take many hours to generate.
+Both the HIP and TYC star catalogues can be used. A large database can take many hours to generate.
 
 
 
