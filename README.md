@@ -29,7 +29,7 @@ Select the images to be stacked (the "Light frames").
 Dark frame(s) and Flat frame(s) can also be selected, if desired.
 Choose the plate solving database (optional).
 Select "Show graphics" if you want to view the intermediate graphical analysis (optional).
-Choose the number of bright stars to be identified in the stacked image. Around 100 seems a reasonable choice.
+Choose the number of bright stars to be identified in the stacked image; around 100 seems a reasonable choice.
 
 The plate solver (if used) will identify around 8 to 10 of the brightest stars.
 Depending on the database used (Hipparcos or Tycho), you can use a search tool to find the details about the identified stars.
@@ -41,7 +41,7 @@ HIP identifiers are in the form _aaaaa_.
 TYC identifiers are in the form _aaaa-bbbbb-1_.
 
 The file _generate_database_ can be used to create new plate solving databases (with different fields of view and limiting magnitudes).
-Both HIP and TYC catalogues can be used.
+Both the HIP and TYC star catalogues can be used. The large database can take many hours to generate.
 
 
 
