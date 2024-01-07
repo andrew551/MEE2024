@@ -46,6 +46,6 @@ Both the HIP and TYC star catalogues can be used. A large database can take many
 The program will generate a file _MEE_config.txt_ which contains the last used parameters (e.g. directories used).
 If this file does not initially exist, it will be created (an error message will be displayed in the console noting that the file does not yet exist).
 
-If you want to save the stacked Darks and Flats for future use, edit the _MEE_config file_ and change "save_dark_flat" from false (the default) to true.
+If you want to save the stacked Darks and Flats for future use, edit the _MEE_config_ file and change "save_dark_flat" from _false_ (the default) to _true_.
 
 
