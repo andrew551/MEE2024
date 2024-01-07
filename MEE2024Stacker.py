@@ -43,6 +43,9 @@ options = {
     'delete_saturated_blob':True,
     'blob_radius_extra':150,
     'centroid_gap_blob':30,
+    'centroid_gaussian_subtract':True,
+    'centroid_gaussian_thresh':7,
+    'min_area':2,
 }
 
 files = []

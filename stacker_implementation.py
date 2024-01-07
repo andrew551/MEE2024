@@ -27,6 +27,8 @@ import cv2
 from skimage.morphology import convex_hull_image
 from skimage.transform import downscale_local_mean, resize
 import skimage.data._fetchers # fix py2exe bug
+import scipy
+import photutils
 
 # TODO: replace usage of np.roll with something which only translates (currently pixels near the edges of the image will be messed up)
 
@@ -57,12 +59,28 @@ def filter_min(img, d2=4):
             result = np.minimum(result, np.roll(img, (i, j), axis=(0, 1)))
     return result
 
+def expand_mask(src, radius, target_size):
+    mask_expand = np.copy(src).astype(bool)
+    for i in range(-1, 2):
+        for j in range(-1, 2):
+            mask_t = np.roll(src, (i*radius, j*radius), axis=(0,1))
+            if j > 0:
+                mask_t[:, :j*radius] = 0
+            elif j < 0:
+                mask_t[:, j*radius:] = 0
+            if i > 0:
+                mask_t[:i*radius, :] = 0
+            elif i < 0:
+                mask_t[i*radius:, :] = 0
+            mask_expand = np.logical_or(mask_expand, mask_t)
+    return resize(mask_expand, target_size).astype(bool)
+
 # find the largest connected region of saturated pixels
 # and set it to a dark value
 
-def remove_saturated_blob(img, sat_val=65535, radius=100, min_size=20000, downscale=8, perform=True):
+def remove_saturated_blob(img, sat_val=65535, radius=100, radius2=150, min_size=20000, downscale=8, perform=True):
     if not perform:
-        return img, np.zeros(img.shape, dtype=int)
+        return img, np.zeros(img.shape, dtype=int), np.zeros(img.shape, dtype=int)
     if sat_val is None:
         sat_val = np.max(img)
     down_downscaled = downscale_local_mean(img, (downscale, downscale))
@@ -74,34 +92,21 @@ def remove_saturated_blob(img, sat_val=65535, radius=100, min_size=20000, downsc
     areas = [region.area for region in measure.regionprops(labels)]
     #print(areas)
     if not areas or max(areas)*downscale**2 < min_size:
-        return img, np.zeros(img.shape, dtype=int)
+        return img, np.zeros(img.shape, dtype=int), np.zeros(img.shape, dtype=int)
     mask = labels == (np.argmax(areas)+1)
     chull = convex_hull_image(mask)
     #contours_mask = measure.find_contours(mask) # alternative method could use contours...
-    mask_expand = np.copy(chull)
-    radius = radius // downscale
-    for i in range(-1, 2):
-        for j in range(-1, 2):
-            mask_t = np.roll(chull, (i*radius, j*radius), axis=(0,1))
-            if j > 0:
-                mask_t[:, :j*radius] = 0
-            elif j < 0:
-                mask_t[:, j*radius:] = 0
-            if i > 0:
-                mask_t[:i*radius, :] = 0
-            elif i < 0:
-                mask_t[i*radius:, :] = 0
-            mask_expand = np.logical_or(mask_expand, mask_t)
+    mask_1 = expand_mask(chull, radius//downscale, img.shape)
+    mask_2 = expand_mask(chull, radius2//downscale, img.shape)
     
     #plt.imshow(mask_expand^chull)
     #plt.show()
     #print(np.sum(mask_expand), np.sum(chull))
     #plt.show()
     
-    up_scaled = resize(mask_expand, img.shape).astype(bool)
     img = np.copy(img) # deep copy
-    img[up_scaled] = np.percentile(img, 5) # make it dark
-    return (img, up_scaled)
+    img[mask_1] = np.percentile(img, 5) # make it dark
+    return (img, mask_1, mask_2)
 
 
 # try to find the optimal alignment vector between two sets of centroids
@@ -174,21 +179,117 @@ def do_loop_with_progress_bar(items, fxn, message='Progress', **kwargs):
     window.close()
     return ret
 
-def filter_bad_centroids(centroids, mask, r=20):
+def filter_bad_centroids(centroids, mask2):
     ret = []
     for centroid in centroids:
         x0, x1 = int(centroid[0]), int(centroid[1])
-        flag = True
-        for i in range(x0-r, x0+r+1):
-            for j in range(x1-r, x1+r+1):
-                if i < 0 or j < 0 or i >= mask.shape[0] or j >= mask.shape[0]:
-                    continue
-                if mask[i, j]:
-                    flag = False
-        if flag:
+        if not mask2[x0, x1]:
             ret.append(centroid)
     return np.array(ret)
-        
+
+    
+
+def get_centroids_blur(img_mask2, ksize=17, options={}):
+    img, mask2 = img_mask2
+    if not options['centroid_gaussian_subtract']:
+        centroids = tetra3.get_centroids_from_image(img)
+        return [(-1, -1, x) for x in centroids]
+    blur = cv2.GaussianBlur(img, (ksize, ksize), 0)
+    sub = img-blur
+    sub[mask2] = 0
+
+    squared = sub*sub
+    large = np.percentile(squared, 95)
+    squared[mask2] = large
+    squared[squared > large*10] = large*10
+    local_variance = scipy.ndimage.filters.uniform_filter(squared, size=(50, 50))
+
+    #plt.imshow(local_variance)
+    #plt.show()
+
+    data = sub / np.sqrt(local_variance)
+
+    mask = data > options['centroid_gaussian_thresh']
+    
+    #plt.imshow(data, cmap='gray_r', vmin=4, vmax=5)
+    #plt.show()
+    
+    centroid_labels = measure.label(mask, connectivity=1)
+    properties = measure.regionprops(centroid_labels, data)
+
+    
+    
+    areas = [region.area for region in properties]
+    centroids = [region.centroid_weighted for region in properties]
+    
+    '''
+    acc_centroids = []
+    sz = 10
+    for i in range(len(centroids)):
+        x0, x1 = int(centroids[i][0]), int(centroids[i][1])
+        data_near = data[x0-sz:x0+sz+1,x1-sz:x1+sz+1]
+        if not data_near.shape == (sz*2+1, sz*2+1) or areas[i] < 10:
+            acc_centroids.append(centroids[i])
+            continue
+        if 1:
+            fig, ax = plt.subplots()
+            plt.imshow(data_near)
+            show_scanlines(data_near, fig, ax)
+            plt.show()
+        correction = photutils.centroids.centroid_2dg(data_near) - (np.array(data_near.shape)-1) / 2
+        print(correction)
+        acc_centroids.append((x0+correction[0], x1+correction[1]))
+    '''
+    fluxes = [np.sum(data[centroid_labels==i]) for i in range(1, len(centroids)+1)]
+
+    sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area']], reverse=True)
+    
+    #sorted_c = [(f, c) for f,c in zip(fluxes, centroids)], reverse=True)
+    print('found:', sorted_c)
+    return sorted_c
+    
+    
+    if 1:
+        fig, ax = plt.subplots()
+        plt.imshow(sub, vmin=np.percentile(sub,80), vmax=np.percentile(sub, 95))
+        show_scanlines(sub, fig, ax)
+        plt.show(block=True)
+    centroids = tetra3.get_centroids_from_image(sub, sigma=2.5, min_area=1)
+    print(centroids)
+    return centroids
+
+def show_scanlines(src_img, fig, ax):
+    fig2, ax2 = plt.subplots(dpi=100, figsize=(5, 5))
+    fig3, ax3 = plt.subplots(dpi=100, figsize=(5, 5))
+    ax2.set_title('X-transcept')
+    ax3.set_title('Y-transcept')
+    line_x, = ax2.plot([], [], label='x-line')
+    line_y, = ax3.plot([], [], label='y-line', color='orange')
+    def plot_lines(x, y, xlim, ylim):
+        x1, x2 = int(xlim[0]), int(xlim[1])
+        ax2.set_xlim((x1, x2))
+        data = src_img[int(y), x1:x2]
+        if not data.size:
+            return
+        line_x.set_data(np.arange(x1, x2), data)
+        ax2.set_ylim(np.min(data)*0.7, np.max(data)*1.3)
+
+        y1, y2 = int(ylim[0]), int(ylim[1])
+        y1, y2 = min(y1, y2), max(y1, y2)
+        ax3.set_xlim((y1, y2))
+        data2 = src_img[y1:y2, int(x)]
+        if not data2.size:
+            return
+        line_y.set_data(np.arange(y1, y2), data2)
+        ax3.set_ylim(np.min(data2)*0.7, np.max(data2)*1.3)
+    def mouse_move(event):
+        x = event.xdata
+        y = event.ydata
+        if x is not None and y is not None and x >= 0 and x < src_img.shape[1] and y > 0 and y < src_img.shape[0]:
+            plot_lines(x, y, ax.get_xlim(), ax.get_ylim())
+            fig2.canvas.draw_idle()
+            fig3.canvas.draw_idle()
+    cid = fig.canvas.mpl_connect('motion_notify_event', mouse_move)
 
 def do_stack(files, darkfiles, flatfiles, options):
     starttime = str(time.time())
@@ -198,7 +299,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     logme(logpath, options, 'stacking files:'+str(files))
     logme(logpath, options, 'using darks:'+str(darkfiles))
     logme(logpath, options, 'using flats:'+str(flatfiles))
-    logme(logpath, options, 'using database:'+str(options['database']))
+    logme(logpath, options, 'using database:'+str(options['database']))   
     print('using options:'+str(options))
     print('stacking files:'+str(files))
     print('using darks:'+str(darkfiles))
@@ -218,10 +319,12 @@ def do_stack(files, darkfiles, flatfiles, options):
     desatblob = do_loop_with_progress_bar(imgs, remove_saturated_blob, message='Processing images (step 1)...', sat_val=None, radius = options['blob_radius_extra'], perform=options['delete_saturated_blob'])
     deblobbed_imgs = [t[0] for t in desatblob]
     masks = [t[1] for t in desatblob]
+    masks2 = [t[2] for t in desatblob]
     reg_imgs = do_loop_with_progress_bar(deblobbed_imgs, lambda img: (img-dark)/flat, message='Processing images (step 2)...')
     #filtered_imgs = do_loop_with_progress_bar(reg_imgs, remove_saturated_blob, message='Processing images(2)...', d2=4)
-    centroids = do_loop_with_progress_bar(reg_imgs, tetra3.get_centroids_from_image, message='Finding centroids...')
-    centroids = [filter_bad_centroids(x, mask, r=options['centroid_gap_blob']) for x, mask in zip(centroids, masks)]
+    centroids_data = do_loop_with_progress_bar(list(zip(reg_imgs, masks2)), get_centroids_blur, message='Finding centroids...', options=options)
+    centroids = [[x[2] for x in y] for y in centroids_data]
+    centroids = [filter_bad_centroids(x, mask2) for x, mask2 in zip(centroids, masks2)]
 
     # simple stacking: use the first image as the "key" and fit all others to it
     shifts = []
@@ -246,7 +349,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     print(rms_errors)
     print(shifts)
     # show stars used in stacking
-    used_centroids = np.array([centroids[0][s] for s in used_stars_stacking])
+    used_centroids = np.array([centroids[0][s] for s in used_stars_stacking]).reshape((-1, 2))
     plt.clf()
     plt.gca().set_aspect('equal')
     plt.scatter(used_centroids[:, 1], used_centroids[:, 0], marker='x')
@@ -300,10 +403,16 @@ def do_stack(files, darkfiles, flatfiles, options):
     stacked16 = ((stacked-np.min(stacked)) / (np.max(stacked) - np.min(stacked)) * 65535).astype(np.uint16)
     fits.writeto(output_path('STACKED'+starttime+'.fit', options), stacked16)
     # find centroids on the stacked image
-    centroids_stacked = tetra3.get_centroids_from_image(stacked)
-    centroids_stacked = filter_bad_centroids(centroids_stacked, masks[0], r=options['centroid_gap_blob']) # use 0th mask here
+    centroids_stacked_data = get_centroids_blur((stacked, masks2[0]), options=options)
+    centroids_stacked = [x[2] for x in centroids_stacked_data]
+    centroids_stacked = filter_bad_centroids(centroids_stacked, masks2[0]) # use 0th mask here
+
+    df = pd.DataFrame({'px': np.array(centroids_stacked)[:, 1],
+                               'py': np.array(centroids_stacked)[:, 0],
+                       'area (pixels)':[x[1] for x in centroids_stacked_data],
+                       'flux (noise-normed)': [x[0] for x in centroids_stacked_data]})
+    df.to_csv(output_path('STACKED_CENTROIDS_DATA'+starttime+'.csv', options))
     
-    np.savetxt(output_path('STACKED_CENTROIDS'+starttime+'.txt', options), centroids_stacked)
     logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
     # plate solve
     flag_found_IDs = False
@@ -336,43 +445,14 @@ def do_stack(files, darkfiles, flatfiles, options):
 
     ax.set_title(f'Largest {min(options["d"], len(centroids_stacked))} of {len(centroids_stacked)} stars found on stacked image')
     plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
-    plt.scatter(centroids_stacked[:options["d"], 1]-0.5, centroids_stacked[:options["d"], 0]-0.5, marker='x') # subtract half pixel to align with image properly
+    shift = 0 if options['centroid_gaussian_subtract'] else 0.5
+    plt.scatter(centroids_stacked[:options["d"], 1]-shift, centroids_stacked[:options["d"], 0]-shift, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
         for index, row in df.iterrows():
             plt.gca().annotate(str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
     plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
-        fig2, ax2 = plt.subplots(dpi=100, figsize=(5, 5))
-        fig3, ax3 = plt.subplots(dpi=100, figsize=(5, 5))
-        ax2.set_title('X-transcept')
-        ax3.set_title('Y-transcept')
-        line_x, = ax2.plot([], [], label='x-line')
-        line_y, = ax3.plot([], [], label='y-line', color='orange')
-        def plot_lines(x, y, xlim, ylim):
-            x1, x2 = int(xlim[0]), int(xlim[1])
-            ax2.set_xlim((x1, x2))
-            data = stacked[int(y), x1:x2]
-            if not data.size:
-                return
-            line_x.set_data(np.arange(x1, x2), data)
-            ax2.set_ylim(np.min(data)*0.7, np.max(data)*1.3)
-
-            y1, y2 = int(ylim[0]), int(ylim[1])
-            y1, y2 = min(y1, y2), max(y1, y2)
-            ax3.set_xlim((y1, y2))
-            data2 = stacked[y1:y2, int(x)]
-            if not data2.size:
-                return
-            line_y.set_data(np.arange(y1, y2), data2)
-            ax3.set_ylim(np.min(data2)*0.7, np.max(data2)*1.3)
-        def mouse_move(event):
-            x = event.xdata
-            y = event.ydata
-            if x is not None and y is not None and x >= 0 and x < stacked.shape[1] and y > 0 and y < stacked.shape[0]:
-                plot_lines(x, y, ax.get_xlim(), ax.get_ylim())
-                fig2.canvas.draw_idle()
-                fig3.canvas.draw_idle()
-        cid = fig.canvas.mpl_connect('motion_notify_event', mouse_move)
+        show_scanlines(stacked, fig, ax)
         #plt.legend()
         plt.show(block=True)
     
