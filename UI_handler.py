@@ -142,7 +142,7 @@ def inputUI(options):
         layout_title + layout_file_input + layout_folder_output + layout_base    
     ]  
     
-    window = sg.Window('MEE2024 V0.1.2', layout, finalize=True)
+    window = sg.Window('MEE2024 V0.1.3', layout, finalize=True)
     window.BringToFront()
 
     while True:
