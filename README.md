@@ -43,9 +43,9 @@ TYC identifiers are in the form _aaaa-bbbbb-1_.
 The file _generate_database_ can be used to create new plate solving databases (with different fields of view and limiting magnitudes).
 Both the HIP and TYC star catalogues can be used. A large database can take many hours to generate.
 
-The program will generate a file MEE_config.txt which contains the last used parameters (e.g. directories used).
+The program will generate a file _MEE_config.txt_ which contains the last used parameters (e.g. directories used).
 If this file does not initially exist, it will be created (an error message will be displayed in the console noting that the file does not yet exist).
 
-If you want to save the stacked Darks and Flats for future use, edit the MEE_config file and change "save_dark_flat" from false (the default) to true.
+If you want to save the stacked Darks and Flats for future use, edit the _MEE_config file_ and change "save_dark_flat" from false (the default) to true.
 
 
