@@ -192,6 +192,51 @@ def filter_bad_centroids(centroids_data, mask2, shape):
             ret.append(data)
     return ret
 
+# this function thies to remove 'centroids' that are actually
+# edge artifacts by looking for an anomaly in the gradients distributions near the centroid
+def filter_edgy_centroids(centroids_data, img, r=1, d=10, thresh=2):
+    ds = d * np.array([[0,0], [1,0], [-1, 0], [0, 1], [0, -1]])
+    ret = []
+    for data in centroids_data:
+        x0, x1 = int(data[2][0]), int(data[2][1])
+        if x0 < d+r or x0 > img.shape[0] - d - r - 1 or x1 < d+r or x1 > img.shape[1] - d - r - 1:
+            ret.append(data) # pass on filtering points near image edge
+            continue
+
+        field = img[x0-d:x0+d+1, x1-d:x1+d+1]
+        
+        diff0 = np.abs(np.diff(field, axis=0))
+        diff1 = np.abs(np.diff(field, axis=1))
+        
+        max0 = np.max(diff0, axis=0)
+        max1 = np.max(diff1, axis=1)
+
+
+        median_max = np.median([max0, max1])
+
+        joined = np.concatenate((diff0.flatten(), diff1.flatten()))
+        
+        lq = np.percentile(joined, 40)
+        uq = np.percentile(joined, 60)
+
+        if (median_max - (lq+uq)/2) / (uq-lq) > 20:
+            print('deleting edgy centroid: ', x0, x1)
+        else:
+            ret.append(data)
+        
+        
+        '''    
+        dvals = [np.mean(img[x0-r+d_i[0]:x0+r+d_i[0], x1-r+d_i[1]:x1+r+1+d_i[1]]) for d_i in ds]
+        ratio_x = (dvals[0] - dvals[1]) / (dvals[0] - dvals[2])
+        ratio_y = (dvals[0] - dvals[3]) / (dvals[0] - dvals[4])
+        #print('ratio_xy', ratio_x, ratio_y) 
+        if ratio_x < 0 or ratio_y < 0 or np.abs(np.log(ratio_x)) > thresh or np.abs(np.log(ratio_y)) > thresh:
+            print('deleting edgy centroid: ', x0, x1)
+        else:
+            ret.append(data)
+        '''
+    return ret
+            
     
 
 def get_centroids_blur(img_mask2, ksize=17, options={}):
@@ -424,6 +469,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     # find centroids on the stacked image
     centroids_stacked_data = get_centroids_blur((stacked, masks2[0]), options=options)
     centroids_stacked_data = filter_bad_centroids(centroids_stacked_data, masks2[0], reg_imgs[0].shape) # use 0th mask here
+    centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)
     centroids_stacked = np.array([x[2] for x in centroids_stacked_data])
 
     df = pd.DataFrame({'px': np.array(centroids_stacked)[:, 1],
