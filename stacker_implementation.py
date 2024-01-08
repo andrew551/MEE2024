@@ -59,19 +59,24 @@ def filter_min(img, d2=4):
             result = np.minimum(result, np.roll(img, (i, j), axis=(0, 1)))
     return result
 
+def roll_fillzero(src, shift):
+    rolled = np.roll(src, shift=shift, axis=(0,1))
+    i, j = shift
+    if j > 0:
+        rolled[:, :j] = 0
+    elif j < 0:
+        rolled[:, j:] = 0
+    if i > 0:
+        rolled[:i, :] = 0
+    elif i < 0:
+        rolled[i:, :] = 0
+    return rolled
+
 def expand_mask(src, radius, target_size):
     mask_expand = np.copy(src).astype(bool)
     for i in range(-1, 2):
         for j in range(-1, 2):
-            mask_t = np.roll(src, (i*radius, j*radius), axis=(0,1))
-            if j > 0:
-                mask_t[:, :j*radius] = 0
-            elif j < 0:
-                mask_t[:, j*radius:] = 0
-            if i > 0:
-                mask_t[:i*radius, :] = 0
-            elif i < 0:
-                mask_t[i*radius:, :] = 0
+            mask_t = roll_fillzero(src, (i*radius, j*radius))
             mask_expand = np.logical_or(mask_expand, mask_t)
     return resize(mask_expand, target_size).astype(bool)
 
@@ -179,13 +184,13 @@ def do_loop_with_progress_bar(items, fxn, message='Progress', **kwargs):
     window.close()
     return ret
 
-def filter_bad_centroids(centroids, mask2):
+def filter_bad_centroids(centroids_data, mask2, shape):
     ret = []
-    for centroid in centroids:
-        x0, x1 = int(centroid[0]), int(centroid[1])
-        if not mask2[x0, x1]:
-            ret.append(centroid)
-    return np.array(ret)
+    for data in centroids_data:
+        x0, x1 = int(data[2][0]), int(data[2][1])
+        if not mask2[x0, x1] and not int(x0) <= 0 and not int(x0) >= shape[0]-1 and not int(x1) <= 0 and not int(x1) >= shape[1]-1:
+            ret.append(data)
+    return ret
 
     
 
@@ -291,6 +296,14 @@ def show_scanlines(src_img, fig, ax):
             fig3.canvas.draw_idle()
     cid = fig.canvas.mpl_connect('motion_notify_event', mouse_move)
 
+def add_img_to_stack(data, output_array=None, count_array=None):
+    img, shift = data # unpack tuple
+    shift = (int(shift[0]), int(shift[1]))
+    a1 = np.ones(count_array.shape, dtype=int)
+    output_array += roll_fillzero(img, shift)
+    count_array += roll_fillzero(a1, shift)
+    
+
 def do_stack(files, darkfiles, flatfiles, options):
     starttime = str(time.time())
     logpath = 'LOG'+starttime+'.txt'
@@ -316,18 +329,19 @@ def do_stack(files, darkfiles, flatfiles, options):
         if flatfiles:
             fits.writeto(output_path('FLAT_STACK'+starttime+'.fit', options), flat)
 
-    desatblob = do_loop_with_progress_bar(imgs, remove_saturated_blob, message='Processing images (step 1)...', sat_val=None, radius = options['blob_radius_extra'], perform=options['delete_saturated_blob'])
+    desatblob = do_loop_with_progress_bar(imgs, remove_saturated_blob, message='Processing images (step 1)...', sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
     deblobbed_imgs = [t[0] for t in desatblob]
     masks = [t[1] for t in desatblob]
     masks2 = [t[2] for t in desatblob]
     reg_imgs = do_loop_with_progress_bar(deblobbed_imgs, lambda img: (img-dark)/flat, message='Processing images (step 2)...')
     #filtered_imgs = do_loop_with_progress_bar(reg_imgs, remove_saturated_blob, message='Processing images(2)...', d2=4)
     centroids_data = do_loop_with_progress_bar(list(zip(reg_imgs, masks2)), get_centroids_blur, message='Finding centroids...', options=options)
-    centroids = [[x[2] for x in y] for y in centroids_data]
-    centroids = [filter_bad_centroids(x, mask2) for x, mask2 in zip(centroids, masks2)]
+    centroids_data = [filter_bad_centroids(x, mask2, reg_imgs[0].shape) for x, mask2 in zip(centroids_data, masks2)]
+
+    centroids = [np.array([x[2] for x in y]) for y in centroids_data]
 
     # simple stacking: use the first image as the "key" and fit all others to it
-    shifts = []
+    shifts = [(0,0)]
     rms_errors = []
     deltas = []
     prev = (0, 0)
@@ -380,11 +394,11 @@ def do_stack(files, darkfiles, flatfiles, options):
         plt.show()
     #TODO: can add linear correlation of Dx, Dy to {px, py}. If it is non-zero it may indicate a rotation
     plt.clf()
-    plt.scatter(centroids[0][:, 1], centroids[0][:, 0], label = str(0))
-    for i in range(1, len(imgs)):
-        if shifts[i-1] is None:
+    for i in range(len(imgs)):
+        if shifts[i] is None:
             continue
-        plt.scatter(centroids[i][:, 1]+shifts[i-1][1], centroids[i][:, 0]+shifts[i-1][0], label = str(i))
+        print(centroids, shifts)
+        plt.scatter(centroids[i][:, 1]+shifts[i][1], centroids[i][:, 0]+shifts[i][0], label = str(i))
     plt.gca().set_aspect('equal')
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('Centroids found on each image')
@@ -396,16 +410,21 @@ def do_stack(files, darkfiles, flatfiles, options):
         plt.show()
 
     # now do actual stacking
-    shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts) if not shift is None]
-    stacked = np.mean(np.array(shifted_images), axis = 0)
+    #shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts) if not shift is None]
+    #stacked = np.mean(np.array(shifted_images), axis = 0)
+
+    stack_array = np.zeros(reg_imgs[0].shape)
+    count_array = np.zeros(reg_imgs[0].shape, dtype=int)
+    do_loop_with_progress_bar(list(zip(reg_imgs, shifts)), add_img_to_stack, message='Stacking images...', output_array=stack_array, count_array=count_array)
+    stacked = stack_array / count_array
     
     # rescale stacked to 16 bit integers
     stacked16 = ((stacked-np.min(stacked)) / (np.max(stacked) - np.min(stacked)) * 65535).astype(np.uint16)
     fits.writeto(output_path('STACKED'+starttime+'.fit', options), stacked16)
     # find centroids on the stacked image
     centroids_stacked_data = get_centroids_blur((stacked, masks2[0]), options=options)
-    centroids_stacked = [x[2] for x in centroids_stacked_data]
-    centroids_stacked = filter_bad_centroids(centroids_stacked, masks2[0]) # use 0th mask here
+    centroids_stacked_data = filter_bad_centroids(centroids_stacked_data, masks2[0], reg_imgs[0].shape) # use 0th mask here
+    centroids_stacked = np.array([x[2] for x in centroids_stacked_data])
 
     df = pd.DataFrame({'px': np.array(centroids_stacked)[:, 1],
                                'py': np.array(centroids_stacked)[:, 0],

@@ -41,7 +41,7 @@ options = {
     'pxl_tol':10,
     'cutoff':100,
     'delete_saturated_blob':True,
-    'blob_radius_extra':150,
+    'blob_radius_extra':100,
     'centroid_gap_blob':30,
     'centroid_gaussian_subtract':True,
     'centroid_gaussian_thresh':7,

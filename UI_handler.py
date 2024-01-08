@@ -48,14 +48,21 @@ def interpret_UI_values(options, ui_values, no_file = False):
     except ValueError : 
         raise Exception('invalid d value!')
     try : 
-        options['centroid_gaussian_thresh'] = int(ui_values['-sigma_thresh-']) if ui_values['-sigma_thresh-'] else 7
+        options['centroid_gaussian_thresh'] = float(ui_values['-sigma_thresh-']) if ui_values['-sigma_thresh-'] else 7
     except ValueError : 
         raise Exception('invalid sigma_thresh value!')
     try : 
         options['min_area'] = int(ui_values['-min_area-']) if ui_values['-min_area-'] else 2
     except ValueError : 
         raise Exception('invalid min_area value!')
-
+    try : 
+        options['centroid_gap_blob'] = int(ui_values['-centroid_gap_blob-']) if ui_values['-centroid_gap_blob-'] else 20
+    except ValueError : 
+        raise Exception('invalid centroid_gap_blob value!')
+    try : 
+        options['blob_radius_extra'] = int(ui_values['-blob_radius_extra-']) if ui_values['-blob_radius_extra-'] else 100
+    except ValueError : 
+        raise Exception('invalid blob_radius_extra value!')
     
     stack_files=ui_values['-FILE-'].split(';')
     dark_files=ui_values['-DARK-'].split(';') if ui_values['-DARK-'] else []
@@ -131,6 +138,8 @@ def inputUI(options):
     [sg.Text('min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1))],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
     [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
+    [sg.Text('blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True)],
+    [sg.Text('centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True)],
     [sg.Text('m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
     [sg.Text('n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],
     [sg.Text('pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
