@@ -342,7 +342,7 @@ def show_scanlines(src_img, fig, ax):
 
 def add_img_to_stack(data, output_array=None, count_array=None):
     img, shift = data # unpack tuple
-    shift = (int(shift[0]), int(shift[1]))
+    shift = (round(shift[0]), round(shift[1]))
     a1 = np.ones(count_array.shape, dtype=int)
     output_array += roll_fillzero(img, shift)
     count_array += roll_fillzero(a1, shift)
@@ -412,6 +412,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.gca().set_aspect('equal')
     plt.scatter(used_centroids[:, 1], used_centroids[:, 0], marker='x')
     plt.title('Used stars for stacking')
+    plt.xlim((0, reg_imgs[0].shape[1]))
+    plt.ylim((0, reg_imgs[0].shape[0]))
     plt.gca().invert_yaxis()
     plt.grid()
     for k, v in used_stars_stacking.items():
@@ -441,16 +443,18 @@ def do_stack(files, darkfiles, flatfiles, options):
     for i in range(len(imgs)):
         if shifts[i] is None:
             continue
-        print(centroids, shifts)
+        #print(centroids, shifts)
         plt.scatter(centroids[i][:, 1]+shifts[i][1], centroids[i][:, 0]+shifts[i][0], label = str(i))
     plt.gca().set_aspect('equal')
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('Centroids found on each image')
+    plt.xlim((0, reg_imgs[0].shape[1]))
+    plt.ylim((0, reg_imgs[0].shape[0]))
     plt.gca().invert_yaxis()
     plt.grid()
     plt.savefig(output_path('CentroidsALL'+starttime+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
-        plt.tight_layout()
+        #plt.tight_layout()
         plt.show()
 
     # now do actual stacking
