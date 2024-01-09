@@ -28,7 +28,6 @@ from skimage.morphology import convex_hull_image
 from skimage.transform import downscale_local_mean, resize
 import skimage.data._fetchers # fix py2exe bug
 import scipy
-import photutils
 
 # TODO: replace usage of np.roll with something which only translates (currently pixels near the edges of the image will be messed up)
 
