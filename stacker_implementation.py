@@ -17,7 +17,7 @@ import math
 from scipy.optimize import minimize
 import MEE2024util
 import time
-from MEE2024util import output_path, logme, clearlog, write_complete
+from MEE2024util import output_path, logme, clearlog, write_complete, _version
 import datetime
 import pandas as pd
 import PySimpleGUI as sg
@@ -28,8 +28,6 @@ from skimage.morphology import convex_hull_image
 from skimage.transform import downscale_local_mean, resize
 import skimage.data._fetchers # fix py2exe bug
 import scipy
-
-# TODO: replace usage of np.roll with something which only translates (currently pixels near the edges of the image will be messed up)
 
 # return fit file image as np array
 def open_image(file):
@@ -200,13 +198,15 @@ def filter_bad_centroids(centroids_data, mask2, shape):
 
 # this function thies to remove 'centroids' that are actually
 # edge artifacts by looking for an anomaly in the gradients distributions near the centroid
-def filter_edgy_centroids(centroids_data, img, r=1, d=16, thresh=2):
+# also removes all points within 3 pixels of image edge
+def filter_edgy_centroids(centroids_data, img, f=3, d=16, thresh=2, edge_threshold=20):
     ds = d * np.array([[0,0], [1,0], [-1, 0], [0, 1], [0, -1]])
     ret = []
     for data in centroids_data:
         x0, x1 = int(data[2][0]), int(data[2][1])
-        if x0 < d+r or x0 > img.shape[0] - d - r - 1 or x1 < d+r or x1 > img.shape[1] - d - r - 1:
-            ret.append(data) # pass on filtering points near image edge
+        if x0 < d or x0 > img.shape[0] - d - 1 or x1 < d or x1 > img.shape[1] - d - 1:
+            if x0 >= f and x0 <= img.shape[0] - f - 1 and x1 >= f and x1 <= img.shape[1] - f - 1:
+                ret.append(data) # pass on filtering points near image edge, but remove points really close to edge
             continue
 
         field = img[x0-d:x0+d+1, x1-d:x1+d+1]
@@ -225,7 +225,7 @@ def filter_edgy_centroids(centroids_data, img, r=1, d=16, thresh=2):
         lq = np.percentile(joined, 40)
         uq = np.percentile(joined, 60)
 
-        if (median_max - (lq+uq)/2) / (uq-lq) > 20:
+        if (median_max - (lq+uq)/2) / (uq-lq) > edge_threshold:
             print('deleting edgy centroid: ', x0, x1)
         else:
             ret.append(data)
@@ -245,12 +245,16 @@ def filter_edgy_centroids(centroids_data, img, r=1, d=16, thresh=2):
             
     
 
-def get_centroids_blur(img_mask2, ksize=17, options={}):
+def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False):
     img, mask2 = img_mask2
     if not options['centroid_gaussian_subtract']:
         centroids = tetra3.get_centroids_from_image(img)
         return [(-1, -1, x) for x in centroids]
-    blur = cv2.GaussianBlur(img, (ksize, ksize), 0)
+    if not options['experimental_background_subtract']:
+        blur = cv2.GaussianBlur(img, (ksize, ksize), 0)
+    else:
+        inner = 3
+        blur = (cv2.blur(img, (ksize, ksize)) - cv2.blur(img, (inner, inner)) * (inner**2/ksize**2)) * (ksize**2 / (ksize**2-inner**2))
     sub = img-blur
     sub[mask2] = 0
 
@@ -361,11 +365,13 @@ def do_stack(files, darkfiles, flatfiles, options):
     starttime = str(time.time())
     logpath = 'LOG'+starttime+'.txt'
     clearlog(logpath, options)
+    logme(logpath, options, 'using version:'+_version())
     logme(logpath, options, 'using options:'+str(options))
     logme(logpath, options, 'stacking files:'+str(files))
     logme(logpath, options, 'using darks:'+str(darkfiles))
     logme(logpath, options, 'using flats:'+str(flatfiles))
-    logme(logpath, options, 'using database:'+str(options['database']))   
+    logme(logpath, options, 'using database:'+str(options['database']))
+    print('using version:'+_version())
     print('using options:'+str(options))
     print('stacking files:'+str(files))
     print('using darks:'+str(darkfiles))

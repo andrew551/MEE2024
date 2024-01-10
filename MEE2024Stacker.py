@@ -46,6 +46,7 @@ options = {
     'centroid_gaussian_subtract':True,
     'centroid_gaussian_thresh':7,
     'min_area':2,
+    'experimental_background_subtract':False,
 }
 
 files = []

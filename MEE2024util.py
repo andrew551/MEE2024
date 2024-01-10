@@ -7,6 +7,9 @@ import datetime
 import os
 import traceback
 
+def _version():
+    return 'v0.1.6'
+
 def clearlog(path, options):
     try:
         with open(output_path(path, options), 'w') as f:
