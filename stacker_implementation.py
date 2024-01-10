@@ -79,6 +79,13 @@ def expand_mask(src, radius, target_size):
             mask_expand = np.logical_or(mask_expand, mask_t)
     return resize(mask_expand, target_size).astype(bool)
 
+def expand_labels(labels):
+    ret = np.copy(labels)
+    for i in range(-1, 2):
+        for j in range(-1, 2):
+            ret = np.maximum(ret, roll_fillzero(labels, (i, j)))
+    return ret
+
 # find the largest connected region of saturated pixels
 # and set it to a dark value
 
@@ -187,13 +194,13 @@ def filter_bad_centroids(centroids_data, mask2, shape):
     ret = []
     for data in centroids_data:
         x0, x1 = int(data[2][0]), int(data[2][1])
-        if not mask2[x0, x1] and not int(x0) <= 0 and not int(x0) >= shape[0]-1 and not int(x1) <= 0 and not int(x1) >= shape[1]-1:
+        if not x0 <= 0 and not x0 >= shape[0]-1 and not x1 <= 0 and not x1 >= shape[1]-1 and not mask2[x0, x1]:
             ret.append(data)
     return ret
 
 # this function thies to remove 'centroids' that are actually
 # edge artifacts by looking for an anomaly in the gradients distributions near the centroid
-def filter_edgy_centroids(centroids_data, img, r=1, d=10, thresh=2):
+def filter_edgy_centroids(centroids_data, img, r=1, d=16, thresh=2):
     ds = d * np.array([[0,0], [1,0], [-1, 0], [0, 1], [0, -1]])
     ret = []
     for data in centroids_data:
@@ -264,12 +271,14 @@ def get_centroids_blur(img_mask2, ksize=17, options={}):
     #plt.show()
     
     centroid_labels = measure.label(mask, connectivity=1)
+    centroid_labels_exp = expand_labels(centroid_labels) # expand by one more ring of pixels
     properties = measure.regionprops(centroid_labels, data)
+    properties_exp = measure.regionprops(centroid_labels_exp, data)
 
     
     
     areas = [region.area for region in properties]
-    centroids = [region.centroid_weighted for region in properties]
+    centroids = [region.centroid_weighted for region in properties_exp]
     
     '''
     acc_centroids = []
