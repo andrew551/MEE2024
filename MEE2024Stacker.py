@@ -37,16 +37,17 @@ options = {
     'k':8,
     'm':30,
     'n':30,
-    'd':100,
-    'pxl_tol':10,
-    'cutoff':100,
+    'd':100, # how many stacked found stars to display
+    'pxl_tol':10, # for stacking centroid matching
+    'cutoff':100, # for stacking centroid matching, penalty saturation distance
     'delete_saturated_blob':True,
-    'blob_radius_extra':100,
-    'centroid_gap_blob':30,
-    'centroid_gaussian_subtract':True,
-    'centroid_gaussian_thresh':7,
-    'min_area':2,
-    'experimental_background_subtract':False,
+    'blob_radius_extra':100, # delete pixels near saturated moon/sun region
+    'centroid_gap_blob':30,  # ignore centroids within this distance of saturated region + radius_extra
+    'centroid_gaussian_subtract':True, # use the "sensitive mode" of custom centroid detection
+    'centroid_gaussian_thresh':7, # threshhold for detecting centroids (sensitive mode)
+    'min_area':2, # minimum area for found centroids (sensitive mode)
+    'experimental_background_subtract':False, # use experimental "ring" kernel
+    'float_fits':False, # output fits files with float type
 }
 
 files = []

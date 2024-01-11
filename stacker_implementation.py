@@ -39,22 +39,6 @@ def open_image(file):
 
 def open_images(files):
     return [open_image(file) for file in files]
-    
-# apply a min-filter to the image
-# effective at removing random speckles of bright noise,
-# while maintaining acceptable errors in centroid positions
-# upon further investigation, this filter has been found to not be so useful
-# and has been disabled
-def filter_min(img, d2=4):
-    return img # currently disabled
-    result = np.copy(img)
-    a = math.floor(d2**0.5)
-    for i in range(-a, a+1):
-        for j in range(-a, a+1):
-            if i*i+j*j > d2:
-                continue
-            result = np.minimum(result, np.roll(img, (i, j), axis=(0, 1)))
-    return result
 
 def roll_fillzero(src, shift):
     rolled = np.roll(src, shift=shift, axis=(0,1))
@@ -69,13 +53,15 @@ def roll_fillzero(src, shift):
         rolled[i:, :] = 0
     return rolled
 
-def expand_mask(src, radius, target_size):
+def expand_mask(src, radius, target_size=None):
     mask_expand = np.copy(src).astype(bool)
     for i in range(-1, 2):
         for j in range(-1, 2):
             mask_t = roll_fillzero(src, (i*radius, j*radius))
             mask_expand = np.logical_or(mask_expand, mask_t)
-    return resize(mask_expand, target_size).astype(bool)
+    if not target_size is None:
+        mask_expand = resize(mask_expand, target_size)
+    return mask_expand.astype(bool)
 
 def expand_labels(labels):
     ret = np.copy(labels)
@@ -245,8 +231,8 @@ def filter_edgy_centroids(centroids_data, img, f=3, d=16, thresh=2, edge_thresho
             
     
 
-def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False):
-    img, mask2 = img_mask2
+def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False, debug_display=False):
+    img, mask, mask2 = img_mask2
     if not options['centroid_gaussian_subtract']:
         centroids = tetra3.get_centroids_from_image(img)
         return [(-1, -1, x) for x in centroids]
@@ -269,12 +255,12 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False):
 
     data = sub / np.sqrt(local_variance)
 
-    mask = data > options['centroid_gaussian_thresh']
-    
+    passed = data > options['centroid_gaussian_thresh']
+    passed[expand_mask(mask2, 8)] = 0 # TODO: reflect on this quick fix to edge problems
     #plt.imshow(data, cmap='gray_r', vmin=4, vmax=5)
     #plt.show()
     
-    centroid_labels = measure.label(mask, connectivity=1)
+    centroid_labels = measure.label(passed, connectivity=1)
     centroid_labels_exp = expand_labels(centroid_labels) # expand by one more ring of pixels
     properties = measure.regionprops(centroid_labels, data)
     properties_exp = measure.regionprops(centroid_labels_exp, data)
@@ -283,6 +269,26 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False):
     
     areas = [region.area for region in properties]
     centroids = [region.centroid_weighted for region in properties_exp]
+    fluxes = [np.sum(data[centroid_labels_exp==i]) for i in range(1, len(centroids)+1)]
+
+
+    if debug_display:
+        sz = 10
+        for i in range(len(centroids)):
+            x0, x1 = int(centroids[i][0]), int(centroids[i][1])
+            data_near = data[x0-sz:x0+sz+1,x1-sz:x1+sz+1]
+            diffences = np.diff(data_near, axis = 0)
+            if (np.count_nonzero(diffences==0) > 10 or areas[i] < options['min_area']) and not abs(x0-1291) < 20:
+                print('assume fake:', centroids[i],np.count_nonzero(diffences==0))
+                continue
+            #if not data_near.shape == (sz*2+1, sz*2+1) or areas[i] < 10:
+            #    continue
+            if 1:
+                print(centroids[i])
+                fig, ax = plt.subplots()
+                plt.imshow(data_near)
+                show_scanlines(data_near, fig, ax)
+                plt.show()
     
     '''
     acc_centroids = []
@@ -302,7 +308,6 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False):
         print(correction)
         acc_centroids.append((x0+correction[0], x1+correction[1]))
     '''
-    fluxes = [np.sum(data[centroid_labels==i]) for i in range(1, len(centroids)+1)]
 
     sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area']], reverse=True)
     
@@ -393,8 +398,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     masks = [t[1] for t in desatblob]
     masks2 = [t[2] for t in desatblob]
     reg_imgs = do_loop_with_progress_bar(deblobbed_imgs, lambda img: (img-dark)/flat, message='Processing images (step 2)...')
-    #filtered_imgs = do_loop_with_progress_bar(reg_imgs, remove_saturated_blob, message='Processing images(2)...', d2=4)
-    centroids_data = do_loop_with_progress_bar(list(zip(reg_imgs, masks2)), get_centroids_blur, message='Finding centroids...', options=options)
+    centroids_data = do_loop_with_progress_bar(list(zip(reg_imgs, masks, masks2)), get_centroids_blur, message='Finding centroids...', options=options)
     centroids_data = [filter_bad_centroids(x, mask2, reg_imgs[0].shape) for x, mask2 in zip(centroids_data, masks2)]
 
     centroids = [np.array([x[2] for x in y]) for y in centroids_data]
@@ -484,8 +488,10 @@ def do_stack(files, darkfiles, flatfiles, options):
     # rescale stacked to 16 bit integers
     stacked16 = ((stacked-np.min(stacked)) / (np.max(stacked) - np.min(stacked)) * 65535).astype(np.uint16)
     fits.writeto(output_path('STACKED'+starttime+'.fit', options), stacked16)
+    if options['float_fits']:
+        fits.writeto(output_path('STACKED_FLOAT'+starttime+'.fit', options), stacked.astype(np.float32))
     # find centroids on the stacked image
-    centroids_stacked_data = get_centroids_blur((stacked, masks2[0]), options=options)
+    centroids_stacked_data = get_centroids_blur((stacked, masks[0], masks2[0]), options=options, debug_display=False)
     centroids_stacked_data = filter_bad_centroids(centroids_stacked_data, masks2[0], reg_imgs[0].shape) # use 0th mask here
     centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)
     centroids_stacked = np.array([x[2] for x in centroids_stacked_data])
