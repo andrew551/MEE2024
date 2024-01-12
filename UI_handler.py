@@ -26,6 +26,8 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['flag_display'] = ui_values['Show graphics']
     options['delete_saturated_blob'] = ui_values['delete_saturated_blob']
     options['centroid_gaussian_subtract'] = ui_values['centroid_gaussian_subtract']
+    options['save_dark_flat'] = ui_values['save_dark_flat']
+    options['float_fits'] = ui_values['float_fits']
     try : 
         options['m'] = int(ui_values['-m-']) if ui_values['-m-'] else 10
     except ValueError : 
@@ -130,20 +132,22 @@ def inputUI(options):
 
     layout_base = [
     
-    [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics')],
-    [sg.Checkbox('Remove big bright object', default=options['delete_saturated_blob'], key='delete_saturated_blob')],
-    [sg.Checkbox('Sensitive centroid finder mode (use if moon or sun are close)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract')],
-    [sg.Text('sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1))],
-    [sg.Text('min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1))],
+    [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics'),
+         sg.Checkbox('save_dark_flat', default=options['save_dark_flat'], key='save_dark_flat'),
+         sg.Checkbox('float_32_fits', default=options['float_fits'], key='float_fits')],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
+    [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob')],
+    [sg.Text('    blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True)],
+    [sg.Text('    centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True)],
+    [sg.Checkbox('Sensitive centroid finder mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract')],
+    [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1))],
+    [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1))],
     [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
-    [sg.Text('blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True)],
-    [sg.Text('centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True)],
-    [sg.Text('m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
-    [sg.Text('n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],
-    [sg.Text('pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
-    [sg.Text('k_stars_plate_solve',size=(32,1), key='k_stars_plate_solve'), sg.Input(default_text=str(options['k']),size=(8,1),key='-k-',enable_events=True)],
-    [sg.Button('OK'), sg.Cancel(), sg.Push(), sg.Button("Open output folder", key='Open output folder', enable_events=True)]
+    [sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
+    [sg.Text('    n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],
+    [sg.Text('    pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
+    [sg.Text('    k_stars_plate_solve',size=(32,1), key='k_stars_plate_solve'), sg.Input(default_text=str(options['k']),size=(8,1),key='-k-',enable_events=True)],
+    [sg.Push(), sg.Button('OK'), sg.Cancel(), sg.Button("Open output folder", key='Open output folder', enable_events=True)]
     ] 
 
     layout = [

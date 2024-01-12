@@ -389,9 +389,9 @@ def do_stack(files, darkfiles, flatfiles, options):
 
     if options['save_dark_flat']:
         if darkfiles:
-            fits.writeto(output_path('DARK_STACK'+starttime+'.fit', options), dark)
+            fits.writeto(output_path('DARK_STACK'+starttime+'.fit', options), dark.astype(np.float32))
         if flatfiles:
-            fits.writeto(output_path('FLAT_STACK'+starttime+'.fit', options), flat)
+            fits.writeto(output_path('FLAT_STACK'+starttime+'.fit', options), flat.astype(np.float32))
 
     desatblob = do_loop_with_progress_bar(imgs, remove_saturated_blob, message='Processing images (step 1)...', sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
     deblobbed_imgs = [t[0] for t in desatblob]
