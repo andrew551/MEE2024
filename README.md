@@ -14,9 +14,8 @@ Modern Eddington Experiment codebase
 In order to use the plate solving function, you also need a database of stars in addition to the program files.
 However, plate solving is an optional function. A selection of prepared databases can be found in the **Releases** section.
 
-Plate solving is done using the Tetra3 libary.
-
-For information about Tetra3, see https://tetra3.readthedocs.io/en/latest/api_docs.html.
+Plate solving is done using the Tetra3 libary. For information about Tetra3, see:
+https://tetra3.readthedocs.io/en/latest/api_docs.html.
 
 A simpler way to run this software is to use the Windows executable file, which can be found under **Releases**.
 In this case, no Python environment is required. Simply double-click on the executable file or call it using a command line entry.
@@ -29,7 +28,7 @@ Select the images to be stacked (the "Light frames").
 Dark frame(s) and Flat frame(s) can also be selected, if desired.
 Choose the plate solving database (optional).
 
-It is recommended to choose an Output folder or else the output files will be written to the same folder which contains the image data.
+It is recommended to choose an _Output folder_ or else the output files will be written to the same folder which contains the image data.
 
 Select "Show graphics" if you want to view the intermediate graphical analysis (optional).
 Choose the number of bright stars to be identified in the stacked image (around 100 is a reasonable choice).
@@ -42,7 +41,7 @@ The stack of Darks and Flat can also be saved (optional). These are saved as 32-
 "Remove big bright object" is useful when images contain the Sun or Moon. It can be kept enabled for star fields with no Sun or Moon.
 
 "Sensitive centroid finder mode" should only be use if images contain the Sun or Moon or are taken on a bright sky (e.g. twilight).
-For dark sky star fields, this mode will take too long and is unnecessary (i.e., it is not recommended).
+For dark-sky star fields, this mode will take too long and is unnecessary (i.e. it is not recommended).
 
 The plate solver (if used) will identify around 8 to 10 of the brightest stars.
 Depending on the database used (Hipparcos or Tycho), you can use a search tool to find the details about the identified stars.
