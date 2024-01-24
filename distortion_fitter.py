@@ -174,17 +174,42 @@ plt.scatter(df['RA'], df['DEC'])
 plt.show()
 
 
+
+
+
 errors = resv - orig
+if 0:
+    plt.scatter((plate[:, 1]-image_size[1]/2), errors[:, 0])
+    plt.show()
 
-plt.scatter((plate[:, 1]-image_size[1]/2), errors[:, 0])
-plt.show()
+    plt.scatter((plate[:, 1]-image_size[1]/2), errors[:, 1])
+    plt.show()
 
-plt.scatter((plate[:, 1]-image_size[1]/2), errors[:, 1])
-plt.show()
+    plt.scatter((plate[:, 0]-image_size[0]/2), errors[:, 0])
+    plt.show()
 
-plt.scatter((plate[:, 0]-image_size[0]/2), errors[:, 0])
-plt.show()
+    plt.scatter((plate[:, 0]-image_size[0]/2), errors[:, 1])
 
-plt.scatter((plate[:, 0]-image_size[0]/2), errors[:, 1])
+    plt.show()
 
+
+
+import database_lookup2
+corners = to_polar(transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]), image_size))
+dbs = database_lookup2.database_searcher("D:/tyc_dbase4/tyc_main.dat", debug_folder="D:/debugging")
+print(corners)
+startable, starid = dbs.lookup_objects((np.min(corners[:, 1]), np.max(corners[:, 1])), (np.min(corners[:, 0]), np.max(corners[:, 0])))
+other_path = "D:\output\STACKED_CENTROIDS_DATA1706042946.7686048.csv"
+other_stars_df = pd.read_csv(other_path)
+all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T
+
+transformed_all = to_polar(transform(result.x, all_star_plate, image_size))
+
+plt.scatter(np.degrees(startable[:, 0]), np.degrees(startable[:, 1]), label='catalogue')
+plt.scatter(transformed_all[:, 1], transformed_all[:, 0], marker='+', label='observations')
+for i in range(startable.shape[0]):
+    plt.gca().annotate(str(starid[i, :]) + f'\nMag={startable[i, 5]:.1f}', (np.degrees(startable[i, 0]), np.degrees(startable[i, 1])), color='black', fontsize=5)
+plt.xlabel('RA')
+plt.ylabel('DEC')
+plt.legend()
 plt.show()
