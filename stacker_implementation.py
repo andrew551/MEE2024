@@ -387,6 +387,9 @@ def do_stack(files, darkfiles, flatfiles, options):
     dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs[0].shape, dtype=imgs[0].dtype)
     flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs[0].shape, dtype=float)
 
+    print('image size:'+str(imgs[0].shape))
+    logme(logpath, options, 'image size:'+str(imgs[0].shape))
+    
     if options['save_dark_flat']:
         if darkfiles:
             fits.writeto(output_path('DARK_STACK'+starttime+'.fit', options), dark.astype(np.float32))
