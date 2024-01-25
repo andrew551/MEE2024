@@ -254,7 +254,8 @@ plt.ylabel('DEC')
 plt.legend()
 plt.show()
 
-
+df_out = pd.DataFrame({'ox':obs_matched[:, 1], 'oy':obs_matched[:, 0], 'cx':cata_matched[:, 1], 'cx':cata_matched[:, 0]})
+df_out.to_csv('test.csv')
 # remote RA, DEC, ROLL
 
 # compute distortion coefficients
