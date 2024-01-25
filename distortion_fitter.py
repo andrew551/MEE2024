@@ -132,12 +132,12 @@ def get_fitfunc(plate, target, img_shape):
 data_path = "D:\output\STACKED_CENTROIDS_MATCHED_ID1706029556.8293524.csv"
 data_path = "D:\output\STACKED_CENTROIDS_MATCHED_ID1706042215.7721128.csv"
 
-data_path = "D:\output\STACKED_CENTROIDS_MATCHED_ID1706042630.4431906.csv"
-data_path = "D:\output\STACKED_CENTROIDS_MATCHED_ID1706042946.7686048.csv"
+data_path = "D:\output\STACKED_CENTROIDS_MATCHED_ID1706042630.4431906.csv" # moon test
+#data_path = "D:\output\STACKED_CENTROIDS_MATCHED_ID1706042946.7686048.csv" # zwo 4 zenith2
 image_size = (6388, 9576)
 image_size = (3250, 4656)
-image_size = (5644, 8288)
-image_size = (3250, 4656)
+image_size = (5644, 8288) # moon test
+#image_size = (3250, 4656) # zwo 4
 
 df = pd.read_csv(data_path)
 df['vx'] = np.cos(np.radians(df['DEC'])) * np.cos(np.radians(df['RA']))
@@ -156,7 +156,9 @@ f = get_fitfunc(plate, target, image_size)
 #print(target)
 #print(f((9e-6, 326.35/360*6.282, 44.81/360*6.282, 178/360*6.282)))
 
-initial_guess = (9e-6, 44.81/360*6.282, 326.35/360*6.282, 178/360*6.282, 1, 0, 0,0,0,0,0,0,   0, 0, 0, 0, 0, 0, 0, 0)
+initial_guess = (7e-6, 27.33/360*6.282, 113.2/360*6.282, 4/360*6.282, 1, 0, 0,0,0,0,0,0,   0, 0, 0, 0, 0, 0, 0, 0) # moon test
+#initial_guess = (9e-6, 44.81/360*6.282, 326.35/360*6.282, 178/360*6.282, 1, 0, 0,0,0,0,0,0,   0, 0, 0, 0, 0, 0, 0, 0) # zwo 4
+
 #initial_guess = (9e-6, 44.81/360*6.282, 326.35/360*6.282, 178/360*6.282, 0,0,0,0,0,0)
 result = scipy.optimize.minimize(get_fitfunc(plate, target, image_size), initial_guess, method = 'BFGS')  
 print(result)
@@ -198,8 +200,10 @@ import database_lookup2
 corners = to_polar(transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]), image_size))
 dbs = database_lookup2.database_searcher("D:/tyc_dbase4/tyc_main.dat", debug_folder="D:/debugging")
 print(corners)
+#TODO: this will be broken if we wrap around 360 degrees
 startable, starid = dbs.lookup_objects((np.min(corners[:, 1]), np.max(corners[:, 1])), (np.min(corners[:, 0]), np.max(corners[:, 0])))
-other_path = "D:\output\STACKED_CENTROIDS_DATA1706042946.7686048.csv"
+other_path = "D:\output\STACKED_CENTROIDS_DATA1706042630.4431906.csv" # moon test
+#other_path = "D:\output\STACKED_CENTROIDS_DATA1706042946.7686048.csv" # zwo 4
 other_stars_df = pd.read_csv(other_path)
 all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T
 
@@ -213,3 +217,48 @@ plt.xlabel('RA')
 plt.ylabel('DEC')
 plt.legend()
 plt.show()
+
+# match nearest neighbours
+
+candidate_stars = np.zeros((startable.shape[0], 2))
+candidate_stars[:, 0] = np.degrees(startable[:, 1])
+candidate_stars[:, 1] = np.degrees(startable[:, 0])
+
+
+from sklearn.neighbors import NearestNeighbors
+neigh = NearestNeighbors(n_neighbors=2)
+
+neigh.fit(candidate_stars)
+distances, indices = neigh.kneighbors(transformed_all)
+print(indices)
+print(distances)
+
+# find matches, but exclude ambiguity
+
+match_threshhold = 1e-2 # in degrees
+confusion_ratio = 2 # cloest match must be 2x closer than second place
+
+keep = np.logical_and(distances[:, 0] < match_threshhold, distances[:, 1] / distances[:, 0] > confusion_ratio)
+keep_i = np.nonzero(keep)
+
+obs_matched = transformed_all[keep_i, :][0]
+cata_matched = candidate_stars[indices[keep_i, 0], :][0]
+
+plt.scatter(cata_matched[:, 1], cata_matched[:, 0], label='catalogue')
+plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations')
+for i in range(startable.shape[0]):
+    if i in indices[keep_i, 0]:
+        plt.gca().annotate(str(starid[i, :]) + f'\nMag={startable[i, 5]:.1f}', (np.degrees(startable[i, 0]), np.degrees(startable[i, 1])), color='black', fontsize=5)
+plt.xlabel('RA')
+plt.ylabel('DEC')
+plt.legend()
+plt.show()
+
+
+# remote RA, DEC, ROLL
+
+# compute distortion coefficients
+
+
+#result2 = scipy.optimize.minimize(get_fitfunc(plate, target, image_size), initial_guess, method = 'BFGS')  
+#print(result)
