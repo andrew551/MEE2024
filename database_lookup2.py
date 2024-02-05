@@ -127,7 +127,7 @@ class database_searcher:
         self.star_table[:, 4] = np.sin(self.star_table[:, 1])
 
 
-    def lookup_objects(self, range_ra, range_dec):
+    def lookup_objects(self, range_ra, range_dec, star_max_magnitude=12):
         if range_ra is not None:
             range_ra = np.deg2rad(range_ra)
             if range_ra[0] < range_ra[1]: # Range does not cross 360deg discontinuity
@@ -154,6 +154,16 @@ class database_searcher:
             star_catID = star_catID[kept, :]
             self._logger.info('Limited to DEC range ' + str(np.rad2deg(range_dec)) + ', keeping ' \
                 + str(num_entries) + ' stars.')
+        # max magnitude
+        kept = star_table[:, 5] < star_max_magnitude
+        star_table = star_table[kept, :]
+        num_entries = star_table.shape[0]
+        # Trim down catalogue ID to match
+
+        star_catID = star_catID[kept, :]
+        self._logger.info('Limited to magnitude to ' + str(star_max_magnitude) + ', keeping ' \
+            + str(num_entries) + ' stars.')
+        
         return star_table, star_catID
 
 

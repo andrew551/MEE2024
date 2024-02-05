@@ -13,30 +13,57 @@ def rotate_icoords(x, icoords):
     
     # apply roll, then RA, then declination
     #r = Rotation.from_euler('xyz', [roll, ra-np.pi/2, dec])
-    r = Rotation.from_euler('xyz', [roll, dec-np.pi/2, ra])
+    r = Rotation.from_euler('xyz', [roll, -dec, ra])
     rotated = r.apply(plate_vectors)
     return rotated
 
 # perform a general transform with rotation and (shearless) scaling
 # so 3 + 1 = 4 degrees of freedom in x
-def linear_transform(x, q, img_shape):
+def linear_transform(x, q, img_shape=None):
 
     pixel_scale = x[0] # radians per pixel
     # rotation  
     
 
     corrected = np.copy(q)
-    corrected -= np.array([img_shape[0]/2, img_shape[1]/2])
+    #corrected -= np.array([img_shape[0]/2, img_shape[1]/2])
 
     icoords = corrected * pixel_scale
     return rotate_icoords(x[1:4], icoords)
+
+# allows for shear and stretch
+def mixed_linear_transform(x, q, img_shape=None):
+    #matrix = np.array([[x[0], x[1]], [x[2], x[3]]])
+    matrix = np.array([[x[0]+1, x[1]], [0, 1 / (x[0] + 1)]])
+    corrected = np.einsum('ij,kj->ki', matrix, q)
+    return linear_transform(x[2:], corrected)
+
+
+# add img_shape to use normalised quantities
+def brown_distortion(x, q, img_shape):
+    K1, K2, P1, P2 = x[0], x[1], x[2], x[3]
+
+    w = q / max(img_shape) * 2
+
+    r2 = w[:, 0]**2 + w[:, 1]**2
+    r4 = r2*r2
+
+    radial = K1 * r2 + K2 * r4
+    
+    correction0 = w[:, 0] * radial + P1 * (r2 + 2 * w[:, 0]**2) + 2 * P2 * w[:, 0]*w[:, 1]
+    correction1 = w[:, 1] * radial + P2 * (r2 + 2 * w[:, 1]**2) + 2 * P1 * w[:, 0]*w[:, 1]
+
+    q_corrected=np.copy(q)
+    q_corrected[:, 0] += correction0
+    q_corrected[:, 1] += correction1
+    return linear_transform(x[4:], q_corrected)
 
 # perform a general transform with rotation and (shearless) scaling
 # so 3 + 1 + 6 = 10 degrees of freedom in x
 
 def quadratic_transform(x, coords, img_shape):
     plate_lin = np.copy(coords)
-    plate_lin -= np.array([img_shape[0]/2, img_shape[1]/2])
+    #plate_lin -= np.array([img_shape[0]/2, img_shape[1]/2])
 
     # step 2: quadratic correction
     
