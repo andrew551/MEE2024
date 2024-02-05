@@ -211,7 +211,7 @@ def filter_edgy_centroids(centroids_data, img, f=3, d=16, thresh=2, edge_thresho
         lq = np.percentile(joined, 40)
         uq = np.percentile(joined, 60)
 
-        if (median_max - (lq+uq)/2) / (uq-lq) > edge_threshold:
+        if uq-lq==0 or (median_max - (lq+uq)/2) / (uq-lq) > edge_threshold:
             print('deleting edgy centroid: ', x0, x1)
         else:
             ret.append(data)
@@ -499,15 +499,16 @@ def do_stack(files, darkfiles, flatfiles, options):
     centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)
     centroids_stacked = np.array([x[2] for x in centroids_stacked_data])
 
-    df = pd.DataFrame({'px': np.array(centroids_stacked)[:, 1],
+    df_detection = pd.DataFrame({'px': np.array(centroids_stacked)[:, 1],
                                'py': np.array(centroids_stacked)[:, 0],
                        'area (pixels)':[x[1] for x in centroids_stacked_data],
                        'flux (noise-normed)': [x[0] for x in centroids_stacked_data]})
-    df.to_csv(output_path('STACKED_CENTROIDS_DATA'+starttime+'.csv', options))
+    df_detection.to_csv(output_path('STACKED_CENTROIDS_DATA'+starttime+'.csv', options))
     
     logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
     # plate solve
     flag_found_IDs = False
+    df_identification = None
     if options['database']:
         t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
         solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
@@ -517,14 +518,14 @@ def do_stack(files, darkfiles, flatfiles, options):
         # TODO identify stars using catalogue
         # and save catalogue ids of each identified star (currently only around 20 are matched by the tetra software "for free"
         if not solution['RA'] is None:
-            df = pd.DataFrame({'px': np.array(solution['matched_centroids'])[:, 1],
+            df_identification = pd.DataFrame({'px': np.array(solution['matched_centroids'])[:, 1],
                                'py': np.array(solution['matched_centroids'])[:, 0],
                                'ID': solution['matched_catID'],
                                'RA': np.array(solution['matched_stars'])[:, 0],
                                'DEC': np.array(solution['matched_stars'])[:, 1],
                                'magV': np.array(solution['matched_stars'])[:, 2]})
             
-            df.to_csv(output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options))
+            df_identification.to_csv(output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options))
             flag_found_IDs = True
         else:
             print("ERROR: platesolve failed to identify location")
@@ -540,13 +541,34 @@ def do_stack(files, darkfiles, flatfiles, options):
     shift = 0 if options['centroid_gaussian_subtract'] else 0.5
     plt.scatter(centroids_stacked[:options["d"], 1]-shift, centroids_stacked[:options["d"], 0]-shift, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
-        for index, row in df.iterrows():
+        for index, row in df_identification.iterrows():
             plt.gca().annotate(str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
     plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
         show_scanlines(stacked, fig, ax)
         #plt.legend()
         plt.show(block=True)
+
+    #if flag_found_IDs:
+    #    df_identification.drop('ID', axis=1) # ID is problematic as it is not a numeric datatype ... turns the array into an object which is bad for safety
+    identification_arr = df_identification.to_numpy() if flag_found_IDs else None
+    identification_arr_cols = df_identification.columns.values if flag_found_IDs else None
+
+    np.savez(output_path('FULL_DATA'+starttime,options), platesolved=flag_found_IDs,
+                         img_shape = imgs[0].shape,
+                         RA = solution['RA'],
+                         DEC = solution['Dec'],
+                         roll = solution['Roll'],
+                         platescale = solution['FOV'] / max(imgs[0].shape) if flag_found_IDs else None,
+                         #detection=output_path('STACKED_CENTROIDS_DATA'+starttime+'.csv', options),
+                         #identification=output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options),
+                         detection_arr = df_detection.to_numpy(),
+                         detection_arr_cols = df_detection.columns.values,
+                         identification_arr=identification_arr,
+                         identification_arr_cols=identification_arr_cols,
+             )
+                                                    
+
     
         
     write_complete(logpath, options)
