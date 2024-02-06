@@ -28,6 +28,7 @@ from skimage.morphology import convex_hull_image
 from skimage.transform import downscale_local_mean, resize
 import skimage.data._fetchers # fix py2exe bug
 import scipy
+import database_cache
 
 # return fit file image as np array
 def open_image(file):
@@ -510,7 +511,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     flag_found_IDs = False
     df_identification = None
     if options['database']:
-        t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
+        t3 = database_cache.open_database(options['database'])
+        #t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
         solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
         #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
         print(solution)

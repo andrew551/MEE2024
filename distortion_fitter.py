@@ -6,6 +6,11 @@ from scipy.spatial.transform import Rotation
 import transforms
 from sklearn.neighbors import NearestNeighbors
 import database_lookup2
+import os
+from MEE2024util import output_path
+import json
+from pathlib import Path
+import database_cache
 
 def to_polar(v):
     theta = np.arcsin(v[:, 2])
@@ -51,6 +56,7 @@ def get_bbox(corners):
 
 def match_and_fit_distortion(path_data, options, debug_folder=None):
     path_catalogue = options['catalogue']
+    basename = Path(path_data).stem
     
     data = np.load(path_data,allow_pickle=True)
     image_size = data['img_shape']
@@ -104,7 +110,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     ### now try to match other stars
 
     corners = to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
-    dbs = database_lookup2.database_searcher(path_catalogue, debug_folder=debug_folder, star_max_magnitude=12)
+    #dbs = database_lookup2.database_searcher(path_catalogue, debug_folder=debug_folder, star_max_magnitude=12)
+    dbs = database_cache.open_catalogue(path_catalogue)
     #print(corners)
     #TODO: this will be broken if we wrap around 360 degrees
     startable, starid = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'])
@@ -159,7 +166,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     obs_matched = transformed_all[keep_i, :][0]
     cata_matched = candidate_stars[indices[keep_i, 0], :][0]
-
+    '''
     plt.scatter(cata_matched[:, 1], cata_matched[:, 0], label='catalogue')
     plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations')
     for i in range(startable.shape[0]):
@@ -170,6 +177,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     plt.legend()
     if options['flag_display']:
         plt.show()
+    plt.close()
+    '''
 
     target2 = startable[indices[keep_i, 0], :][0]
     target2 = target2[:, 2:5]
@@ -200,7 +209,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     errors = (resv - orig) * 3600 # arcseconds
 
     plate2center = plate2
-    '''
+    
     fig, axs = plt.subplots(2, 2)
     axs[0,0].scatter(plate2center[:, 1], errors[:, 0], label = 'px-ey')
     axs[0,0].legend()
@@ -210,8 +219,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[1,1].legend()
     axs[0,1].scatter(plate2center[:, 0], errors[:, 1], label = 'py-ex')
     axs[0,1].legend()
-    plt.show()
-
+    if options['flag_display']:
+        plt.show()
+    '''
     plt.scatter(plate2center[:, 1]*plate2center[:, 0], errors[:, 1], label = 'pxpy-ex')
     plt.show()
     
@@ -241,16 +251,36 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     transformed_final = transforms.brown_distortion(coefficients, plate2, image_size)
 
     print('final rms error (arcseconds):', np.degrees(result_e.fun**0.5)*3600)
-    '''
+
+    output_results = { 'final rms error (arcseconds)': np.degrees(result_e.fun**0.5)*3600,
+                       '#stars used':plate2.shape[0],
+                       'star max magnitude':options['max_star_mag_dist'],
+                       'platescale (arcseconds/pixel)': np.degrees(coefficients[4])*3600,
+                       'RA':np.degrees(coefficients[5]),
+                       'DEC':np.degrees(coefficients[6]),
+                       'ROLL':np.degrees(coefficients[7])-180, # TODO: clarify this dodgy +/- 180 thing
+                       'BROWN_DISTORTION_COEFFICIENTS (pixels) K1, K2, P1, P2':coefficients[:4],
+                       }
+    with open(output_path(basename+'distortion_results.txt', options), 'w', encoding="utf-8") as fp:
+        json.dump(output_results, fp, sort_keys=False, indent=4)
+    
+    
     resv = to_polar(transformed_final)
     orig = to_polar(target2)
 
-    plt.scatter(orig[:, 1], orig[:, 0])
-    plt.scatter(resv[:, 1], resv[:, 0])
-    #plt.scatter(resi[:, 1], resi[:, 0])
-    #plt.scatter(df_id['RA'], df_id['DEC'])
-    plt.show()
-    '''
+
+    plt.scatter(cata_matched[:, 1], cata_matched[:, 0], label='catalogue')
+    plt.scatter(resv[:, 1], resv[:, 0], marker='+', label='observations')
+    for i in range(startable.shape[0]):
+        if i in indices[keep_i, 0]:
+            plt.gca().annotate(str(starid[i, :]) + f'\nMag={startable[i, 5]:.1f}', (np.degrees(startable[i, 0]), np.degrees(startable[i, 1])), color='black', fontsize=5)
+    plt.xlabel('RA')
+    plt.ylabel('DEC')
+    plt.legend()
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+    
     errors = (resv - orig) * 3600 # arcseconds
 
     plate2center = plate2
@@ -267,7 +297,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[0,1].legend()
     if options['flag_display']:
         plt.show()
-
+    plt.close()
     mag_errors = np.linalg.norm(transformed_final - target2, axis=1)
     magnitudes = startable[:, 5][indices[keep_i, 0]][0]
     plt.scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+')
@@ -276,6 +306,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     plt.grid()
     if options['flag_display']:
         plt.show()
+    plt.close()
+    
     
 
 if __name__ == '__main__':
