@@ -12,6 +12,8 @@ import traceback
 from PIL import Image, ImageTk
 import io 
 from MEE2024util import resource_path, _version
+import distortion_fitter
+
 
 def check_files(files):
     try:
@@ -77,9 +79,17 @@ def interpret_UI_values(options, ui_values, no_file = False):
         check_files(dark_files)
         check_files(flat_files)
         return [stack_files, dark_files, flat_files]
-        
-        
 
+
+def interpret_UI_values2(options, ui_values):
+    options['catalogue'] = ui_values['-CT-']
+    options['output_dir'] = ui_values['output_dir2']
+    options['flag_display'] = ui_values['Show graphics2']
+    try : 
+        options['max_star_mag_dist'] = float(ui_values['max_star_mag_dist']) if ui_values['max_star_mag_dist'] else 12
+    except ValueError : 
+        raise Exception('invalid max_star_mag_dist value!')
+        
 # ------------------------------------------------------------------------------
 # use PIL to read data of one image
 # ------------------------------------------------------------------------------
@@ -148,33 +158,73 @@ def inputUI(options):
     [sg.Text('    pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
     [sg.Text('    k_stars_plate_solve',size=(32,1), key='k_stars_plate_solve'), sg.Input(default_text=str(options['k']),size=(8,1),key='-k-',enable_events=True)],
     [sg.Push(), sg.Button('OK'), sg.Cancel(), sg.Button("Open output folder", key='Open output folder', enable_events=True)]
-    ] 
+    ]
 
-    layout = [
-        layout_title + layout_file_input + layout_folder_output + layout_base    
-    ]  
+    layout_distortion = [
+        [sg.Text('File(s)', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE2-'),
+         sg.FilesBrowse('Choose centroid data to analyse (FULL_DATA.xxx.npz)', key = 'Choose DATA_ALL file', file_types=(("npz files (.npz)", "*.npz"),),initial_folder=options['output_dir'])],
+        
+        [sg.Text('Catalogue', size=(7, 1), key = 'Catalogue'), sg.InputText(default_text=options['catalogue'],size=(75,1),key='-CT-'),
+         sg.FilesBrowse('Choose Catalogue (tych_main.dat)', key = 'Choose Database', file_types=(("dat files", "*.dat"),),initial_folder=options['workDir'])],
+
+        [sg.Text('Output folder (blank for same as input):', size=(50, 1), key = 'Output Folder (blank for same as input):2')],
+        [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir2'),
+            sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
+        [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics2')],
+        [sg.Text('Maximum star magnitude',size=(32,1)), sg.Input(default_text=str(options['max_star_mag_dist']),size=(8,1),key='max_star_mag_dist',enable_events=True)],
+        [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
+    ]
+
+
+
+    tab1_layout = layout_file_input + layout_folder_output + layout_base    
+    tab2_layout = layout_distortion
+
+    layout = [layout_title + [sg.TabGroup([[sg.Tab('Tab 1 - Find centroids', tab1_layout, key='-mykey-'),
+                         sg.Tab('Tab 2 - Compute Distortion', tab2_layout),
+                         ]],
+                       key='-group2-', title_color='red',
+                       selected_title_color='green', tab_location='top')
+               ]]
     
     window = sg.Window('MEE2024 '+_version(), layout, finalize=True)
     window.BringToFront()
 
+    def check_file(s):
+        return s and not s == options['workDir']
+    
     while True:
         event, values = window.read()
-        if event==sg.WIN_CLOSED or event=='Cancel':
+        if event==sg.WIN_CLOSED or event=='Cancel' or event=='Cancel2':
             window.close()
             return None
 
-        if event=='Open output folder':
-            x = values['output_dir'].strip()
+        if event=='Open output folder' or event=='Open output folder2':
+            x = values['output_dir'].strip() if event=='Open output folder' else values['output_dir2'].strip()
             if not x:
                 x = options['workDir']
             if x and os.path.isdir(x):
                 path = os.startfile(os.path.realpath(x))
             else:
                 sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
-                
+        if event=='OK2':
+            if check_file(values['-FILE2-']) and check_file(values['-CT-']):
+                input_okay_flag = True
+            else:
+                # display pop-up file not entered
+                input_okay_flag = False
+                sg.Popup(popup_messages['no_file_error'], keep_on_top=True)
+            if not values['output_dir2'].strip():
+                input_okay_flag = False
+                sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
+            if input_okay_flag:
+                interpret_UI_values2(options, values)
+                try:
+                    distortion_fitter.match_and_fit_distortion(values['-FILE2-'], options, None)
+                except Exception as inst:
+                    traceback.print_exc()
+                    sg.Popup('Error: ' + inst.args[0], keep_on_top=True)    
         if event=='OK':
-            def check_file(s):
-                return s and not s == options['workDir']
             if check_file(values['-FILE-']):
                 input_okay_flag = True
             else:

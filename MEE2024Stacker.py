@@ -34,6 +34,7 @@ options = {
     'workDir': '',                  
     'output_dir': '',
     'database':'',
+    'catalogue':'',
     'k':8,
     'm':30,
     'n':30,
@@ -48,6 +49,7 @@ options = {
     'min_area':2, # minimum area for found centroids (sensitive mode)
     'experimental_background_subtract':False, # use experimental "ring" kernel
     'float_fits':False, # output fits files with float type
+    'max_star_mag_dist':12,
 }
 
 files = []

@@ -49,10 +49,13 @@ def get_bbox(corners):
 
 ###### the distortion fitting and matching function #####
 
-def match_and_fit_distortion(path_data):
+def match_and_fit_distortion(path_data, options, debug_folder=None):
+    path_catalogue = options['catalogue']
+    
     data = np.load(path_data,allow_pickle=True)
     image_size = data['img_shape']
-    assert(data['platesolved']) # need initial platesolve
+    if not data['platesolved']: # need initial platesolve
+        raise Exception("BAD DATA - Data did not have platesolve included!")
     df_id = pd.DataFrame(data=data['identification_arr'],    # values
                          columns=data['identification_arr_cols'])
     df_id = df_id.astype({'RA':float, 'DEC':float, 'px':float, 'py':float, 'magV':float}) # fix datatypes
@@ -101,10 +104,10 @@ def match_and_fit_distortion(path_data):
     ### now try to match other stars
 
     corners = to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
-    dbs = database_lookup2.database_searcher("D:/tyc_dbase4/tyc_main.dat", debug_folder="D:/debugging", star_max_magnitude=12)
+    dbs = database_lookup2.database_searcher(path_catalogue, debug_folder=debug_folder, star_max_magnitude=12)
     #print(corners)
     #TODO: this will be broken if we wrap around 360 degrees
-    startable, starid = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=10.5)
+    startable, starid = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'])
     other_stars_df = pd.DataFrame(data=data['detection_arr'],    # values
                          columns=data['detection_arr_cols'])
     other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
@@ -165,7 +168,8 @@ def match_and_fit_distortion(path_data):
     plt.xlabel('RA')
     plt.ylabel('DEC')
     plt.legend()
-    plt.show()
+    if options['flag_display']:
+        plt.show()
 
     target2 = startable[indices[keep_i, 0], :][0]
     target2 = target2[:, 2:5]
@@ -261,7 +265,8 @@ def match_and_fit_distortion(path_data):
     axs[1,1].legend()
     axs[0,1].scatter(plate2center[:, 0], errors[:, 1], label = 'py-ex')
     axs[0,1].legend()
-    plt.show()
+    if options['flag_display']:
+        plt.show()
 
     mag_errors = np.linalg.norm(transformed_final - target2, axis=1)
     magnitudes = startable[:, 5][indices[keep_i, 0]][0]
@@ -269,7 +274,8 @@ def match_and_fit_distortion(path_data):
     plt.ylabel('error (arcseconds)')
     plt.xlabel('magnitude')
     plt.grid()
-    plt.show()
+    if options['flag_display']:
+        plt.show()
     
 
 if __name__ == '__main__':
@@ -282,5 +288,5 @@ if __name__ == '__main__':
     new_data_path = "D:\output\FULL_DATA1707153601.071847.npz" # Don right calibration
     #new_data_path = "D:\output\FULL_DATA1707167920.0870245.npz" # E:/ZWO#3 2023-10-28/Zenith-01-3s/MEE2024.00003273.Zenith-Center2.fit
     
-    
-    match_and_fit_distortion(new_data_path)
+    options = {"catalogue":"D:/tyc_dbase4/tyc_main.dat", "output_dir":"D:/output", 'max_star_mag_dist':10.5, 'flag_display':True}
+    match_and_fit_distortion(new_data_path, options , "D:/debugging")
