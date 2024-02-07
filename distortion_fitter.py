@@ -11,6 +11,7 @@ from MEE2024util import output_path
 import json
 from pathlib import Path
 import database_cache
+from sklearn.linear_model import LinearRegression
 
 def to_polar(v):
     theta = np.arcsin(v[:, 2])
@@ -55,6 +56,16 @@ def get_bbox(corners):
 ###### the distortion fitting and matching function #####
 
 def match_and_fit_distortion(path_data, options, debug_folder=None):
+
+    #distortion_function = transforms.cubic_distortion
+    #distortion_n_parameters = 8
+
+    #distortion_function = transforms.brown_distortion
+    #distortion_n_parameters = 5
+
+    distortion_function = transforms.skew_distortion
+    distortion_n_parameters = 4
+    
     path_catalogue = options['catalogue']
     basename = Path(path_data).stem
     
@@ -199,6 +210,79 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     resv = to_polar(transforms.linear_transform(result.x, plate2))
     orig = to_polar(target2)
+
+    detransformed = transforms.detransform_vectors(result.x, target2)
+
+    plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
+    plt.scatter(plate2[:, 1], plate2[:, 0], marker='+')
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+    
+    errors = detransformed - plate2
+
+    basis = []
+    for i in range(1, 4): # up to cubic order
+        for j in range(i+1):
+            basis.append(plate2[:, 0] ** j * plate2[:, 1] ** (i-j))
+    basis = np.array(basis).T
+    reg_x = LinearRegression().fit(basis, errors[:, 1]*result.x[0])
+    reg_y = LinearRegression().fit(basis, errors[:, 0]*result.x[0])
+    print(reg_x.coef_, reg_x.intercept_)
+    print(reg_y.coef_, reg_y.intercept_)
+
+    print(reg_x.predict(basis)/ result.x[0] - errors[:, 1])
+    print(reg_y.predict(basis)/ result.x[0] - errors[:, 0])
+
+    plate2_corrected = plate2 + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / result.x[0]
+
+    initial_guess = result.x
+    print('initial guess:', initial_guess) 
+    result = scipy.optimize.minimize(get_fitfunc(plate2_corrected, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
+    print(result)
+    print('rms error corrected solve (arcseconds): ', np.degrees(result.fun**0.5) * 3600)
+
+    transformed_final = transforms.linear_transform(result.x, plate2_corrected, image_size)
+
+    print('final rms error (arcseconds):', np.degrees(result.fun**0.5)*3600)
+
+    output_results = { 'final rms error (arcseconds)': np.degrees(result.fun**0.5)*3600,
+                       '#stars used':plate2.shape[0],
+                       'star max magnitude':options['max_star_mag_dist'],
+                       'platescale (arcseconds/pixel)': np.degrees(result.x[0])*3600,
+                       'RA':np.degrees(result.x[1]),
+                       'DEC':np.degrees(result.x[2]),
+                       'ROLL':np.degrees(result.x[3])-180, # TODO: clarify this dodgy +/- 180 thing
+                       'distortion coeffs x': [reg_x.intercept_]+list( reg_x.coef_),
+                       'distortion coeffs y': [reg_y.intercept_]+list( reg_y.coef_),
+                       #'BROWN_DISTORTION_COEFFICIENTS (pixels) K1, K2, K3, P1, P2':coefficients[:distortion_n_parameters],
+                       }
+    with open(output_path(basename+'distortion_results.txt', options), 'w', encoding="utf-8") as fp:
+        json.dump(output_results, fp, sort_keys=False, indent=4)
+    mag_errors = np.linalg.norm(transformed_final - target2, axis=1)
+    magnitudes = startable[:, 5][indices[keep_i, 0]][0]
+    plt.scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+')
+    plt.ylabel('error (arcseconds)')
+    plt.xlabel('magnitude')
+    plt.grid()
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+
+    detransformed = transforms.detransform_vectors(result.x, target2)
+    plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
+    plt.scatter(plate2_corrected[:, 1], plate2_corrected[:, 0], marker='+')
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+
+    ### remove outliers?
+
+    
+
+    
+    return
+    ####old code ##########
     '''
     plt.scatter(orig[:, 1], orig[:, 0])
     plt.scatter(resv[:, 1], resv[:, 0])
@@ -233,14 +317,65 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     plt.scatter(radii, radial_errors)
     plt.show()
     '''
+    '''
+    radii = np.linalg.norm(plate2center, axis=1)
+    unit_vectors = plate2center/np.reshape(radii, (radii.shape[0], 1))
+
+    radial_errors = np.einsum('ji,ji->j', errors, unit_vectors)
+
+    plt.scatter(radii, radial_errors)
+    plt.show()
+
+    n = 100
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    # For each set of style and range settings, plot n random points in the box
+    # defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
+    
+    ax.scatter(plate2center[:,1], plate2center[:, 0], radial_errors, marker='+')
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+
+    plt.show()
+    '''
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    # For each set of style and range settings, plot n random points in the box
+    # defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
+    
+    ax.scatter(plate2center[:,1], plate2center[:, 0], errors[:, 1], marker='+')
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('x-error')
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    # For each set of style and range settings, plot n random points in the box
+    # defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
+    
+    ax.scatter(plate2center[:,1], plate2center[:, 0], errors[:, 0], marker='+')
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('y-error')
+
+    if options['flag_display']:
+        plt.show()
+    plt.close()
     # optimize distortion function
-    f3 = get_d_fitfunc(plate2, target2, result.x, transform_function=transforms.brown_distortion, img_shape=image_size)
-    initial_guess = [0,0,0, 0]
-    result_d = scipy.optimize.minimize(f3, initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
+    f3 = get_d_fitfunc(plate2, target2, result.x, transform_function=distortion_function, img_shape=image_size)
+    initial_guess = [0 for _ in range(distortion_n_parameters)]
+    result_d = scipy.optimize.minimize(f3, initial_guess, method = 'Nelder-Mead', options={'maxfev':distortion_n_parameters*800})  # BFGS doesn't like something here
     print(result_d)
     print('rms error distortion solve: ', result_d.fun**0.5)
     # optimize linear function again
-    f4 = get_e_fitfunc(plate2, target2, result_d.x, transform_function=transforms.brown_distortion, img_shape=image_size)
+    f4 = get_e_fitfunc(plate2, target2, result_d.x, transform_function=distortion_function, img_shape=image_size)
     initial_guess = result.x
     result_e = scipy.optimize.minimize(f4, initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
     print(result_e)
@@ -248,18 +383,18 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     
     coefficients = list(result_d.x) + list(result_e.x)
     print('final coefficients:', coefficients, f'from fitting {plate2.shape[0]} stars')
-    transformed_final = transforms.brown_distortion(coefficients, plate2, image_size)
+    transformed_final = distortion_function(coefficients, plate2, image_size)
 
     print('final rms error (arcseconds):', np.degrees(result_e.fun**0.5)*3600)
 
     output_results = { 'final rms error (arcseconds)': np.degrees(result_e.fun**0.5)*3600,
                        '#stars used':plate2.shape[0],
                        'star max magnitude':options['max_star_mag_dist'],
-                       'platescale (arcseconds/pixel)': np.degrees(coefficients[4])*3600,
-                       'RA':np.degrees(coefficients[5]),
-                       'DEC':np.degrees(coefficients[6]),
-                       'ROLL':np.degrees(coefficients[7])-180, # TODO: clarify this dodgy +/- 180 thing
-                       'BROWN_DISTORTION_COEFFICIENTS (pixels) K1, K2, P1, P2':coefficients[:4],
+                       'platescale (arcseconds/pixel)': np.degrees(coefficients[distortion_n_parameters])*3600,
+                       'RA':np.degrees(coefficients[distortion_n_parameters+1]),
+                       'DEC':np.degrees(coefficients[distortion_n_parameters+2]),
+                       'ROLL':np.degrees(coefficients[distortion_n_parameters+3])-180, # TODO: clarify this dodgy +/- 180 thing
+                       'BROWN_DISTORTION_COEFFICIENTS (pixels) K1, K2, K3, P1, P2':coefficients[:distortion_n_parameters],
                        }
     with open(output_path(basename+'distortion_results.txt', options), 'w', encoding="utf-8") as fp:
         json.dump(output_results, fp, sort_keys=False, indent=4)
@@ -307,6 +442,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     if options['flag_display']:
         plt.show()
     plt.close()
+
+    #####
+
     
     
 

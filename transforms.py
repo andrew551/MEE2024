@@ -1,6 +1,20 @@
 import numpy as np
 from scipy.spatial.transform import Rotation
 
+def detransform_vectors(x, v):
+    scale, ra, dec, roll = x[0], x[1], x[2], x[3]
+
+    r = Rotation.from_euler('zyx', [-ra, dec, -roll])
+    rotated = r.apply(v)
+
+    icoord0 = np.arcsin(rotated[:, 2])
+
+    icoord1 = np.arcsin(rotated[:, 1] / np.cos(icoord0))
+    icoord1 *= np.cos(icoord0)
+
+    return np.array([icoord0, icoord1]).T / scale
+    
+
 def rotate_icoords(x, icoords):
     ra, dec, roll = x[0], x[1], x[2]
     icoords[:, 1] = icoords[:, 1] / np.cos(icoords[:, 0]) # spherical coordinate curveture
@@ -41,14 +55,16 @@ def mixed_linear_transform(x, q, img_shape=None):
 
 # add img_shape to use normalised quantities
 def brown_distortion(x, q, img_shape):
-    K1, K2, P1, P2 = x[0], x[1], x[2], x[3]
+    K1, K2, K3, P1, P2 = x[0], x[1], x[2], x[3], x[4]
 
     w = q / max(img_shape) * 2
 
     r2 = w[:, 0]**2 + w[:, 1]**2
     r4 = r2*r2
+    r6 = r4*r2
 
-    radial = K1 * r2 + K2 * r4
+    # the radial function is based on even Legendre polynomials, with the constant removed
+    radial = K1 * (3*r2)/2 + K2 * (35*r4-30*r2)/8 + K3 * (231*r6-315*r4+105*r2)/16
     
     correction0 = w[:, 0] * radial + P1 * (r2 + 2 * w[:, 0]**2) + 2 * P2 * w[:, 0]*w[:, 1]
     correction1 = w[:, 1] * radial + P2 * (r2 + 2 * w[:, 1]**2) + 2 * P1 * w[:, 0]*w[:, 1]
@@ -56,7 +72,51 @@ def brown_distortion(x, q, img_shape):
     q_corrected=np.copy(q)
     q_corrected[:, 0] += correction0
     q_corrected[:, 1] += correction1
+    return linear_transform(x[5:], q_corrected)
+
+def skew_distortion(x, q, img_shape):
+
+    w = q / max(img_shape) * 2
+    correction0 = w[:, 0] ** 3 * x[0] + w[:, 0] * w[:, 1]**2 * x[1]
+    correction1 = w[:, 1] ** 3 * x[2] + w[:, 1] * w[:, 0]**2 * x[3]
+
+    q_corrected=np.copy(q)
+    q_corrected[:, 0] += correction0
+    q_corrected[:, 1] += correction1
     return linear_transform(x[4:], q_corrected)
+    
+
+def cubic_distortion(x, q, img_shape):
+
+    w = q / max(img_shape) * 2
+    c0 = np.zeros((2, 2, 2))
+    c0[0, 0, 0] = x[0]
+    c0[1, 0, 0] = x[1] / 3
+    c0[0, 1, 0] = c0[1, 0, 0]
+    c0[0, 0, 1] = c0[1, 0, 0]
+    c0[1, 1, 0] = x[2] / 3
+    c0[0, 1, 1] = c0[1, 1, 0]
+    c0[1, 0, 1] = c0[1, 1, 0]
+    c0[1, 1, 1] = x[3]
+    c1 = np.zeros((2, 2, 2))
+    c1[0, 0, 0] = x[4]
+    c1[1, 0, 0] = x[5] / 3
+    c1[0, 1, 0] = c1[1, 0, 0]
+    c1[0, 0, 1] = c1[1, 0, 0]
+    c1[1, 1, 0] = x[6] / 3
+    c1[0, 1, 1] = c1[1, 1, 0]
+    c1[1, 0, 1] = c1[1, 1, 0]
+    c1[1, 1, 1] = x[7]
+    
+    cubic_0 = np.einsum('ij,ik,il,jkl->i', w, w, w, c0)
+    cubic_1 = np.einsum('ij,ik,il,jkl->i', w, w, w, c1)
+    cubic_correction = np.array([cubic_0, cubic_1]).T
+
+    #matrix = np.array([[x[8], x[9]], [x[10], x[11]]])
+    #lin_correction = np.einsum('ij,kj->ki', matrix, q)
+    
+    q_corrected = q + cubic_correction #+ lin_correction #+ quad_correction+cubic_correction # TODO: plus cubic term...
+    return linear_transform(x[8:], q_corrected)
 
 # perform a general transform with rotation and (shearless) scaling
 # so 3 + 1 + 6 = 10 degrees of freedom in x
