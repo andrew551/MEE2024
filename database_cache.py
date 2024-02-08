@@ -1,5 +1,6 @@
 import tetra3
 import database_lookup2
+import gaia_search
 
 class _cache:
 
@@ -16,6 +17,9 @@ def open_database(path):
 
 def open_catalogue(path, debug_folder=None):
     if not path in _cache.catalogue_cache:
-        _cache.catalogue_cache[path] = database_lookup2.database_searcher(path, debug_folder=debug_folder, star_max_magnitude=12)
+        if path == 'gaia':
+            _cache.catalogue_cache[path] = gaia_search.dbs_gaia()
+        else:
+            _cache.catalogue_cache[path] = database_lookup2.database_searcher(path, debug_folder=debug_folder, star_max_magnitude=12)
 
     return _cache.catalogue_cache[path]

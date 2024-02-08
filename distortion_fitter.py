@@ -276,6 +276,11 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         plt.show()
     plt.close()
 
+    plt.scatter((plate2_corrected-detransformed)[:, 1], (plate2_corrected-detransformed)[:, 0], marker='+')
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+
     ### remove outliers?
 
     
