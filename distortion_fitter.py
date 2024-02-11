@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 import database_cache
 from sklearn.linear_model import LinearRegression
+import pandas as pd
+import datetime
 
 def to_polar(v):
     theta = np.arcsin(v[:, 2])
@@ -98,6 +100,30 @@ def do_cubic_fit(plate2, target2, initial_guess, options):
     print('rms error corrected solve (arcseconds): ', np.degrees(result.fun**0.5) * 3600)
     return result, plate2_corrected, reg_x, reg_y
 
+def show_error_coherence(positions, errors, options):
+    if not options['flag_display']:
+        return
+    dist = []
+    corr = []
+    for i in range(positions.shape[0]):
+        for j in range(positions.shape[0]):
+            if i == j:
+                continue
+            r = np.linalg.norm(positions[i, :] - positions[j, :])
+            corr_ij = np.dot(errors[i, :], errors[j, :]) / np.linalg.norm(errors[i, :]) / np.linalg.norm(errors[j, :])
+            dist.append(r)
+            corr.append(corr_ij)
+
+    statistic, bin_edges, binnumber = scipy.stats.binned_statistic(dist, corr, bins = 20, range=(0, 1000))
+    
+    plt.plot(bin_edges[1:], statistic)
+    plt.ylabel('error correlation')
+    plt.xlabel('r / pixels')
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+    
+
 def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     #distortion_function = transforms.cubic_distortion
@@ -168,7 +194,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     dbs = database_cache.open_catalogue(path_catalogue)
     #print(corners)
     #TODO: this will be broken if we wrap around 360 degrees
-    startable, starid = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'])
+    startable, starid = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=datetime.datetime.fromisoformat(options['observation_date']).toordinal()/365.24+1) # convert to decimal year (approximate)
     other_stars_df = pd.DataFrame(data=data['detection_arr'],    # values
                          columns=data['detection_arr_cols'])
     other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
@@ -234,9 +260,11 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     plt.close()
     '''
 
-    target2 = startable[indices[keep_i, 0], :][0]
-    target2 = target2[:, 2:5]
+    target2_table = startable[indices[keep_i, 0], :][0]
+    target2 = target2_table[:, 2:5]
     plate2 = all_star_plate[keep_i, :][0]
+    starid = starid[indices[keep_i, 0]][0]
+    print(starid.shape)
     #print(plate2)
     #print(target2)
 
@@ -255,8 +283,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     keep_j = errors_arcseconds < 2
 
     plate2 = plate2[keep_j]
+    target2_table = target2_table[keep_j]
     target2 = target2[keep_j]
     magnitudes = magnitudes[keep_j]
+    starid = starid[keep_j]
     print(f'{np.sum(1-keep_j)} outliers more than {2} arcseconds removed')
     # do 2nd fit with outliers removed
     
@@ -289,6 +319,14 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         plt.show()
     plt.close()
 
+    plt.scatter(target2_table[:, 6], np.degrees(mag_errors)*3600, marker='+')
+    plt.ylabel('error (arcseconds)')
+    plt.xlabel('parallax')
+    plt.grid()
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+
     detransformed = transforms.detransform_vectors(result.x, target2)
     plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
     plt.scatter(plate2_corrected[:, 1], plate2_corrected[:, 0], marker='+')
@@ -296,11 +334,49 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         plt.show()
     plt.close()
 
-    plt.scatter((plate2_corrected-detransformed)[:, 1], (plate2_corrected-detransformed)[:, 0], marker='+')
+    px_errors = plate2_corrected-detransformed
+    plt.scatter(px_errors[:, 1], px_errors[:, 0], marker='+')
+    plt.title('errors (pixels)')
     if options['flag_display']:
         plt.show()
     plt.close()
 
+    radii = np.linalg.norm(plate2, axis=1)
+    plt.scatter(radii, np.degrees(mag_errors)*3600, marker='+')
+    plt.xlabel('r')
+    plt.ylabel('error')
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+    
+    fig, axs = plt.subplots(2, 2)
+    axs[0,0].scatter(plate2[:, 1], px_errors[:, 0], label = 'px-ey')
+    axs[0,0].legend()
+    axs[1,0].scatter(plate2[:, 1], px_errors[:, 1], label = 'px-ex')
+    axs[1,0].legend()
+    axs[1,1].scatter(plate2[:, 0], px_errors[:, 0], label = 'py-ey')
+    axs[1,1].legend()
+    axs[0,1].scatter(plate2[:, 0], px_errors[:, 1], label = 'py-ex')
+    axs[0,1].legend()
+    if options['flag_display']:
+        plt.show()
+
+    show_error_coherence(plate2, px_errors, options)
+
+    df_identification = pd.DataFrame({'px': plate2[:, 1]+image_size[1]/2,
+                               'py': plate2[:, 0]+image_size[0]/2,
+                               'px_dist': plate2_corrected[:, 1]+image_size[1]/2,
+                               'py_dist': plate2_corrected[:, 0]+image_size[0]/2,
+                               'ID': ['gaia:'+str(_) for _ in starid],
+                               'RA(catalog)': np.degrees(target2_table[:, 0]),
+                               'DEC(catalog)': np.degrees(target2_table[:, 1]),
+                               'RA(obs)': to_polar(transformed_final)[:, 1],
+                               'DEC(obs)': to_polar(transformed_final)[:, 0],
+                               'magV': target2_table[:, 5],
+                                'error(")':errors_arcseconds})
+            
+    df_identification.to_csv(output_path('CATALOGUE_MATCHED_ERRORS'+basename+'.csv', options))
+    
     
     return
     ####old code ##########
@@ -326,6 +402,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[0,1].legend()
     if options['flag_display']:
         plt.show()
+        
     '''
     plt.scatter(plate2center[:, 1]*plate2center[:, 0], errors[:, 1], label = 'pxpy-ex')
     plt.show()
@@ -476,7 +553,7 @@ if __name__ == '__main__':
 
     #new_data_path = "D:\output\FULL_DATA1707152555.3757603.npz" # zwo 3 zd 30 centre
     #new_data_path = "D:\output\FULL_DATA1707152800.7054024.npz" # zwo 3 zd 45 centre
-    new_data_path = "D:\output\FULL_DATA1707153601.071847.npz" # Don right calibration
+    new_data_path = "D:/output/FULL_DATA1707153601.071847.npz" # Don right calibration
     #new_data_path = "D:\output\FULL_DATA1707167920.0870245.npz" # E:/ZWO#3 2023-10-28/Zenith-01-3s/MEE2024.00003273.Zenith-Center2.fit
     
     options = {"catalogue":"D:/tyc_dbase4/tyc_main.dat", "output_dir":"D:/output", 'max_star_mag_dist':10.5, 'flag_display':True}

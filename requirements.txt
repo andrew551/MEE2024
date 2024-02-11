@@ -9,4 +9,4 @@ Astroquery
 PySimpleGUI
 OpenCV-python
 Pandas
-Tetra3
+tetra3

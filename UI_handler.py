@@ -10,7 +10,8 @@ import json
 import os
 import traceback
 from PIL import Image, ImageTk
-import io 
+import io
+import datetime
 from MEE2024util import resource_path, _version
 import distortion_fitter
 
@@ -89,6 +90,11 @@ def interpret_UI_values2(options, ui_values):
         options['max_star_mag_dist'] = float(ui_values['max_star_mag_dist']) if ui_values['max_star_mag_dist'] else 12
     except ValueError : 
         raise Exception('invalid max_star_mag_dist value!')
+    try :
+        _ = datetime.datetime.fromisoformat(ui_values['observation_date'])
+        options['observation_date'] = ui_values['observation_date']
+    except ValueError : 
+        raise Exception('invalid obsveration date (use YYYY-MM-DD format)!')
         
 # ------------------------------------------------------------------------------
 # use PIL to read data of one image
@@ -171,7 +177,8 @@ def inputUI(options):
         [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir2'),
             sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
         [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics2')],
-        [sg.Text('Maximum star magnitude',size=(32,1)), sg.Input(default_text=str(options['max_star_mag_dist']),size=(8,1),key='max_star_mag_dist',enable_events=True)],
+        [sg.Text('Maximum star magnitude',size=(32,1)), sg.Input(default_text=str(options['max_star_mag_dist']),size=(12,1),key='max_star_mag_dist',enable_events=True)],
+        [sg.Text('Observation Date (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True)],
         [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
     ]
 
@@ -218,12 +225,12 @@ def inputUI(options):
                 input_okay_flag = False
                 sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
             if input_okay_flag:
-                interpret_UI_values2(options, values)
                 try:
+                    interpret_UI_values2(options, values)
                     distortion_fitter.match_and_fit_distortion(values['-FILE2-'], options, None)
                 except Exception as inst:
                     traceback.print_exc()
-                    sg.Popup('Error: ' + inst.args[0], keep_on_top=True)    
+                    sg.Popup('Error: ' + str(inst.args[0]), keep_on_top=True)    
         if event=='OK':
             if check_file(values['-FILE-']):
                 input_okay_flag = True

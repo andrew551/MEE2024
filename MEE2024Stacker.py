@@ -27,6 +27,7 @@ import time
 from multiprocessing import freeze_support
 import glob
 import MEE2024util
+import datetime
 
 options = {
     'flag_display':True,
@@ -50,6 +51,7 @@ options = {
     'experimental_background_subtract':False, # use experimental "ring" kernel
     'float_fits':False, # output fits files with float type
     'max_star_mag_dist':12,
+    'observation_date':'2024-01-01',
 }
 
 files = []
