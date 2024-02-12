@@ -83,18 +83,24 @@ def interpret_UI_values(options, ui_values, no_file = False):
 
 
 def interpret_UI_values2(options, ui_values):
+    check_files([ui_values['-FILE2-']])
     options['catalogue'] = ui_values['-CT-']
     options['output_dir'] = ui_values['output_dir2']
     options['flag_display'] = ui_values['Show graphics2']
     try : 
         options['max_star_mag_dist'] = float(ui_values['max_star_mag_dist']) if ui_values['max_star_mag_dist'] else 12
-    except ValueError : 
+    except ValueError: 
         raise Exception('invalid max_star_mag_dist value!')
     try :
         _ = datetime.datetime.fromisoformat(ui_values['observation_date'])
         options['observation_date'] = ui_values['observation_date']
-    except ValueError : 
+    except ValueError: 
         raise Exception('invalid obsveration date (use YYYY-MM-DD format)!')
+    try : 
+        options['distortion_fit_tol'] = float(ui_values['distortion_fit_tol']) if ui_values['max_star_mag_dist'] else 12
+    except ValueError: 
+        raise Exception('invalid distortion_fit_tol value!')
+    
         
 # ------------------------------------------------------------------------------
 # use PIL to read data of one image
@@ -179,6 +185,8 @@ def inputUI(options):
         [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics2')],
         [sg.Text('Maximum star magnitude',size=(32,1)), sg.Input(default_text=str(options['max_star_mag_dist']),size=(12,1),key='max_star_mag_dist',enable_events=True)],
         [sg.Text('Observation Date (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True)],
+        [sg.Text('Distortion fit tolerance (as)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
+
         [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
     ]
 

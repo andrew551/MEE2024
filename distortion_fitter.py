@@ -14,6 +14,7 @@ import database_cache
 from sklearn.linear_model import LinearRegression
 import pandas as pd
 import datetime
+import distortion_cubic
 
 def to_polar(v):
     theta = np.arcsin(v[:, 2])
@@ -55,57 +56,21 @@ def get_bbox(corners):
     return one_dim(corners[:, 1]), one_dim(corners[:, 0])
 
 
-###### the distortion fitting and matching function #####
 
-def do_cubic_fit(plate2, target2, initial_guess, options):
-    print('initial guess:', initial_guess) 
-    result = scipy.optimize.minimize(get_fitfunc(plate2, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
-    print(result)
-    print('rms error linear solve: ', result.fun**0.5)
 
-    #resi = to_polar(transforms.linear_transform(initial_guess, plate2, image_size))
-
-    resv = to_polar(transforms.linear_transform(result.x, plate2))
-    orig = to_polar(target2)
-
-    detransformed = transforms.detransform_vectors(result.x, target2)
-
-    plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
-    plt.scatter(plate2[:, 1], plate2[:, 0], marker='+')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-    
-    errors = detransformed - plate2
-
-    basis = []
-    for i in range(1, 4): # up to cubic order
-        for j in range(i+1):
-            basis.append(plate2[:, 0] ** j * plate2[:, 1] ** (i-j))
-    basis = np.array(basis).T
-    reg_x = LinearRegression().fit(basis, errors[:, 1]*result.x[0])
-    reg_y = LinearRegression().fit(basis, errors[:, 0]*result.x[0])
-    print(reg_x.coef_, reg_x.intercept_)
-    print(reg_y.coef_, reg_y.intercept_)
-
-    print(reg_x.predict(basis)/ result.x[0] - errors[:, 1])
-    print(reg_y.predict(basis)/ result.x[0] - errors[:, 0])
-
-    plate2_corrected = plate2 + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / result.x[0]
-
-    initial_guess = result.x
-    print('initial guess:', initial_guess) 
-    result = scipy.optimize.minimize(get_fitfunc(plate2_corrected, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
-    print(result)
-    print('rms error corrected solve (arcseconds): ', np.degrees(result.fun**0.5) * 3600)
-    return result, plate2_corrected, reg_x, reg_y
 
 def show_error_coherence(positions, errors, options):
     if not options['flag_display']:
         return
     dist = []
     corr = []
+
+    nn_rs = []
+    nn_corrs = []
+    
     for i in range(positions.shape[0]):
+        min_r = 99999
+        min_corr = -13
         for j in range(positions.shape[0]):
             if i == j:
                 continue
@@ -113,8 +78,16 @@ def show_error_coherence(positions, errors, options):
             corr_ij = np.dot(errors[i, :], errors[j, :]) / np.linalg.norm(errors[i, :]) / np.linalg.norm(errors[j, :])
             dist.append(r)
             corr.append(corr_ij)
+            if r < min_r:
+                min_corr = corr_ij
+                min_r = r
+        nn_rs.append(min_r)
+        nn_corrs.append(min_corr)
 
-    statistic, bin_edges, binnumber = scipy.stats.binned_statistic(dist, corr, bins = 20, range=(0, 1000))
+    print(f'nearest neighbour corr={np.mean(nn_corrs)}, mean distance:{np.mean(nn_rs)}')
+                
+
+    statistic, bin_edges, binnumber = scipy.stats.binned_statistic(dist, corr, bins = 8, range=(0, 1000))
     
     plt.plot(bin_edges[1:], statistic)
     plt.ylabel('error correlation')
@@ -272,38 +245,46 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     initial_guess = result.x
 
-    result, plate2_corrected, reg_x, reg_y = do_cubic_fit(plate2, target2, initial_guess, options)
+    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, target2, initial_guess, image_size, options)
 
-    transformed_final = transforms.linear_transform(result.x, plate2_corrected, image_size)
+    transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - target2, axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
     magnitudes = startable[:, 5][indices[keep_i, 0]][0]
-    print('pre-outlier removed rms error (arcseconds):', np.degrees(result.fun**0.5)*3600)
+    print('pre-outlier removed rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
 
-    keep_j = errors_arcseconds < 2
+
+
+    
+
+
+    keep_j = errors_arcseconds < options['distortion_fit_tol']
 
     plate2 = plate2[keep_j]
     target2_table = target2_table[keep_j]
     target2 = target2[keep_j]
     magnitudes = magnitudes[keep_j]
     starid = starid[keep_j]
-    print(f'{np.sum(1-keep_j)} outliers more than {2} arcseconds removed')
+    print(f'{np.sum(1-keep_j)} outliers more than {options["distortion_fit_tol"]} arcseconds removed')
     # do 2nd fit with outliers removed
     
-    result, plate2_corrected, reg_x, reg_y = do_cubic_fit(plate2, target2, initial_guess, options)
-    transformed_final = transforms.linear_transform(result.x, plate2_corrected, image_size)
+    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, target2, initial_guess, image_size, options)
+    transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - target2, axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
     
-    print('final rms error (arcseconds):', np.degrees(result.fun**0.5)*3600)
+    print('final rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
 
-    output_results = { 'final rms error (arcseconds)': np.degrees(result.fun**0.5)*3600,
+
+
+
+    output_results = { 'final rms error (arcseconds)': np.degrees(np.mean(mag_errors**2)**0.5)*3600,
                        '#stars used':plate2.shape[0],
                        'star max magnitude':options['max_star_mag_dist'],
-                       'platescale (arcseconds/pixel)': np.degrees(result.x[0])*3600,
-                       'RA':np.degrees(result.x[1]),
-                       'DEC':np.degrees(result.x[2]),
-                       'ROLL':np.degrees(result.x[3])-180, # TODO: clarify this dodgy +/- 180 thing
+                       'platescale (arcseconds/pixel)': np.degrees(result[0])*3600,
+                       'RA':np.degrees(result[1]),
+                       'DEC':np.degrees(result[2]),
+                       'ROLL':np.degrees(result[3])-180, # TODO: clarify this dodgy +/- 180 thing
                        'distortion coeffs x': [reg_x.intercept_]+list( reg_x.coef_),
                        'distortion coeffs y': [reg_y.intercept_]+list( reg_y.coef_),
                        #'BROWN_DISTORTION_COEFFICIENTS (pixels) K1, K2, K3, P1, P2':coefficients[:distortion_n_parameters],
@@ -327,7 +308,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         plt.show()
     plt.close()
 
-    detransformed = transforms.detransform_vectors(result.x, target2)
+    detransformed = transforms.detransform_vectors(result, target2)
     plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
     plt.scatter(plate2_corrected[:, 1], plate2_corrected[:, 0], marker='+')
     if options['flag_display']:
@@ -377,6 +358,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
             
     df_identification.to_csv(output_path('CATALOGUE_MATCHED_ERRORS'+basename+'.csv', options))
     
+
+
     
     return
     ####old code ##########

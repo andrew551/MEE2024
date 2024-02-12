@@ -52,6 +52,7 @@ options = {
     'float_fits':False, # output fits files with float type
     'max_star_mag_dist':12,
     'observation_date':'2024-01-01',
+    'distortion_fit_tol':1, # arcseconds tolerance
 }
 
 files = []
