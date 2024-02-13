@@ -57,7 +57,26 @@ def get_bbox(corners):
 
 
 
+def get_nn_correlation_error(positions, errors, options):
+    nn_rs = []
+    nn_corrs = []
+    
+    for i in range(positions.shape[0]):
+        min_r = 99999
+        min_corr = -13
+        for j in range(positions.shape[0]):
+            if i == j:
+                continue
+            r = np.linalg.norm(positions[i, :] - positions[j, :])
+            corr_ij = np.dot(errors[i, :], errors[j, :]) / np.linalg.norm(errors[i, :]) / np.linalg.norm(errors[j, :])
+            if r < min_r:
+                min_corr = corr_ij
+                min_r = r
+        nn_rs.append(min_r)
+        nn_corrs.append(min_corr)
 
+    print(f'nearest neighbour corr={np.mean(nn_corrs)}, mean distance:{np.mean(nn_rs)}')
+    return np.mean(nn_corrs), np.mean(nn_rs)
 
 def show_error_coherence(positions, errors, options):
     if not options['flag_display']:
@@ -219,19 +238,20 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     obs_matched = transformed_all[keep_i, :][0]
     cata_matched = candidate_stars[indices[keep_i, 0], :][0]
-    '''
+    
     plt.scatter(cata_matched[:, 1], cata_matched[:, 0], label='catalogue')
     plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations')
     for i in range(startable.shape[0]):
         if i in indices[keep_i, 0]:
-            plt.gca().annotate(str(starid[i, :]) + f'\nMag={startable[i, 5]:.1f}', (np.degrees(startable[i, 0]), np.degrees(startable[i, 1])), color='black', fontsize=5)
+            plt.gca().annotate(str(starid[i]) + f'\nMag={startable[i, 5]:.1f}', (np.degrees(startable[i, 0]), np.degrees(startable[i, 1])), color='black', fontsize=5)
     plt.xlabel('RA')
     plt.ylabel('DEC')
+    plt.title('initial rough fit')
     plt.legend()
     if options['flag_display']:
         plt.show()
     plt.close()
-    '''
+    
 
     target2_table = startable[indices[keep_i, 0], :][0]
     target2 = target2_table[:, 2:5]
@@ -245,18 +265,13 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     initial_guess = result.x
 
-    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, target2, initial_guess, image_size, options)
+    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, target2, initial_guess, image_size, dict(options, **{'flag_display':False}))
 
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - target2, axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
     magnitudes = startable[:, 5][indices[keep_i, 0]][0]
     print('pre-outlier removed rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
-
-
-
-    
-
 
     keep_j = errors_arcseconds < options['distortion_fit_tol']
 
@@ -274,61 +289,64 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     errors_arcseconds = np.degrees(mag_errors)*3600
     
     print('final rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
-
-
-
+    detransformed = transforms.detransform_vectors(result, target2)
+    px_errors = plate2_corrected-detransformed
+    nn_corr, nn_r = get_nn_correlation_error(plate2, px_errors, options)
 
     output_results = { 'final rms error (arcseconds)': np.degrees(np.mean(mag_errors**2)**0.5)*3600,
                        '#stars used':plate2.shape[0],
                        'star max magnitude':options['max_star_mag_dist'],
+                       'error tolerance (as)':options['distortion_fit_tol'],
                        'platescale (arcseconds/pixel)': np.degrees(result[0])*3600,
                        'RA':np.degrees(result[1]),
                        'DEC':np.degrees(result[2]),
                        'ROLL':np.degrees(result[3])-180, # TODO: clarify this dodgy +/- 180 thing
                        'distortion coeffs x': [reg_x.intercept_]+list( reg_x.coef_),
                        'distortion coeffs y': [reg_y.intercept_]+list( reg_y.coef_),
-                       #'BROWN_DISTORTION_COEFFICIENTS (pixels) K1, K2, K3, P1, P2':coefficients[:distortion_n_parameters],
+                       'nearest-neighbour error correlation': nn_corr,
+                       'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
                        }
     with open(output_path(basename+'distortion_results.txt', options), 'w', encoding="utf-8") as fp:
         json.dump(output_results, fp, sort_keys=False, indent=4)
+
+    fig, axs = plt.subplots(2, 2)
     
-    plt.scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+')
-    plt.ylabel('error (arcseconds)')
-    plt.xlabel('magnitude')
-    plt.grid()
+    axs[0, 0].scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+')
+    axs[0, 0].set_ylabel('error (arcseconds)')
+    axs[0, 0].set_xlabel('magnitude')
+    axs[0, 0].grid()
+    
+
+    axs[0, 1].scatter(target2_table[:, 6], np.degrees(mag_errors)*3600, marker='+')
+    axs[0, 1].set_ylabel('residual error (arcseconds)')
+    axs[0, 1].set_xlabel('parallax (mas)')
+    axs[0, 1].grid()
+
+    axs[1, 0].scatter(px_errors[:, 1], px_errors[:, 0], marker='+')
+    axs[1, 0].set_ylabel('y-error(pixels)')
+    axs[1, 0].set_xlabel('x-error(pixels)')
+    axs[1, 0].grid()
+    radii = np.linalg.norm(plate2, axis=1)
+    axs[1, 1].scatter(radii, np.degrees(mag_errors)*3600, marker='+')
+    axs[1, 1].set_ylabel('error (pixels)')
+    axs[1, 1].set_xlabel('radial coordinate (pixels)')
+    axs[1, 1].grid()
     if options['flag_display']:
         plt.show()
     plt.close()
 
-    plt.scatter(target2_table[:, 6], np.degrees(mag_errors)*3600, marker='+')
-    plt.ylabel('error (arcseconds)')
-    plt.xlabel('parallax')
-    plt.grid()
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-
-    detransformed = transforms.detransform_vectors(result, target2)
+    '''
     plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
     plt.scatter(plate2_corrected[:, 1], plate2_corrected[:, 0], marker='+')
     if options['flag_display']:
         plt.show()
     plt.close()
+    '''
 
-    px_errors = plate2_corrected-detransformed
-    plt.scatter(px_errors[:, 1], px_errors[:, 0], marker='+')
-    plt.title('errors (pixels)')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
+    
 
-    radii = np.linalg.norm(plate2, axis=1)
-    plt.scatter(radii, np.degrees(mag_errors)*3600, marker='+')
-    plt.xlabel('r')
-    plt.ylabel('error')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
+    '''
+    
     
     fig, axs = plt.subplots(2, 2)
     axs[0,0].scatter(plate2[:, 1], px_errors[:, 0], label = 'px-ey')
@@ -341,8 +359,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[0,1].legend()
     if options['flag_display']:
         plt.show()
-
-    show_error_coherence(plate2, px_errors, options)
+    '''
+    #show_error_coherence(plate2, px_errors, options)
 
     df_identification = pd.DataFrame({'px': plate2[:, 1]+image_size[1]/2,
                                'py': plate2[:, 0]+image_size[0]/2,

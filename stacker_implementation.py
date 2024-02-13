@@ -568,6 +568,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                          detection_arr_cols = df_detection.columns.values,
                          identification_arr=identification_arr,
                          identification_arr_cols=identification_arr_cols,
+                         source_files=str(files),
              )
                                                     
 

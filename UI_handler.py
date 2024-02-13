@@ -236,6 +236,7 @@ def inputUI(options):
                 try:
                     interpret_UI_values2(options, values)
                     distortion_fitter.match_and_fit_distortion(values['-FILE2-'], options, None)
+                    sg.Popup('Done!', keep_on_top=True)
                 except Exception as inst:
                     traceback.print_exc()
                     sg.Popup('Error: ' + str(inst.args[0]), keep_on_top=True)    

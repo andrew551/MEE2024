@@ -21,6 +21,13 @@ def get_fitfunc(plate, target, transform_function=transforms.linear_transform, i
 
 ###### the distortion fitting and matching function #####
 
+def get_basis(y, x, w, m):
+    basis = []
+    for i in range(1, 4): # up to cubic order
+        for j in range(i+1):
+            basis.append(y ** j * x ** (i-j) / w**i)
+    return np.array(basis).T
+
 def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
     print('initial guess:', initial_guess) 
     result = scipy.optimize.minimize(get_fitfunc(plate2, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
@@ -35,58 +42,13 @@ def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
     detransformed = transforms.detransform_vectors(result.x, target2)
     errors = detransformed - plate2
 
-    plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
-    plt.scatter(plate2[:, 1], plate2[:, 0], marker='+')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-
-
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')    
-    ax.scatter(plate2[:,1], plate2[:, 0], errors[:, 1], marker='+')
-
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('x-error')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')    
-    ax.scatter(plate2[:,1], plate2[:, 0], errors[:, 0], marker='+')
-
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('y-error')
-
-    if options['flag_display']:
-        plt.show()
-    plt.close()
+    w = (max(img_shape)/2) # 1 # for astrometric convention
+    m = 1 #result.x[0] # for astrometric convention
     
-
-
-    fig, axs = plt.subplots(2, 2)
-    axs[0,0].scatter(plate2[:, 1], errors[:, 0], label = 'px-ey')
-    axs[0,0].legend()
-    axs[1,0].scatter(plate2[:, 1], errors[:, 1], label = 'px-ex')
-    axs[1,0].legend()
-    axs[1,1].scatter(plate2[:, 0], errors[:, 0], label = 'py-ey')
-    axs[1,1].legend()
-    axs[0,1].scatter(plate2[:, 0], errors[:, 1], label = 'py-ex')
-    axs[0,1].legend()
-    plt.title('errors before correction')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
+    basis = get_basis(plate2[:, 0], plate2[:, 1], w, m)
     
-    basis = []
-    for i in range(1, 4): # up to cubic order
-        for j in range(i+1):
-            basis.append(plate2[:, 0] ** j * plate2[:, 1] ** (i-j) / (max(img_shape)/2)**i)
-    basis = np.array(basis).T
-    m = result.x[0]
-    m = 1
+    
+    
     reg_x = LinearRegression().fit(basis, errors[:, 1]*m)
     reg_y = LinearRegression().fit(basis, errors[:, 0]*m)
     print(reg_x.coef_, reg_x.intercept_)
@@ -124,59 +86,6 @@ def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
     detransformed = transforms.detransform_vectors(new_result, target2)
     errors = detransformed - plate2
 
-    plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
-    plt.scatter(plate2[:, 1], plate2[:, 0], marker='+')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-
-
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')    
-    ax.scatter(plate2[:,1], plate2[:, 0], errors[:, 1], marker='+')
-
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('x-error')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')    
-    ax.scatter(plate2[:,1], plate2[:, 0], errors[:, 0], marker='+')
-
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('y-error')
-
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-    
-
-
-    fig, axs = plt.subplots(2, 2)
-    axs[0,0].scatter(plate2[:, 1], errors[:, 0], label = 'px-ey')
-    axs[0,0].legend()
-    axs[1,0].scatter(plate2[:, 1], errors[:, 1], label = 'px-ex')
-    axs[1,0].legend()
-    axs[1,1].scatter(plate2[:, 0], errors[:, 0], label = 'py-ey')
-    axs[1,1].legend()
-    axs[0,1].scatter(plate2[:, 0], errors[:, 1], label = 'py-ex')
-    axs[0,1].legend()
-    plt.title('errors before correction')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-
-    w = (max(img_shape)/2) # 1 # for astrometric convention
-    m = 1 #result.x[0] # for astrometric convention
-    basis = []
-    for i in range(1, 4): # up to cubic order
-        for j in range(i+1):
-            basis.append(plate2[:, 0] ** j * plate2[:, 1] ** (i-j) / w**i)
-    basis = np.array(basis).T
-    
     reg_x = LinearRegression().fit(basis, errors[:, 1]*m)
     reg_y = LinearRegression().fit(basis, errors[:, 0]*m)
     print(reg_x.coef_, reg_x.intercept_)
@@ -186,73 +95,50 @@ def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
     print(reg_y.predict(basis)/ m - errors[:, 0])
     print('mean errors', np.mean(errors, axis=0))
     plate2_corrected = plate2 + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 3, 1, projection='3d')    
+    ax.scatter(plate2[:,1], plate2[:, 0], errors[:, 1], marker='+')
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('x-error (pixels)')
+    ax.set_title("x-error fit")
+    X = np.linspace(-img_shape[1]/2, img_shape[1]/2, 20)
+    Y = np.linspace(-img_shape[0]/2, img_shape[0]/2, 20)
+    X, Y = np.meshgrid(X, Y)
+    Z_x = reg_x.predict(get_basis(Y.flatten(), X.flatten(), w, m)).reshape(X.shape)
+    surf = ax.plot_surface(X, Y, Z_x, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
+                           linewidth=0, antialiased=False, alpha=0.4)
+
+
+    
+    ax2 = fig.add_subplot(1, 3, 2, projection='3d')    
+    ax2.scatter(plate2[:,1], plate2[:, 0], errors[:, 0], marker='+')
+
+    ax2.set_xlabel('X')
+    ax2.set_ylabel('Y')
+    ax2.set_zlabel('y-error (pixls)')
+    ax2.set_title("y-error fit")
+    Z_y = reg_y.predict(get_basis(Y.flatten(), X.flatten(), w, m)).reshape(X.shape)
+    surf = ax2.plot_surface(X, Y, Z_y, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
+                           linewidth=0, antialiased=False, alpha=0.4)
+
+    ax3 = fig.add_subplot(1, 3, 3, projection='3d')    
+    ax3.scatter(plate2[:,1], plate2[:, 0], np.linalg.norm(errors, axis=1), marker='+')
+
+    ax3.set_xlabel('X')
+    ax3.set_ylabel('Y')
+    ax3.set_zlabel('norm(error)')
+    ax3.set_title("norm(error) fit")
+    Z_n = (Z_x**2+Z_y**2)**0.5
+    surf = ax3.plot_surface(X, Y, Z_n, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
+                           linewidth=0, antialiased=False, alpha=0.4)
+    
+    if options['flag_display']:
+        plt.show()
+    plt.close()
+
     
     return new_result, plate2_corrected, reg_x, reg_y
 
-def do_cubic_fit_r(plate2, target2, initial_guess, img_shape, options):
-    print('initial guess:', initial_guess) 
-    result = scipy.optimize.minimize(get_fitfunc(plate2, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
-    print(result)
-    print('rms error linear solve: ', result.fun**0.5)
-
-    #resi = to_polar(transforms.linear_transform(initial_guess, plate2, image_size))
-
-    resv = to_polar(transforms.linear_transform(result.x, plate2))
-    orig = to_polar(target2)
-
-    detransformed = transforms.detransform_vectors(result.x, target2)
-
-    plt.scatter(detransformed[:, 1], detransformed[:, 0], marker='+')
-    plt.scatter(plate2[:, 1], plate2[:, 0], marker='+')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-    
-    errors = detransformed - plate2
-
-
-    fig, axs = plt.subplots(2, 2)
-    axs[0,0].scatter(plate2[:, 1], errors[:, 0], label = 'px-ey')
-    axs[0,0].legend()
-    axs[1,0].scatter(plate2[:, 1], errors[:, 1], label = 'px-ex')
-    axs[1,0].legend()
-    axs[1,1].scatter(plate2[:, 0], errors[:, 0], label = 'py-ey')
-    axs[1,1].legend()
-    axs[0,1].scatter(plate2[:, 0], errors[:, 1], label = 'py-ex')
-    axs[0,1].legend()
-    plt.title('errors before correction')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
-    
-    basis = []
-    for i in (1, 3): # up to cubic order
-        for j in range(i+1):
-            if i == 1 or j % 2 == 0:
-                basis.append(plate2[:, 0] ** j * plate2[:, 1] ** (i-j) / (max(img_shape)/2)**i)
-    basis = np.array(basis).T
-    basisY = []
-    for i in (1, 3): # up to cubic order
-        for j in range(i+1):
-            if i == 1 or j % 2 == 1:
-                basisY.append(plate2[:, 0] ** j * plate2[:, 1] ** (i-j) / (max(img_shape)/2)**i)
-    basisY = np.array(basisY).T
-    m = result.x[0]
-    m = 1
-    reg_x = LinearRegression().fit(basis, errors[:, 1]*m)
-    reg_y = LinearRegression().fit(basisY, errors[:, 0]*m)
-    print(reg_x.coef_, reg_x.intercept_)
-    print(reg_y.coef_, reg_y.intercept_)
-
-    print(reg_x.predict(basis)/ m - errors[:, 1])
-    print(reg_y.predict(basis)/ m - errors[:, 0])
-    print('mean errors', np.mean(errors, axis=0))
-    plate2_corrected = plate2 + np.array([reg_y.predict(basisY), reg_x.predict(basis)]).T / m
-
-    initial_guess = result.x
-    print('initial guess:', initial_guess) 
-    result = scipy.optimize.minimize(get_fitfunc(plate2_corrected, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
-    print(result)
-    print('rms error corrected solve (arcseconds): ', np.degrees(result.fun**0.5) * 3600)
-    # TODO: re-absorb the linear and constant coefficients into changes in plate_scale, roll, dec and ra
-    return result, plate2_corrected, reg_x, reg_y
