@@ -1,0 +1,21 @@
+todo 13/02/24
+
+High priority:
+* reduce memory usage of stacker
+* input fixed platescale and distortion coefficients
+
+Medium priority:
+* use local coordinates, pressure, and temperature to apply refraction correction
+	** https://en.wikipedia.org/wiki/Atmospheric_refraction#:~:text=Atmospheric%20refraction%20is%20the%20deviation,as%20a%20function%20of%20height.
+	** user provides observation altitude angle (I guess)
+* fix tetra platesolver to work more reliably 
+* (later): specialised routine for platesolving eclipse data, using stars at edges of image.
+	** compute radial deflection as function of distance to sun
+* compare centroid finding function with Astrometrica. Astrometrica might be better at finding centroids of very dim stars
+
+Low priority:
+* Guess date picture was taken if date not given (just a funny gimmick) 
+	** method: add pra, pdec vectors to basis for distortion linear regression
+* correction for parallax, relativistic aberration: instruments have not reached a sensitivity level where these are significant yet
+
+
