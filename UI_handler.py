@@ -73,6 +73,7 @@ def interpret_UI_values(options, ui_values, no_file = False):
     flat_files=ui_values['-FLAT-'].split(';') if ui_values['-FLAT-'] else []
     options['database'] = ui_values['-DB-']
     options['output_dir'] = ui_values['output_dir']
+    options['remove_edgy_centroids'] = ui_values['remove_edgy_centroids']
     if options['output_dir'] and not os.path.isdir(options['output_dir']):
         raise Exception('ERROR opening output folder :'+options['output_dir'])
     if not no_file:  
@@ -164,6 +165,7 @@ def inputUI(options):
     [sg.Checkbox('Sensitive centroid finder mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract')],
     [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1))],
     [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1))],
+    [sg.Checkbox('Remove centroids near edges', default=options['remove_edgy_centroids'], key='remove_edgy_centroids')],
     [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
     [sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
     [sg.Text('    n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],

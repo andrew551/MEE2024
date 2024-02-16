@@ -327,6 +327,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[1, 0].set_ylabel('y-error(pixels)')
     axs[1, 0].set_xlabel('x-error(pixels)')
     axs[1, 0].grid()
+    axs[1, 0].set_aspect('equal')
     radii = np.linalg.norm(plate2, axis=1)
     axs[1, 1].scatter(radii, np.degrees(mag_errors)*3600, marker='+')
     axs[1, 1].set_ylabel('error (pixels)')

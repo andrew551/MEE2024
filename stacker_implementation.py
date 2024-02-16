@@ -497,7 +497,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     # find centroids on the stacked image
     centroids_stacked_data = get_centroids_blur((stacked, masks[0], masks2[0]), options=options, debug_display=False)
     centroids_stacked_data = filter_bad_centroids(centroids_stacked_data, masks2[0], reg_imgs[0].shape) # use 0th mask here
-    centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)
+    if options['remove_edgy_centroids']:
+        centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)
     centroids_stacked = np.array([x[2] for x in centroids_stacked_data])
 
     df_detection = pd.DataFrame({'px': np.array(centroids_stacked)[:, 1],
