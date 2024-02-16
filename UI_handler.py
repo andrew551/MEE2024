@@ -85,7 +85,6 @@ def interpret_UI_values(options, ui_values, no_file = False):
 
 def interpret_UI_values2(options, ui_values):
     check_files([ui_values['-FILE2-']])
-    options['catalogue'] = ui_values['-CT-']
     options['output_dir'] = ui_values['output_dir2']
     options['flag_display'] = ui_values['Show graphics2']
     try : 
@@ -178,9 +177,6 @@ def inputUI(options):
         [sg.Text('File(s)', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE2-'),
          sg.FilesBrowse('Choose data (FULL_DATA.xxx.npz)', key = 'Choose DATA_ALL file', file_types=(("npz files (.npz)", "*.npz"),),initial_folder=options['output_dir'])],
         
-        [sg.Text('Catalogue', size=(7, 1), key = 'Catalogue'), sg.InputText(default_text=options['catalogue'],size=(75,1),key='-CT-'),
-         sg.FilesBrowse('Choose Catalogue (tych_main.dat)', key = 'Choose Database', file_types=(("dat files", "*.dat"),),initial_folder=options['workDir'])],
-
         [sg.Text('Output folder (blank for same as input):', size=(50, 1), key = 'Output Folder (blank for same as input):2')],
         [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir2'),
             sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
@@ -225,7 +221,7 @@ def inputUI(options):
             else:
                 sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
         if event=='OK2':
-            if check_file(values['-FILE2-']) and check_file(values['-CT-']):
+            if check_file(values['-FILE2-']):
                 input_okay_flag = True
             else:
                 # display pop-up file not entered

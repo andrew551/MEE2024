@@ -35,7 +35,7 @@ options = {
     'workDir': '',                  
     'output_dir': '',
     'database':'',
-    'catalogue':'',
+    'catalogue':'gaia',
     'k':8,
     'm':30,
     'n':30,
