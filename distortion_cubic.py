@@ -43,6 +43,8 @@ def get_coeff_names(options):
     names = [name.replace('x^1', 'x').replace('y^1', 'y') for name in names]
     return names
 
+
+
 def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
     print('initial guess:', initial_guess) 
     result = scipy.optimize.minimize(get_fitfunc(plate2, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
@@ -87,8 +89,8 @@ def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
     theta = result.x[3]
     shiftRA_DEC = result.x[0] * np.array([[1/np.cos(result.x[2]), 0], [0, 1]]) @ np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta),  np.cos(theta)]]) @ np.array([reg_x.intercept_, reg_y.intercept_])
 
-    #shift_roll_angle = reg_x.coef_[1] / (max(img_shape)/2) # small angle appromixation
-    shift_roll_angle  = np.arctan(reg_x.coef_[1] / (max(img_shape)/2) / (1 + reg_y.coef_[1] / (max(img_shape)/2)))
+    shift_roll_angle = reg_x.coef_[1] / (max(img_shape)/2) # small angle appromixation
+    #shift_roll_angle  = np.arctan(reg_x.coef_[1] / (max(img_shape)/2) / (1 + reg_y.coef_[1] / (max(img_shape)/2)))
 
     new_result = (new_platescale, result.x[1] + shiftRA_DEC[0], result.x[2] + shiftRA_DEC[1], result.x[3]-shift_roll_angle)
     print("old platescale:", result.x)
