@@ -28,6 +28,19 @@ def get_basis(y, x, w, m):
             basis.append(y ** j * x ** (i-j) / w**i)
     return np.array(basis).T
 
+def get_coeff_names():
+    names = ['1']
+    for i in range(1, 4): # up to cubic order
+        for j in range(i+1):
+            if j == 0:
+                names.append(f'x^{i-j}')
+            elif i - j == 0:
+                names.append(f'y^{j}')
+            else:
+                names.append(f'x^{i-j} * y^{j}')
+    names = [name.replace('x^1', 'x').replace('y^1', 'y') for name in names]
+    return names
+
 def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
     print('initial guess:', initial_guess) 
     result = scipy.optimize.minimize(get_fitfunc(plate2, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here

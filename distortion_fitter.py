@@ -292,6 +292,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     detransformed = transforms.detransform_vectors(result, target2)
     px_errors = plate2_corrected-detransformed
     nn_corr, nn_r = get_nn_correlation_error(plate2, px_errors, options)
+    coeff_names = distortion_cubic.get_coeff_names()
 
     output_results = { 'final rms error (arcseconds)': np.degrees(np.mean(mag_errors**2)**0.5)*3600,
                        '#stars used':plate2.shape[0],
@@ -302,8 +303,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'RA':np.degrees(result[1]),
                        'DEC':np.degrees(result[2]),
                        'ROLL':np.degrees(result[3])-180, # TODO: clarify this dodgy +/- 180 thing
-                       'distortion coeffs x': [reg_x.intercept_]+list( reg_x.coef_),
-                       'distortion coeffs y': [reg_y.intercept_]+list( reg_y.coef_),
+                       'distortion coeffs x': dict(zip(coeff_names, [reg_x.intercept_]+list( reg_x.coef_))),
+                       'distortion coeffs y': dict(zip(coeff_names, [reg_y.intercept_]+list( reg_y.coef_))),
                        'nearest-neighbour error correlation': nn_corr,
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
                        }
@@ -333,6 +334,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[1, 1].set_ylabel('error (pixels)')
     axs[1, 1].set_xlabel('radial coordinate (pixels)')
     axs[1, 1].grid()
+    plt.savefig(output_path('Error_graphs'+basename+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display']:
         plt.show()
     plt.close()

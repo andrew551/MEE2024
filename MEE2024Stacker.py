@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 @author: Andrew Smith
-Version 6 January 2024
+Version 18 February 2024
 
 --------------------------------------------------------------
 Front end of MEE2024 Stacker
@@ -54,6 +54,7 @@ options = {
     'observation_date':'2024-01-01',
     'distortion_fit_tol':1, # arcseconds tolerance
     'remove_edgy_centroids':False,
+    'sigma_subtract':2.5,
 }
 
 files = []

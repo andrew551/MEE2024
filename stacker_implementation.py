@@ -254,7 +254,7 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False, debug_displ
     #plt.imshow(local_variance)
     #plt.show()
 
-    data = sub / np.sqrt(local_variance)
+    data = np.maximum(sub / np.sqrt(local_variance) - options['sigma_subtract'], 0)
 
     passed = data > options['centroid_gaussian_thresh']
     passed[expand_mask(mask2, 8)] = 0 # TODO: reflect on this quick fix to edge problems
@@ -551,7 +551,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         show_scanlines(stacked, fig, ax)
         #plt.legend()
         plt.show(block=True)
-
+    plt.clf()
     #if flag_found_IDs:
     #    df_identification.drop('ID', axis=1) # ID is problematic as it is not a numeric datatype ... turns the array into an object which is bad for safety
     identification_arr = df_identification.to_numpy() if flag_found_IDs else None

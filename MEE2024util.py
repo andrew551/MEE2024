@@ -1,6 +1,6 @@
 """
 @author: Andrew Smith
-Version 3 January 2024
+Version 18 February 2024
 """
 
 import datetime
@@ -8,7 +8,7 @@ import os
 import traceback
 
 def _version():
-    return 'v0.1.6'
+    return 'v0.2.0'
 
 def clearlog(path, options):
     try:

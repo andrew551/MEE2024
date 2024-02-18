@@ -67,7 +67,11 @@ def interpret_UI_values(options, ui_values, no_file = False):
         options['blob_radius_extra'] = int(ui_values['-blob_radius_extra-']) if ui_values['-blob_radius_extra-'] else 100
     except ValueError : 
         raise Exception('invalid blob_radius_extra value!')
-    
+    try : 
+        options['sigma_subtract'] = float(ui_values['sigma_subtract']) if ui_values['sigma_subtract'] else 2.5
+    except ValueError : 
+        raise Exception('invalid sigma_subtract value!')
+
     stack_files=ui_values['-FILE-'].split(';')
     dark_files=ui_values['-DARK-'].split(';') if ui_values['-DARK-'] else []
     flat_files=ui_values['-FLAT-'].split(';') if ui_values['-FLAT-'] else []
@@ -164,6 +168,7 @@ def inputUI(options):
     [sg.Checkbox('Sensitive centroid finder mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract')],
     [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1))],
     [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1))],
+    [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True)],
     [sg.Checkbox('Remove centroids near edges', default=options['remove_edgy_centroids'], key='remove_edgy_centroids')],
     [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
     [sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
@@ -234,7 +239,8 @@ def inputUI(options):
                 try:
                     interpret_UI_values2(options, values)
                     distortion_fitter.match_and_fit_distortion(values['-FILE2-'], options, None)
-                    sg.Popup('Done!', keep_on_top=True)
+                    print('Done!')
+                    #sg.Popup('Done!', keep_on_top=True)
                 except Exception as inst:
                     traceback.print_exc()
                     sg.Popup('Error: ' + str(inst.args[0]), keep_on_top=True)    
