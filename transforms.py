@@ -25,8 +25,7 @@ def rotate_icoords(x, icoords):
 
     plate_vectors = np.array([vector_positions_x, vector_positions_y, vector_positions_z]).T
     
-    # apply roll, then RA, then declination
-    #r = Rotation.from_euler('xyz', [roll, ra-np.pi/2, dec])
+    # apply roll, then declination, then RA
     r = Rotation.from_euler('xyz', [roll, -dec, ra])
     rotated = r.apply(plate_vectors)
     return rotated
@@ -37,13 +36,13 @@ def linear_transform(x, q, img_shape=None):
 
     pixel_scale = x[0] # radians per pixel
     # rotation  
-    
-
     corrected = np.copy(q)
-    #corrected -= np.array([img_shape[0]/2, img_shape[1]/2])
 
     icoords = corrected * pixel_scale
     return rotate_icoords(x[1:4], icoords)
+
+'''
+# all following functions are unused
 
 # allows for shear and stretch
 def mixed_linear_transform(x, q, img_shape=None):
@@ -137,8 +136,6 @@ def quadratic_transform(x, coords, img_shape):
     icoords = corrected * pixel_scale
     return rotate_icoords(x[1:4], icoords)
 
-
-'''
 def transform(x, plate, img_shape):
     pixel_scale = x[0] # radians per pixel
         

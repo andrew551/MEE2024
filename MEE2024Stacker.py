@@ -31,6 +31,7 @@ import datetime
 
 options = {
     'flag_display':True,
+    'flag_display2':True,
     'save_dark_flat':False,
     'workDir': '',                  
     'output_dir': '',
@@ -55,6 +56,7 @@ options = {
     'distortion_fit_tol':1, # arcseconds tolerance
     'remove_edgy_centroids':False,
     'sigma_subtract':2.5,
+    'distortionOrder':'cubic',
 }
 
 files = []

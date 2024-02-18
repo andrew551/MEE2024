@@ -90,7 +90,8 @@ def interpret_UI_values(options, ui_values, no_file = False):
 def interpret_UI_values2(options, ui_values):
     check_files([ui_values['-FILE2-']])
     options['output_dir'] = ui_values['output_dir2']
-    options['flag_display'] = ui_values['Show graphics2']
+    options['flag_display2'] = ui_values['Show graphics2']
+    options['distortionOrder'] = ui_values['distortionOrder']
     try : 
         options['max_star_mag_dist'] = float(ui_values['max_star_mag_dist']) if ui_values['max_star_mag_dist'] else 12
     except ValueError: 
@@ -185,11 +186,11 @@ def inputUI(options):
         [sg.Text('Output folder (blank for same as input):', size=(50, 1), key = 'Output Folder (blank for same as input):2')],
         [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir2'),
             sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
-        [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics2')],
+        [sg.Checkbox('Show graphics', default=options['flag_display2'], key='Show graphics2')],
         [sg.Text('Maximum star magnitude',size=(32,1)), sg.Input(default_text=str(options['max_star_mag_dist']),size=(12,1),key='max_star_mag_dist',enable_events=True)],
         [sg.Text('Observation Date (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True)],
-        [sg.Text('Distortion fit tolerance (as)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
-
+        [sg.Text('Distortion fit tolerance (arcsec)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
+        [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
         [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
     ]
 
