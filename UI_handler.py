@@ -168,7 +168,7 @@ def inputUI(options):
     [sg.Text('    blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True)],
     [sg.Text('    centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True)],
     [sg.Checkbox('Sensitive centroid finder mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract',enable_events=True)],
-    [sg.Checkbox('    Apply sensitive mode to stacked result (turn on for more accurate, but slower results)', default=options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], key='sensitive_mode_stack', enable_events=True)],
+    [sg.Checkbox('    Apply sensitive mode to stacked result (more accurate for dimmer stars but slower)', default=options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], key='sensitive_mode_stack', enable_events=True)],
     [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1), disabled_readonly_background_color="Gray")],
     [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1), disabled_readonly_background_color="Gray")],
     [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True, disabled_readonly_background_color="Gray")],
