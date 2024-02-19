@@ -58,48 +58,8 @@ def get_nn_correlation_error(positions, errors, options):
     return np.mean(nn_corrs), np.mean(nn_rs)
 
 
-    
-
-def match_and_fit_distortion(path_data, options, debug_folder=None):    
-    path_catalogue = options['catalogue']
-    basename = Path(path_data).stem
-    
-    data = np.load(path_data,allow_pickle=True) # TODO: can we avoid using pickle? How about using shutil.make_archive?
-    image_size = data['img_shape']
-    if not data['platesolved']: # need initial platesolve
-        raise Exception("BAD DATA - Data did not have platesolve included!")
-    df_id = pd.DataFrame(data=data['identification_arr'],    # values
-                         columns=data['identification_arr_cols'])
-    df_id = df_id.astype({'RA':float, 'DEC':float, 'px':float, 'py':float, 'magV':float}) # fix datatypes
-
-    df_id['vx'] = np.cos(np.radians(df_id['DEC'])) * np.cos(np.radians(df_id['RA']))
-    df_id['vy'] = np.cos(np.radians(df_id['DEC'])) * np.sin(np.radians(df_id['RA']))
-    df_id['vz'] = np.sin(np.radians(df_id['DEC']))
-    
-    print(df_id.to_string())
-    target = np.array([df_id['vx'], df_id['vy'], df_id['vz']]).T
-    plate = np.array([df_id['py'], df_id['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
-    f = get_fitfunc(plate, target)
-
-    # note: negative scale == rotation by 180. Do we always want this +180 hack?
-    print('ra/dec guess:', data['RA'], data['DEC'])
-    initial_guess = tuple(np.radians([data['platescale'], data['RA'], data['DEC'], data['roll']+180]))
-    print('initial guess:', initial_guess) 
-    result = scipy.optimize.minimize(get_fitfunc(plate, target), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
-    print(result)
-
-    resi = transforms.to_polar(transforms.linear_transform(initial_guess, plate))
-    resv = transforms.to_polar(transforms.linear_transform(result.x, plate))
-    orig = transforms.to_polar(target)
-
-    ### now try to match other stars
-
-    corners = transforms.to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
-    #dbs = database_lookup2.database_searcher(path_catalogue, debug_folder=debug_folder, star_max_magnitude=12)
-    dbs = database_cache.open_catalogue(path_catalogue)
-    #print(corners)
+def match_centroids(data, result, dbs, corners, image_size, lookupdate, options):
     #TODO: this will be broken if we wrap around 360 degrees
-    lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
     stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(lookupdate)) # convert to decimal year (approximate)
     other_stars_df = pd.DataFrame(data=data['detection_arr'],    # values
                          columns=data['detection_arr_cols'])
@@ -157,6 +117,50 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     stardata.select_indices(indices[keep_i, 0].flatten())
     plate2 = all_star_plate[keep_i, :][0]
+
+    return stardata, plate2
+
+def match_and_fit_distortion(path_data, options, debug_folder=None):    
+    path_catalogue = options['catalogue']
+    basename = Path(path_data).stem
+    
+    data = np.load(path_data,allow_pickle=True) # TODO: can we avoid using pickle? How about using shutil.make_archive?
+    image_size = data['img_shape']
+    if not data['platesolved']: # need initial platesolve
+        raise Exception("BAD DATA - Data did not have platesolve included!")
+    df_id = pd.DataFrame(data=data['identification_arr'],    # values
+                         columns=data['identification_arr_cols'])
+    df_id = df_id.astype({'RA':float, 'DEC':float, 'px':float, 'py':float, 'magV':float}) # fix datatypes
+
+    df_id['vx'] = np.cos(np.radians(df_id['DEC'])) * np.cos(np.radians(df_id['RA']))
+    df_id['vy'] = np.cos(np.radians(df_id['DEC'])) * np.sin(np.radians(df_id['RA']))
+    df_id['vz'] = np.sin(np.radians(df_id['DEC']))
+    
+    print(df_id.to_string())
+    target = np.array([df_id['vx'], df_id['vy'], df_id['vz']]).T
+    plate = np.array([df_id['py'], df_id['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
+    f = get_fitfunc(plate, target)
+
+    # note: negative scale == rotation by 180. Do we always want this +180 hack?
+    print('ra/dec guess:', data['RA'], data['DEC'])
+    initial_guess = tuple(np.radians([data['platescale'], data['RA'], data['DEC'], data['roll']+180]))
+    print('initial guess:', initial_guess) 
+    result = scipy.optimize.minimize(get_fitfunc(plate, target), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
+    print(result)
+
+    resi = transforms.to_polar(transforms.linear_transform(initial_guess, plate))
+    resv = transforms.to_polar(transforms.linear_transform(result.x, plate))
+    orig = transforms.to_polar(target)
+
+
+
+    ### now try to match other stars
+
+    corners = transforms.to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
+    dbs = database_cache.open_catalogue(path_catalogue)
+
+    lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
+    stardata, plate2 = match_centroids(data, result, dbs, corners, image_size, lookupdate, options)
     
     ### fit again
 
@@ -166,8 +170,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         dateguess = options['DEFAULT_DATE'] # initial guess
         dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
         # re-get gaia database
-        stardata_new = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(dateguess))
-        stardata.update_data(stardata_new)
+        stardata, plate2 = match_centroids(data, result, dbs, corners, image_size, dateguess, options)
+
+
+    # now recompute matches
     
     result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, stardata, initial_guess, image_size, dict(options, **{'flag_display2':False}))
 
@@ -186,7 +192,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     if options['guess_date']:
         dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
-        # re-get gaia database
+        # re-get gaia database # TODO: it would be nice to epoch propagate offline, since we have the pmra, and pmdec
         stardata_new = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(dateguess))
         stardata.update_data(stardata_new)
     
