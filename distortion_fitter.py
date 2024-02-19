@@ -5,6 +5,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 import transforms
 from sklearn.neighbors import NearestNeighbors
+import sklearn.metrics._pairwise_distances_reduction._datasets_pair
+import sklearn.metrics._pairwise_distances_reduction._middle_term_computer
 import database_lookup2
 import os
 from MEE2024util import output_path, date_string_to_float
