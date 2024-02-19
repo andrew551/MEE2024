@@ -495,7 +495,9 @@ def do_stack(files, darkfiles, flatfiles, options):
     if options['float_fits']:
         fits.writeto(output_path('STACKED_FLOAT'+starttime+'.fit', options), stacked.astype(np.float32))
     # find centroids on the stacked image
-    centroids_stacked_data = get_centroids_blur((stacked, masks[0], masks2[0]), options=options, debug_display=False)
+    centroids_stacked_data = get_centroids_blur((stacked, masks[0], masks2[0]),
+                        options=dict(options, **{'centroid_gaussian_subtract':options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']}), # use sensitive mode if requested only for the stack
+                        debug_display=False)
     centroids_stacked_data = filter_bad_centroids(centroids_stacked_data, masks2[0], reg_imgs[0].shape) # use 0th mask here
     if options['remove_edgy_centroids']:
         centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)

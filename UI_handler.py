@@ -31,6 +31,7 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['centroid_gaussian_subtract'] = ui_values['centroid_gaussian_subtract']
     options['save_dark_flat'] = ui_values['save_dark_flat']
     options['float_fits'] = ui_values['float_fits']
+    options['sensitive_mode_stack'] = ui_values['sensitive_mode_stack']
     try : 
         options['m'] = int(ui_values['-m-']) if ui_values['-m-'] else 10
     except ValueError : 
@@ -166,10 +167,11 @@ def inputUI(options):
     [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob')],
     [sg.Text('    blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True)],
     [sg.Text('    centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True)],
-    [sg.Checkbox('Sensitive centroid finder mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract')],
-    [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1))],
-    [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1))],
-    [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True)],
+    [sg.Checkbox('Sensitive centroid finder mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract',enable_events=True)],
+    [sg.Checkbox('    Apply sensitive mode to stacked result (turn on for more accurate, but slower results)', default=options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], key='sensitive_mode_stack', enable_events=True)],
+    [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1), disabled_readonly_background_color="Gray")],
+    [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1), disabled_readonly_background_color="Gray")],
+    [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Checkbox('Remove centroids near edges', default=options['remove_edgy_centroids'], key='remove_edgy_centroids')],
     [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
     [sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
@@ -208,7 +210,10 @@ def inputUI(options):
     
     window = sg.Window('MEE2024 '+_version(), layout, finalize=True)
     window.BringToFront()
-
+    v = options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']
+    window['-sigma_thresh-'].update(disabled= not v)
+    window['-min_area-'].update(disabled= not v)
+    window['sigma_subtract'].update(disabled= not v)
     def check_file(s):
         return s and not s == options['workDir']
     
@@ -217,7 +222,6 @@ def inputUI(options):
         if event==sg.WIN_CLOSED or event=='Cancel' or event=='Cancel2':
             window.close()
             return None
-
         if event=='Open output folder' or event=='Open output folder2':
             x = values['output_dir'].strip() if event=='Open output folder' else values['output_dir2'].strip()
             if not x:
@@ -264,4 +268,12 @@ def inputUI(options):
                 except Exception as inst:
                     traceback.print_exc()
                     sg.Popup('Error: ' + inst.args[0], keep_on_top=True)
-                    
+        if event == 'centroid_gaussian_subtract' or event == 'sensitive_mode_stack':
+            if values['centroid_gaussian_subtract']:
+                window['sensitive_mode_stack'].update(True)
+            v = values['centroid_gaussian_subtract'] or values['sensitive_mode_stack']
+            window['-sigma_thresh-'].update(disabled= not v)
+            window['-min_area-'].update(disabled= not v)
+            window['sigma_subtract'].update(disabled= not v)
+            
+                

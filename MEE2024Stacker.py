@@ -33,6 +33,7 @@ options = {
     'flag_display':True,
     'flag_display2':True,
     'save_dark_flat':False,
+    'sensitive_mode_stack':True,
     'workDir': '',                  
     'output_dir': '',
     'database':'',
