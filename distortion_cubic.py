@@ -4,23 +4,6 @@ import transforms
 import matplotlib.pyplot as plt
 import scipy
 
-def to_polar(v):
-    theta = np.arcsin(v[:, 2])
-    phi = np.arctan2(v[:, 1], v[:, 0])
-    phi[phi < 0] += np.pi * 2
-    ret = np.degrees(np.array([theta, phi]))
-    
-    return ret.T
-
-def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
-
-    def fitfunc(x):
-        rotated = transform_function(x, plate, img_shape)
-        return np.linalg.norm(target-rotated)**2 / plate.shape[0] # mean square error
-    return fitfunc
-
-###### the distortion fitting and matching function #####
-
 mapping = {'linear':1, 'cubic':3, 'quintic':5}
 
 def get_basis(y, x, w, m, options):
@@ -43,78 +26,44 @@ def get_coeff_names(options):
     names = [name.replace('x^1', 'x').replace('y^1', 'y') for name in names]
     return names
 
+'''
+absorb two constant and two linear degrees of freedom in (reg_x, reg_y) into shifts in
+shifts in q
+returns: corrected q
+'''
+def _get_corrected_q(q, reg_x, reg_y, w):
+    platescale_multiplier = ((1 + reg_x.coef_[0] / w) * (1 + reg_y.coef_[1] / w))**0.5
+    new_platescale = q[0] * platescale_multiplier
+    theta = q[3]
+    shiftRA_DEC = q[0] * np.array([[1/np.cos(q[2]), 0], [0, 1]]) @ np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta),  np.cos(theta)]]) @ np.array([reg_x.intercept_, reg_y.intercept_])
+    shift_roll_angle = reg_x.coef_[1] / w # small angle appromixation
+    corrected_q = (new_platescale, q[1] + shiftRA_DEC[0], q[2] + shiftRA_DEC[1], q[3]-shift_roll_angle)
+    return corrected_q
 
+'''
+perform requested linear regression with general
+polynomial in x and y of the requested order (1, 3 or 5)
 
-def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
-    print('initial guess:', initial_guess) 
-    result = scipy.optimize.minimize(get_fitfunc(plate2, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
-    print(result)
-    print('rms error linear solve: ', result.fun**0.5)
-
-    resv = to_polar(transforms.linear_transform(result.x, plate2))
-    orig = to_polar(target2)
-
-    detransformed = transforms.detransform_vectors(result.x, target2)
-    errors = detransformed - plate2
-
-    w = (max(img_shape)/2) # 1 # for astrometrica convention
-    m = 1 #result.x[0] # for astrometrica convention
+q : initial guess of (platescale, ra, dec, roll)
+plate: (x, y) coordinates of stars
+target: corresponding(x', y', z') of star true positions according to catalogue
+'''
+def _cubic_helper(q, plate, target, w, m, options):
     
-    basis = get_basis(plate2[:, 0], plate2[:, 1], w, m, options)
-    
-    
-    
+    detransformed = transforms.detransform_vectors(q, target)
+    errors = detransformed - plate
+    basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
     reg_x = LinearRegression().fit(basis, errors[:, 1]*m)
     reg_y = LinearRegression().fit(basis, errors[:, 0]*m)
-    print(reg_x.coef_, reg_x.intercept_)
-    print(reg_y.coef_, reg_y.intercept_)
+    plate_corrected = plate + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
+    #print(reg_x.coef_, reg_x.intercept_)
+    #print(reg_y.coef_, reg_y.intercept_)
+    return _get_corrected_q(q, reg_x, reg_y, w), plate_corrected, reg_x, reg_y, basis, errors
 
-    print(reg_x.predict(basis)/ m - errors[:, 1])
-    print(reg_y.predict(basis)/ m - errors[:, 0])
-    print('mean errors', np.mean(errors, axis=0))
-    plate2_corrected = plate2 + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
-    '''
-    initial_guess = result.x
-    print('initial guess:', initial_guess) 
-    result = scipy.optimize.minimize(get_fitfunc(plate2_corrected, target2), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
-    print(result)
-    print('rms error corrected solve (arcseconds): ', np.degrees(result.fun**0.5) * 3600)
-    '''
-    # TODO: re-absorb the linear and constant coefficients into changes in plate_scale, roll, dec and ra
-
-    # platescale adjustment:
-    platescale_multiplier = ((1 + reg_x.coef_[0] / (max(img_shape)/2)) * (1 + reg_y.coef_[1] / (max(img_shape)/2)))**0.5
-
-    new_platescale = result.x[0] * platescale_multiplier
-    theta = result.x[3]
-    shiftRA_DEC = result.x[0] * np.array([[1/np.cos(result.x[2]), 0], [0, 1]]) @ np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta),  np.cos(theta)]]) @ np.array([reg_x.intercept_, reg_y.intercept_])
-
-    shift_roll_angle = reg_x.coef_[1] / (max(img_shape)/2) # small angle appromixation
-    #shift_roll_angle  = np.arctan(reg_x.coef_[1] / (max(img_shape)/2) / (1 + reg_y.coef_[1] / (max(img_shape)/2)))
-
-    new_result = (new_platescale, result.x[1] + shiftRA_DEC[0], result.x[2] + shiftRA_DEC[1], result.x[3]-shift_roll_angle)
-    print("old platescale:", result.x)
-    print("modified platescale:", new_result)
-
-    resv = to_polar(transforms.linear_transform(new_result, plate2))
-    orig = to_polar(target2)
-
-    detransformed = transforms.detransform_vectors(new_result, target2)
-    errors = detransformed - plate2
-
-    reg_x = LinearRegression().fit(basis, errors[:, 1]*m)
-    reg_y = LinearRegression().fit(basis, errors[:, 0]*m)
-    print(reg_x.coef_, reg_x.intercept_)
-    print(reg_y.coef_, reg_y.intercept_)
-
-    print(reg_x.predict(basis)/ m - errors[:, 1])
-    print(reg_y.predict(basis)/ m - errors[:, 0])
-    print('mean errors', np.mean(errors, axis=0))
-    plate2_corrected = plate2 + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
-
+def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     fig = plt.figure()
     ax = fig.add_subplot(1, 3, 1, projection='3d')    
-    ax.scatter(plate2[:,1], plate2[:, 0], errors[:, 1], marker='+')
+    ax.scatter(plate[:,1], plate[:, 0], errors[:, 1], marker='+')
 
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -128,9 +77,8 @@ def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
                            linewidth=0, antialiased=False, alpha=0.4)
 
 
-    
     ax2 = fig.add_subplot(1, 3, 2, projection='3d')    
-    ax2.scatter(plate2[:,1], plate2[:, 0], errors[:, 0], marker='+')
+    ax2.scatter(plate[:,1], plate[:, 0], errors[:, 0], marker='+')
 
     ax2.set_xlabel('X')
     ax2.set_ylabel('Y')
@@ -141,7 +89,7 @@ def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
                            linewidth=0, antialiased=False, alpha=0.4)
 
     ax3 = fig.add_subplot(1, 3, 3, projection='3d')    
-    ax3.scatter(plate2[:,1], plate2[:, 0], np.linalg.norm(errors, axis=1), marker='+')
+    ax3.scatter(plate[:,1], plate[:, 0], np.linalg.norm(errors, axis=1), marker='+')
 
     ax3.set_xlabel('X')
     ax3.set_ylabel('Y')
@@ -155,6 +103,20 @@ def do_cubic_fit(plate2, target2, initial_guess, img_shape, options):
         plt.show()
     plt.close()
 
-    
-    return new_result, plate2_corrected, reg_x, reg_y
+def do_cubic_fit(plate, target, initial_guess, img_shape, options):
+    w = (max(img_shape)/2) # 1 # for astrometrica convention
+    m = 1 #result.x[0] # for astrometrica convention
 
+    q_corrected = _cubic_helper(initial_guess, plate, target, w, m, options)[0]
+    q_corrected = _cubic_helper(q_corrected, plate, target, w, m, options)[0]
+    q_corrected, plate_corrected, reg_x, reg_y, basis, errors = _cubic_helper(q_corrected, plate, target, w, m, options) # apply for third time to really shrink the unwanted coefficients
+
+    print(reg_x.coef_, reg_x.intercept_)
+    print(reg_y.coef_, reg_y.intercept_)
+
+    print('residuals_x\n', reg_x.predict(basis) / m - errors[:, 1])
+    print('residuals_y\n', reg_y.predict(basis) / m - errors[:, 0])
+    
+    _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options)
+ 
+    return q_corrected, plate_corrected, reg_x, reg_y

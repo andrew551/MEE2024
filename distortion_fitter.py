@@ -16,34 +16,9 @@ import pandas as pd
 import datetime
 import distortion_cubic
 
-def to_polar(v):
-    theta = np.arcsin(v[:, 2])
-    phi = np.arctan2(v[:, 1], v[:, 0])
-    phi[phi < 0] += np.pi * 2
-    ret = np.degrees(np.array([theta, phi]))
-    
-    return ret.T
-
 def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
-
     def fitfunc(x):
         rotated = transform_function(x, plate, img_shape)
-        return np.linalg.norm(target-rotated)**2 / plate.shape[0] # mean square error
-    return fitfunc
-
-def get_d_fitfunc(plate, target, x_lin, transform_function, img_shape):
-
-    def fitfunc(x):
-        xx = list(x) + list(x_lin)
-        rotated = transform_function(xx, plate, img_shape)
-        return np.linalg.norm(target-rotated)**2 / plate.shape[0] # mean square error
-    return fitfunc
-
-def get_e_fitfunc(plate, target, x_dist, transform_function, img_shape):
-
-    def fitfunc(x):
-        xx = list(x_dist) + list(x)
-        rotated = transform_function(xx, plate, img_shape)
         return np.linalg.norm(target-rotated)**2 / plate.shape[0] # mean square error
     return fitfunc
 
@@ -55,8 +30,10 @@ def get_bbox(corners):
         return t
     return one_dim(corners[:, 1]), one_dim(corners[:, 0])
 
-
-
+'''
+get the error correlation of each point with it's nearest neighbour:
+E(cos(theta_ij))
+'''
 def get_nn_correlation_error(positions, errors, options):
     nn_rs = []
     nn_corrs = []
@@ -78,43 +55,7 @@ def get_nn_correlation_error(positions, errors, options):
     print(f'nearest neighbour corr={np.mean(nn_corrs)}, mean distance:{np.mean(nn_rs)}')
     return np.mean(nn_corrs), np.mean(nn_rs)
 
-# #unused
-def show_error_coherence(positions, errors, options):
-    if not options['flag_display']:
-        return
-    dist = []
-    corr = []
 
-    nn_rs = []
-    nn_corrs = []
-    
-    for i in range(positions.shape[0]):
-        min_r = 99999
-        min_corr = -13
-        for j in range(positions.shape[0]):
-            if i == j:
-                continue
-            r = np.linalg.norm(positions[i, :] - positions[j, :])
-            corr_ij = np.dot(errors[i, :], errors[j, :]) / np.linalg.norm(errors[i, :]) / np.linalg.norm(errors[j, :])
-            dist.append(r)
-            corr.append(corr_ij)
-            if r < min_r:
-                min_corr = corr_ij
-                min_r = r
-        nn_rs.append(min_r)
-        nn_corrs.append(min_corr)
-
-    print(f'nearest neighbour corr={np.mean(nn_corrs)}, mean distance:{np.mean(nn_rs)}')
-                
-
-    statistic, bin_edges, binnumber = scipy.stats.binned_statistic(dist, corr, bins = 8, range=(0, 1000))
-    
-    plt.plot(bin_edges[1:], statistic)
-    plt.ylabel('error correlation')
-    plt.xlabel('r / pixels')
-    if options['flag_display']:
-        plt.show()
-    plt.close()
     
 
 def match_and_fit_distortion(path_data, options, debug_folder=None):    
@@ -146,10 +87,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     print(result)
     #print(result.fun**0.5 / result.x[0])
 
-    resi = to_polar(transforms.linear_transform(initial_guess, plate))
+    resi = transforms.to_polar(transforms.linear_transform(initial_guess, plate))
 
-    resv = to_polar(transforms.linear_transform(result.x, plate))
-    orig = to_polar(target)
+    resv = transforms.to_polar(transforms.linear_transform(result.x, plate))
+    orig = transforms.to_polar(target)
 
     '''
     plt.scatter(orig[:, 1], orig[:, 0], label='catalogue')
@@ -162,7 +103,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     '''
     ### now try to match other stars
 
-    corners = to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
+    corners = transforms.to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
     #dbs = database_lookup2.database_searcher(path_catalogue, debug_folder=debug_folder, star_max_magnitude=12)
     dbs = database_cache.open_catalogue(path_catalogue)
     #print(corners)
@@ -174,7 +115,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
 
-    transformed_all = to_polar(transforms.linear_transform(result.x, all_star_plate))
+    transformed_all = transforms.to_polar(transforms.linear_transform(result.x, all_star_plate))
     '''
     plt.scatter(np.degrees(startable[:, 0]), np.degrees(startable[:, 1]), label='catalogue')
     plt.scatter(transformed_all[:, 1], transformed_all[:, 0], marker='+', label='observations')
@@ -313,6 +254,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[1, 1].set_ylabel('error (pixels)')
     axs[1, 1].set_xlabel('radial coordinate (pixels)')
     axs[1, 1].grid()
+    fig.tight_layout()
     plt.savefig(output_path('Error_graphs'+basename+'.png', options), bbox_inches="tight", dpi=600)
     if options['flag_display2']:
         plt.show()
@@ -325,12 +267,50 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                                'ID': ['gaia:'+str(_) for _ in starid],
                                'RA(catalog)': np.degrees(target2_table[:, 0]),
                                'DEC(catalog)': np.degrees(target2_table[:, 1]),
-                               'RA(obs)': to_polar(transformed_final)[:, 1],
-                               'DEC(obs)': to_polar(transformed_final)[:, 0],
+                               'RA(obs)': transforms.to_polar(transformed_final)[:, 1],
+                               'DEC(obs)': transforms.to_polar(transformed_final)[:, 0],
                                'magV': target2_table[:, 5],
                                 'error(")':errors_arcseconds})
             
     df_identification.to_csv(output_path('CATALOGUE_MATCHED_ERRORS'+basename+'.csv', options))
+
+# #unused
+def show_error_coherence(positions, errors, options):
+    if not options['flag_display']:
+        return
+    dist = []
+    corr = []
+
+    nn_rs = []
+    nn_corrs = []
+    
+    for i in range(positions.shape[0]):
+        min_r = 99999
+        min_corr = -13
+        for j in range(positions.shape[0]):
+            if i == j:
+                continue
+            r = np.linalg.norm(positions[i, :] - positions[j, :])
+            corr_ij = np.dot(errors[i, :], errors[j, :]) / np.linalg.norm(errors[i, :]) / np.linalg.norm(errors[j, :])
+            dist.append(r)
+            corr.append(corr_ij)
+            if r < min_r:
+                min_corr = corr_ij
+                min_r = r
+        nn_rs.append(min_r)
+        nn_corrs.append(min_corr)
+
+    print(f'nearest neighbour corr={np.mean(nn_corrs)}, mean distance:{np.mean(nn_rs)}')
+                
+
+    statistic, bin_edges, binnumber = scipy.stats.binned_statistic(dist, corr, bins = 8, range=(0, 1000))
+    
+    plt.plot(bin_edges[1:], statistic)
+    plt.ylabel('error correlation')
+    plt.xlabel('r / pixels')
+    if options['flag_display2']:
+        plt.show()
+    plt.close()
 
 if __name__ == '__main__':
     #new_data_path = "D:\output\FULL_DATA1707099836.1575732.npz" # zwo 4 zenith2
