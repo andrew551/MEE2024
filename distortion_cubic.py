@@ -3,8 +3,10 @@ import numpy as np
 import transforms
 import matplotlib.pyplot as plt
 import scipy
+import datetime
+from MEE2024util import date_string_to_float
 
-mapping = {'linear':1, 'cubic':3, 'quintic':5}
+mapping = {'linear':1, 'cubic':3, 'quintic':5, 'septic':7}
 
 def get_basis(y, x, w, m, options):
     basis = []
@@ -41,6 +43,46 @@ def _get_corrected_q(q, reg_x, reg_y, w):
     return corrected_q
 
 '''
+stardata.epoch : the date that was requested from the catalogue (not the true observation date)
+date_guess : the guessed date which we want to now improve
+return : improved date guess, pmotion correction
+'''
+def _date_guess(date_guess, q, plate, stardata, img_shape, options):
+    target = stardata.get_vectors()
+    pmotion = stardata.get_pmotion()
+    w = (max(img_shape)/2) # 1 # for astrometrica convention
+    m = 1 #q[0] # for astrometrica convention
+
+    
+    detransformed = transforms.detransform_vectors(q, target)
+    errors = detransformed - plate
+    basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
+    #print('pshape', pmotion.shape)
+    theta = q[3]
+
+    rmatrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta),  np.cos(theta)]]) / (np.degrees(q[0])*3600*1000) # divide by 1000 to get arcsec from milli-arcsec
+    pmotion[np.isnan(pmotion)] = 0
+    pm_pixel = np.einsum('ij, ...j-> ...j', rmatrix, pmotion)
+    pm_pixel[:, [0, 1]] = pm_pixel[:, [1, 0]] # swap columns of pm_pixel
+    # apply date_guess to correct pmotion
+    errors += pm_pixel * (date_string_to_float(date_guess) - stardata.epoch)
+
+    basis_x = np.c_[basis, pm_pixel[:, 1]]
+    basis_y = np.c_[basis, pm_pixel[:, 0]]
+    
+    reg_x = LinearRegression().fit(basis_x, errors[:, 1]*m)
+    reg_y = LinearRegression().fit(basis_y, errors[:, 0]*m)
+    plate_corrected = plate + np.array([reg_y.predict(basis_x), reg_x.predict(basis_y)]).T / m
+    #print(reg_x.coef_, reg_x.intercept_)
+    #print(reg_y.coef_, reg_y.intercept_)
+    print('dt guess x/y:', reg_x.coef_[-1], reg_y.coef_[-1])
+    t0=datetime.datetime.fromisoformat(date_guess)
+    t_guess = (t0 + datetime.timedelta(days=-int((reg_x.coef_[-1]+ reg_y.coef_[-1])*365.25/2))).date().isoformat()
+    print('I guess image was taken on date:', date_guess, t_guess, int((reg_x.coef_[-1]+ reg_y.coef_[-1])*365.25/2))
+    pmotion_correction = pm_pixel * (date_string_to_float(t_guess) - date_string_to_float(options['observation_date']))
+    return t_guess, pmotion_correction
+
+'''
 perform requested linear regression with general
 polynomial in x and y of the requested order (1, 3 or 5)
 
@@ -49,15 +91,12 @@ plate: (x, y) coordinates of stars
 target: corresponding(x', y', z') of star true positions according to catalogue
 '''
 def _cubic_helper(q, plate, target, w, m, options):
-    
     detransformed = transforms.detransform_vectors(q, target)
     errors = detransformed - plate
     basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
     reg_x = LinearRegression().fit(basis, errors[:, 1]*m)
     reg_y = LinearRegression().fit(basis, errors[:, 0]*m)
     plate_corrected = plate + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
-    #print(reg_x.coef_, reg_x.intercept_)
-    #print(reg_y.coef_, reg_y.intercept_)
     return _get_corrected_q(q, reg_x, reg_y, w), plate_corrected, reg_x, reg_y, basis, errors
 
 def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
@@ -103,10 +142,11 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
         plt.show()
     plt.close()
 
-def do_cubic_fit(plate, target, initial_guess, img_shape, options):
+def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
+    target = stardata.get_vectors()
     w = (max(img_shape)/2) # 1 # for astrometrica convention
     m = 1 #result.x[0] # for astrometrica convention
-
+    
     q_corrected = _cubic_helper(initial_guess, plate, target, w, m, options)[0]
     q_corrected = _cubic_helper(q_corrected, plate, target, w, m, options)[0]
     q_corrected, plate_corrected, reg_x, reg_y, basis, errors = _cubic_helper(q_corrected, plate, target, w, m, options) # apply for third time to really shrink the unwanted coefficients

@@ -93,6 +93,7 @@ def interpret_UI_values2(options, ui_values):
     options['output_dir'] = ui_values['output_dir2']
     options['flag_display2'] = ui_values['Show graphics2']
     options['distortionOrder'] = ui_values['distortionOrder']
+    options['guess_date'] = ui_values['guess_date']
     try : 
         options['max_star_mag_dist'] = float(ui_values['max_star_mag_dist']) if ui_values['max_star_mag_dist'] else 12
     except ValueError: 
@@ -190,9 +191,10 @@ def inputUI(options):
             sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
         [sg.Checkbox('Show graphics', default=options['flag_display2'], key='Show graphics2')],
         [sg.Text('Maximum star magnitude',size=(32,1)), sg.Input(default_text=str(options['max_star_mag_dist']),size=(12,1),key='max_star_mag_dist',enable_events=True)],
-        [sg.Text('Observation Date (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True)],
+        [sg.Checkbox('Guess Date!', default=options['guess_date'], key='guess_date', enable_events=True)],
+        [sg.Text('Observation Date (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Distortion fit tolerance (arcsec)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
-        [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
+        [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic', 'septic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
         [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
     ]
 
@@ -214,6 +216,7 @@ def inputUI(options):
     window['-sigma_thresh-'].update(disabled= not v)
     window['-min_area-'].update(disabled= not v)
     window['sigma_subtract'].update(disabled= not v)
+    window['observation_date'].update(disabled=options['guess_date'])
     def check_file(s):
         return s and not s == options['workDir']
     
@@ -275,5 +278,7 @@ def inputUI(options):
             window['-sigma_thresh-'].update(disabled= not v)
             window['-min_area-'].update(disabled= not v)
             window['sigma_subtract'].update(disabled= not v)
+        if event == 'guess_date':
+            window['observation_date'].update(disabled=values['guess_date'])
             
                 

@@ -47,17 +47,19 @@ options = {
     'delete_saturated_blob':True,
     'blob_radius_extra':100, # delete pixels near saturated moon/sun region
     'centroid_gap_blob':30,  # ignore centroids within this distance of saturated region + radius_extra
-    'centroid_gaussian_subtract':True, # use the "sensitive mode" of custom centroid detection
-    'centroid_gaussian_thresh':7, # threshhold for detecting centroids (sensitive mode)
-    'min_area':2, # minimum area for found centroids (sensitive mode)
+    'centroid_gaussian_subtract':False, # use the "sensitive mode" of custom centroid detection
+    'centroid_gaussian_thresh':5, # threshhold for detecting centroids (sensitive mode)
+    'min_area':4, # minimum area for found centroids (sensitive mode)
     'experimental_background_subtract':False, # use experimental "ring" kernel
     'float_fits':False, # output fits files with float type
     'max_star_mag_dist':12,
     'observation_date':'2024-01-01',
     'distortion_fit_tol':1, # arcseconds tolerance
     'remove_edgy_centroids':False,
-    'sigma_subtract':2.5,
+    'sigma_subtract':3,
     'distortionOrder':'cubic',
+    'guess_date': True,
+    'DEFAULT_DATE': '2020-01-01', # the default date for date guessing
 }
 
 files = []

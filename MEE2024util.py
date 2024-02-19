@@ -55,3 +55,9 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
+
+'''
+convert a iso-format datestring e.g 01/02/2023 to a float (e.g. 2023.08)
+'''
+def date_string_to_float(x):
+    return datetime.datetime.fromisoformat(x).toordinal()/365.24+1

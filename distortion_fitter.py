@@ -7,7 +7,7 @@ import transforms
 from sklearn.neighbors import NearestNeighbors
 import database_lookup2
 import os
-from MEE2024util import output_path
+from MEE2024util import output_path, date_string_to_float
 import json
 from pathlib import Path
 import database_cache
@@ -15,6 +15,8 @@ from sklearn.linear_model import LinearRegression
 import pandas as pd
 import datetime
 import distortion_cubic
+
+
 
 def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
     def fitfunc(x):
@@ -62,7 +64,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     path_catalogue = options['catalogue']
     basename = Path(path_data).stem
     
-    data = np.load(path_data,allow_pickle=True)
+    data = np.load(path_data,allow_pickle=True) # TODO: can we avoid using pickle? How about using shutil.make_archive?
     image_size = data['img_shape']
     if not data['platesolved']: # need initial platesolve
         raise Exception("BAD DATA - Data did not have platesolve included!")
@@ -85,22 +87,11 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     print('initial guess:', initial_guess) 
     result = scipy.optimize.minimize(get_fitfunc(plate, target), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
     print(result)
-    #print(result.fun**0.5 / result.x[0])
 
     resi = transforms.to_polar(transforms.linear_transform(initial_guess, plate))
-
     resv = transforms.to_polar(transforms.linear_transform(result.x, plate))
     orig = transforms.to_polar(target)
 
-    '''
-    plt.scatter(orig[:, 1], orig[:, 0], label='catalogue')
-    plt.scatter(resv[:, 1], resv[:, 0], label = 'fitted')
-    plt.scatter(resi[:, 1], resi[:, 0], label = 'initial guess')
-    plt.scatter(df_id['RA'], df_id['DEC'], label='cata2')
-    plt.legend()
-    plt.show()
-    errors = resv - orig
-    '''
     ### now try to match other stars
 
     corners = transforms.to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
@@ -108,29 +99,19 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     dbs = database_cache.open_catalogue(path_catalogue)
     #print(corners)
     #TODO: this will be broken if we wrap around 360 degrees
-    startable, starid = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=datetime.datetime.fromisoformat(options['observation_date']).toordinal()/365.24+1) # convert to decimal year (approximate)
+    lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
+    stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(lookupdate)) # convert to decimal year (approximate)
     other_stars_df = pd.DataFrame(data=data['detection_arr'],    # values
                          columns=data['detection_arr_cols'])
     other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
 
     all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
-
     transformed_all = transforms.to_polar(transforms.linear_transform(result.x, all_star_plate))
-    '''
-    plt.scatter(np.degrees(startable[:, 0]), np.degrees(startable[:, 1]), label='catalogue')
-    plt.scatter(transformed_all[:, 1], transformed_all[:, 0], marker='+', label='observations')
-    for i in range(startable.shape[0]):
-        plt.gca().annotate(str(starid[i, :]) + f'\nMag={startable[i, 5]:.1f}', (np.degrees(startable[i, 0]), np.degrees(startable[i, 1])), color='black', fontsize=5)
-    plt.xlabel('RA')
-    plt.ylabel('DEC')
-    plt.legend()
-    plt.show()
-    '''
-    # match nearest neighbours
 
-    candidate_stars = np.zeros((startable.shape[0], 2))
-    candidate_stars[:, 0] = np.degrees(startable[:, 1])
-    candidate_stars[:, 1] = np.degrees(startable[:, 0])
+    # match nearest neighbours
+    candidate_stars = np.zeros((stardata.data.shape[0], 2))
+    candidate_stars[:, 0] = np.degrees(stardata.data[:, 1])
+    candidate_stars[:, 1] = np.degrees(stardata.data[:, 0])
 
     # find nearest two catalogue stars to each observed star
     neigh = NearestNeighbors(n_neighbors=2)
@@ -163,9 +144,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     
     plt.scatter(cata_matched[:, 1], cata_matched[:, 0], label='catalogue')
     plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations')
-    for i in range(startable.shape[0]):
+    for i in range(stardata.data.shape[0]):
         if i in indices[keep_i, 0]:
-            plt.gca().annotate(str(starid[i]) + f'\nMag={startable[i, 5]:.1f}', (np.degrees(startable[i, 0]), np.degrees(startable[i, 1])), color='black', fontsize=5)
+            plt.gca().annotate(str(stardata.ids[i]) + f'\nMag={stardata.data[i, 5]:.1f}', (np.degrees(stardata.data[i, 0]), np.degrees(stardata.data[i, 1])), color='black', fontsize=5)
     plt.xlabel('RA')
     plt.ylabel('DEC')
     plt.title('initial rough fit')
@@ -173,50 +154,57 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     if options['flag_display2']:
         plt.show()
     plt.close()
-    
 
-    target2_table = startable[indices[keep_i, 0], :][0]
-    target2 = target2_table[:, 2:5]
+    stardata.select_indices(indices[keep_i, 0].flatten())
     plate2 = all_star_plate[keep_i, :][0]
-    starid = starid[indices[keep_i, 0]][0]
-    print(starid.shape)
-
+    
     ### fit again
 
     initial_guess = result.x
 
-    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, target2, initial_guess, image_size, dict(options, **{'flag_display2':False}))
+    if options['guess_date']:
+        dateguess = options['DEFAULT_DATE'] # initial guess
+        dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
+        # re-get gaia database
+        stardata_new = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(dateguess))
+        stardata.update_data(stardata_new)
+    
+    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, stardata, initial_guess, image_size, dict(options, **{'flag_display2':False}))
 
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
-    mag_errors = np.linalg.norm(transformed_final - target2, axis=1)
+    mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
-    magnitudes = startable[:, 5][indices[keep_i, 0]][0]
     print('pre-outlier removed rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
 
     keep_j = errors_arcseconds < options['distortion_fit_tol']
 
-    plate2 = plate2[keep_j]
-    target2_table = target2_table[keep_j]
-    target2 = target2[keep_j]
-    magnitudes = magnitudes[keep_j]
-    starid = starid[keep_j]
+    plate2 = plate2[keep_j, :]
+    stardata.select_indices(keep_j)
+    
     print(f'{np.sum(1-keep_j)} outliers more than {options["distortion_fit_tol"]} arcseconds removed')
     # do 2nd fit with outliers removed
+
+    if options['guess_date']:
+        dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
+        # re-get gaia database
+        stardata_new = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(dateguess))
+        stardata.update_data(stardata_new)
     
-    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, target2, initial_guess, image_size, options)
+    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
-    mag_errors = np.linalg.norm(transformed_final - target2, axis=1)
+    mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
     
     print('final rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
-    detransformed = transforms.detransform_vectors(result, target2)
+    detransformed = transforms.detransform_vectors(result, stardata.get_vectors())
     px_errors = plate2_corrected-detransformed
     nn_corr, nn_r = get_nn_correlation_error(plate2, px_errors, options)
     coeff_names = distortion_cubic.get_coeff_names(options)
 
     output_results = { 'final rms error (arcseconds)': np.degrees(np.mean(mag_errors**2)**0.5)*3600,
                        '#stars used':plate2.shape[0],
-                       'observation_date':options['observation_date'],
+                       'observation_date':options['observation_date'] if not options['guess_date'] else dateguess,
+                       'date_guessed?': options['guess_date'],
                        'star max magnitude':options['max_star_mag_dist'],
                        'error tolerance (as)':options['distortion_fit_tol'],
                        'platescale (arcseconds/pixel)': np.degrees(result[0])*3600,
@@ -232,14 +220,14 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         json.dump(output_results, fp, sort_keys=False, indent=4)
 
     fig, axs = plt.subplots(2, 2)
-    
+    magnitudes = stardata.get_mags()
     axs[0, 0].scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+')
     axs[0, 0].set_ylabel('error (arcseconds)')
     axs[0, 0].set_xlabel('magnitude')
     axs[0, 0].grid()
     
 
-    axs[0, 1].scatter(target2_table[:, 6], np.degrees(mag_errors)*3600, marker='+')
+    axs[0, 1].scatter(stardata.get_parallax(), np.degrees(mag_errors)*3600, marker='+')
     axs[0, 1].set_ylabel('residual error (arcseconds)')
     axs[0, 1].set_xlabel('parallax (milli-arcsec)')
     axs[0, 1].grid()
@@ -264,12 +252,12 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                                'py': plate2[:, 0]+image_size[0]/2,
                                'px_dist': plate2_corrected[:, 1]+image_size[1]/2,
                                'py_dist': plate2_corrected[:, 0]+image_size[0]/2,
-                               'ID': ['gaia:'+str(_) for _ in starid],
-                               'RA(catalog)': np.degrees(target2_table[:, 0]),
-                               'DEC(catalog)': np.degrees(target2_table[:, 1]),
+                               'ID': ['gaia:'+str(_) for _ in stardata.ids],
+                               'RA(catalog)': np.degrees(stardata.data[:, 0]),
+                               'DEC(catalog)': np.degrees(stardata.data[:, 1]),
                                'RA(obs)': transforms.to_polar(transformed_final)[:, 1],
                                'DEC(obs)': transforms.to_polar(transformed_final)[:, 0],
-                               'magV': target2_table[:, 5],
+                               'magV': stardata.get_mags(),
                                 'error(")':errors_arcseconds})
             
     df_identification.to_csv(output_path('CATALOGUE_MATCHED_ERRORS'+basename+'.csv', options))
