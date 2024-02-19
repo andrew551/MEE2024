@@ -172,7 +172,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         dateguess = options['DEFAULT_DATE'] # initial guess
         dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
         # re-get gaia database
-        stardata, plate2 = match_centroids(data, result, dbs, corners, image_size, dateguess, options)
+        stardata, plate2 = match_centroids(data, result, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
 
 
     # now recompute matches
