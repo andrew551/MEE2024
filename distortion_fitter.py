@@ -230,13 +230,13 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     fig, axs = plt.subplots(2, 2)
     magnitudes = stardata.get_mags()
     axs[0, 0].scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+')
-    axs[0, 0].set_ylabel('error (arcseconds)')
+    axs[0, 0].set_ylabel('error (arcsec)')
     axs[0, 0].set_xlabel('magnitude')
     axs[0, 0].grid()
     
 
     axs[0, 1].scatter(stardata.get_parallax(), np.degrees(mag_errors)*3600, marker='+')
-    axs[0, 1].set_ylabel('residual error (arcseconds)')
+    axs[0, 1].set_ylabel('residual error (arcsec)')
     axs[0, 1].set_xlabel('parallax (milli-arcsec)')
     axs[0, 1].grid()
 
@@ -247,7 +247,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[1, 0].set_aspect('equal')
     radii = np.linalg.norm(plate2, axis=1)
     axs[1, 1].scatter(radii, np.degrees(mag_errors)*3600, marker='+')
-    axs[1, 1].set_ylabel('error (pixels)')
+    axs[1, 1].set_ylabel('error (arcsec)')
     axs[1, 1].set_xlabel('radial coordinate (pixels)')
     axs[1, 1].grid()
     fig.tight_layout()
