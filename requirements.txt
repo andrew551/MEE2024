@@ -9,5 +9,5 @@ Astroquery
 PySimpleGUI
 OpenCV-python
 Pandas
-sklearn
+scikit-learn
 tetra3
