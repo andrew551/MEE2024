@@ -53,12 +53,12 @@ options = {
     'experimental_background_subtract':False, # use experimental "ring" kernel
     'float_fits':False, # output fits files with float type
     'max_star_mag_dist':12,
-    'observation_date':'2024-01-01',
+    'observation_date':'2023-12-01',
     'distortion_fit_tol':1, # arcseconds tolerance
     'remove_edgy_centroids':False,
     'sigma_subtract':3,
     'distortionOrder':'cubic',
-    'guess_date': True,
+    'guess_date': False,
     'DEFAULT_DATE': '2020-01-01', # the default date for date guessing
 }
 
