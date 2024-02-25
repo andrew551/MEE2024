@@ -55,8 +55,37 @@ phot_g_mean_mag BETWEEN 3 AND {max_mag}"
     results = job.get_results()
     print(f'Table size (rows): {len(results)}')
 
-    print(results)
+    results.pprint(max_width=400, max_lines=30)
     return results
+
+def lookup_nearby(startable, distance, max_mag_neighbours):
+    query = f"SELECT source_id, phot_g_mean_mag, ra, dec \
+FROM gaiadr3.gaia_source \
+WHERE "
+
+    def helper(ra, dec):
+        return f'(ra BETWEEN {(ra - distance/3600/np.cos(dec)):.5f} AND {(ra + distance / 3600 / np.cos(dec)):.5f} AND \
+dec BETWEEN  {(dec - distance/3600):.5f} AND {(dec + distance / 3600):.5f})'
+        
+    
+    p = [helper(ra, dec) for (ra, dec) in list(zip(np.degrees(startable.get_ra()), np.degrees(startable.get_dec())))]
+    query += '(' + ' OR '.join(p) + ')'
+    query += f' AND phot_g_mean_mag BETWEEN 3 AND {max_mag_neighbours}'
+    print(query)
+    job     = Gaia.launch_job_async(query)
+    results = job.get_results()
+    print(f'Table size (rows): {len(results)}')
+
+    star_table = np.zeros((len(results), 9), dtype=float)
+
+    star_table[:, 0] = np.radians(results['ra'])
+    star_table[:, 1] = np.radians(results['dec'])
+    star_table[:, 5] = results['phot_g_mean_mag']
+    star_table[:, 2] = np.cos(star_table[:, 0]) * np.cos(star_table[:, 1])
+    star_table[:, 3] = np.sin(star_table[:, 0]) * np.cos(star_table[:, 1])
+    star_table[:, 4] = np.sin(star_table[:, 1])
+    star_catID = results['source_id']
+    return StarData.StarData(star_catID, star_table, 2016)
 
 gaia_limit=13
 class dbs_gaia:
@@ -82,11 +111,24 @@ class dbs_gaia:
         return StarData.StarData(star_catID, star_table, time)
         
 if __name__ == '__main__':
-    ra, dec = [], []
-    for t in [2022.0, 2022.25, 2022.5, 2022.75, 2023, 2023.25, 2023.5]:
-        rai, deci = get_prop_pos(t)
-        ra.append(rai)
-        dec.append(deci)
-    plt.scatter(ra, dec)
-    plt.show()
-    results = select_in_box(2023, (263, 265), (11.5, 13.5), 8.5)
+    #l = select_in_box(2024, (37.4, 37.5), (0.35, 0.45), 16)
+    #l = select_in_box(2016, (38.25, 38.35), (0.85, 0.95), 16)
+    #l = select_in_box(2016, (38.5, 38.8), (0.65, 0.75), 16)
+    #l = select_in_box(2016, (38.6, 38.75), (0.65, 0.75), 16)
+    l = select_in_box(2016, (264.0, 264.03), (11.81, 11.84), 18)
+    
+    l.pprint(show_unit=True, max_width=300, max_lines=30)
+    ghjk=ghj
+    dbs = dbs_gaia()
+    stardata = dbs.lookup_objects((37, 38), (-1, 1))
+    lookup_nearby(stardata, 10, 16)
+    
+    if 0:
+        ra, dec = [], []
+        for t in [2022.0, 2022.25, 2022.5, 2022.75, 2023, 2023.25, 2023.5]:
+            rai, deci = get_prop_pos(t)
+            ra.append(rai)
+            dec.append(deci)
+        plt.scatter(ra, dec)
+        plt.show()
+        results = select_in_box(2023, (263, 265), (11.5, 13.5), 8.5)

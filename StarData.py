@@ -10,6 +10,12 @@ class StarData:
         self.ids = ids
         self.epoch = epoch
 
+    def get_ra(self):
+        return self.data[:, 0]
+
+    def get_dec(self):
+        return self.data[:, 1]
+    
     # return unit vectors for each star as np array
     def get_vectors(self):
         return self.data[:, 2:5]
@@ -43,4 +49,8 @@ class StarData:
         for i in range(my_ids.shape[0]):
             j = other_ids[my_ids[i]]
             self.data[i, :] = newdata.data[j, :]
+
+    def __copy__(self):
+      newone = type(self)(self.ids, self.data, self.epoch)
+      return newone
 

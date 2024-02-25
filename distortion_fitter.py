@@ -17,8 +17,8 @@ from sklearn.linear_model import LinearRegression
 import pandas as pd
 import datetime
 import distortion_cubic
-
-
+import gaia_search
+from copy import copy
 
 def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
     def fitfunc(x):
@@ -184,10 +184,27 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     errors_arcseconds = np.degrees(mag_errors)*3600
     print('pre-outlier removed rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
 
+    # compute flag:
+    flag_is_double = np.zeros(stardata.ids.shape[0], int)
+    neigh_all = gaia_search.lookup_nearby(stardata, 10, 18)
+    neigh = NearestNeighbors(n_neighbors=2)
+
+    neigh.fit(neigh_all.data[:, :2])
+    distances, indices = neigh.kneighbors(stardata.data[:, :2])
+
+    flag_is_double = distances[:, 1] < np.radians(16/3600)
+    flag_missing_pm = np.isnan(stardata.get_pmotion()[:, 0])
+    flag_is_outlier = errors_arcseconds >= options['distortion_fit_tol']
+    flag_unexplained_outlier = np.logical_and(np.logical_and(flag_is_outlier, np.logical_not(flag_missing_pm)), np.logical_not(flag_is_double))
+    print(np.sum(flag_unexplained_outlier), ' unexplained outliers')
     keep_j = errors_arcseconds < options['distortion_fit_tol']
 
+    plate_unfiltered = plate2
+    stardata_unfiltered = copy(stardata)
     plate2 = plate2[keep_j, :]
     stardata.select_indices(keep_j)
+    flag_is_double = flag_is_double[keep_j]
+    flag_missing_pm = flag_missing_pm[keep_j]
     
     print(f'{np.sum(1-keep_j)} outliers more than {options["distortion_fit_tol"]} arcseconds removed')
     # do 2nd fit with outliers removed
@@ -266,7 +283,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                                'RA(obs)': transforms.to_polar(transformed_final)[:, 1],
                                'DEC(obs)': transforms.to_polar(transformed_final)[:, 0],
                                'magV': stardata.get_mags(),
-                                'error(")':errors_arcseconds})
+                                'error(")':errors_arcseconds,
+                                'flag_is_double':flag_is_double,
+                                'flag_missing_pm':flag_missing_pm})
             
     df_identification.to_csv(output_path('CATALOGUE_MATCHED_ERRORS'+basename+'.csv', options))
 

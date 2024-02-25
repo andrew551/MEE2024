@@ -6,9 +6,11 @@ Version 18 February 2024
 import datetime
 import os
 import traceback
+import sys
+import json
 
 def _version():
-    return 'v0.2.0'
+    return 'v0.2.1'
 
 def clearlog(path, options):
     try:
@@ -55,6 +57,32 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
+
+'''
+open config.txt and read parameters
+return parameters from file, or default if file not found or invalid
+'''
+def read_ini(options):
+    # check for config.txt file for working directory
+    print('loading config file...')
+    try:
+        mydir_ini=os.path.join(os.path.dirname(sys.argv[0]),'MEE_config.txt')
+        with open(mydir_ini, 'r', encoding="utf-8") as fp:
+            options.update(json.load(fp)) # if config has missing entries keep default   
+    except Exception:
+        traceback.print_exc()
+        print('note: error reading config file - using default parameters')
+
+
+def write_ini(options):
+    try:
+        print('saving config file ...')
+        mydir_ini = os.path.join(os.path.dirname(sys.argv[0]),'MEE_config.txt')
+        with open(mydir_ini, 'w', encoding="utf-8") as fp:
+            json.dump(options, fp, sort_keys=True, indent=4)
+    except Exception:
+        traceback.print_exc()
+        print('ERROR: failed to write config file: ' + mydir_ini)
 
 '''
 convert a iso-format datestring e.g 01/02/2023 to a float (e.g. 2023.08)

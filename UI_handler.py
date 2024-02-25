@@ -13,6 +13,7 @@ from PIL import Image, ImageTk
 import io
 import datetime
 from MEE2024util import resource_path, _version
+import MEE2024util
 import distortion_fitter
 
 
@@ -246,6 +247,7 @@ def inputUI(options):
             if input_okay_flag:
                 try:
                     interpret_UI_values2(options, values)
+                    MEE2024util.write_ini(options)
                     distortion_fitter.match_and_fit_distortion(values['-FILE2-'], options, None)
                     print('Done!')
                     #sg.Popup('Done!', keep_on_top=True)

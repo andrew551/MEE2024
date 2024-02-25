@@ -42,6 +42,7 @@ options = {
     'm':30,
     'n':30,
     'd':100, # how many stacked found stars to display
+    'img_edge_distance':5, # how many pixels away from edge
     'pxl_tol':10, # for stacking centroid matching
     'cutoff':100, # for stacking centroid matching, penalty saturation distance
     'delete_saturated_blob':True,
@@ -64,32 +65,7 @@ options = {
 
 files = []
 
-'''
-open config.txt and read parameters
-return parameters from file, or default if file not found or invalid
-'''
-def read_ini():
-    # check for config.txt file for working directory
-    print('loading config file...')
 
-    try:
-        mydir_ini=os.path.join(os.path.dirname(sys.argv[0]),'MEE_config.txt')
-        with open(mydir_ini, 'r', encoding="utf-8") as fp:
-            global options
-            options.update(json.load(fp)) # if config has missing entries keep default   
-    except Exception:
-        print('note: error reading config file - using default parameters')
-
-
-def write_ini():
-    try:
-        print('saving config file ...')
-        mydir_ini = os.path.join(os.path.dirname(sys.argv[0]),'MEE_config.txt')
-        with open(mydir_ini, 'w', encoding="utf-8") as fp:
-            json.dump(options, fp, sort_keys=True, indent=4)
-    except Exception:
-        traceback.print_exc()
-        print('ERROR: failed to write config file: ' + mydir_ini)
 
 def precheck_files(files, options, flag_write_ini=False):
     good_tasks = []
@@ -114,10 +90,10 @@ def precheck_files(files, options, flag_write_ini=False):
         if not good_tasks and flag_write_ini:
             # save parameters to config file if this is the first good task
             options['workDir'] = os.path.dirname(file)+"/"
-            write_ini()
+            MEE2024util.write_ini(options)
         good_tasks.append(file)
     if not good_tasks and flag_write_ini:
-        write_ini() # save to config file if it never happened
+        MEE2024util.write_ini(options) # save to config file if it never happened
     return good_tasks
 
 def handle_files(files, flag_command_line = False):
@@ -147,14 +123,14 @@ if __name__ == '__main__':
         print('ERROR: CLI is unimplemented')
         
     if 0: #test code for performance test
-        read_ini()
+        MEE2024util.read_ini(options)
         files = UI_handler.inputUI(options)
         cProfile.run('handle_files(files, options)', sort='cumtime')
     else:
         # if no command line arguments, open GUI interface
         if len(files)==0:
             # read initial parameters from config.txt file
-            read_ini()
+            MEE2024util.read_ini(options)
             while True:
                 newfiles = UI_handler.inputUI(options) # get files
                 if newfiles is None:
@@ -162,6 +138,6 @@ if __name__ == '__main__':
                 files = newfiles
                 handle_files(files, options) # handle files
                 files.clear()
-            write_ini()       
+            MEE2024util.write_ini(options)       
         else:
             handle_files(files, options, flag_command_line = True) # use inputs from CLI

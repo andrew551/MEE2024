@@ -183,6 +183,15 @@ def filter_bad_centroids(centroids_data, mask2, shape):
             ret.append(data)
     return ret
 
+# remove centroids within f pixels of image edge
+def filter_very_edgy_centroids(centroids_data, img, f=5):
+    ret = []
+    for data in centroids_data:
+        x0, x1 = int(data[2][0]), int(data[2][1])
+        if x0 >= f and x0 <= img.shape[0] - f - 1 and x1 >= f and x1 <= img.shape[1] - f - 1:
+            ret.append(data)
+    return ret
+
 # this function thies to remove 'centroids' that are actually
 # edge artifacts by looking for an anomaly in the gradients distributions near the centroid
 # also removes all points within 3 pixels of image edge
@@ -499,6 +508,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                         options=dict(options, **{'centroid_gaussian_subtract':options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']}), # use sensitive mode if requested only for the stack
                         debug_display=False)
     centroids_stacked_data = filter_bad_centroids(centroids_stacked_data, masks2[0], reg_imgs[0].shape) # use 0th mask here
+    centroids_stacked_data = filter_very_edgy_centroids(centroids_stacked_data, stacked, f=options['img_edge_distance'])
     if options['remove_edgy_centroids']:
         centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)
     centroids_stacked = np.array([x[2] for x in centroids_stacked_data])
