@@ -185,7 +185,7 @@ def inputUI(options):
 
     layout_distortion = [
         [sg.Text('File(s)', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE2-'),
-         sg.FilesBrowse('Choose data (FULL_DATA.xxx.npz)', key = 'Choose DATA_ALL file', file_types=(("npz files (.npz)", "*.npz"),),initial_folder=options['output_dir'])],
+         sg.FilesBrowse('Choose data (data.zip)', key = 'Choose data.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['output_dir'])],
         
         [sg.Text('Output folder (blank for same as input):', size=(50, 1), key = 'Output Folder (blank for same as input):2')],
         [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir2'),

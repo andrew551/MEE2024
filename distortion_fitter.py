@@ -19,6 +19,7 @@ import datetime
 import distortion_cubic
 import gaia_search
 from copy import copy
+import zipfile
 
 def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
     def fitfunc(x):
@@ -60,12 +61,10 @@ def get_nn_correlation_error(positions, errors, options):
     return np.mean(nn_corrs), np.mean(nn_rs)
 
 
-def match_centroids(data, result, dbs, corners, image_size, lookupdate, options):
+def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate, options):
     #TODO: this will be broken if we wrap around 360 degrees
     stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(lookupdate)) # convert to decimal year (approximate)
-    other_stars_df = pd.DataFrame(data=data['detection_arr'],    # values
-                         columns=data['detection_arr_cols'])
-    other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
+    
 
     all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
     transformed_all = transforms.to_polar(transforms.linear_transform(result.x, all_star_plate))
@@ -124,14 +123,27 @@ def match_centroids(data, result, dbs, corners, image_size, lookupdate, options)
 
 def match_and_fit_distortion(path_data, options, debug_folder=None):    
     path_catalogue = options['catalogue']
-    basename = Path(path_data).stem
     
-    data = np.load(path_data,allow_pickle=True) # TODO: can we avoid using pickle? How about using shutil.make_archive?
+    #data = np.load(path_data,allow_pickle=True) # TODO: can we avoid using pickle? How about using shutil.make_archive?
+
+
+    archive = zipfile.ZipFile(path_data, 'r')
+
+    data = json.load(archive.open('data/results.txt'))
     image_size = data['img_shape']
     if not data['platesolved']: # need initial platesolve
         raise Exception("BAD DATA - Data did not have platesolve included!")
-    df_id = pd.DataFrame(data=data['identification_arr'],    # values
-                         columns=data['identification_arr_cols'])
+    df_id = pd.read_csv(archive.open('data/STACKED_CENTROIDS_MATCHED_ID.csv'))
+    
+    #other_stars_df = pd.DataFrame(data=data['detection_arr'],    # values
+    #                     columns=data['detection_arr_cols'])
+    other_stars_df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
+    other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
+
+    basename = Path(path_data).stem + data['starttime']
+    
+    #df_id = pd.DataFrame(data=data['identification_arr'],    # values
+    #                     columns=data['identification_arr_cols'])
     df_id = df_id.astype({'RA':float, 'DEC':float, 'px':float, 'py':float, 'magV':float}) # fix datatypes
 
     df_id['vx'] = np.cos(np.radians(df_id['DEC'])) * np.cos(np.radians(df_id['RA']))
@@ -162,7 +174,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     dbs = database_cache.open_catalogue(path_catalogue)
 
     lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
-    stardata, plate2 = match_centroids(data, result, dbs, corners, image_size, lookupdate, options)
+    stardata, plate2 = match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate, options)
     
     ### fit again
 
@@ -172,7 +184,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         dateguess = options['DEFAULT_DATE'] # initial guess
         dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
         # re-get gaia database
-        stardata, plate2 = match_centroids(data, result, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
+        stardata, plate2 = match_centroids(other_stars_df, result, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
 
 
     # now recompute matches
@@ -293,10 +305,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                                'RA(obs)': transforms.to_polar(transformed_final)[:, 1],
                                'DEC(obs)': transforms.to_polar(transformed_final)[:, 0],
                                'magV': stardata_unfiltered.get_mags(),
-                                'error(")':errors_arcseconds,
-                                'flag_is_double':flag_is_double,
-                                'flag_missing_pm':flag_missing_pm,
-                                'flag_is_outlier':flag_is_outlier,})
+                               'error(")':errors_arcseconds,
+                               'flag_is_double':flag_is_double,
+                               'flag_missing_pm':flag_missing_pm,
+                               'flag_is_outlier':flag_is_outlier,})
             
     df_identification.to_csv(output_path('CATALOGUE_MATCHED_ERRORS'+basename+'.csv', options))
 

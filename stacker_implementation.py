@@ -29,6 +29,9 @@ from skimage.transform import downscale_local_mean, resize
 import skimage.data._fetchers # fix py2exe bug
 import scipy
 import database_cache
+import os
+import shutil
+import json
 
 # return fit file image as np array
 def open_image(file):
@@ -378,7 +381,10 @@ def add_img_to_stack(data, output_array=None, count_array=None):
 
 def do_stack(files, darkfiles, flatfiles, options):
     starttime = str(time.time())
-    logpath = 'LOG'+starttime+'.txt'
+    output_name = f'CENTROID_OUTPUT{starttime}'
+    output_dir = Path(output_path(output_name, options))
+    logpath = Path(output_name) / f'LOG{starttime}.txt'
+    print(f'logpath {logpath}')
     clearlog(logpath, options)
     logme(logpath, options, 'using version:'+_version())
     logme(logpath, options, 'using options:'+str(options))
@@ -393,6 +399,10 @@ def do_stack(files, darkfiles, flatfiles, options):
     print('using flats:'+str(flatfiles))
     print('using database:'+str(options['database']))
 
+    data_dir = Path(output_dir) / 'data'
+    os.mkdir(output_dir)
+    os.mkdir(data_dir)
+
     imgs = do_loop_with_progress_bar(files, open_image, message='Opening files...')
     dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs[0].shape, dtype=imgs[0].dtype)
     flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs[0].shape, dtype=float)
@@ -402,9 +412,9 @@ def do_stack(files, darkfiles, flatfiles, options):
     
     if options['save_dark_flat']:
         if darkfiles:
-            fits.writeto(output_path('DARK_STACK'+starttime+'.fit', options), dark.astype(np.float32))
+            fits.writeto(output_dir / ('DARK_STACK'+starttime+'.fit'), dark.astype(np.float32))
         if flatfiles:
-            fits.writeto(output_path('FLAT_STACK'+starttime+'.fit', options), flat.astype(np.float32))
+            fits.writeto(output_dir / ('FLAT_STACK'+starttime+'.fit'), flat.astype(np.float32))
 
     desatblob = do_loop_with_progress_bar(imgs, remove_saturated_blob, message='Processing images (step 1)...', sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
     deblobbed_imgs = [t[0] for t in desatblob]
@@ -450,7 +460,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.grid()
     for k, v in used_stars_stacking.items():
         plt.gca().annotate(str(v), tuple(reversed(centroids[0][k])))
-    plt.savefig(output_path('USEDSTARS'+starttime+'.png', options), dpi=600)
+    plt.savefig(output_dir / ('USEDSTARS'+starttime+'.png'), dpi=600)
     if options['flag_display']:
         plt.show()    
 
@@ -466,7 +476,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('2D residuals between centroids')
     plt.grid()
-    plt.savefig(output_path('TWOD_RESIDUALS'+starttime+'.png', options), dpi=600)
+    plt.savefig(output_dir / ('TWOD_RESIDUALS'+starttime+'.png'), dpi=600)
     if options['flag_display']:
         plt.tight_layout()
         plt.show()
@@ -484,7 +494,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.ylim((0, reg_imgs[0].shape[0]))
     plt.gca().invert_yaxis()
     plt.grid()
-    plt.savefig(output_path('CentroidsALL'+starttime+'.png', options), bbox_inches="tight", dpi=600)
+    plt.savefig(output_dir / ('CentroidsALL'+starttime+'.png'), bbox_inches="tight", dpi=600)
     if options['flag_display']:
         #plt.tight_layout()
         plt.show()
@@ -500,9 +510,9 @@ def do_stack(files, darkfiles, flatfiles, options):
     
     # rescale stacked to 16 bit integers
     stacked16 = ((stacked-np.min(stacked)) / (np.max(stacked) - np.min(stacked)) * 65535).astype(np.uint16)
-    fits.writeto(output_path('STACKED'+starttime+'.fit', options), stacked16)
+    fits.writeto(output_dir / ('STACKED'+starttime+'.fit'), stacked16)
     if options['float_fits']:
-        fits.writeto(output_path('STACKED_FLOAT'+starttime+'.fit', options), stacked.astype(np.float32))
+        fits.writeto(output_dir / ('STACKED_FLOAT'+starttime+'.fit'), stacked.astype(np.float32))
     # find centroids on the stacked image
     centroids_stacked_data = get_centroids_blur((stacked, masks[0], masks2[0]),
                         options=dict(options, **{'centroid_gaussian_subtract':options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']}), # use sensitive mode if requested only for the stack
@@ -517,7 +527,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                                'py': np.array(centroids_stacked)[:, 0],
                        'area (pixels)':[x[1] for x in centroids_stacked_data],
                        'flux (noise-normed)': [x[0] for x in centroids_stacked_data]})
-    df_detection.to_csv(output_path('STACKED_CENTROIDS_DATA'+starttime+'.csv', options))
+    df_detection.to_csv(data_dir / ('STACKED_CENTROIDS_DATA'+'.csv'))
     
     logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
     # plate solve
@@ -540,7 +550,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                                'DEC': np.array(solution['matched_stars'])[:, 1],
                                'magV': np.array(solution['matched_stars'])[:, 2]})
             
-            df_identification.to_csv(output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options))
+            df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
             flag_found_IDs = True
         else:
             print("ERROR: platesolve failed to identify location")
@@ -558,7 +568,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     if flag_found_IDs:
         for index, row in df_identification.iterrows():
             plt.gca().annotate(str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
-    plt.savefig(output_path('CentroidsStackGood'+starttime+'.png', options), bbox_inches="tight", dpi=600)
+    plt.savefig(output_dir / ('CentroidsStackGood'+starttime+'.png'), bbox_inches="tight", dpi=600)
     if options['flag_display']:
         show_scanlines(stacked, fig, ax)
         #plt.legend()
@@ -569,7 +579,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     identification_arr = df_identification.to_numpy() if flag_found_IDs else None
     identification_arr_cols = df_identification.columns.values if flag_found_IDs else None
 
-    np.savez(output_path('FULL_DATA'+starttime,options), platesolved=flag_found_IDs,
+    '''
+    np.savez(data_dir / ('FULL_DATA'+starttime), platesolved=flag_found_IDs,
                          img_shape = imgs[0].shape,
                          RA = solution['RA'],
                          DEC = solution['Dec'],
@@ -583,8 +594,26 @@ def do_stack(files, darkfiles, flatfiles, options):
                          identification_arr_cols=identification_arr_cols,
                          source_files=str(files),
              )
-                                                    
+    '''
 
+    results_dict = {'platesolved' : flag_found_IDs,
+                         'n_centroids' : centroids_stacked.shape[0],
+                         'img_shape' : imgs[0].shape,
+                         'RA' : solution['RA'],
+                         'DEC' : solution['Dec'],
+                         'roll' : solution['Roll'],
+                         'platescale' : solution['FOV'] / max(imgs[0].shape) if flag_found_IDs else None,
+                         'source_files' : str(files),
+                         'starttime':starttime,
+                    }
+    with open(data_dir / 'results.txt', 'w', encoding="utf-8") as fp:
+            json.dump(results_dict, fp, sort_keys=False, indent=4)
+    
+    print('making archive', output_dir, Path(output_dir).parent)                                           
+    shutil.make_archive(data_dir,
+                    'zip',
+                    Path(data_dir).parent,
+                    'data')
     
         
     write_complete(logpath, options)

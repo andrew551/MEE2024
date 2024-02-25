@@ -14,6 +14,7 @@ def _version():
 
 def clearlog(path, options):
     try:
+        print('starting new log file:', output_path(path, options))
         with open(output_path(path, options), 'w') as f:
             f.write('start time: ' + str(datetime.datetime.now()) + '\n')
     except Exception:
