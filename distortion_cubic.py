@@ -99,6 +99,13 @@ def _cubic_helper(q, plate, target, w, m, options):
     plate_corrected = plate + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
     return _get_corrected_q(q, reg_x, reg_y, w), plate_corrected, reg_x, reg_y, basis, errors
 
+
+def apply_corrections(q, plate, reg_x, reg_y, img_shape, options):
+    w = (max(img_shape)/2) # 1 # for astrometrica convention
+    m = 1 #result.x[0] # for astrometrica convention
+    basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
+    return plate + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
+                      
 def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     fig = plt.figure()
     ax = fig.add_subplot(1, 3, 1, projection='3d')    

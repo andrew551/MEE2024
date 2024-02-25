@@ -29,6 +29,7 @@ import glob
 import MEE2024util
 import datetime
 
+# default values for all options
 options = {
     'flag_display':True,
     'flag_display2':True,
@@ -61,11 +62,9 @@ options = {
     'distortionOrder':'cubic',
     'guess_date': False,
     'DEFAULT_DATE': '2020-01-01', # the default date for date guessing
+    'double_star_cutoff': 10, # within how many arcseconds to consider near_neighbour
+    'double_star_mag': 17, # max mag of double stars
 }
-
-files = []
-
-
 
 def precheck_files(files, options, flag_write_ini=False):
     good_tasks = []
@@ -117,7 +116,7 @@ start of program
 """
 if __name__ == '__main__':
     freeze_support() # enables multiprocessing for py-2-exe
-    
+    files = []
     # check for CLI input (unimplemented)
     if len(sys.argv)>1: 
         print('ERROR: CLI is unimplemented')

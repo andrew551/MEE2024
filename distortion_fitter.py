@@ -186,25 +186,25 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     # compute flag:
     flag_is_double = np.zeros(stardata.ids.shape[0], int)
-    neigh_all = gaia_search.lookup_nearby(stardata, 10, 18)
+    neigh_all = gaia_search.lookup_nearby(stardata, options['double_star_cutoff'], options['double_star_mag'])
     neigh = NearestNeighbors(n_neighbors=2)
 
     neigh.fit(neigh_all.data[:, :2])
     distances, indices = neigh.kneighbors(stardata.data[:, :2])
 
-    flag_is_double = distances[:, 1] < np.radians(16/3600)
+    flag_is_double = distances[:, 1] < np.radians(options['double_star_cutoff']/3600)
     flag_missing_pm = np.isnan(stardata.get_pmotion()[:, 0])
     flag_is_outlier = errors_arcseconds >= options['distortion_fit_tol']
     flag_unexplained_outlier = np.logical_and(np.logical_and(flag_is_outlier, np.logical_not(flag_missing_pm)), np.logical_not(flag_is_double))
     print(np.sum(flag_unexplained_outlier), ' unexplained outliers')
     keep_j = errors_arcseconds < options['distortion_fit_tol']
 
-    plate_unfiltered = plate2
+    plate2_unfiltered = plate2
     stardata_unfiltered = copy(stardata)
     plate2 = plate2[keep_j, :]
     stardata.select_indices(keep_j)
-    flag_is_double = flag_is_double[keep_j]
-    flag_missing_pm = flag_missing_pm[keep_j]
+    #flag_is_double = flag_is_double[keep_j]
+    #flag_missing_pm = flag_missing_pm[keep_j]
     
     print(f'{np.sum(1-keep_j)} outliers more than {options["distortion_fit_tol"]} arcseconds removed')
     # do 2nd fit with outliers removed
@@ -225,6 +225,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     px_errors = plate2_corrected-detransformed
     nn_corr, nn_r = get_nn_correlation_error(plate2, px_errors, options)
     coeff_names = distortion_cubic.get_coeff_names(options)
+
+    # recover errors for filtered points
+    
+
 
     output_results = { 'final rms error (arcseconds)': np.degrees(np.mean(mag_errors**2)**0.5)*3600,
                        '#stars used':plate2.shape[0],
@@ -273,19 +277,26 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         plt.show()
     plt.close()
 
-    df_identification = pd.DataFrame({'px': plate2[:, 1]+image_size[1]/2,
-                               'py': plate2[:, 0]+image_size[0]/2,
-                               'px_dist': plate2_corrected[:, 1]+image_size[1]/2,
-                               'py_dist': plate2_corrected[:, 0]+image_size[0]/2,
-                               'ID': ['gaia:'+str(_) for _ in stardata.ids],
-                               'RA(catalog)': np.degrees(stardata.data[:, 0]),
-                               'DEC(catalog)': np.degrees(stardata.data[:, 1]),
+
+    plate2_unfiltered_corrected = distortion_cubic.apply_corrections(result, plate2_unfiltered, reg_x, reg_y, image_size, options)
+    transformed_final = transforms.linear_transform(result, plate2_unfiltered_corrected, image_size)
+    mag_errors = np.linalg.norm(transformed_final - stardata_unfiltered.get_vectors(), axis=1)
+    errors_arcseconds = np.degrees(mag_errors)*3600
+
+    df_identification = pd.DataFrame({'px': plate2_unfiltered[:, 1]+image_size[1]/2,
+                               'py': plate2_unfiltered[:, 0]+image_size[0]/2,
+                               'px_dist': plate2_unfiltered_corrected[:, 1]+image_size[1]/2,
+                               'py_dist': plate2_unfiltered_corrected[:, 0]+image_size[0]/2,
+                               'ID': ['gaia:'+str(_) for _ in stardata_unfiltered.ids],
+                               'RA(catalog)': np.degrees(stardata_unfiltered.data[:, 0]),
+                               'DEC(catalog)': np.degrees(stardata_unfiltered.data[:, 1]),
                                'RA(obs)': transforms.to_polar(transformed_final)[:, 1],
                                'DEC(obs)': transforms.to_polar(transformed_final)[:, 0],
-                               'magV': stardata.get_mags(),
+                               'magV': stardata_unfiltered.get_mags(),
                                 'error(")':errors_arcseconds,
                                 'flag_is_double':flag_is_double,
-                                'flag_missing_pm':flag_missing_pm})
+                                'flag_missing_pm':flag_missing_pm,
+                                'flag_is_outlier':flag_is_outlier,})
             
     df_identification.to_csv(output_path('CATALOGUE_MATCHED_ERRORS'+basename+'.csv', options))
 
