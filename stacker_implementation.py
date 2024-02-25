@@ -377,8 +377,24 @@ def add_img_to_stack(data, output_array=None, count_array=None):
     a1 = np.ones(count_array.shape, dtype=int)
     output_array += roll_fillzero(img, shift)
     count_array += roll_fillzero(a1, shift)
-    
 
+def open_img_and_preprocess(file, options = {}, dark=0, flat=1):
+    img = open_image(file)
+    desatblob_img, mask, mask2 = remove_saturated_blob(img, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
+    reg_img = (desatblob_img - dark) / flat
+    return reg_img, mask, mask2
+
+def open_img_and_find_centroids(file, options = {}, dark=0, flat=1):
+    reg_img, mask, mask2 = open_img_and_preprocess(file, options, dark, flat)
+    centroids = get_centroids_blur((reg_img, mask, mask2), options=options)
+    centroids_filtered = filter_bad_centroids(centroids, mask2, reg_img.shape)
+    return centroids_filtered
+
+def open_img_and_add_to_stack(data, output_array=None, count_array=None, options = {}, dark=0, flat=1):
+    file, shift = data # unpack tuple
+    reg_img, _, _ = open_img_and_preprocess(file, options, dark, flat)
+    add_img_to_stack((reg_img, shift), output_array, count_array)
+    
 def do_stack(files, darkfiles, flatfiles, options):
     starttime = str(time.time())
     output_name = f'CENTROID_OUTPUT{starttime}'
@@ -403,12 +419,13 @@ def do_stack(files, darkfiles, flatfiles, options):
     os.mkdir(output_dir)
     os.mkdir(data_dir)
 
-    imgs = do_loop_with_progress_bar(files, open_image, message='Opening files...')
-    dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs[0].shape, dtype=imgs[0].dtype)
-    flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs[0].shape, dtype=float)
+    imgs_0 = open_image(files[0])#do_loop_with_progress_bar([files[0]], open_image, message='Opening files...')
+    _, masks_0, masks2_0 = remove_saturated_blob(imgs_0, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
+    dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs_0.shape, dtype=imgs_0.dtype)
+    flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs_0.shape, dtype=float)
 
-    print('image size:'+str(imgs[0].shape))
-    logme(logpath, options, 'image size:'+str(imgs[0].shape))
+    print('image size:'+str(imgs_0.shape))
+    logme(logpath, options, 'image size:'+str(imgs_0.shape))
     
     if options['save_dark_flat']:
         if darkfiles:
@@ -416,23 +433,16 @@ def do_stack(files, darkfiles, flatfiles, options):
         if flatfiles:
             fits.writeto(output_dir / ('FLAT_STACK'+starttime+'.fit'), flat.astype(np.float32))
 
-    desatblob = do_loop_with_progress_bar(imgs, remove_saturated_blob, message='Processing images (step 1)...', sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
-    deblobbed_imgs = [t[0] for t in desatblob]
-    masks = [t[1] for t in desatblob]
-    masks2 = [t[2] for t in desatblob]
-    reg_imgs = do_loop_with_progress_bar(deblobbed_imgs, lambda img: (img-dark)/flat, message='Processing images (step 2)...')
-    centroids_data = do_loop_with_progress_bar(list(zip(reg_imgs, masks, masks2)), get_centroids_blur, message='Finding centroids...', options=options)
-    centroids_data = [filter_bad_centroids(x, mask2, reg_imgs[0].shape) for x, mask2 in zip(centroids_data, masks2)]
-
+    centroids_data = do_loop_with_progress_bar(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)
     centroids = [np.array([x[2] for x in y]) for y in centroids_data]
-
+    
     # simple stacking: use the first image as the "key" and fit all others to it
     shifts = [(0,0)]
     rms_errors = []
     deltas = []
     prev = (0, 0)
     used_stars_stacking = Counter()
-    for i in range(1, len(imgs)):
+    for i in range(1, len(files)):
         shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options, guess=prev)
         print(shift, shift2, fun2)
         shifts.append(shift2)
@@ -454,8 +464,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.gca().set_aspect('equal')
     plt.scatter(used_centroids[:, 1], used_centroids[:, 0], marker='x')
     plt.title('Used stars for stacking')
-    plt.xlim((0, reg_imgs[0].shape[1]))
-    plt.ylim((0, reg_imgs[0].shape[0]))
+    plt.xlim((0, imgs_0.shape[1]))
+    plt.ylim((0, imgs_0.shape[0]))
     plt.gca().invert_yaxis()
     plt.grid()
     for k, v in used_stars_stacking.items():
@@ -467,7 +477,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     
     # show residual 2D errors
     plt.clf()
-    for i in range(1, len(imgs)):
+    for i in range(1, len(files)):
         if shifts[i-1] is None:
             continue
         lbl = '$\\Delta_{0' + str(i) + ',rms} = ' + format(rms_errors[i-1], '.3f') + '$'
@@ -482,7 +492,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         plt.show()
     #TODO: can add linear correlation of Dx, Dy to {px, py}. If it is non-zero it may indicate a rotation
     plt.clf()
-    for i in range(len(imgs)):
+    for i in range(len(files)):
         if shifts[i] is None:
             continue
         #print(centroids, shifts)
@@ -490,8 +500,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.gca().set_aspect('equal')
     plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('Centroids found on each image')
-    plt.xlim((0, reg_imgs[0].shape[1]))
-    plt.ylim((0, reg_imgs[0].shape[0]))
+    plt.xlim((0, imgs_0.shape[1]))
+    plt.ylim((0, imgs_0.shape[0]))
     plt.gca().invert_yaxis()
     plt.grid()
     plt.savefig(output_dir / ('CentroidsALL'+starttime+'.png'), bbox_inches="tight", dpi=600)
@@ -503,9 +513,11 @@ def do_stack(files, darkfiles, flatfiles, options):
     #shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts) if not shift is None]
     #stacked = np.mean(np.array(shifted_images), axis = 0)
 
-    stack_array = np.zeros(reg_imgs[0].shape)
-    count_array = np.zeros(reg_imgs[0].shape, dtype=int)
-    do_loop_with_progress_bar(list(zip(reg_imgs, shifts)), add_img_to_stack, message='Stacking images...', output_array=stack_array, count_array=count_array)
+    stack_array = np.zeros(imgs_0.shape)
+    count_array = np.zeros(imgs_0.shape, dtype=int)
+    #do_loop_with_progress_bar(list(zip(reg_imgs, shifts)), add_img_to_stack, message='Stacking images...', output_array=stack_array, count_array=count_array)
+    do_loop_with_progress_bar(list(zip(files, shifts)), open_img_and_add_to_stack, message='Stacking images...',
+                              output_array=stack_array, count_array=count_array, options = options, dark=dark, flat=flat)
     stacked = stack_array / count_array
     
     # rescale stacked to 16 bit integers
@@ -514,10 +526,10 @@ def do_stack(files, darkfiles, flatfiles, options):
     if options['float_fits']:
         fits.writeto(output_dir / ('STACKED_FLOAT'+starttime+'.fit'), stacked.astype(np.float32))
     # find centroids on the stacked image
-    centroids_stacked_data = get_centroids_blur((stacked, masks[0], masks2[0]),
+    centroids_stacked_data = get_centroids_blur((stacked, masks_0, masks2_0),
                         options=dict(options, **{'centroid_gaussian_subtract':options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']}), # use sensitive mode if requested only for the stack
                         debug_display=False)
-    centroids_stacked_data = filter_bad_centroids(centroids_stacked_data, masks2[0], reg_imgs[0].shape) # use 0th mask here
+    centroids_stacked_data = filter_bad_centroids(centroids_stacked_data, masks2_0, imgs_0.shape) # use 0th mask here
     centroids_stacked_data = filter_very_edgy_centroids(centroids_stacked_data, stacked, f=options['img_edge_distance'])
     if options['remove_edgy_centroids']:
         centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)
@@ -598,11 +610,11 @@ def do_stack(files, darkfiles, flatfiles, options):
 
     results_dict = {'platesolved' : flag_found_IDs,
                          'n_centroids' : centroids_stacked.shape[0],
-                         'img_shape' : imgs[0].shape,
+                         'img_shape' : imgs_0.shape,
                          'RA' : solution['RA'],
                          'DEC' : solution['Dec'],
                          'roll' : solution['Roll'],
-                         'platescale' : solution['FOV'] / max(imgs[0].shape) if flag_found_IDs else None,
+                         'platescale' : solution['FOV'] / max(imgs_0.shape) if flag_found_IDs else None,
                          'source_files' : str(files),
                          'starttime':starttime,
                     }
