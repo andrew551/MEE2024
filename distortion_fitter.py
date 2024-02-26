@@ -267,7 +267,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     magnitudes = stardata.get_mags()
     axs[0, 0].scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+', color = marker_colors)
     axs[0, 0].set_ylabel('error (arcsec)')
-    axs[0, 0].set_xlabel('magnitude\nred: missing pm, orange: double-star')
+    axs[0, 0].set_xlabel('magnitude\nred: missing proper motion, orange: double-star')
     axs[0, 0].grid()
 
     axs[0, 1].scatter(stardata.get_parallax(), np.degrees(mag_errors)*3600, marker='+', color = marker_colors)
