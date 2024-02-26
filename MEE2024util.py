@@ -10,35 +10,7 @@ import sys
 import json
 
 def _version():
-    return 'v0.2.1'
-
-def clearlog(path, options):
-    try:
-        print('starting new log file:', output_path(path, options))
-        with open(output_path(path, options), 'w') as f:
-            f.write('start time: ' + str(datetime.datetime.now()) + '\n')
-    except Exception:
-        traceback.print_exc()
-        print('ERROR: failed to log file: ' + path)
-
-def write_complete(path, options):
-    try:
-        with open(output_path(path, options), 'a') as f:
-            f.write('end time: ' + str(datetime.datetime.now()) + '\n')
-    except Exception:
-        traceback.print_exc()
-        print('ERROR: failed to log file: ' + path)
-        
-
-def logme(path, options, s):
-    if '_nolog' in options:
-        return
-    try:
-        with open(output_path(path, options), 'a') as f:
-            f.write(s + '\n')
-    except Exception:
-        traceback.print_exc()
-        print('ERROR: failed to log file: ' + path)
+    return 'v0.2.2'
 
 '''
 if options['output_dir'] is empty, then output there

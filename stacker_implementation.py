@@ -17,7 +17,7 @@ import math
 from scipy.optimize import minimize
 import MEE2024util
 import time
-from MEE2024util import output_path, logme, clearlog, write_complete, _version
+from MEE2024util import output_path, _version
 import datetime
 import pandas as pd
 import PySimpleGUI as sg
@@ -32,6 +32,7 @@ import database_cache
 import os
 import shutil
 import json
+import logging
 
 # return fit file image as np array
 def open_image(file):
@@ -399,15 +400,19 @@ def do_stack(files, darkfiles, flatfiles, options):
     starttime = str(time.time())
     output_name = f'CENTROID_OUTPUT{starttime}'
     output_dir = Path(output_path(output_name, options))
-    logpath = Path(output_name) / f'LOG{starttime}.txt'
+    logpath = output_dir / f'LOG{starttime}.txt'
+    data_dir = Path(output_dir) / 'data'
+    os.mkdir(output_dir)
+    os.mkdir(data_dir)
     print(f'logpath {logpath}')
-    clearlog(logpath, options)
-    logme(logpath, options, 'using version:'+_version())
-    logme(logpath, options, 'using options:'+str(options))
-    logme(logpath, options, 'stacking files:'+str(files))
-    logme(logpath, options, 'using darks:'+str(darkfiles))
-    logme(logpath, options, 'using flats:'+str(flatfiles))
-    logme(logpath, options, 'using database:'+str(options['database']))
+    logging.basicConfig(filename=logpath, encoding='utf-8', level=logging.INFO)
+    logging.info('start time: ' + str(datetime.datetime.now()) + '\n')
+    logging.info('using version:'+_version())
+    logging.info('using options:'+str(options))
+    logging.info('stacking files:'+str(files))
+    logging.info('using darks:'+str(darkfiles))
+    logging.info('using flats:'+str(flatfiles))
+    logging.info('using database:'+str(options['database']))
     print('using version:'+_version())
     print('using options:'+str(options))
     print('stacking files:'+str(files))
@@ -415,9 +420,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     print('using flats:'+str(flatfiles))
     print('using database:'+str(options['database']))
 
-    data_dir = Path(output_dir) / 'data'
-    os.mkdir(output_dir)
-    os.mkdir(data_dir)
+    
 
     imgs_0 = open_image(files[0])#do_loop_with_progress_bar([files[0]], open_image, message='Opening files...')
     _, masks_0, masks2_0 = remove_saturated_blob(imgs_0, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
@@ -425,7 +428,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs_0.shape, dtype=float)
 
     print('image size:'+str(imgs_0.shape))
-    logme(logpath, options, 'image size:'+str(imgs_0.shape))
+    logging.info('image size:'+str(imgs_0.shape))
     
     if options['save_dark_flat']:
         if darkfiles:
@@ -541,7 +544,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                        'flux (noise-normed)': [x[0] for x in centroids_stacked_data]})
     df_detection.to_csv(data_dir / ('STACKED_CENTROIDS_DATA'+'.csv'))
     
-    logme(logpath, options, f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
+    logging.info(f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
     # plate solve
     flag_found_IDs = False
     df_identification = None
@@ -551,7 +554,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
         #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
         print(solution)
-        logme(logpath, options, str(solution))
+        logging.info(str(solution))
         # TODO identify stars using catalogue
         # and save catalogue ids of each identified star (currently only around 20 are matched by the tetra software "for free"
         if not solution['RA'] is None:
@@ -565,10 +568,11 @@ def do_stack(files, darkfiles, flatfiles, options):
             df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
             flag_found_IDs = True
         else:
+            logging.error("ERROR: platesolve failed to identify location")
             print("ERROR: platesolve failed to identify location")
     else:
         print('no database provided, so skipping platesolve')
-        logme(logpath, options, 'no database provided, so skipping platesolve')
+        logging.error('no database provided, so skipping platesolve')
 
     plt.close()
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -627,6 +631,5 @@ def do_stack(files, darkfiles, flatfiles, options):
                     Path(data_dir).parent,
                     'data')
     
-        
-    write_complete(logpath, options)
+    logging.info('end time: ' + str(datetime.datetime.now()) + '\n')    
 

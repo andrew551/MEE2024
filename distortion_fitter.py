@@ -260,26 +260,28 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     with open(output_path(basename+'distortion_results.txt', options), 'w', encoding="utf-8") as fp:
         json.dump(output_results, fp, sort_keys=False, indent=4)
 
+    marker_colors = ['red' if is_missing_pm else 'orange' if is_double else '#1f77b4' for (is_missing_pm, is_double)
+                     in zip(flag_missing_pm[keep_j], flag_is_double[keep_j])] 
+
     fig, axs = plt.subplots(2, 2)
     magnitudes = stardata.get_mags()
-    axs[0, 0].scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+')
+    axs[0, 0].scatter(magnitudes, np.degrees(mag_errors)*3600, marker='+', color = marker_colors)
     axs[0, 0].set_ylabel('error (arcsec)')
-    axs[0, 0].set_xlabel('magnitude')
+    axs[0, 0].set_xlabel('magnitude\nred: missing pm, orange: double-star')
     axs[0, 0].grid()
-    
 
-    axs[0, 1].scatter(stardata.get_parallax(), np.degrees(mag_errors)*3600, marker='+')
+    axs[0, 1].scatter(stardata.get_parallax(), np.degrees(mag_errors)*3600, marker='+', color = marker_colors)
     axs[0, 1].set_ylabel('residual error (arcsec)')
     axs[0, 1].set_xlabel('parallax (milli-arcsec)')
     axs[0, 1].grid()
 
-    axs[1, 0].scatter(px_errors[:, 1], px_errors[:, 0], marker='+')
+    axs[1, 0].scatter(px_errors[:, 1], px_errors[:, 0], marker='+', color = marker_colors)
     axs[1, 0].set_ylabel('y-error(pixels)')
     axs[1, 0].set_xlabel('x-error(pixels)')
     axs[1, 0].grid()
     axs[1, 0].set_aspect('equal')
     radii = np.linalg.norm(plate2, axis=1)
-    axs[1, 1].scatter(radii, np.degrees(mag_errors)*3600, marker='+')
+    axs[1, 1].scatter(radii, np.degrees(mag_errors)*3600, marker='+', color = marker_colors)
     axs[1, 1].set_ylabel('error (arcsec)')
     axs[1, 1].set_xlabel('radial coordinate (pixels)')
     axs[1, 1].grid()
