@@ -108,6 +108,10 @@ def interpret_UI_values2(options, ui_values):
         options['distortion_fit_tol'] = float(ui_values['distortion_fit_tol']) if ui_values['max_star_mag_dist'] else 12
     except ValueError: 
         raise Exception('invalid distortion_fit_tol value!')
+    try : 
+        options['rough_match_threshhold'] = float(ui_values['rough_match_threshhold']) if ui_values['rough_match_threshhold'] else 1e-2
+    except ValueError: 
+        raise Exception('invalid rough_match_threshhold value!')
     
         
 # ------------------------------------------------------------------------------
@@ -196,6 +200,7 @@ def inputUI(options):
         [sg.Text('Observation Date (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Distortion fit tolerance (arcsec)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
         [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic', 'septic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
+        [sg.Text('Rough fit thresh-hold (deg)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
         [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
     ]
 

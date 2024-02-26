@@ -39,7 +39,7 @@ options = {
     'output_dir': '',
     'database':'',
     'catalogue':'gaia',
-    'k':8,
+    'k':12,
     'm':30,
     'n':30,
     'd':100, # how many stacked found stars to display
@@ -64,6 +64,7 @@ options = {
     'DEFAULT_DATE': '2020-01-01', # the default date for date guessing
     'double_star_cutoff': 10, # within how many arcseconds to consider near_neighbour
     'double_star_mag': 17, # max mag of double stars
+    'rough_match_threshhold':1e-2, # (in degrees) normally, 1e-2
 }
 
 def precheck_files(files, options, flag_write_ini=False):

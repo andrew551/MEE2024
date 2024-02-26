@@ -93,7 +93,7 @@ def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate
     # find matches, but exclude ambiguity
     # TODO fix 1-many matching bug
 
-    match_threshhold = 1e-2 # in degrees
+    match_threshhold = options['rough_match_threshhold'] # in degrees
     confusion_ratio = 2 # cloest match must be 2x closer than second place
 
     keep = np.logical_and(distances[:, 0] < match_threshhold, distances[:, 1] / distances[:, 0] > confusion_ratio) # note: this distance metric is not perfect (doesn't take into account meridian etc.)
@@ -200,8 +200,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     flag_is_double = np.zeros(stardata.ids.shape[0], int)
     neigh_all = gaia_search.lookup_nearby(stardata, options['double_star_cutoff'], options['double_star_mag'])
     neigh = NearestNeighbors(n_neighbors=2)
-
-    neigh.fit(neigh_all.data[:, :2])
+    neigh_all_data_extra2 = np.r_[neigh_all.data[:, :2], np.array([[-99999,-99999], [-99999, -99999]])] # ensure at least 2 "pseudo-neighbours"
+    
+    neigh.fit(neigh_all_data_extra2)
     distances, indices = neigh.kneighbors(stardata.data[:, :2])
 
     flag_is_double = distances[:, 1] < np.radians(options['double_star_cutoff']/3600)
