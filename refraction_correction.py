@@ -62,6 +62,7 @@ class AstroCorrect:
         print(repr(stardata.data[:5, :5]))
         ret = copy.copy(stardata) # note this is shallow copy
         ret.data[:, 0] = np.arctan2(corrected[:, 1], corrected[:, 0]) # RA
+        ret.data[:, 0] += (ret.data[:, 0] < 0) * 2 * np.pi # 0 to 2pi convention
         ret.data[:, 1] = np.arctan(corrected[:, 2] / np.sqrt(corrected[:, 0]**2 + corrected[:, 1]**2)) # DEC
         ret.data[:, 2:5] = corrected
         print(repr(ret.data[:5, :5]))

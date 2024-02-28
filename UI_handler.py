@@ -226,15 +226,15 @@ def inputUI(options):
         [sg.Text('Rough fit thresh-hold (deg)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
         [sg.Text('Corrections for aberration, parallax, and refraction:', font=('Helvetica', 12))],
         [sg.Checkbox('Enable aberration and parallax?', default=options['enable_corrections'], key='enable_corrections', enable_events=True)],
-        [sg.Text('Observation Time (hh:mm:ss)',size=(32,1)), sg.Input(default_text=str(options['observation_time']),size=(12,1),key='observation_time',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('Observation Time UTC (hh:mm:ss)',size=(32,1)), sg.Input(default_text=str(options['observation_time']),size=(12,1),key='observation_time',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Observation Latitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_lat']),size=(12,1),key='observation_lat',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Observation Longitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_long']),size=(12,1),key='observation_long',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Checkbox('Enable refraction correction?', default=options['enable_corrections_ref'], key='enable_corrections_ref', enable_events=True)],
-        [sg.Text('(optional) Observation Temp. (°C)',size=(32,1)), sg.Input(default_text=str(options['observation_temp']),size=(12,1),key='observation_temp',enable_events=True, disabled_readonly_background_color="Gray")],
-        [sg.Text('(optional) Observation Pressure. (hPa)',size=(32,1)), sg.Input(default_text=str(options['observation_pressure']),size=(12,1),key='observation_pressure',enable_events=True, disabled_readonly_background_color="Gray")],
-        [sg.Text('(optional) Observation Humidity. (0.0 to 1.0)',size=(32,1)), sg.Input(default_text=str(options['observation_humidity']),size=(12,1),key='observation_humidity',enable_events=True, disabled_readonly_background_color="Gray")],
-        [sg.Text('(optional) Observation height. (m)',size=(32,1)), sg.Input(default_text=str(options['observation_height']),size=(12,1),key='observation_height',enable_events=True, disabled_readonly_background_color="Gray")],
-        [sg.Text('(optional) Observation wavelength. (μm)',size=(32,1)), sg.Input(default_text=str(options['observation_wavelength']),size=(12,1),key='observation_wavelength',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation temp. (°C)',size=(32,1)), sg.Input(default_text=str(options['observation_temp']),size=(12,1),key='observation_temp',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation pressure (millibars)',size=(32,1)), sg.Input(default_text=str(options['observation_pressure']),size=(12,1),key='observation_pressure',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation humidity (0.0 to 1.0)',size=(32,1)), sg.Input(default_text=str(options['observation_humidity']),size=(12,1),key='observation_humidity',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation height (m)',size=(32,1)), sg.Input(default_text=str(options['observation_height']),size=(12,1),key='observation_height',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation wavelength (μm)',size=(32,1)), sg.Input(default_text=str(options['observation_wavelength']),size=(12,1),key='observation_wavelength',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
     ]
 

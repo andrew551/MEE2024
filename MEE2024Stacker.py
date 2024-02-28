@@ -74,7 +74,7 @@ options = {
     'observation_pressure':1010,
     'observation_humidity':0,
     'observation_height':0,
-    'observation_wavelength':0.5,
+    'observation_wavelength':0.65,
 }
 
 def precheck_files(files, options, flag_write_ini=False):
