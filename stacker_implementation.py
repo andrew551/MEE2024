@@ -17,7 +17,7 @@ import math
 from scipy.optimize import minimize
 import MEE2024util
 import time
-from MEE2024util import output_path, _version
+from MEE2024util import output_path, _version, setup_logger
 import datetime
 import pandas as pd
 import PySimpleGUI as sg
@@ -397,7 +397,7 @@ def open_img_and_add_to_stack(data, output_array=None, count_array=None, options
     add_img_to_stack((reg_img, shift), output_array, count_array)
     
 def do_stack(files, darkfiles, flatfiles, options):
-    starttime = str(time.time())
+    starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     output_name = f'CENTROID_OUTPUT{starttime}'
     output_dir = Path(output_path(output_name, options))
     logpath = output_dir / f'LOG{starttime}.txt'
@@ -405,14 +405,14 @@ def do_stack(files, darkfiles, flatfiles, options):
     os.mkdir(output_dir)
     os.mkdir(data_dir)
     print(f'logpath {logpath}')
-    logging.basicConfig(filename=logpath, encoding='utf-8', level=logging.INFO)
-    logging.info('start time: ' + str(datetime.datetime.now()) + '\n')
-    logging.info('using version:'+_version())
-    logging.info('using options:'+str(options))
-    logging.info('stacking files:'+str(files))
-    logging.info('using darks:'+str(darkfiles))
-    logging.info('using flats:'+str(flatfiles))
-    logging.info('using database:'+str(options['database']))
+    logger = setup_logger('logger'+starttime, logpath)
+    logger.info('start time: ' + str(datetime.datetime.now()) + '\n')
+    logger.info('using version:'+_version())
+    logger.info('using options:'+str(options))
+    logger.info('stacking files:'+str(files))
+    logger.info('using darks:'+str(darkfiles))
+    logger.info('using flats:'+str(flatfiles))
+    logger.info('using database:'+str(options['database']))
     print('using version:'+_version())
     print('using options:'+str(options))
     print('stacking files:'+str(files))
@@ -428,7 +428,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs_0.shape, dtype=float)
 
     print('image size:'+str(imgs_0.shape))
-    logging.info('image size:'+str(imgs_0.shape))
+    logger.info('image size:'+str(imgs_0.shape))
     
     if options['save_dark_flat']:
         if darkfiles:
@@ -544,7 +544,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                        'flux (noise-normed)': [x[0] for x in centroids_stacked_data]})
     df_detection.to_csv(data_dir / ('STACKED_CENTROIDS_DATA'+'.csv'))
     
-    logging.info(f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
+    logger.info(f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
     # plate solve
     flag_found_IDs = False
     df_identification = None
@@ -554,7 +554,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
         #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
         print(solution)
-        logging.info(str(solution))
+        logger.info(str(solution))
         # TODO identify stars using catalogue
         # and save catalogue ids of each identified star (currently only around 20 are matched by the tetra software "for free"
         if not solution['RA'] is None:
@@ -568,11 +568,11 @@ def do_stack(files, darkfiles, flatfiles, options):
             df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
             flag_found_IDs = True
         else:
-            logging.error("ERROR: platesolve failed to identify location")
+            logger.error("ERROR: platesolve failed to identify location")
             print("ERROR: platesolve failed to identify location")
     else:
         print('no database provided, so skipping platesolve')
-        logging.error('no database provided, so skipping platesolve')
+        logger.error('no database provided, so skipping platesolve')
 
     plt.close()
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -631,5 +631,4 @@ def do_stack(files, darkfiles, flatfiles, options):
                     Path(data_dir).parent,
                     'data')
     
-    logging.info('end time: ' + str(datetime.datetime.now()) + '\n')    
-
+    logger.info('end time: ' + str(datetime.datetime.now()) + '\n')    
