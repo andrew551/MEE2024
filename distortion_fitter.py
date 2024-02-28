@@ -64,10 +64,11 @@ def get_nn_correlation_error(positions, errors, options):
 
 def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate, options):
     #TODO: this will be broken if we wrap around 360 degrees
+    alt, az = None, None
     stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(lookupdate)) # convert to decimal year (approximate)
     if options['enable_corrections']:
         astrocorrect = refraction_correction.AstroCorrect()
-        stardata = astrocorrect.correct_ra_dec(stardata, options)
+        stardata, alt, az = astrocorrect.correct_ra_dec(stardata, options)
 
     all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
     transformed_all = transforms.to_polar(transforms.linear_transform(result.x, all_star_plate))
@@ -122,7 +123,7 @@ def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate
     stardata.select_indices(indices[keep_i, 0].flatten())
     plate2 = all_star_plate[keep_i, :][0]
 
-    return stardata, plate2
+    return stardata, plate2, alt, az
 
 def match_and_fit_distortion(path_data, options, debug_folder=None):    
     path_catalogue = options['catalogue']
@@ -175,9 +176,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     corners = transforms.to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
     dbs = database_cache.open_catalogue(path_catalogue)
-
+    alt, az = None, None
     lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
-    stardata, plate2 = match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate, options)
+    stardata, plate2, alt, az = match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate, options)
     
     ### fit again
 
@@ -187,7 +188,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         dateguess = options['DEFAULT_DATE'] # initial guess
         dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
         # re-get gaia database
-        stardata, plate2 = match_centroids(other_stars_df, result, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
+        stardata, plate2, alt, az = match_centroids(other_stars_df, result, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
 
 
     # now recompute matches
@@ -259,6 +260,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'distortion coeffs x': dict(zip(coeff_names, [reg_x.intercept_]+list( reg_x.coef_))),
                        'distortion coeffs y': dict(zip(coeff_names, [reg_y.intercept_]+list( reg_y.coef_))),
                        'nearest-neighbour error correlation': nn_corr,
+                       'observation alt': alt,
+                       'observation az': az,
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
                        }
     with open(output_path(basename+'distortion_results.txt', options), 'w', encoding="utf-8") as fp:

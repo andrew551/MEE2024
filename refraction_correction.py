@@ -54,6 +54,7 @@ class AstroCorrect:
             aa = AltAz(location=observing_location, obstime=observing_time)
         coord = SkyCoord(stardata.get_ra() * u.rad, stardata.get_dec() * u.rad)
         local = coord.transform_to(aa)
+        print('sky mean position alt/az:', np.mean(local.alt.degree), np.mean(local.az.degree)) 
         local_v = as_unit_vector(local)
         rot = _find_rotation_matrix(local_v, icrs_v)
         corrected = (rot.T @ local_v.T).T
@@ -66,7 +67,7 @@ class AstroCorrect:
         ret.data[:, 1] = np.arctan(corrected[:, 2] / np.sqrt(corrected[:, 0]**2 + corrected[:, 1]**2)) # DEC
         ret.data[:, 2:5] = corrected
         print(repr(ret.data[:5, :5]))
-        return ret
+        return ret, np.mean(local.alt.degree), np.mean(local.az.degree)
         
 
 # https://docs.astropy.org/en/stable/api/astropy.coordinates.AltAz.html
