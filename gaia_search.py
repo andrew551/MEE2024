@@ -1,5 +1,5 @@
 from astroquery.gaia import Gaia
-#import astropy.units as u
+import astropy.units as u
 #from astropy.coordinates import SkyCoord
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,7 +45,7 @@ WHERE source_id = 5853498713190525696"#  4472832130942575872"
 
 def select_in_box(T1, ra_range, dec_range, max_mag):
     query = f"SELECT source_id, phot_g_mean_mag, COORD1(ESDC_EPOCH_PROP_POS(ra, dec, parallax, pmra, pmdec, radial_velocity, ref_epoch, {T1})),\
-COORD2(ESDC_EPOCH_PROP_POS(ra, dec, parallax, pmra, pmdec, radial_velocity, ref_epoch, {T1})), parallax, pmra, pmdec \
+COORD2(ESDC_EPOCH_PROP_POS(ra, dec, parallax, pmra, pmdec, radial_velocity, ref_epoch, {T1})), parallax, pmra, pmdec, ref_epoch \
 FROM gaiadr3.gaia_source \
 WHERE ra BETWEEN {ra_range[0]} AND {ra_range[1]} AND \
 dec BETWEEN {dec_range[0]} AND {dec_range[1]} AND \
@@ -59,7 +59,7 @@ phot_g_mean_mag BETWEEN 3 AND {max_mag}"
     return results
 
 def lookup_nearby(startable, distance, max_mag_neighbours):
-    query = f"SELECT source_id, phot_g_mean_mag, ra, dec \
+    query = f"SELECT source_id, phot_g_mean_mag, ra, dec, ref_epoch \
 FROM gaiadr3.gaia_source \
 WHERE "
 
@@ -85,7 +85,7 @@ dec BETWEEN  {(dec - distance/3600):.5f} AND {(dec + distance / 3600):.5f})'
     star_table[:, 3] = np.sin(star_table[:, 0]) * np.cos(star_table[:, 1])
     star_table[:, 4] = np.sin(star_table[:, 1])
     star_catID = results['source_id']
-    return StarData.StarData(star_catID, star_table, 2016)
+    return StarData.StarData(results, 2016, False)
 
 gaia_limit=13
 class dbs_gaia:
@@ -97,7 +97,8 @@ class dbs_gaia:
         l = len(results)
 
         star_table = np.zeros((l, 9), dtype=float)
-
+        results['ra'] = results['COORD1'] * u.deg
+        results['dec'] = results['COORD2'] * u.deg
         star_table[:, 0] = np.radians(results['COORD1'])
         star_table[:, 1] = np.radians(results['COORD2'])
         star_table[:, 5] = results['phot_g_mean_mag']
@@ -108,7 +109,7 @@ class dbs_gaia:
         star_table[:, 7] = results['pmra']
         star_table[:, 8] = results['pmdec']
         star_catID = results['source_id']
-        return StarData.StarData(star_catID, star_table, time)
+        return StarData.StarData(results, time, True)
         
 if __name__ == '__main__':
     #l = select_in_box(2024, (37.4, 37.5), (0.35, 0.45), 16)

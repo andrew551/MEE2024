@@ -64,6 +64,8 @@ convert a iso-format datestring e.g 01/02/2023 to a float (e.g. 2023.08)
 def date_string_to_float(x):
     return datetime.datetime.fromisoformat(x).toordinal()/365.24+1
 
+def date_from_float(x):
+    return datetime.datetime.fromordinal(int((x - 1) * 365.24)).date().isoformat()
 
 '''
 logging setup

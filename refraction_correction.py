@@ -25,17 +25,6 @@ def _find_rotation_matrix(image_vectors, catalog_vectors):
     (U, S, V) = np.linalg.svd(H)
     return np.dot(U, V)
 
-'''
-remove NaNs
-set anything smaller than 1e-7 arcseconds (1e-4 mas) to 1e-7
-including negative parallax from gaia measurement error
-'''
-def regularize_parallax(parallax, minimum=1e-4):
-    x = np.copy(parallax)
-    x[np.isnan(x)] = 0
-    x[x < 1e-7] = 1e-7
-    return x
-
 has_hacked = False
 
 class AstroCorrect:
@@ -63,8 +52,7 @@ class AstroCorrect:
                        relative_humidity=options['observation_humidity']*u.m/u.m, temperature=options['observation_temp']*u.deg_C)
         else:
             aa = AltAz(location=observing_location, obstime=observing_time)
-        parallax = regularize_parallax(stardata.get_parallax())
-        coord = SkyCoord(stardata.get_ra() * u.rad, stardata.get_dec() * u.rad, distance = Distance(parallax = parallax * u.mas)) # u.mas: milli-arcsec
+        coord = stardata.c#SkyCoord(stardata.get_ra() * u.rad, stardata.get_dec() * u.rad, distance = Distance(parallax = parallax * u.mas)) # u.mas: milli-arcsec
         local = coord.transform_to(aa)
         print('sky mean position alt/az:', np.mean(local.alt.degree), np.mean(local.az.degree))
         if np.mean(local.alt.degree) < 5:
@@ -74,13 +62,20 @@ class AstroCorrect:
         corrected = (rot.T @ local_v.T).T
         delta = corrected - icrs_v
         print('rms diff of corrections (arcsec)', np.degrees(np.linalg.norm(delta)/delta.shape[0])*3600)
-        print(repr(stardata.data[:5, :5]))
         ret = copy.copy(stardata) # note this is shallow copy
-        ret.data[:, 0] = np.arctan2(corrected[:, 1], corrected[:, 0]) # RA
-        ret.data[:, 0] += (ret.data[:, 0] < 0) * 2 * np.pi # 0 to 2pi convention
-        ret.data[:, 1] = np.arctan(corrected[:, 2] / np.sqrt(corrected[:, 0]**2 + corrected[:, 1]**2)) # DEC
-        ret.data[:, 2:5] = corrected
-        print(repr(ret.data[:5, :5]))
+        
+        app_ra = np.arctan2(corrected[:, 1], corrected[:, 0]) # RA
+        app_ra += (app_ra < 0) * 2 * np.pi # 0 to 2pi convention
+        app_dec = np.arctan(corrected[:, 2] / np.sqrt(corrected[:, 0]**2 + corrected[:, 1]**2)) # DEC
+
+        c_app = SkyCoord(ra=app_ra * u.rad,
+                 dec=app_dec * u.rad, obstime=observing_time)
+
+        ret.epoch = observing_time
+        ret.haspm = False
+        ret.c = c_app
+        ret._update_vectors()
+        
         return ret, np.mean(local.alt.degree), np.mean(local.az.degree)
         
 

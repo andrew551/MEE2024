@@ -4,7 +4,8 @@ import transforms
 import matplotlib.pyplot as plt
 import scipy
 import datetime
-from MEE2024util import date_string_to_float
+from MEE2024util import date_string_to_float, date_from_float
+import copy
 
 mapping = {'linear':1, 'cubic':3, 'quintic':5, 'septic':7}
 
@@ -29,6 +30,18 @@ def get_coeff_names(options):
     return names
 
 '''
+performs linear regression on errors, return the rms residual error
+'''
+
+def _regression_helper(errors, basis_x, basis_y):
+    reg_x = LinearRegression().fit(basis_x, errors[:, 1])
+    reg_y = LinearRegression().fit(basis_y, errors[:, 0])
+    res_x = reg_x.predict(basis_x) - errors[:, 1]
+    res_y = reg_y.predict(basis_y) - errors[:, 0]
+    rms = np.mean(res_x**2+res_y**2)**0.5
+    return rms
+
+'''
 absorb two constant and two linear degrees of freedom in (reg_x, reg_y) into shifts in
 shifts in q
 returns: corrected q
@@ -48,10 +61,12 @@ date_guess : the guessed date which we want to now improve
 return : improved date guess, pmotion correction
 '''
 def _date_guess(date_guess, q, plate, stardata, img_shape, options):
-    target = stardata.get_vectors()
-    pmotion = stardata.get_pmotion()
     w = (max(img_shape)/2) # 1 # for astrometrica convention
     m = 1 #q[0] # for astrometrica convention
+    '''
+    target = stardata.get_vectors()
+    pmotion = stardata.get_pmotion()
+    
 
     
     detransformed = transforms.detransform_vectors(q, target)
@@ -65,13 +80,13 @@ def _date_guess(date_guess, q, plate, stardata, img_shape, options):
     pm_pixel = np.einsum('ij, ...j-> ...j', rmatrix, pmotion)
     pm_pixel[:, [0, 1]] = pm_pixel[:, [1, 0]] # swap columns of pm_pixel
     # apply date_guess to correct pmotion
-    errors += pm_pixel * (date_string_to_float(date_guess) - stardata.epoch)
+    errors_p = errors + pm_pixel * (date_string_to_float(date_guess) - stardata.get_epoch_float())
 
     basis_x = np.c_[basis, pm_pixel[:, 1]]
     basis_y = np.c_[basis, pm_pixel[:, 0]]
     
-    reg_x = LinearRegression().fit(basis_x, errors[:, 1]*m)
-    reg_y = LinearRegression().fit(basis_y, errors[:, 0]*m)
+    reg_x = LinearRegression().fit(basis_x, errors_p[:, 1]*m)
+    reg_y = LinearRegression().fit(basis_y, errors_p[:, 0]*m)
     plate_corrected = plate + np.array([reg_y.predict(basis_x), reg_x.predict(basis_y)]).T / m
     #print(reg_x.coef_, reg_x.intercept_)
     #print(reg_y.coef_, reg_y.intercept_)
@@ -80,7 +95,46 @@ def _date_guess(date_guess, q, plate, stardata, img_shape, options):
     t_guess = (t0 + datetime.timedelta(days=-int((reg_x.coef_[-1]+ reg_y.coef_[-1])*365.25/2))).date().isoformat()
     print('I guess image was taken on date:', date_guess, t_guess, int((reg_x.coef_[-1]+ reg_y.coef_[-1])*365.25/2))
     pmotion_correction = pm_pixel * (date_string_to_float(t_guess) - date_string_to_float(options['observation_date']))
-    return t_guess, pmotion_correction
+    '''
+    # show plot of rms vs t
+   
+
+    dtt = np.linspace(-15, 15, num=40)
+    rmss = []
+    basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
+    t0 = date_string_to_float(date_guess)
+    for dt in dtt:
+        stardata_copy = copy.copy(stardata)
+        stardata_copy.update_epoch(dt+t0)
+        target_t = stardata_copy.get_vectors()
+
+        detransformed = transforms.detransform_vectors(q, target_t)
+        errors = detransformed - plate
+        rms = np.degrees(_regression_helper(errors, basis, basis)*q[0])*3600
+        rmss.append(rms)
+    plt.plot(dtt+t0, rmss)
+    plt.ylabel('rms / arcsec')
+    plt.xlabel('date (years)')
+    if options['flag_display2']:
+        plt.show()
+    plt.close()
+
+    def rms_func(t):
+        stardata_copy = copy.copy(stardata)
+        stardata_copy.update_epoch(t)
+        target_t = stardata_copy.get_vectors()
+        detransformed = transforms.detransform_vectors(q, target_t)
+        errors = detransformed - plate
+        rms = _regression_helper(errors, basis, basis)
+        return rms
+
+    min_result = scipy.optimize.minimize_scalar(rms_func, bounds = (t0-50, t0+50), method='bounded')
+
+    print('min_result', min_result)
+
+    min_date = date_from_float(min_result.x)
+    print('min_date', min_date)
+    return min_date
 
 '''
 perform requested linear regression with general

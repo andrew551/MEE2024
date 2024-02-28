@@ -74,9 +74,9 @@ def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate
     transformed_all = transforms.to_polar(transforms.linear_transform(result.x, all_star_plate))
 
     # match nearest neighbours
-    candidate_stars = np.zeros((stardata.data.shape[0], 2))
-    candidate_stars[:, 0] = np.degrees(stardata.data[:, 1])
-    candidate_stars[:, 1] = np.degrees(stardata.data[:, 0])
+    candidate_stars = np.zeros((stardata.nstars(), 2))
+    candidate_stars[:, 0] = np.degrees(stardata.get_dec())
+    candidate_stars[:, 1] = np.degrees(stardata.get_ra())
 
     # find nearest two catalogue stars to each observed star
     neigh = NearestNeighbors(n_neighbors=2)
@@ -109,9 +109,9 @@ def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate
     
     plt.scatter(cata_matched[:, 1], cata_matched[:, 0], label='catalogue')
     plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations')
-    for i in range(stardata.data.shape[0]):
+    for i in range(stardata.nstars()):
         if i in indices[keep_i, 0]:
-            plt.gca().annotate(str(stardata.ids[i]) + f'\nMag={stardata.data[i, 5]:.1f}', (np.degrees(stardata.data[i, 0]), np.degrees(stardata.data[i, 1])), color='black', fontsize=5)
+            plt.gca().annotate(str(stardata.ids[i]), (np.degrees(stardata.get_ra()[i]), np.degrees(stardata.get_dec()[i])), color='black', fontsize=5)
     plt.xlabel('RA')
     plt.ylabel('DEC')
     plt.title('initial rough fit')
@@ -186,7 +186,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     if options['guess_date']:
         dateguess = options['DEFAULT_DATE'] # initial guess
-        dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
+        dateguess = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, dict(options, **{'flag_display2':False}))
         # re-get gaia database
         stardata, plate2, alt, az = match_centroids(other_stars_df, result, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
 
@@ -204,10 +204,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     flag_is_double = np.zeros(stardata.ids.shape[0], int)
     neigh_all = gaia_search.lookup_nearby(stardata, options['double_star_cutoff'], options['double_star_mag'])
     neigh = NearestNeighbors(n_neighbors=2)
-    neigh_all_data_extra2 = np.r_[neigh_all.data[:, :2], np.array([[-99999,-99999], [-99999, -99999]])] # ensure at least 2 "pseudo-neighbours"
+    neigh_all_data_extra2 = np.r_[neigh_all.get_ra_dec(), np.array([[-99999,-99999], [-99999, -99999]])] # ensure at least 2 "pseudo-neighbours"
     
     neigh.fit(neigh_all_data_extra2)
-    distances, indices = neigh.kneighbors(stardata.data[:, :2])
+    distances, indices = neigh.kneighbors(stardata.get_ra_dec())
 
     flag_is_double = distances[:, 1] < np.radians(options['double_star_cutoff']/3600)
     flag_missing_pm = np.isnan(stardata.get_pmotion()[:, 0])
@@ -227,10 +227,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     # do 2nd fit with outliers removed
 
     if options['guess_date']:
-        dateguess, _ = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
-        # re-get gaia database # TODO: it would be nice to epoch propagate offline, since we have the pmra, and pmdec
-        stardata_new = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(dateguess))
-        stardata.update_data(stardata_new)
+        dateguess = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
+        #stardata_new = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(dateguess))
+        #stardata.update_data(stardata_new)
+        stardata.update_epoch(date_string_to_float(dateguess))
     
     result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
@@ -320,8 +320,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                                'px_dist': plate2_unfiltered_corrected[:, 1]+image_size[1]/2,
                                'py_dist': plate2_unfiltered_corrected[:, 0]+image_size[0]/2,
                                'ID': ['gaia:'+str(_) for _ in stardata_unfiltered.ids],
-                               'RA(catalog)': np.degrees(stardata_unfiltered.data[:, 0]),
-                               'DEC(catalog)': np.degrees(stardata_unfiltered.data[:, 1]),
+                               'RA(catalog)': np.degrees(stardata_unfiltered.get_ra()),
+                               'DEC(catalog)': np.degrees(stardata_unfiltered.get_dec()),
                                'RA(obs)': transforms.to_polar(transformed_final)[:, 1],
                                'DEC(obs)': transforms.to_polar(transformed_final)[:, 0],
                                'magV': stardata_unfiltered.get_mags(),
