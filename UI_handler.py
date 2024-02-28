@@ -256,9 +256,21 @@ def inputUI(options):
     window['-sigma_thresh-'].update(disabled= not v)
     window['-min_area-'].update(disabled= not v)
     window['sigma_subtract'].update(disabled= not v)
-    window['observation_date'].update(disabled=options['guess_date'])
     def check_file(s):
         return s and not s == options['workDir']
+
+    def update_corrections_enabled(v, w, x):
+        window['observation_time'].update(disabled = not v)
+        window['observation_lat'].update(disabled = not v)
+        window['observation_long'].update(disabled = not v)
+        window['observation_temp'].update(disabled = not w)
+        window['observation_pressure'].update(disabled = not w)
+        window['observation_humidity'].update(disabled = not w)
+        window['observation_wavelength'].update(disabled = not w)
+        window['observation_height'].update(disabled = not w)
+        window['observation_date'].update(disabled=x)
+
+    update_corrections_enabled(options['enable_corrections'], options['enable_corrections_ref'], options['guess_date'])
     
     while True:
         event, values = window.read()
@@ -319,7 +331,30 @@ def inputUI(options):
             window['-sigma_thresh-'].update(disabled= not v)
             window['-min_area-'].update(disabled= not v)
             window['sigma_subtract'].update(disabled= not v)
-        if event == 'guess_date':
-            window['observation_date'].update(disabled=values['guess_date'])
             
+        if event == 'enable_corrections' or event == 'enable_corrections_ref' or event == 'guess_date':
+            v = values['enable_corrections']
+            w = values['enable_corrections_ref']
+            x = values['guess_date']
+            if event == 'enable_corrections':
+                if not values['enable_corrections']:
+                    window['enable_corrections_ref'].update(False)
+                    w = False
+                else:
+                    window['guess_date'].update(False)
+                    x = False
+            if event == 'enable_corrections_ref' and values['enable_corrections_ref']:
+                window['enable_corrections'].update(True)
+                v = True
+                window['guess_date'].update(False)
+                x = False
+            if event == 'guess_date' and x:
+                window['enable_corrections_ref'].update(False)
+                window['enable_corrections'].update(False)
+                v = False
+                w = False
+            update_corrections_enabled(v, w, x)
+            
+            
+
                 

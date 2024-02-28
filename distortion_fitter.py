@@ -260,10 +260,21 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'distortion coeffs x': dict(zip(coeff_names, [reg_x.intercept_]+list( reg_x.coef_))),
                        'distortion coeffs y': dict(zip(coeff_names, [reg_y.intercept_]+list( reg_y.coef_))),
                        'nearest-neighbour error correlation': nn_corr,
-                       'observation alt': alt,
-                       'observation az': az,
+                       'aberration/parallax correction enabled?': options['enable_corrections'],
+                       'refraction correction enabled?': options['enable_corrections_ref'],
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
                        }
+    additional_info = { 'observation_temp (°C)':options['observation_temp'],
+                        'observation_pressure (millibars)':options['observation_pressure'],
+                        'observation_humidity (0.0 to 1.0)':options['observation_humidity'],
+                        'observation_height (m)':options['observation_height'],
+                        'observation_wavelength (μm)':options['observation_wavelength'],
+                        'observation alt (degrees)': alt,
+                        'observation az (degrees)': az}
+    if options['enable_corrections'] or options['enable_corrections_ref']:
+        output_results.update(additional_info)
+
+    
     with open(output_path(basename+'distortion_results.txt', options), 'w', encoding="utf-8") as fp:
         json.dump(output_results, fp, sort_keys=False, indent=4)
 
