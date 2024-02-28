@@ -1,4 +1,4 @@
-from astropy.coordinates import EarthLocation,SkyCoord
+from astropy.coordinates import EarthLocation,SkyCoord, Distance
 from astropy.time import Time
 from astropy import units as u
 from astropy.coordinates import AltAz
@@ -24,6 +24,17 @@ def _find_rotation_matrix(image_vectors, catalog_vectors):
     # use singular value decomposition to find the rotation matrix
     (U, S, V) = np.linalg.svd(H)
     return np.dot(U, V)
+
+'''
+remove NaNs
+set anything smaller than 1e-7 arcseconds (1e-4 mas) to 1e-7
+including negative parallax from gaia measurement error
+'''
+def regularize_parallax(parallax, minimum=1e-4):
+    x = np.copy(parallax)
+    x[np.isnan(x)] = 0
+    x[x < 1e-7] = 1e-7
+    return x
 
 has_hacked = False
 
@@ -52,9 +63,12 @@ class AstroCorrect:
                        relative_humidity=options['observation_humidity']*u.m/u.m, temperature=options['observation_temp']*u.deg_C)
         else:
             aa = AltAz(location=observing_location, obstime=observing_time)
-        coord = SkyCoord(stardata.get_ra() * u.rad, stardata.get_dec() * u.rad)
+        parallax = regularize_parallax(stardata.get_parallax())
+        coord = SkyCoord(stardata.get_ra() * u.rad, stardata.get_dec() * u.rad, distance = Distance(parallax = parallax * u.mas)) # u.mas: milli-arcsec
         local = coord.transform_to(aa)
-        print('sky mean position alt/az:', np.mean(local.alt.degree), np.mean(local.az.degree)) 
+        print('sky mean position alt/az:', np.mean(local.alt.degree), np.mean(local.az.degree))
+        if np.mean(local.alt.degree) < 5:
+            print('WARNING: your implied altitude is very near or below the horizon! Are you sure your input data is correct?')
         local_v = as_unit_vector(local)
         rot = _find_rotation_matrix(local_v, icrs_v)
         corrected = (rot.T @ local_v.T).T
