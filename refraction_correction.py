@@ -5,16 +5,68 @@ from astropy.coordinates import AltAz
 import numpy as np
 import matplotlib.pyplot as plt
 import erfa
+import copy
+import transforms
+
+
+
 
 def as_unit_vector(c):
-    return np.array([np.sin(c.alt.radian), np.cos(c.alt.radian) * np.cos(c.az.radian), np.cos(c.alt.radian) * np.sin(c.az.radian)])
+    return np.array([np.sin(c.alt.radian), np.cos(c.alt.radian) * np.cos(c.az.radian), np.cos(c.alt.radian) * np.sin(c.az.radian)]).T
 
+# lifted from tetra3
+def _find_rotation_matrix(image_vectors, catalog_vectors):
+    """Calculate the least squares best rotation matrix between the two sets of vectors.
+    image_vectors and catalog_vectors both Nx3. Must be ordered as matching pairs.
+    """
+    # find the covariance matrix H between the image and catalog vectors
+    H = np.dot(image_vectors.T, catalog_vectors)
+    # use singular value decomposition to find the rotation matrix
+    (U, S, V) = np.linalg.svd(H)
+    return np.dot(U, V)
 
+has_hacked = False
 
 class AstroCorrect:
 
     def __init__(self):
-        pass
+        global has_hacked
+        if not has_hacked:  
+            #HACK to remove light deflection calculation from astropy
+            # the first argument of the erfa.ld function is the mass of the light-deflecting object ... we now set the mass to zero whenever this function is called by astropy
+            origin = erfa.ld
+            def no_grav_ld(bm, *args):
+                return origin(0, *args)
+            erfa.ld = no_grav_ld
+        has_hacked = True
+
+    # TODO: add distance to compute parallax
+    def correct_ra_dec(self, stardata, options):
+        #print(lat, lon)
+        observing_location = EarthLocation(lat=options['observation_lat'], lon=options['observation_long'], height=options['observation_height']*u.m)  
+        observing_time = Time(options['observation_date'] + ' ' + options['observation_time'])
+        icrs_v = stardata.get_vectors()
+        if options['enable_corrections_ref']:
+            aa = AltAz(location=observing_location, obstime=observing_time,
+                       obswl=options['observation_wavelength']*u.micron, pressure=options['observation_pressure']*u.hPa,
+                       relative_humidity=options['observation_humidity']*u.m/u.m, temperature=options['observation_temp']*u.deg_C)
+        else:
+            aa = AltAz(location=observing_location, obstime=observing_time)
+        coord = SkyCoord(stardata.get_ra() * u.rad, stardata.get_dec() * u.rad)
+        local = coord.transform_to(aa)
+        local_v = as_unit_vector(local)
+        rot = _find_rotation_matrix(local_v, icrs_v)
+        corrected = (rot.T @ local_v.T).T
+        delta = corrected - icrs_v
+        print('rms diff of corrections (arcsec)', np.degrees(np.linalg.norm(delta)/delta.shape[0])*3600)
+        print(repr(stardata.data[:5, :5]))
+        ret = copy.copy(stardata) # note this is shallow copy
+        ret.data[:, 0] = np.arctan2(corrected[:, 1], corrected[:, 0]) # RA
+        ret.data[:, 1] = np.arctan(corrected[:, 2] / np.sqrt(corrected[:, 0]**2 + corrected[:, 1]**2)) # DEC
+        ret.data[:, 2:5] = corrected
+        print(repr(ret.data[:5, :5]))
+        return ret
+        
 
 # https://docs.astropy.org/en/stable/api/astropy.coordinates.AltAz.html
 # AltAz can correct for aberration (always), parallax (if distance is given), refraction (given P, T, humidity, and lambda), and light defection

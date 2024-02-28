@@ -88,7 +88,6 @@ def interpret_UI_values(options, ui_values, no_file = False):
         check_files(flat_files)
         return [stack_files, dark_files, flat_files]
 
-
 def interpret_UI_values2(options, ui_values):
     check_files([ui_values['-FILE2-']])
     options['output_dir'] = ui_values['output_dir2']
@@ -112,8 +111,32 @@ def interpret_UI_values2(options, ui_values):
         options['rough_match_threshhold'] = float(ui_values['rough_match_threshhold']) if ui_values['rough_match_threshhold'] else 1e-2
     except ValueError: 
         raise Exception('invalid rough_match_threshhold value!')
-    
-        
+    options['enable_corrections'] = ui_values['enable_corrections']
+    options['enable_corrections_ref'] = ui_values['enable_corrections_ref']
+    options['observation_time'] = ui_values['observation_time']
+    options['observation_lat'] = ui_values['observation_lat']
+    options['observation_long'] = ui_values['observation_long']
+    try: 
+        options['observation_temp'] = float(ui_values['observation_temp']) if ui_values['observation_temp'] else 10
+    except ValueError: 
+        raise Exception('invalid observation_temp value!')
+    try: 
+        options['observation_pressure'] = float(ui_values['observation_pressure']) if ui_values['observation_pressure'] else 101
+    except ValueError: 
+        raise Exception('invalid observation_pressure value!')
+    try: 
+        options['observation_humidity'] = float(ui_values['observation_humidity']) if ui_values['observation_humidity'] else 0.0
+    except ValueError: 
+        raise Exception('invalid observation_humidity value!')
+    try: 
+        options['observation_height'] = float(ui_values['observation_height']) if ui_values['observation_height'] else 0.0
+    except ValueError: 
+        raise Exception('invalid observation_height value!')
+    try: 
+        options['observation_wavelength'] = float(ui_values['observation_wavelength']) if ui_values['observation_wavelength'] else 0.5
+    except ValueError: 
+        raise Exception('invalid observation_wavelength value!')
+            
 # ------------------------------------------------------------------------------
 # use PIL to read data of one image
 # ------------------------------------------------------------------------------
@@ -201,6 +224,17 @@ def inputUI(options):
         [sg.Text('Distortion fit tolerance (arcsec)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
         [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic', 'septic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
         [sg.Text('Rough fit thresh-hold (deg)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
+        [sg.Text('Corrections for aberration, parallax, and refraction:', font=('Helvetica', 12))],
+        [sg.Checkbox('Enable aberration and parallax?', default=options['enable_corrections'], key='enable_corrections', enable_events=True)],
+        [sg.Text('Observation Time (hh:mm:ss)',size=(32,1)), sg.Input(default_text=str(options['observation_time']),size=(12,1),key='observation_time',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('Observation Latitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_lat']),size=(12,1),key='observation_lat',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('Observation Longitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_long']),size=(12,1),key='observation_long',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Checkbox('Enable refraction correction?', default=options['enable_corrections_ref'], key='enable_corrections_ref', enable_events=True)],
+        [sg.Text('(optional) Observation Temp. (°C)',size=(32,1)), sg.Input(default_text=str(options['observation_temp']),size=(12,1),key='observation_temp',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation Pressure. (hPa)',size=(32,1)), sg.Input(default_text=str(options['observation_pressure']),size=(12,1),key='observation_pressure',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation Humidity. (0.0 to 1.0)',size=(32,1)), sg.Input(default_text=str(options['observation_humidity']),size=(12,1),key='observation_humidity',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation height. (m)',size=(32,1)), sg.Input(default_text=str(options['observation_height']),size=(12,1),key='observation_height',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('(optional) Observation wavelength. (μm)',size=(32,1)), sg.Input(default_text=str(options['observation_wavelength']),size=(12,1),key='observation_wavelength',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
     ]
 

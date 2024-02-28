@@ -8,9 +8,10 @@ import os
 import traceback
 import sys
 import json
+import logging
 
 def _version():
-    return 'v0.2.2'
+    return 'v0.2.3'
 
 '''
 if options['output_dir'] is empty, then output there
@@ -62,3 +63,21 @@ convert a iso-format datestring e.g 01/02/2023 to a float (e.g. 2023.08)
 '''
 def date_string_to_float(x):
     return datetime.datetime.fromisoformat(x).toordinal()/365.24+1
+
+
+'''
+logging setup
+'''
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+
+def setup_logger(name, log_file, level=logging.INFO):
+    """To setup as many loggers as you want"""
+
+    handler = logging.FileHandler(log_file)        
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger

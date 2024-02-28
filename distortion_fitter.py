@@ -20,6 +20,7 @@ import distortion_cubic
 import gaia_search
 from copy import copy
 import zipfile
+import refraction_correction
 
 def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
     def fitfunc(x):
@@ -64,7 +65,9 @@ def get_nn_correlation_error(positions, errors, options):
 def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate, options):
     #TODO: this will be broken if we wrap around 360 degrees
     stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(lookupdate)) # convert to decimal year (approximate)
-    
+    if options['enable_corrections']:
+        astrocorrect = refraction_correction.AstroCorrect()
+        stardata = astrocorrect.correct_ra_dec(stardata, options)
 
     all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
     transformed_all = transforms.to_polar(transforms.linear_transform(result.x, all_star_plate))

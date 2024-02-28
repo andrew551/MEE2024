@@ -65,6 +65,16 @@ options = {
     'double_star_cutoff': 10, # within how many arcseconds to consider near_neighbour
     'double_star_mag': 17, # max mag of double stars
     'rough_match_threshhold':1e-2, # (in degrees) normally, 1e-2
+    'enable_corrections':False,
+    'observation_time':'',
+    'observation_lat':'',
+    'observation_long':'',
+    'enable_corrections_ref':False,
+    'observation_temp':10,
+    'observation_pressure':1010,
+    'observation_humidity':0,
+    'observation_height':0,
+    'observation_wavelength':0.5,
 }
 
 def precheck_files(files, options, flag_write_ini=False):
