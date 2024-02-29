@@ -193,9 +193,9 @@ def inputUI(options):
          sg.Checkbox('save_dark_flat', default=options['save_dark_flat'], key='save_dark_flat'),
          sg.Checkbox('float_32_fits', default=options['float_fits'], key='float_fits')],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
-    [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob')],
-    [sg.Text('    blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True)],
-    [sg.Text('    centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True)],
+    [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob',enable_events=True)],
+    [sg.Text('    blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True, disabled_readonly_background_color="Gray")],
+    [sg.Text('    centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Checkbox('Sensitive centroid finder mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract',enable_events=True)],
     [sg.Checkbox('    Apply sensitive mode to stacked result (more accurate for dimmer stars but slower)', default=options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], key='sensitive_mode_stack', enable_events=True)],
     [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1), disabled_readonly_background_color="Gray")],
@@ -220,7 +220,7 @@ def inputUI(options):
         [sg.Checkbox('Show graphics', default=options['flag_display2'], key='Show graphics2')],
         [sg.Text('Maximum star magnitude',size=(32,1)), sg.Input(default_text=str(options['max_star_mag_dist']),size=(12,1),key='max_star_mag_dist',enable_events=True)],
         [sg.Checkbox('Guess Date!', default=options['guess_date'], key='guess_date', enable_events=True)],
-        [sg.Text('Observation Date (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True, disabled_readonly_background_color="Gray")],
+        [sg.Text('Observation Date UTC (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Distortion fit tolerance (arcsec)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
         [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic', 'septic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
         [sg.Text('Rough fit thresh-hold (deg)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
@@ -252,12 +252,17 @@ def inputUI(options):
     
     window = sg.Window('MEE2024 '+_version(), layout, finalize=True)
     window.BringToFront()
-    v = options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']
-    window['-sigma_thresh-'].update(disabled= not v)
-    window['-min_area-'].update(disabled= not v)
-    window['sigma_subtract'].update(disabled= not v)
+    
     def check_file(s):
         return s and not s == options['workDir']
+
+    def update_tab1_enabled(v, w):
+        window['-sigma_thresh-'].update(disabled= not v)
+        window['-min_area-'].update(disabled= not v)
+        window['sigma_subtract'].update(disabled= not v)
+        window['-blob_radius_extra-'].update(disabled = not w)
+        window['-centroid_gap_blob-'].update(disabled = not w)
+        
 
     def update_corrections_enabled(v, w, x):
         window['observation_time'].update(disabled = not v)
@@ -271,7 +276,7 @@ def inputUI(options):
         window['observation_date'].update(disabled=x)
 
     update_corrections_enabled(options['enable_corrections'], options['enable_corrections_ref'], options['guess_date'])
-    
+    update_tab1_enabled(options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], options['delete_saturated_blob'])
     while True:
         event, values = window.read()
         if event==sg.WIN_CLOSED or event=='Cancel' or event=='Cancel2':
@@ -324,14 +329,12 @@ def inputUI(options):
                 except Exception as inst:
                     traceback.print_exc()
                     sg.Popup('Error: ' + inst.args[0], keep_on_top=True)
-        if event == 'centroid_gaussian_subtract' or event == 'sensitive_mode_stack':
-            if values['centroid_gaussian_subtract']:
+        if event == 'centroid_gaussian_subtract' or event == 'sensitive_mode_stack' or event == 'delete_saturated_blob':
+            if event == 'centroid_gaussian_subtract' and values['centroid_gaussian_subtract']:
                 window['sensitive_mode_stack'].update(True)
             v = values['centroid_gaussian_subtract'] or values['sensitive_mode_stack']
-            window['-sigma_thresh-'].update(disabled= not v)
-            window['-min_area-'].update(disabled= not v)
-            window['sigma_subtract'].update(disabled= not v)
-            
+            w = values['delete_saturated_blob']
+            update_tab1_enabled(v, w)      
         if event == 'enable_corrections' or event == 'enable_corrections_ref' or event == 'guess_date':
             v = values['enable_corrections']
             w = values['enable_corrections_ref']

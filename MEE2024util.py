@@ -11,7 +11,7 @@ import json
 import logging
 
 def _version():
-    return 'v0.2.3'
+    return 'v0.2.4'
 
 '''
 if options['output_dir'] is empty, then output there
