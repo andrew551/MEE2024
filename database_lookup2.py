@@ -169,6 +169,7 @@ class database_searcher:
 
 if __name__ == '__main__':
     dbs = database_searcher("D:/tyc_dbase4/tyc_main.dat", debug_folder="D:/debugging")
+    print(dbs.star_table.shape)
     startable, starid = dbs.lookup_objects((331, 332), (44, 45))
     print(startable)
     print(starid)

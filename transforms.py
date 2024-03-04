@@ -6,6 +6,7 @@ input: cartesian 3-unit-vectors
 output: 2-vectors of polar coordinates in degrees
 '''
 def to_polar(v):
+    v = v.reshape((-1, 3))
     theta = np.arcsin(v[:, 2])
     phi = np.arctan2(v[:, 1], v[:, 0])
     phi[phi < 0] += np.pi * 2
@@ -32,6 +33,20 @@ def detransform_vectors(x, v):
     icoord1 *= np.cos(icoord0)
 
     return np.array([icoord0, icoord1]).T / scale
+
+'''
+transform from intermediate "rectilinear" coordinate system icoords to
+3-vector coordinate system (with (0, 0) -> (1, 0, 0))
+'''
+
+def icoord_to_vector(icoords):
+    icoords = icoords.reshape((-1, 2))
+    icoords[:, 1] = icoords[:, 1] / np.cos(icoords[:, 0]) # spherical coordinate curveture
+    
+    vector_positions_z = np.sin(icoords[:, 0]) # z -> declination
+    vector_positions_x = np.cos(icoords[:, 0]) * np.cos(icoords[:, 1])
+    vector_positions_y = np.cos(icoords[:, 0]) * np.sin(icoords[:, 1]) # y -> right ascension
+    return np.array([vector_positions_x, vector_positions_y, vector_positions_z]).T
     
 '''
 transform from intermediate "rectilinear" coordinate system icoords to 
@@ -39,14 +54,7 @@ transform from intermediate "rectilinear" coordinate system icoords to
 '''
 def rotate_icoords(x, icoords):
     ra, dec, roll = x[0], x[1], x[2]
-    icoords[:, 1] = icoords[:, 1] / np.cos(icoords[:, 0]) # spherical coordinate curveture
-    
-    vector_positions_z = np.sin(icoords[:, 0]) # z -> declination
-    vector_positions_x = np.cos(icoords[:, 0]) * np.cos(icoords[:, 1])
-    vector_positions_y = np.cos(icoords[:, 0]) * np.sin(icoords[:, 1]) # y -> right ascension
-
-    plate_vectors = np.array([vector_positions_x, vector_positions_y, vector_positions_z]).T
-    
+    plate_vectors = icoord_to_vector(icoords)
     # apply roll, then declination, then RA
     r = Rotation.from_euler('xyz', [roll, -dec, ra])
     rotated = r.apply(plate_vectors)
