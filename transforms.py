@@ -40,13 +40,18 @@ transform from intermediate "rectilinear" coordinate system icoords to
 '''
 
 def icoord_to_vector(icoords):
+    initial_shape = icoords.shape
+    if not initial_shape[-1] == 2:
+        raise Exception("Last dimension of shape of input must be 2!")
     icoords = icoords.reshape((-1, 2))
     icoords[:, 1] = icoords[:, 1] / np.cos(icoords[:, 0]) # spherical coordinate curveture
     
     vector_positions_z = np.sin(icoords[:, 0]) # z -> declination
     vector_positions_x = np.cos(icoords[:, 0]) * np.cos(icoords[:, 1])
     vector_positions_y = np.cos(icoords[:, 0]) * np.sin(icoords[:, 1]) # y -> right ascension
-    return np.array([vector_positions_x, vector_positions_y, vector_positions_z]).T
+    newshape = list(initial_shape)
+    newshape[-1]  = 3
+    return np.array([vector_positions_x, vector_positions_y, vector_positions_z]).T.reshape(tuple(newshape))
     
 '''
 transform from intermediate "rectilinear" coordinate system icoords to 

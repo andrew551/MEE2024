@@ -25,11 +25,11 @@ TOLERANCE = 0.01 # tolerance for triangle matching
 SCALE_TOL = 0.005 # 1 % scale tolerance
 ROLL_TOL = 0.03 # radians
 given_scale = 1.0122130319377387e-05
-TOLERANCE_RADEC = 0.02 # degrees
+TOLERANCE_RADEC = 0.005 # degrees (== 7.2 arcsec)
 
 
 # what roll and platescale does the triangle imply?
-#a, b are tuples containing three values
+#a is a tuple containing four elements
 # 0th element: matched triangle index
 # 1st, 2nd: observed r (pixels) and phi
 # 3d element (triangle: (v0, v1-v0, v2-v0))
@@ -43,7 +43,7 @@ def get_scale_and_roll(triangles, pattern_data, anchors, a):
     if s1[0] < s2[0]:
         s1, s2 = s2, s1 # larger length first convention
     scale = s1[0] / a[1]   # in radians per pixel 
-    roll = (a[2] - s1[1]) % (np.pi*2)
+    roll = (a[2] - s1[1]) % (np.pi*2) # - correction?
     #print(a)
     x = np.c_[a[3][:, 0], a[3][:, 0] + a[3][:, 1], a[3][:, 0] + a[3][:, 2]].T
     #print(x.shape, x)
@@ -60,6 +60,43 @@ def get_scale_and_roll(triangles, pattern_data, anchors, a):
     #end
     return scale, roll, ra, dec
 
+'''
+vectorised version of get_scale_and_roll
+'''
+def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect):
+    #print(match_vect.shape, match_data.shape, match_cand.shape)
+    pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
+    n = match_cand // triangles.shape[1]
+    rem = match_cand % triangles.shape[1]
+    t1 = triangles.reshape((-1, 2))[match_cand]
+    s1 = pattern_data[n, pairs[rem][:, 0]]
+    s2 = pattern_data[n, pairs[rem][:, 1]]
+    #print(s1)
+    #print(s1.shape)
+    sdat = np.stack([s1, s2])
+    swap = s1[:, 0] < s2[:, 0]
+    sdat[:, swap, :] = sdat[:, swap, :][(1, 0), :, :]
+    #print(sdat)
+    print(sdat.shape)
+    scale = sdat[0, :, 0] / match_data[:, 0]
+    print(match_vect.shape, scale.shape)
+    scaled = np.einsum('ijk,i -> ijk', match_vect, scale)
+    print(scaled.shape)
+    as_3vect = transforms.icoord_to_vector(scaled).swapaxes(1, 2)
+    print(as_3vect.shape)
+    print(as_3vect)
+    anch = anchors[n]
+    print(anch.shape)
+    print(sdat[0, :, 2:5].shape)
+    target = np.stack([anchors[n], sdat[0, :, 2:5], sdat[1, :, 2:5]], axis=2)
+    print(target)
+    print(target.shape)
+    rmatrix = np.einsum('...ij,...jk -> ...ik', target, np.linalg.inv(as_3vect))
+    #rmatrix = target @ np.linalg.inv(as_3vect)
+    center_vect = rmatrix[:, :, 0]
+    roll = np.arctan2(rmatrix[:, 1, 2], rmatrix[:, 2, 2]) % (2*np.pi)
+    return scale, roll, center_vect
+
 def load():
     cata_data = np.load('pattern_data.npz')
     #path_data = 'D:/output4/CENTROID_OUTPUT20240229002931/data.zip' # zwo 3 zd 30
@@ -69,15 +106,16 @@ def load():
     meta_data = json.load(archive.open('data/results.txt'))
     df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
     df = df.astype({'px':float, 'py':float}) # fix datatypes
-    triangles = cata_data['triangles']
-    anchors = cata_data['anchors']
-    pattern_data = cata_data['pattern_data']
-    pattern_ind = cata_data['pattern_ind']
+    triangles = cata_data['triangles'] # (n x T x 2 array) - radius ratio and angular seperation for each triangle (note: T = N(N-1)/2)
+    anchors = cata_data['anchors'] # vector rep of each "anchor" star
+    pattern_data = cata_data['pattern_data'] # (n x N x 5 array) of (dtheta, phi, star_vector) for each neighbour star
+    pattern_ind = cata_data['pattern_ind'] # n x N array of integer : the indices of neighbouring stars
     kd_tree = KDTree(triangles.reshape((-1, 2)))
     return kd_tree, anchors, pattern_ind, pattern_data, triangles, df, meta_data
 
 def find_matching_triangles(matches, triangles, pattern_data, anchors, given_scale):
     for i, matches_i in enumerate(matches):
+        print(len(matches_i))
         for k, v in matches_i.items():
             # plan: collect all implied (scale, roll), and then find consistent ones
             entry = anchors[k, :]
@@ -114,6 +152,14 @@ def main():
     #plt.show()
     print('mean:', np.mean(vectors, axis=0))
     matches = [defaultdict(list) for _ in range(f)]
+    match_cand = [] # index of triangle matches
+    match_data = [] # [r, phi] the longer side and polar angle of the matched triangles
+    match_vect = [] # [v1, v2, v3]
+                    # v0: coordinate of the center star in 2D-pixel space,
+                    # v1, v2: vectors from center star to the two neighbouring stars
+
+    triples_done = set()
+    
     for i in range(f):
         for n, (j, k) in enumerate(itertools.combinations(range(g), 2)):
             if j == i or k == i:
@@ -146,7 +192,18 @@ def main():
 
             for ind_, cand_ in zip(ind, cand):
                 matches[i][ind_].append((cand_, r1, phi1, np.c_[v0, v1, v2]))
+                match_cand.append(cand_)
+                match_data.append([r1, phi1])
+                match_vect.append(np.c_[v0, v1 + v0, v2 + v0].T)
+    match_cand = np.array(match_cand)
+    match_data = np.array(match_data)
+    match_vect = np.array(match_vect)
+    scale, roll, center_vect = compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect)
+
     find_matching_triangles(matches, triangles, pattern_data, anchors, given_scale)
+    return scale, roll, center_vect
+    
+    #
             #if (np.abs(ra - 142.9898) < 0.01 and np.abs(dec - 9.715665) < 0.01):
             #    print(i, k , v)
     '''
@@ -158,4 +215,26 @@ def main():
             '''
             
 if __name__ == '__main__':
-    cProfile.run('main()')
+    #cProfile.run('main()')
+    scale, roll, center_vect = main()
+
+    log_scale = np.log(scale)
+    TOL_CENT = np.radians(0.001)
+    TOL_ROLL = np.radians(0.001)
+    log_TOL_SCALE = 0.01
+
+    vector_plates = np.c_[log_scale / log_TOL_SCALE, roll / TOL_ROLL, center_vect / TOL_CENT]
+
+    
+    tree_matches = KDTree(vector_plates)
+
+    candidate_pairs = tree_matches.query_pairs(1)
+
+    for pair in candidate_pairs:
+        if np.abs(np.log(given_scale) - log_scale[pair[0]]) < 0.01:
+            delta = vector_plates[pair[0]] - vector_plates[pair[1]]
+            #if np.max(np.abs(delta)) < 1e-9:
+            #    continue # delta == 0 -> trivial matching of the same triangle
+            v = center_vect[pair[0]]
+            radec = transforms.to_polar(v)
+            print(radec, roll[pair[0]], vector_plates[pair[0]] - vector_plates[pair[1]])

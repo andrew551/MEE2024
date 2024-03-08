@@ -110,19 +110,34 @@ class dbs_gaia:
         star_table[:, 8] = results['pmdec']
         star_catID = results['source_id']
         return StarData.StarData(results, time, True)
+
+def select_bright(T1, max_mag):
+    query = f"SELECT source_id, phot_g_mean_mag, COORD1(ESDC_EPOCH_PROP_POS(ra, dec, parallax, pmra, pmdec, radial_velocity, ref_epoch, {T1})),\
+COORD2(ESDC_EPOCH_PROP_POS(ra, dec, parallax, pmra, pmdec, radial_velocity, ref_epoch, {T1})) \
+FROM gaiadr3.gaia_source \
+WHERE phot_g_mean_mag BETWEEN -2 AND {max_mag}"
+    print(query)
+    job     = Gaia.launch_job_async(query)
+    results = job.get_results()
+    print(f'Table size (rows): {len(results)}')
+
+    results.pprint(max_width=400, max_lines=200)
+    return results
         
 if __name__ == '__main__':
+    l = select_bright(2024.0, 4)
     #l = select_in_box(2024, (37.4, 37.5), (0.35, 0.45), 16)
     #l = select_in_box(2016, (38.25, 38.35), (0.85, 0.95), 16)
     #l = select_in_box(2016, (38.5, 38.8), (0.65, 0.75), 16)
     #l = select_in_box(2016, (38.6, 38.75), (0.65, 0.75), 16)
-    l = select_in_box(2016, (264.0, 264.03), (11.81, 11.84), 18)
-    
-    l.pprint(show_unit=True, max_width=300, max_lines=30)
-    ghjk=ghj
-    dbs = dbs_gaia()
-    stardata = dbs.lookup_objects((37, 38), (-1, 1))
-    lookup_nearby(stardata, 10, 16)
+    if 0:
+        l = select_in_box(2016, (264.0, 264.03), (11.81, 11.84), 18)
+        
+        l.pprint(show_unit=True, max_width=300, max_lines=30)
+        ghjk=ghj
+        dbs = dbs_gaia()
+        stardata = dbs.lookup_objects((37, 38), (-1, 1))
+        lookup_nearby(stardata, 10, 16)
     
     if 0:
         ra, dec = [], []
