@@ -48,7 +48,14 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
     scaled = np.einsum('ijk,i -> ijk', match_vect, scale)
     as_3vect = transforms.icoord_to_vector(scaled).swapaxes(1, 2)
     target = np.stack([anchors[n], sdat[0, :, 2:5], sdat[1, :, 2:5]], axis=2)
-    rmatrix = np.einsum('...ij,...jk -> ...ik', target, np.linalg.inv(as_3vect))
+    inv_matrix = np.zeros(as_3vect.shape, as_3vect.dtype)
+    for i in range(3):
+        for j in range(3):
+            ia = [x for x in range(3) if x != i]
+            ib = [x for x in range(3) if x != j]
+            inv_matrix[:, j, i] = (as_3vect[:, ia[0], ib[0]] * as_3vect[:, ia[1], ib[1]] - as_3vect[:, ia[1], ib[0]] * as_3vect[:, ia[0], ib[1]]) * (-1)**(i+j)
+    inv_matrix /= np.linalg.det(as_3vect).reshape((-1, 1, 1))
+    rmatrix = np.einsum('...ij,...jk -> ...ik', target, inv_matrix)
     center_vect = rmatrix[:, :, 0]
     roll = np.arctan2(rmatrix[:, 1, 2], rmatrix[:, 2, 2]) % (2*np.pi)
     return scale, roll, center_vect, rmatrix
@@ -59,7 +66,11 @@ def load():
     #path_data = 'D:\output4\CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
     #path_data = 'D:\output4\CENTROID_OUTPUT20240303040025/data.zip' # eclipse (Don) right
     #path_data = 'D:\output4\CENTROID_OUTPUT20240310015116/data.zip' # eclipse (Berry)
-    path_data = 'D:\output4\CENTROID_OUTPUT20240310020236/data.zip' # ZWO 1 
+    #path_data = 'D:\output4\CENTROID_OUTPUT20240310020236/data.zip' # ZWO 1
+    #path_data = 'D:\output4\CENTROID_OUTPUT20240310194735/data.zip' # moontest 1
+    #path_data = 'D:\output4\CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
+    #path_data = 'E:\extra data\data.zip' # another moon test
+    path_data = 'D:\output4\CENTROID_OUTPUT20240310200107\data.zip' # zwo 3 zd 75
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('data/results.txt'))
     df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
@@ -75,9 +86,6 @@ def main():
     t0 = time.perf_counter(), time.process_time()
     kd_tree, anchors, pattern_ind, pattern_data, triangles, df, meta_data = load()
     pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
-    #print(triangles[31633, :, :])
-    #print(pattern_data[31633, :])
-    #print(pattern_ind[31633, :])
     print('loaded') 
     vectors = np.c_[df['px'], df['py']] - np.array([meta_data['img_shape'][1], meta_data['img_shape'][0]]) / 2
     #plt.scatter(vectors[:, 0], vectors[:, 1])
@@ -141,15 +149,16 @@ def main():
     #find_matching_triangles(matches, triangles, pattern_data, anchors, given_scale)
     t3 = time.perf_counter(), time.process_time()
     print(f" Real time match: {t3[0] - t2[0]:.2f} seconds")
+    #cProfile.runctx('compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect)', globals(), locals())
     scale, roll, center_vect, matrix = compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect)
     t4 = time.perf_counter(), time.process_time()
     print(f" Real time platescale compute: {t4[0] - t3[0]:.2f} seconds")
-    return scale, roll, center_vect, match_info, triangle_info
+    return scale, roll, center_vect, match_info, triangle_info, vectors + np.array([meta_data['img_shape'][1], meta_data['img_shape'][0]]) / 2
             
 if __name__ == '__main__':
     #cProfile.run('main()')
     t00 = time.perf_counter(), time.process_time()
-    scale, roll, center_vect, match_info, triangle_info = main()
+    scale, roll, center_vect, match_info, triangle_info, vectors = main()
     t2 = time.perf_counter(), time.process_time()
 
     vector_plates = np.c_[np.log(scale) / log_TOL_SCALE, roll / TOL_ROLL, center_vect / TOL_CENT] 
@@ -177,6 +186,14 @@ if __name__ == '__main__':
                 radec = transforms.to_polar(center_vect[el])
                 print(len(non_redundant), [match_info[_] for _ in non_redundant])
                 print(counts[i], radec, scale[el], roll[el], match_info[el])
+                # show platesolve
+                plt.scatter(vectors[:, 1], vectors[:, 0])
+                for t in non_redundant:
+                    tri = match_info[t]
+                    v = np.array([vectors[_] for _ in tri]+[vectors[tri[0]]])
+                    plt.plot(v[:, 1], v[:, 0], color='red')
+                plt.title(f"{len(non_redundant)} triangles matched\nplatescale={np.degrees(scale[el])*3600:.4f} arcsec/pixel\nra={radec[0][0]:.4f}, dec={radec[0][1]:.4f}")
+                plt.show()
 
     print(f'npairs = {len(candidate_pairs)}')
     t4 = time.perf_counter(), time.process_time()
