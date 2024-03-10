@@ -111,7 +111,7 @@ def remove_saturated_blob(img, sat_val=65535, radius=100, radius2=150, min_size=
 
 # try to find the optimal alignment vector between two sets of centroids
 # two-step implementation (first rough, then more accurate)
-def attempt_align(c1, c2, options, guess = (0,0)):
+def attempt_align(c1, c2, options, guess = (0,0), framenum=-1):
     if not c1.size or not c2.size:
         print("ERROR: no star centroids found")
         return None, None, None, None, None
@@ -155,7 +155,8 @@ def attempt_align(c1, c2, options, guess = (0,0)):
     matches1, matches2 = enumerate_matches(result.x, eps=options['pxl_tol'])
     if len(matches1) == 0:
         print("ERROR: no matched stars between images ... problably this means failure")
-        return None, None, None, None, None
+        raise Exception(f"The stacking procedure failed to match stars between frame 0 and {framenum}! Check that all frames are okay,\nin the same field, \
+and that you have chosen appropriate centroid detection threshholds")
     vec1 = np.array([c1[i, :] for i in matches1 if i < options['n']])
     vec2 = np.array([c2[matches1[i], :] for i in matches1 if i < options['n']])
     #print(vec1, vec2)
@@ -446,7 +447,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     prev = (0, 0)
     used_stars_stacking = Counter()
     for i in range(1, len(files)):
-        shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options, guess=prev)
+        shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options, guess=prev, framenum=i)
         print(shift, shift2, fun2)
         shifts.append(shift2)
         if shift2 is None:

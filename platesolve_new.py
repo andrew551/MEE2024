@@ -7,12 +7,13 @@ from scipy.spatial import KDTree
 from scipy.spatial.distance import pdist, cdist
 from sklearn.preprocessing import normalize
 import itertools
-
+import os
 from database_lookup2 import database_searcher
-
+from MEE2024util import resource_path
+from pathlib import Path
 
 if __name__ == '__main__':
-    dbs = database_searcher("D:/tyc_dbase4/tyc_main.dat", debug_folder="D:/debugging")
+    dbs = database_searcher(resource_path("resources/compressed_tycho2024epoch.npz"))
     print(dbs.star_table.shape)
 
     # parameters for step 1
@@ -25,7 +26,6 @@ if __name__ == '__main__':
     d = 700000
     if a+b >= d:
         raise Exception("weird choice for paramters a,b,d")
-    assert(a+b < d)
     e = 18
     theta_pat = np.radians(1.7)
 
@@ -144,13 +144,10 @@ if __name__ == '__main__':
             if ratio > 1:
                 ratio = 1/ratio
                 dphi = -dphi
-            # convention: the 
             dphi = dphi % (2 * np.pi)
-            if dphi > np.pi:
-                dphi -= np.pi * 2
             triangles[i, n, 0] = ratio
             triangles[i, n, 1] = dphi
-
-    np.savez('pattern_data', anchors = vectors_kept, pattern_ind=pattern_ind, pattern_data=pattern_data, triangles=triangles)
-            
+    Path("TripleTrianglePlatesolveDatabase").mkdir(exist_ok=True)
+    np.savez_compressed("TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz", anchors = vectors_kept, pattern_ind=pattern_ind, pattern_data=pattern_data, triangles=triangles)
+    print(f"completed generating triangle database -- {triangles.size//2} triangles saved")        
             

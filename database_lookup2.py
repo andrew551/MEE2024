@@ -6,7 +6,7 @@ import itertools
 from time import perf_counter as precision_timestamp
 from datetime import datetime
 from numbers import Number
-
+import numpy as np
 # external imports
 
 import numpy as np
@@ -14,6 +14,19 @@ import numpy as np
 class database_searcher:
 
     def __init__(self, catalogue_path, star_max_magnitude=12, epoch_proper_motion='now', debug_folder=None):
+        if str(catalogue_path).endswith('.npz'):
+            data = np.load(catalogue_path)
+            mydata  = data['mydata']
+            self.num_entries = mydata.shape[0]
+            self.star_table = np.zeros((self.num_entries, 6), dtype=np.float32)
+            self.star_table[:, :2] = mydata[:, :2]
+            self.star_table[:, 5] = mydata[:, 2]
+            self.star_table[:, 2] = np.cos(self.star_table[:, 0]) * np.cos(self.star_table[:, 1])
+            self.star_table[:, 3] = np.sin(self.star_table[:, 0]) * np.cos(self.star_table[:, 1])
+            self.star_table[:, 4] = np.sin(self.star_table[:, 1])
+            #self.star_catID = data['star_catID'] # leave out catID for now because its format is annoying
+            self.star_catID = np.zeros(mydata.shape[0])
+            return
         self._logger = logging.getLogger('database_searcher.databasesearcher')
         if not self._logger.hasHandlers():
             # Add new handlers to the logger if there are none
@@ -166,10 +179,17 @@ class database_searcher:
         
         return star_table, star_catID
 
+    def save_npz(self, file):
+        mydata = np.zeros((self.num_entries, 3), dtype=np.float32)
+        mydata[:, :2] = self.star_table[:, :2]
+        mydata[:, 2] = self.star_table[:, 5]
+        np.savez_compressed(file, mydata=mydata)
+
 
 if __name__ == '__main__':
-    dbs = database_searcher("D:/tyc_dbase4/tyc_main.dat", debug_folder="D:/debugging")
+    dbs = database_searcher("D:/tyc_dbase4/tyc_main.dat", debug_folder="D:/debugging", epoch_proper_motion=2024)
     print(dbs.star_table.shape)
     startable, starid = dbs.lookup_objects((331, 332), (44, 45))
     print(startable)
     print(starid)
+    dbs.save_npz("D:/tyc_dbase4/compressed_tycho2024epoch.npz")

@@ -75,6 +75,9 @@ options = {
     'observation_humidity':0,
     'observation_height':0,
     'observation_wavelength':0.65,
+    'triple_triang_platesolve_patterns':(80000, 120000, 0, 700000, 0.01, 0.65, 1.7),
+            # (advanced): parameters for generating triangle platesolver patterns
+    'platesolve_method':'triple_triang', # triple_triang or tetra
 }
 
 def precheck_files(files, options, flag_write_ini=False):
@@ -106,7 +109,7 @@ def precheck_files(files, options, flag_write_ini=False):
         MEE2024util.write_ini(options) # save to config file if it never happened
     return good_tasks
 
-def handle_files(files, flag_command_line = False):
+def handle_files(files, options, *, flag_command_line = False):
     good_files = precheck_files(files[0], options, flag_write_ini=True)
     good_darks = precheck_files(files[1], options)
     good_flats = precheck_files(files[2], options)
