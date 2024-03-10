@@ -18,32 +18,52 @@ if __name__ == '__main__':
     # parameters for step 1
     a = 80000
     b = 120000
-    theta_sep = np.radians(0.75) # degrees
+    theta_sep = np.radians(0.65) # 0.65 degrees
+    theta_double_star = np.radians(0.01) # 36 arcsec
     # parameters for step 2
     c = 0
-    d = 500000
-    e = 20
-    theta_pat = np.radians(2.0)
+    d = 700000
+    if a+b >= d:
+        raise Exception("weird choice for paramters a,b,d")
+    assert(a+b < d)
+    e = 18
+    theta_pat = np.radians(1.7)
 
-    vectors = dbs.star_table[:a+b, 2:5].astype(np.float32)
+    vectors = dbs.star_table[:d, 2:5].astype(np.float32)
     print(f'keeping down to mag {dbs.star_table[a, 5]}')
     kd_tree1 = KDTree(vectors)
 
-    kept = np.zeros(a+b, dtype=bool)
+    kept = np.zeros(d, dtype=bool)
+    kept2 = np.zeros(d, dtype=bool)
     '''
     step 1: find set of "anchor" stars
-        (1.1) #a brightest stars
+        (1.1) #a brightest stars (exclude double stars)
         (1.2) any of the #b next-brightest stars which are further than theta_sep
         away from any brighter star than themselves
     '''
-    kept[:a] = 1
-    for i in range(a, a+b):
-        neighbours = kd_tree1.query_ball_point(vectors[i], theta_sep)
+    
+    for i in range(d):
+        neighbours = kd_tree1.query_ball_point(vectors[i], theta_sep)    
+        neighbours2 = kd_tree1.query_ball_point(vectors[i], theta_double_star)
+            
         if not np.any(kept[neighbours]):
-            kept[i] = 1
-
+            if i < a+b:
+                kept[i] = 1
+            kept2[i] = 1
+        elif not np.any(kept[neighbours2]):
+            if i < a:
+                kept[i] = 1
+            kept2[i] = 1
+    print(f'note kept {np.sum(kept[:a])} of first {a} stars')
+    print(f'note kept {np.sum(kept[:a+b])} of first {a+b} stars')
+    print(f'note kept {np.sum(kept2)} of first {d} stars')
+    
     vectors_kept = vectors[kept, :]
-    kept_vectors_ind = np.nonzero(kept)[0]
+    kept_vectors_ind = np.nonzero(kept)[0] # np.nonzero returns tuples
+    kept_vectors_ind2 = np.nonzero(kept)[0] # np.nonzero returns tuples
+
+    
+    
     nkept = vectors_kept.shape[0]
 
     for i in range(a+b):
@@ -65,14 +85,19 @@ if __name__ == '__main__':
                   statistically, this should be improbable for a good
                   choice of parameters
     '''
-    vectors2 = dbs.star_table[:d, 2:5]
+    vectors2 = vectors[kept2, :]
     kd_tree2 = KDTree(vectors2)
+    temp_dict1 = dict(enumerate(kept_vectors_ind))
+    temp_dict2 = dict(map(reversed, enumerate(kept_vectors_ind2)))
+    cumsum = np.cumsum(np.logical_not(kept2).astype(int))
     pattern_ind = np.ones((nkept, c+e), dtype=int)*-1
     pattern_data = np.zeros((nkept, c+e, 5), dtype=np.float32) # store r and phi of patterns
     z = np.array([0, 0, 1])
     for i in range(nkept):
         neighbours = kd_tree2.query_ball_point(vectors_kept[i], theta_pat)
-        neighbours.remove(kept_vectors_ind[i]) # don't match self
+        #neighbours.remove(i) # don't match self
+        ind = kept_vectors_ind[i]
+        neighbours.remove(ind - cumsum[ind]) # don't match self
         if i == 1661:#31633:
             print(neighbours)
         if len(neighbours) < c+e:
@@ -80,6 +105,7 @@ if __name__ == '__main__':
             raise Exception('edge case handling unimplemented!')
         # delta vectors
         delta = vectors2[neighbours] - vectors_kept[i]
+        
         #dtheta
         dtheta = 2 * np.arcsin(.5 * np.linalg.norm(delta, axis=1))
         #dphi calculation
