@@ -46,12 +46,13 @@ def match_centroids(df, platescale_fit, image_size, options):
     candidate_stars = np.zeros((stardata.shape[0], 2))
     candidate_stars[:, 0] = np.degrees(stardata[:, 1])
     candidate_stars[:, 1] = np.degrees(stardata[:, 0])
-    
+    '''
     plt.scatter(transformed_all[:, 1], transformed_all[:, 0])
     plt.scatter(candidate_stars[:, 1], candidate_stars[:, 0])
     for i in range(stardata.shape[0]):
         plt.gca().annotate(f'mag={stardata[i, 5]:.2f}', (np.degrees(stardata[i, 0]), np.degrees(stardata[i, 1])), color='black', fontsize=5)
     plt.show()
+    '''
     
     # find nearest two catalogue stars to each observed star
     neigh = NearestNeighbors(n_neighbors=2)
@@ -191,12 +192,14 @@ def main():
             phi1 = np.arctan2(v1[1], v1[0])
             phi2 = np.arctan2(v2[1], v2[0])
             dphi = phi2 - phi1
+            triplet = (i, j, k)
             if ratio > 1:
                 ratio = 1/ratio
                 dphi = -dphi
                 phi1, phi2 = phi2, phi1
                 r1, r2 = r2, r1
                 v1, v2 = v2, v1
+                triplet = (i, k, j)
             dphi = dphi % (2 * np.pi)
             cand = kd_tree.query_ball_point([ratio, dphi], TOLERANCE)
             ind = np.array(cand) // triangles.shape[1]
@@ -206,7 +209,7 @@ def main():
                 match_cand.append(cand_)
                 match_data.append([r1, phi1])
                 match_vect.append(array_vect.T)
-                match_info.append((i,j,k))
+                match_info.append(triplet)
                 rem = cand_ % triangles.shape[1]
                 triangle_info.append(pairs[rem])
     t2 = time.perf_counter(), time.process_time()
@@ -226,7 +229,7 @@ def main():
             
 if __name__ == '__main__':
     #cProfile.run('main()')
-    options = {'flag_display':False, 'rough_match_threshhold':0.01, 'flag_display2':1}
+    options = {'flag_display':False, 'rough_match_threshhold':0.01, 'flag_display2':0}
     t00 = time.perf_counter(), time.process_time()
     scale, roll, center_vect, match_info, triangle_info, vectors, df, meta_data, target_vectors = main()
     image_size = meta_data['img_shape']
@@ -262,7 +265,7 @@ if __name__ == '__main__':
                 radec = transforms.to_polar(center_vect[el])
                 print(len(non_redundant), [match_info[_] for _ in non_redundant])
                 print(counts[i], radec, scale[el], roll[el], match_info[el])
-                print(matchset)
+                #print(matchset)
                 if options['flag_display']:
                     # show platesolve
                     plt.scatter(vectors[:, 0], vectors[:, 1])
@@ -277,6 +280,8 @@ if __name__ == '__main__':
                 
                 ivects = transforms.icoord_to_vector(np.array([all_star_plate[_] for _ in matchset])*scale[el])
                 catvects = np.array([_ for _ in matchset.values()])
+                #print(ivects)
+                #print(catvects)
                 rotation_matrix = _find_rotation_matrix(ivects, catvects)
                 acc_ra = np.rad2deg(np.arctan2(rotation_matrix[0, 1],
                                                    rotation_matrix[0, 0])) % 360
@@ -285,6 +290,8 @@ if __name__ == '__main__':
                 acc_roll = np.rad2deg(np.arctan2(rotation_matrix[1, 2],
                                                      rotation_matrix[2, 2])) % 360
                 acc_roll = (acc_roll + 180) % 360 # ???
+                print(np.linalg.norm(catvects - (rotation_matrix.T @ ivects.T).T))
+                #print((rotation_matrix.T @ ivects.T).T)
                 print('accurate ra dec roll', acc_ra, acc_dec, acc_roll)
                 platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # ???
                 stardata, plate2 = match_centroids(df, np.radians(platescale), meta_data['img_shape'], options)
