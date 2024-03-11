@@ -11,9 +11,10 @@ import os
 from database_lookup2 import database_searcher
 from MEE2024util import resource_path
 from pathlib import Path
+import database_cache
 
 if __name__ == '__main__':
-    dbs = database_searcher(resource_path("resources/compressed_tycho2024epoch.npz"))
+    dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     print(dbs.star_table.shape)
 
     # parameters for step 1

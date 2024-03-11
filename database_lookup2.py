@@ -14,6 +14,7 @@ import numpy as np
 class database_searcher:
 
     def __init__(self, catalogue_path, star_max_magnitude=12, epoch_proper_motion='now', debug_folder=None):
+        self._logger = logging.getLogger('database_searcher.databasesearcher')
         if str(catalogue_path).endswith('.npz'):
             data = np.load(catalogue_path)
             mydata  = data['mydata']
@@ -25,9 +26,8 @@ class database_searcher:
             self.star_table[:, 3] = np.sin(self.star_table[:, 0]) * np.cos(self.star_table[:, 1])
             self.star_table[:, 4] = np.sin(self.star_table[:, 1])
             #self.star_catID = data['star_catID'] # leave out catID for now because its format is annoying
-            self.star_catID = np.zeros(mydata.shape[0])
+            self.star_catID = np.zeros((mydata.shape[0], 1)) # just zeros for catid
             return
-        self._logger = logging.getLogger('database_searcher.databasesearcher')
         if not self._logger.hasHandlers():
             # Add new handlers to the logger if there are none
             self._logger.setLevel(logging.DEBUG)
