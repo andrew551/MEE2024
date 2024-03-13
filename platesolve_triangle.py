@@ -23,6 +23,7 @@ from distortion_fitter import get_bbox
 import database_cache
 from MEE2024util import resource_path
 from sklearn.neighbors import NearestNeighbors
+import math
 
 '''
 PARAMETERS
@@ -35,17 +36,58 @@ TOL_ROLL = np.radians(0.025) # 0.025 degrees for roll tolerances
 log_TOL_SCALE = 0.01      # 1 part in 100 for platescale
 NSTARTHRESHOLD = 7 # how many stars need to be matched for platesolve to be accepted
 
+'''
+statistically estimate how many stars need to be matched to a given accuracy in order to accept a platesolve
+n_obs: how many stars were observed
+N_star_catalog: how many stars in the catalog
+threshold_match: radians: all matched stars are within this limit of each other
+g: how many oberserved stars are used to platesolve
+addon: empirical integer to add to threshold to get a "significant" value. For the limit as N_stars -> infinity, addon=2 already
+will provide an assurance approaching certainty that the match is correct. Default: 3
+
+note: not taken into account that stars dimmer than the dimmest star in the catalog should be excluded from the observed stars
+note2: we assume stars are isotropically distributed in the sky
+'''
+def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, addon=3):
+    p = N_stars_catalog * threshold_match**2 / 4 # propability that a randomly chosen point will be with threshold of a star
+
+    poisson_lambda = p*(n_obs-3) # for a single random match, the number of matches can be approximated by a Poisson distribution
+    # the minus three is because three of the observed stars are used to platesolve a match
+    
+    N = math.comb(N_stars_catalog, 3) * math.comb(g, 3) * TOLERANCE**2
+    # number of "attempts" at sampling the Poisson distribution we have by matching a triangle of
+    # observed stars to a triangle of catalogue stars
+    # note that this is quite a vast overestimate - since almost all triangles will not
+    # have matching shapes. However, as we only deal with log(N) I think this will end up being
+    # an O(1) correction to the computed threshold. Also note that overestimating N will cause an
+    # overestimate in the threshold for platesolve acceptance, which is better than an underestimate
+    # **UPDATE** add a "TOLERANCE**2" correction to the number of possible triangles. This is still probably a good upper bound for N,
+    # but within a smaller numeric factor (probably some function of pi)
+                                                        
+    #Now we make use of result in "A note on the distribution of the maximum of a set of Poisson random variables
+    #Keith Briggs∗, Linlin Song (BT Research, Martlesham) & Thomas Prellberg (Mathematics, QMUL), 2009-03-12
+    x0 = math.log(N) / scipy.special.lambertw(math.log(N) / (math.exp(1) * poisson_lambda)).real
+    x1 = x0 + (math.log(poisson_lambda) - poisson_lambda - math.log(2*math.pi)/2 - 3 * math.log(x0)/2) / (math.log(x0) - math.log(poisson_lambda))
+    # Threshold: n_match - 3 ~ int(x1) (the '3' comes from the triangle of 3 stars that is already matched)
+    threshold = round(x1) + 3
+    print(n_obs, N_stars_catalog, poisson_lambda, N, x0, x1, threshold)
+    return threshold + addon
+    
+    
+
 def match_centroids(df, platescale_fit, image_size, options):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     corners = transforms.to_polar(transforms.linear_transform(platescale_fit, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
     stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=12)[0]
     all_star_plate = np.array([df['py'], df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
-    transformed_all = transforms.to_polar(transforms.linear_transform(platescale_fit, all_star_plate))
-    
+    all_vectors = transforms.linear_transform(platescale_fit, all_star_plate)
+    transformed_all = transforms.to_polar(all_vectors)
+    n_cata_frame = stardata.shape[0]
     # match nearest neighbours
     candidate_stars = np.zeros((stardata.shape[0], 2))
     candidate_stars[:, 0] = np.degrees(stardata[:, 1])
     candidate_stars[:, 1] = np.degrees(stardata[:, 0])
+    candidate_star_vectors = stardata[:, 2:5]
     '''
     plt.scatter(transformed_all[:, 1], transformed_all[:, 0])
     plt.scatter(candidate_stars[:, 1], candidate_stars[:, 0])
@@ -57,18 +99,18 @@ def match_centroids(df, platescale_fit, image_size, options):
     # find nearest two catalogue stars to each observed star
     neigh = NearestNeighbors(n_neighbors=2)
 
-    neigh.fit(candidate_stars)
-    distances, indices = neigh.kneighbors(transformed_all)
+    neigh.fit(candidate_star_vectors)
+    distances, indices = neigh.kneighbors(all_vectors)
     #print(indices)
     #print(distances)
 
     # find nearest observed star to each catalogue star
     neigh_bar = NearestNeighbors(n_neighbors=1)
 
-    neigh_bar.fit(transformed_all)
-    distances_bar, indices_bar = neigh_bar.kneighbors(candidate_stars)
+    neigh_bar.fit(all_vectors)
+    distances_bar, indices_bar = neigh_bar.kneighbors(candidate_star_vectors)
 
-    match_threshhold = options['rough_match_threshhold'] # in degrees
+    match_threshhold = np.radians(options['rough_match_threshhold']) # in degrees
     confusion_ratio = 2 # closest match must be 2x closer than second place
 
     keep = np.logical_and(distances[:, 0] < match_threshhold, distances[:, 1] / distances[:, 0] > confusion_ratio) # note: this distance metric is not perfect (doesn't take into account meridian etc.)
@@ -93,7 +135,10 @@ def match_centroids(df, platescale_fit, image_size, options):
     stardata= stardata[indices[keep_i, 0].flatten(), :]
     plate2 = all_star_plate[keep_i, :][0]
 
-    return stardata, plate2
+    all_vectors = all_vectors[keep_i, :][0]
+    errors = np.linalg.norm(stardata[:, 2:5]-all_vectors, axis=1)
+
+    return stardata, plate2, np.max(errors)
 
 # from tetra
 def _find_rotation_matrix(image_vectors, catalog_vectors):
@@ -140,10 +185,10 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
 
 def load():
     cata_data = database_cache.open_catalogue('TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz')
-    path_data = 'D:/output4/CENTROID_OUTPUT20240229002931/data.zip' # zwo 3 zd 30
+    #path_data = 'D:/output4/CENTROID_OUTPUT20240229002931/data.zip' # zwo 3 zd 30
     #path_data = 'D:\output4\CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
     #path_data = 'D:\output4\CENTROID_OUTPUT20240303040025/data.zip' # eclipse (Don) right
-    #path_data = 'D:\output4\CENTROID_OUTPUT20240310015116/data.zip' # eclipse (Berry)
+    path_data = 'D:\output4\CENTROID_OUTPUT20240310015116/data.zip' # eclipse (Berry)
     #path_data = 'D:\output4\CENTROID_OUTPUT20240310020236/data.zip' # ZWO 1
     #path_data = 'D:\output4\CENTROID_OUTPUT20240310194735/data.zip' # moontest 1
     #path_data = 'D:\output4\CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
@@ -230,8 +275,11 @@ def main():
 if __name__ == '__main__':
     #cProfile.run('main()')
     options = {'flag_display':False, 'rough_match_threshhold':0.01, 'flag_display2':0}
+    dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+    N_stars_catalog = dbs.star_table.shape[0]
     t00 = time.perf_counter(), time.process_time()
     scale, roll, center_vect, match_info, triangle_info, vectors, df, meta_data, target_vectors = main()
+    n_obs = df['px'].shape[0]
     image_size = meta_data['img_shape']
     all_star_plate = np.array([df['py'], df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
     t2 = time.perf_counter(), time.process_time()
@@ -293,13 +341,15 @@ if __name__ == '__main__':
                 print(np.linalg.norm(catvects - (rotation_matrix.T @ ivects.T).T))
                 #print((rotation_matrix.T @ ivects.T).T)
                 print('accurate ra dec roll', acc_ra, acc_dec, acc_roll)
-                platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # ???
-                stardata, plate2 = match_centroids(df, np.radians(platescale), meta_data['img_shape'], options)
+                platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # do weird +180 roll thing as usual
+                stardata, plate2, max_error = match_centroids(df, np.radians(platescale), meta_data['img_shape'], options)
+                print('max_error', max_error)
+                thresh = estimate_acceptance_threshold(n_obs, N_stars_catalog, max_error, g, addon=3)
                 
-                if stardata.shape[0] >= NSTARTHRESHOLD:
-                    print(f"MATCH ACCEPTED (nstars matched = {stardata.shape[0]})")
+                if stardata.shape[0] >= thresh:
+                    print(f"MATCH ACCEPTED (nstars matched = {stardata.shape[0]}, thresh = {thresh})")
                 else:
-                    print(f"match rejected (nstars matched = {stardata.shape[0]})")
+                    print(f"match rejected (nstars matched = {stardata.shape[0]}, thresh = {thresh})")
                 
 
     print(f'npairs = {len(candidate_pairs)}')
