@@ -169,6 +169,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     '''
     plate_solve_result = platesolve_triangle.platesolve(np.c_[other_stars_df['py'], other_stars_df['px']], image_size, options)
 
+    if plate_solve_result['mirror']:
+        other_stars_df['py'], other_stars_df['px'] = other_stars_df['px'], other_stars_df['py']
+        image_size = np.array([image_size[1], image_size[0]])
+
     if not plate_solve_result['success']: # failed platesolve
         raise Exception("BAD DATA - platesolve failed!")
 
@@ -254,6 +258,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'star max magnitude':options['max_star_mag_dist'],
                        'error tolerance (as)':options['distortion_fit_tol'],
                        'platescale (arcseconds/pixel)': np.degrees(result[0])*3600,
+                       'mirror?':plate_solve_result['mirror'],
                        'RA':np.degrees(result[1]),
                        'DEC':np.degrees(result[2]),
                        'ROLL':np.degrees(result[3])-180, # TODO: clarify this dodgy +/- 180 thing

@@ -268,13 +268,18 @@ def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_mat
     if not len(centroids.shape)==2 or not centroids.shape[1] == 2:
         raise Exception("ERROR: expected an n by 2 array for centroids")
     result = _platesolve_helper(centroids, image_shape, options)
-    # TODO: if we are friendly, could mirror (x, y) and try again if failed
+    # if we are friendly, could mirror (x, y) and try again if failed
+    result['mirror'] = False
     if result['success'] or not try_mirror_also:
         return result
     print('platesolve failed ... trying mirror image of field')
     centroids = np.copy(centroids)
     centroids[:, [0, 1]] = centroids[:, [1, 0]]
+    image_shape = (image_shape[1], image_shape[0])
     result = _platesolve_helper(centroids, image_shape, options)
+    if result['success']:
+        result['mirror'] = True
+        result['matched_centroids'][:, [0, 1]] = result['matched_centroids'][:, [1, 0]]
     return result
 
 def _platesolve_helper(centroids, image_size, options):
