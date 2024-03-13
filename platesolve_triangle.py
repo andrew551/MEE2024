@@ -327,6 +327,7 @@ def _platesolve_helper(centroids, image_size, options):
                         tri = match_info[t]
                         v = np.array([vectors[_] for _ in tri]+[vectors[tri[0]]])
                         plt.plot(v[:, 0], v[:, 1], color='red')
+                    plt.gca().invert_yaxis()
                     plt.title(f"{len(non_redundant)} triangles matched\nplatescale={np.degrees(scale[el])*3600:.4f} arcsec/pixel\nra={radec[0][1]:.4f}, dec={radec[0][0]:.4f}")
                     plt.show()
                 plate = (np.degrees(scale[el]), radec[0][1], radec[0][0], np.degrees(roll[el])+90) # this plus 90 is very weird and probably is need because of a coordinate bug
@@ -375,12 +376,15 @@ def _platesolve_helper(centroids, image_size, options):
         print("Platescale SUCCESS")
     if options['flag_display2'] and n_matches >= 1:
         # show platesolve
-        plt.scatter(vectors[:, 0], vectors[:, 1])
+        plt.scatter(vectors[:, 0]+image_size[1], vectors[:, 1]+image_size[0])
         for t in best_non_redundant:
             tri = match_info[t]
             v = np.array([vectors[_] for _ in tri]+[vectors[tri[0]]])
-            plt.plot(v[:, 0], v[:, 1], color='red')
-        plt.title(f"{len(best_non_redundant)} triangles matched\nplatescale={best_result['platescale/arcsec']:.4f} arcsec/pixel\nra={best_result['ra']:.4f}, dec={best_result['dec']:.4f}")
+            plt.plot(v[:, 0]+image_size[1], v[:, 1]+image_size[0], color='red')
+        plt.gca().invert_yaxis()
+        plt.gca().set_aspect('equal')
+        plt.title(f"{len(best_non_redundant)} triangles matched\nplatescale={best_result['platescale/arcsec']:.4f} arcsec/pixel\nra={best_result['ra']:.4f}, dec={best_result['dec']:.4f}, roll={best_result['roll']:.4f}")
+        plt.tight_layout()
         plt.show()
     return best_result
 

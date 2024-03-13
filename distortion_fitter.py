@@ -108,7 +108,7 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
     plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations')
     for i in range(stardata.nstars()):
         if i in indices[keep_i, 0]:
-            plt.gca().annotate(str(stardata.ids[i]), (np.degrees(stardata.get_ra()[i])+0.015, np.degrees(stardata.get_dec()[i])), color='black', fontsize=5)
+            plt.gca().annotate(str(stardata.ids[i]) + '\n' + f'mag={stardata.get_mags()[i]:.2f}', (np.degrees(stardata.get_ra()[i])+0.015, np.degrees(stardata.get_dec()[i])), color='black', fontsize=5)
     plt.xlabel('RA/degrees')
     plt.ylabel('DEC/degrees')
     plt.title(f'initial rough fit (nstars={obs_matched.shape[0]})')
@@ -125,9 +125,6 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
 def match_and_fit_distortion(path_data, options, debug_folder=None):    
     path_catalogue = options['catalogue']
     
-    #data = np.load(path_data,allow_pickle=True) # TODO: can we avoid using pickle? How about using shutil.make_archive?
-
-
     archive = zipfile.ZipFile(path_data, 'r')
 
     data = json.load(archive.open('data/results.txt'))
