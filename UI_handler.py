@@ -249,7 +249,7 @@ def inputUI(options):
     tab2_layout = layout_distortion
 
     layout = [layout_title + [sg.TabGroup([[sg.Tab('Tab 1 - Find centroids', tab1_layout),
-                         sg.Tab('Tab 2 - Platesolve & Compute Distortion', tab2_layout),
+                         sg.Tab('Tab 2 - Compute Distortion', tab2_layout),
                          ]],
                        key='-group2-', title_color='gray',
                        selected_title_color='red', tab_location='top')

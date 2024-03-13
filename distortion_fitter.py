@@ -167,7 +167,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     resv = transforms.to_polar(transforms.linear_transform(result.x, plate))
     orig = transforms.to_polar(target)
     '''
-    plate_solve_result = platesolve_triangle.platesolve(np.c_[other_stars_df['py'], other_stars_df['px']], image_size, options)
+    plate_solve_result = platesolve_triangle.platesolve(np.c_[other_stars_df['py'], other_stars_df['px']], image_size, dict(options, **{'flag_display':False}))
 
     if plate_solve_result['mirror']:
         other_stars_df['py'], other_stars_df['px'] = other_stars_df['px'], other_stars_df['py']

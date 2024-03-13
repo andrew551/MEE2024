@@ -558,7 +558,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         #t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
         #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
         #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
-        solution = platesolve_triangle.platesolve(centroids_stacked, stacked.shape)
+        solution = platesolve_triangle.platesolve(centroids_stacked, stacked.shape, options = options, output_dir = output_dir)
         print(solution)
         logger.info(str(solution))
         # TODO identify stars using catalogue

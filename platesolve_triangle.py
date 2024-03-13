@@ -263,11 +263,11 @@ output: dictionary
         "matched_centroids": n by 2 array
         "matched_stars": n by 6 array (ra, dec, 3-vect, mag) (but with ra/dec in RADIANS)
 '''
-def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_match_threshhold':0.01, 'flag_display2':False, 'flag_debug':False}, try_mirror_also=True):
+def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_match_threshhold':0.01, 'flag_display2':False, 'flag_debug':False}, output_dir=None, try_mirror_also=True):
     centroids = np.array(centroids)
     if not len(centroids.shape)==2 or not centroids.shape[1] == 2:
         raise Exception("ERROR: expected an n by 2 array for centroids")
-    result = _platesolve_helper(centroids, image_shape, options)
+    result = _platesolve_helper(centroids, image_shape, options, output_dir=output_dir)
     # if we are friendly, could mirror (x, y) and try again if failed
     result['mirror'] = False
     if result['success'] or not try_mirror_also:
@@ -276,13 +276,13 @@ def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_mat
     centroids = np.copy(centroids)
     centroids[:, [0, 1]] = centroids[:, [1, 0]]
     image_shape = (image_shape[1], image_shape[0])
-    result = _platesolve_helper(centroids, image_shape, options)
+    result = _platesolve_helper(centroids, image_shape, options, output_dir=output_dir)
     if result['success']:
         result['mirror'] = True
         result['matched_centroids'][:, [0, 1]] = result['matched_centroids'][:, [1, 0]]
     return result
 
-def _platesolve_helper(centroids, image_size, options):
+def _platesolve_helper(centroids, image_size, options, output_dir=None):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     N_stars_catalog = dbs.star_table.shape[0]
     t00 = time.perf_counter(), time.process_time()
@@ -379,7 +379,7 @@ def _platesolve_helper(centroids, image_size, options):
         print("Platesolve FAILED")
     elif n_matches == 1:
         print("Platescale SUCCESS")
-    if options['flag_display2'] and n_matches >= 1:
+    if (options['flag_display'] or not output_dir is None) and n_matches >= 1:
         # show platesolve
         plt.scatter(vectors[:, 0]+image_size[1], vectors[:, 1]+image_size[0])
         for t in best_non_redundant:
@@ -390,7 +390,11 @@ def _platesolve_helper(centroids, image_size, options):
         plt.gca().set_aspect('equal')
         plt.title(f"{len(best_non_redundant)} triangles matched\nplatescale={best_result['platescale/arcsec']:.4f} arcsec/pixel\nra={best_result['ra']:.4f}, dec={best_result['dec']:.4f}, roll={best_result['roll']:.4f}")
         plt.tight_layout()
-        plt.show()
+        if not output_dir is None:
+            plt.savefig(output_dir / 'triangle_matches.png')
+        if options['flag_display']:
+            plt.show()
+        plt.close()
     return best_result
 
 if __name__ == '__main__':
