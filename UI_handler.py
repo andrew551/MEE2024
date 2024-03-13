@@ -33,6 +33,7 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['save_dark_flat'] = ui_values['save_dark_flat']
     options['float_fits'] = ui_values['float_fits']
     options['sensitive_mode_stack'] = ui_values['sensitive_mode_stack']
+    '''
     try : 
         options['m'] = int(ui_values['-m-']) if ui_values['-m-'] else 10
     except ValueError : 
@@ -45,6 +46,7 @@ def interpret_UI_values(options, ui_values, no_file = False):
         options['k'] = int(ui_values['-k-']) if ui_values['-k-'] else 10
     except ValueError : 
         raise Exception('invalid k value!')
+    '''
     try : 
         options['pxl_tol'] = float(ui_values['-pxl_tol-']) if ui_values['-pxl_tol-'] else 5
     except ValueError : 
@@ -205,10 +207,10 @@ def inputUI(options):
     [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Checkbox('Remove centroids near edges', default=options['remove_edgy_centroids'], key='remove_edgy_centroids')],
     [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
-    [sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
-    [sg.Text('    n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],
+    #[sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
+    #[sg.Text('    n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],
     [sg.Text('    pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
-    [sg.Text('    k_stars_plate_solve',size=(32,1), key='k_stars_plate_solve'), sg.Input(default_text=str(options['k']),size=(8,1),key='-k-',enable_events=True)],
+    #[sg.Text('    k_stars_plate_solve',size=(32,1), key='k_stars_plate_solve'), sg.Input(default_text=str(options['k']),size=(8,1),key='-k-',enable_events=True)],
     [sg.Push(), sg.Button('OK'), sg.Cancel(), sg.Button("Open output folder", key='Open output folder', enable_events=True)]
     ]
 
@@ -246,7 +248,7 @@ def inputUI(options):
     tab2_layout = layout_distortion
 
     layout = [layout_title + [sg.TabGroup([[sg.Tab('Tab 1 - Find centroids', tab1_layout, key='-mykey-'),
-                         sg.Tab('Tab 2 - Compute Distortion', tab2_layout),
+                         sg.Tab('Tab 2 - Platesolve & Compute Distortion', tab2_layout),
                          ]],
                        key='-group2-', title_color='red',
                        selected_title_color='green', tab_location='top')
