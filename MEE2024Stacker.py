@@ -28,11 +28,14 @@ from multiprocessing import freeze_support
 import glob
 import MEE2024util
 import datetime
+import database_cache
+from multiprocessing import Process, Manager
 
 # default values for all options
 options = {
     'flag_display':True,
     'flag_display2':True,
+    'flag_debug':False,
     'save_dark_flat':False,
     'sensitive_mode_stack':True,
     'workDir': '',                  
@@ -78,6 +81,7 @@ options = {
     'triple_triang_platesolve_patterns':(80000, 120000, 0, 700000, 0.01, 0.65, 1.7),
             # (advanced): parameters for generating triangle platesolver patterns
     'platesolve_method':'triple_triang', # triple_triang or tetra
+    'do_tetra_platesolve':False,
 }
 
 def precheck_files(files, options, flag_write_ini=False):
@@ -130,6 +134,8 @@ start of program
 """
 if __name__ == '__main__':
     freeze_support() # enables multiprocessing for py-2-exe
+    
+    database_cache.prepare_triangles()
     files = []
     # check for CLI input (unimplemented)
     if len(sys.argv)>1: 

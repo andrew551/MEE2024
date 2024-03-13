@@ -9,9 +9,10 @@ import traceback
 import sys
 import json
 import logging
+import numpy as np
 
 def _version():
-    return 'v0.2.4'
+    return 'v0.3.0'
 
 '''
 if options['output_dir'] is empty, then output there
@@ -66,6 +67,14 @@ def date_string_to_float(x):
 
 def date_from_float(x):
     return datetime.datetime.fromordinal(int((x - 1) * 365.24)).date().isoformat()
+
+def get_bbox(corners):
+    def one_dim(q):
+        t = (np.min(q), np.max(q))
+        if t[1] - t[0] > 180:
+            t = (t[1], t[0])
+        return t
+    return one_dim(corners[:, 1]), one_dim(corners[:, 0])
 
 '''
 logging setup

@@ -21,6 +21,8 @@ import gaia_search
 from copy import copy
 import zipfile
 import refraction_correction
+import platesolve_triangle
+from MEE2024util import get_bbox
 
 def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
     def fitfunc(x):
@@ -28,13 +30,7 @@ def get_fitfunc(plate, target, transform_function=transforms.linear_transform, i
         return np.linalg.norm(target-rotated)**2 / plate.shape[0] # mean square error
     return fitfunc
 
-def get_bbox(corners):
-    def one_dim(q):
-        t = (np.min(q), np.max(q))
-        if t[1] - t[0] > 180:
-            t = (t[1], t[0])
-        return t
-    return one_dim(corners[:, 1]), one_dim(corners[:, 0])
+
 
 '''
 get the error correlation of each point with it's nearest neighbour:
@@ -60,9 +56,10 @@ def get_nn_correlation_error(positions, errors, options):
 
     print(f'nearest neighbour corr={np.mean(nn_corrs)}, mean distance:{np.mean(nn_rs)}')
     return np.mean(nn_corrs), np.mean(nn_rs)
-
-
-def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate, options):
+'''
+todo: update using the better version in platesolve_triangle
+'''
+def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size, lookupdate, options):
     #TODO: this will be broken if we wrap around 360 degrees
     alt, az = None, None
     stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(lookupdate)) # convert to decimal year (approximate)
@@ -71,7 +68,7 @@ def match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate
         stardata, alt, az = astrocorrect.correct_ra_dec(stardata, options)
 
     all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
-    transformed_all = transforms.to_polar(transforms.linear_transform(result.x, all_star_plate))
+    transformed_all = transforms.to_polar(transforms.linear_transform(rough_platesolve_x, all_star_plate))
 
     # match nearest neighbours
     candidate_stars = np.zeros((stardata.nstars(), 2))
@@ -135,16 +132,19 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     data = json.load(archive.open('data/results.txt'))
     image_size = data['img_shape']
+    other_stars_df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
+    other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
+
+    basename = Path(path_data).stem + data['starttime']
+    
+    '''
     if not data['platesolved']: # need initial platesolve
         raise Exception("BAD DATA - Data did not have platesolve included!")
     df_id = pd.read_csv(archive.open('data/STACKED_CENTROIDS_MATCHED_ID.csv'))
     
     #other_stars_df = pd.DataFrame(data=data['detection_arr'],    # values
     #                     columns=data['detection_arr_cols'])
-    other_stars_df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
-    other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
-
-    basename = Path(path_data).stem + data['starttime']
+    
     
     #df_id = pd.DataFrame(data=data['identification_arr'],    # values
     #                     columns=data['identification_arr_cols'])
@@ -169,26 +169,29 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     resi = transforms.to_polar(transforms.linear_transform(initial_guess, plate))
     resv = transforms.to_polar(transforms.linear_transform(result.x, plate))
     orig = transforms.to_polar(target)
+    '''
+    plate_solve_result = platesolve_triangle.platesolve(np.c_[other_stars_df['py'], other_stars_df['px']], image_size, options)
 
+    if not plate_solve_result['success']: # failed platesolve
+        raise Exception("BAD DATA - platesolve failed!")
 
-
+    initial_guess = plate_solve_result['x']
     ### now try to match other stars
 
-    corners = transforms.to_polar(transforms.linear_transform(result.x, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
+    corners = transforms.to_polar(transforms.linear_transform(plate_solve_result['x'], np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
     dbs = database_cache.open_catalogue(path_catalogue)
     alt, az = None, None
     lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
-    stardata, plate2, alt, az = match_centroids(other_stars_df, result, dbs, corners, image_size, lookupdate, options)
+    stardata, plate2, alt, az = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, lookupdate, options)
     
-    ### fit again
+    ### fit again 
 
-    initial_guess = result.x
 
     if options['guess_date']:
         dateguess = options['DEFAULT_DATE'] # initial guess
         dateguess = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, dict(options, **{'flag_display2':False}))
         # re-get gaia database
-        stardata, plate2, alt, az = match_centroids(other_stars_df, result, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
+        stardata, plate2, alt, az = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
 
 
     # now recompute matches
@@ -377,8 +380,8 @@ if __name__ == '__main__':
 
     #new_data_path = "D:\output\FULL_DATA1707152555.3757603.npz" # zwo 3 zd 30 centre
     #new_data_path = "D:\output\FULL_DATA1707152800.7054024.npz" # zwo 3 zd 45 centre
-    new_data_path = "D:/output/FULL_DATA1707153601.071847.npz" # Don right calibration
+    #new_data_path = "D:/output/FULL_DATA1707153601.071847.npz" # Don right calibration
     #new_data_path = "D:\output\FULL_DATA1707167920.0870245.npz" # E:/ZWO#3 2023-10-28/Zenith-01-3s/MEE2024.00003273.Zenith-Center2.fit
-    
-    options = {"catalogue":"D:/tyc_dbase4/tyc_main.dat", "output_dir":"D:/output", 'max_star_mag_dist':10.5, 'flag_display':True}
+    new_data_path = 'D:\output4\CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
+    options = {"catalogue":"gaia", "output_dir":"D:/output", 'max_star_mag_dist':12, 'flag_display':False, 'flag_display2':True, 'rough_match_threshhold':0.01, 'guess_date':False}
     match_and_fit_distortion(new_data_path, options , "D:/debugging")

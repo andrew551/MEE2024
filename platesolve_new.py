@@ -13,7 +13,7 @@ from MEE2024util import resource_path
 from pathlib import Path
 import database_cache
 
-if __name__ == '__main__':
+def generate():
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     print(dbs.star_table.shape)
 
@@ -152,3 +152,5 @@ if __name__ == '__main__':
     np.savez_compressed("TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz", anchors = vectors_kept, pattern_ind=pattern_ind, pattern_data=pattern_data, triangles=triangles)
     print(f"completed generating triangle database -- {triangles.size//2} triangles saved")        
             
+if __name__ == '__main__':
+    generate()
