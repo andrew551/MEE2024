@@ -108,10 +108,10 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
     plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations')
     for i in range(stardata.nstars()):
         if i in indices[keep_i, 0]:
-            plt.gca().annotate(str(stardata.ids[i]), (np.degrees(stardata.get_ra()[i]), np.degrees(stardata.get_dec()[i])), color='black', fontsize=5)
-    plt.xlabel('RA')
-    plt.ylabel('DEC')
-    plt.title('initial rough fit')
+            plt.gca().annotate(str(stardata.ids[i]), (np.degrees(stardata.get_ra()[i])+0.015, np.degrees(stardata.get_dec()[i])), color='black', fontsize=5)
+    plt.xlabel('RA/degrees')
+    plt.ylabel('DEC/degrees')
+    plt.title(f'initial rough fit (nstars={obs_matched.shape[0]})')
     plt.legend()
     if options['flag_display2']:
         plt.show()

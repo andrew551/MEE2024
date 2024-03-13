@@ -33,6 +33,7 @@ import os
 import shutil
 import json
 import logging
+import platesolve_triangle
 
 # return fit file image as np array
 def open_image(file):
@@ -114,7 +115,8 @@ def remove_saturated_blob(img, sat_val=65535, radius=100, radius2=150, min_size=
 def attempt_align(c1, c2, options, guess = (0,0), framenum=-1):
     if not c1.size or not c2.size:
         print("ERROR: no star centroids found")
-        return None, None, None, None, None
+        raise Exception(f"The stacking procedure failed to match stars between frame 0 and {framenum}! No centroids found! Check that all frames are okay,\nin the same field, \
+and that you have chosen appropriate centroid detection threshholds")
     m = min(min(c1.shape[0], c2.shape[0]), options['m'])
     c1 = c1.reshape((c1.shape[0], -1))
     c2 = c2.reshape((c2.shape[0], -1))
@@ -549,23 +551,25 @@ def do_stack(files, darkfiles, flatfiles, options):
     # plate solve
     flag_found_IDs = False
     df_identification = None
-    solution = {'RA':None, 'Dec':None, 'Roll':None, 'FOV':None}
-    if options['database'] and options['do_tetra_platesolve']:
-        t3 = database_cache.open_database(options['database'])
+    solution = {'ra':None, 'dec':None, 'roll':None, 'FOV':None, 'platescale/arcsec':None}
+    #if options['database'] and options['do_tetra_platesolve']:
+    if 1:
+        #t3 = database_cache.open_database(options['database'])
         #t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
-        solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
+        #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
         #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
+        solution = platesolve_triangle.platesolve(centroids_stacked, stacked.shape)
         print(solution)
         logger.info(str(solution))
         # TODO identify stars using catalogue
         # and save catalogue ids of each identified star (currently only around 20 are matched by the tetra software "for free"
-        if not solution['RA'] is None:
+        if not solution['ra'] is None:
             df_identification = pd.DataFrame({'px': np.array(solution['matched_centroids'])[:, 1],
                                'py': np.array(solution['matched_centroids'])[:, 0],
-                               'ID': solution['matched_catID'],
-                               'RA': np.array(solution['matched_stars'])[:, 0],
-                               'DEC': np.array(solution['matched_stars'])[:, 1],
-                               'magV': np.array(solution['matched_stars'])[:, 2]})
+                               #'ID': solution['matched_catID'],
+                               'RA': np.degrees(np.array(solution['matched_stars'])[:, 0]),
+                               'DEC': np.degrees(np.array(solution['matched_stars'])[:, 1]),
+                               'magV': np.array(solution['matched_stars'])[:, 5]})
             
             df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
             flag_found_IDs = True
@@ -573,8 +577,8 @@ def do_stack(files, darkfiles, flatfiles, options):
             logger.error("ERROR: platesolve failed to identify location")
             print("ERROR: platesolve failed to identify location")
     else:
-        print('no database provided or platesolve not requested, so skipping platesolve')
-        logger.error('no database provided, so skipping platesolve')
+        #print('no database provided or platesolve not requested, so skipping platesolve')
+        logger.info('no database provided or platesolve not requested, so skipping platesolve')
 
     plt.close()
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -585,7 +589,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     plt.scatter(centroids_stacked[:options["d"], 1]-shift, centroids_stacked[:options["d"], 0]-shift, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
         for index, row in df_identification.iterrows():
-            plt.gca().annotate(str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
+            plt.gca().annotate((str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) if 'ID' in row else '') + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
     plt.savefig(output_dir / ('CentroidsStackGood'+starttime+'.png'), bbox_inches="tight", dpi=600)
     if options['flag_display']:
         show_scanlines(stacked, fig, ax)
@@ -597,30 +601,13 @@ def do_stack(files, darkfiles, flatfiles, options):
     identification_arr = df_identification.to_numpy() if flag_found_IDs else None
     identification_arr_cols = df_identification.columns.values if flag_found_IDs else None
 
-    '''
-    np.savez(data_dir / ('FULL_DATA'+starttime), platesolved=flag_found_IDs,
-                         img_shape = imgs[0].shape,
-                         RA = solution['RA'],
-                         DEC = solution['Dec'],
-                         roll = solution['Roll'],
-                         platescale = solution['FOV'] / max(imgs[0].shape) if flag_found_IDs else None,
-                         #detection=output_path('STACKED_CENTROIDS_DATA'+starttime+'.csv', options),
-                         #identification=output_path('STACKED_CENTROIDS_MATCHED_ID'+starttime+'.csv', options),
-                         detection_arr = df_detection.to_numpy(),
-                         detection_arr_cols = df_detection.columns.values,
-                         identification_arr=identification_arr,
-                         identification_arr_cols=identification_arr_cols,
-                         source_files=str(files),
-             )
-    '''
-
     results_dict = {'platesolved' : flag_found_IDs,
                          'n_centroids' : centroids_stacked.shape[0],
                          'img_shape' : imgs_0.shape,
-                         'RA' : solution['RA'],
-                         'DEC' : solution['Dec'],
-                         'roll' : solution['Roll'],
-                         'platescale' : solution['FOV'] / max(imgs_0.shape) if flag_found_IDs else None,
+                         'RA' : solution['ra'],
+                         'DEC' : solution['dec'],
+                         'roll' : solution['roll'],
+                         'platescale/arcsec' : solution['platescale/arcsec'],#solution['FOV'] / max(imgs_0.shape) if flag_found_IDs else None,
                          'source_files' : str(files),
                          'starttime':starttime,
                     }

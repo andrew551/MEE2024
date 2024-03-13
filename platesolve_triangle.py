@@ -358,7 +358,8 @@ def _platesolve_helper(centroids, image_size, options):
                     print('accurate ra dec roll', acc_ra, acc_dec, acc_roll, 'rough rms=', rms, 'arcsec')
                     if stardata.shape[0] > best:
                         best = stardata.shape[0]
-                        best_result = {'success':True, 'x': np.radians(platescale), 'platescale/arcsec':3600*np.degrees(scale[el]), 'ra':acc_ra, 'dec':acc_dec, 'roll':acc_roll, 'matched_centroids':plate2, 'matched_stars':stardata}
+                        best_non_redundant = non_redundant
+                        best_result = {'success':True, 'x': np.radians(platescale), 'platescale/arcsec':3600*np.degrees(scale[el]), 'ra':acc_ra, 'dec':acc_dec, 'roll':acc_roll, 'matched_centroids':plate2+np.array([image_size[0]/2, image_size[1]/2]), 'matched_stars':stardata}
                 else:
                     print(f"note: candidate match rejected (nstars matched = {stardata.shape[0]}, thresh = {thresh})")         
     print(f'npairs = {len(candidate_pairs)}')
@@ -372,6 +373,15 @@ def _platesolve_helper(centroids, image_size, options):
         print("Platesolve FAILED")
     elif n_matches == 1:
         print("Platescale SUCCESS")
+    if options['flag_display2'] and n_matches >= 1:
+        # show platesolve
+        plt.scatter(vectors[:, 0], vectors[:, 1])
+        for t in best_non_redundant:
+            tri = match_info[t]
+            v = np.array([vectors[_] for _ in tri]+[vectors[tri[0]]])
+            plt.plot(v[:, 0], v[:, 1], color='red')
+        plt.title(f"{len(best_non_redundant)} triangles matched\nplatescale={best_result['platescale/arcsec']:.4f} arcsec/pixel\nra={best_result['ra']:.4f}, dec={best_result['dec']:.4f}")
+        plt.show()
     return best_result
 
 if __name__ == '__main__':
