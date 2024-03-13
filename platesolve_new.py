@@ -55,9 +55,9 @@ def generate():
             if i < a:
                 kept[i] = 1
             kept2[i] = 1
-    print(f'note kept {np.sum(kept[:a])} of first {a} stars')
-    print(f'note kept {np.sum(kept[:a+b])} of first {a+b} stars')
-    print(f'note kept {np.sum(kept2)} of first {d} stars')
+    print(f'note kept {np.sum(kept[:a])} of first {a} stars as anchors')
+    print(f'note kept {np.sum(kept[:a+b])} of first {a+b} stars as anchors')
+    print(f'note kept {np.sum(kept2)} of first {d} stars as legs')
     
     vectors_kept = vectors[kept, :]
     kept_vectors_ind = np.nonzero(kept)[0] # np.nonzero returns tuples

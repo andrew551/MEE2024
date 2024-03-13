@@ -549,7 +549,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     # plate solve
     flag_found_IDs = False
     df_identification = None
-    if options['database']:
+    solution = {'RA':None, 'Dec':None, 'Roll':None, 'FOV':None}
+    if options['database'] and options['do_tetra_platesolve']:
         t3 = database_cache.open_database(options['database'])
         #t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
         solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
@@ -572,7 +573,7 @@ def do_stack(files, darkfiles, flatfiles, options):
             logger.error("ERROR: platesolve failed to identify location")
             print("ERROR: platesolve failed to identify location")
     else:
-        print('no database provided, so skipping platesolve')
+        print('no database provided or platesolve not requested, so skipping platesolve')
         logger.error('no database provided, so skipping platesolve')
 
     plt.close()

@@ -80,6 +80,7 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['database'] = ui_values['-DB-']
     options['output_dir'] = ui_values['output_dir']
     options['remove_edgy_centroids'] = ui_values['remove_edgy_centroids']
+    options['do_tetra_platesolve'] = ui_values['do_tetra_platesolve']
     if options['output_dir'] and not os.path.isdir(options['output_dir']):
         raise Exception('ERROR opening output folder :'+options['output_dir'])
     if not no_file:  
@@ -191,7 +192,8 @@ def inputUI(options):
     
     [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics'),
          sg.Checkbox('save_dark_flat', default=options['save_dark_flat'], key='save_dark_flat'),
-         sg.Checkbox('float_32_fits', default=options['float_fits'], key='float_fits')],
+         sg.Checkbox('float_32_fits', default=options['float_fits'], key='float_fits'),
+     sg.Checkbox('do Tetra platesolve (legacy)', default=options['do_tetra_platesolve'], key='do_tetra_platesolve')],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
     [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob',enable_events=True)],
     [sg.Text('    blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True, disabled_readonly_background_color="Gray")],

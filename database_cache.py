@@ -5,6 +5,7 @@ import numpy as np
 from scipy.spatial import KDTree
 import time
 import platesolve_new
+from multiprocessing import Process, Queue
 
 class _cache:
 
@@ -21,17 +22,25 @@ class TriangleData:
         self.pattern_ind = cata_data['pattern_ind'] # n x N array of integer : the indices of neighbouring stars
         self.kd_tree = KDTree(self.triangles.reshape((-1, 2)), boxsize=[9999999, np.pi*2]) # use a 2-pi periodic condition for polar angle (and basically infinity for ratio)
 
-
 triangles_path = "TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz"
-def prepare_triangles():
+def work(q):
+    print("working on loading triangles")
     try:
-        _cache.catalogue_cache[triangles_path] = TriangleData(np.load(triangles_path))
+        q.put(TriangleData(np.load(triangles_path)))
         print("preloaded triangles")
     except Exception:
-        print("no triangles file found: will now generate one (this will take a few minutes)")
+        print("no triangles platesolving database found: will now generate one (this will take a few minutes)")
         platesolve_new.generate()
-        _cache.catalogue_cache[triangles_path] = TriangleData(np.load(triangles_path))
+        q.put(TriangleData(np.load(triangles_path)))
+    print("finished preparation work")
 
+def prepare_triangles():
+    global prepare_process
+    global q
+    q=Queue()
+    prepare_process = Process(target=work, args = (q,))
+    prepare_process.start()
+    
 def open_database(path):
     if not path in _cache.database_cache:
         _cache.database_cache[path] = tetra3.Tetra3(load_database=path)
@@ -42,8 +51,17 @@ def open_catalogue(path, debug_folder=None):
     if not path in _cache.catalogue_cache:
         if path == 'gaia':
             _cache.catalogue_cache[path] = gaia_search.dbs_gaia()
-        elif path == "TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz":
-            raise Exception("expected triangles to be pre-loaded")
+        elif path == triangles_path:
+            #print(prepare_process, prepare_process.is_alive())
+            i = 1
+            while q.empty():
+                print(f"triangles not ready yet ... waiting for them to be ready ({i})")
+                time.sleep(1)
+                i+=1
+            _cache.catalogue_cache[path] = q.get()
+            prepare_process.join()
+            print("joined")
+            
         else:
             _cache.catalogue_cache[path] = database_lookup2.database_searcher(path, debug_folder=debug_folder, star_max_magnitude=12)
 

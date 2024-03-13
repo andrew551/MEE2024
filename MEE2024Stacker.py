@@ -80,7 +80,6 @@ options = {
     'observation_wavelength':0.65,
     'triple_triang_platesolve_patterns':(80000, 120000, 0, 700000, 0.01, 0.65, 1.7),
             # (advanced): parameters for generating triangle platesolver patterns
-    'platesolve_method':'triple_triang', # triple_triang or tetra
     'do_tetra_platesolve':False,
 }
 
