@@ -105,7 +105,7 @@ def match_centroids(centroids, platescale_fit, image_size, options):
     neigh_bar.fit(all_vectors)
     distances_bar, indices_bar = neigh_bar.kneighbors(candidate_star_vectors)
 
-    match_threshhold = np.radians(options['rough_match_threshhold']) # threshold in degrees
+    match_threshhold = np.radians(options['rough_match_threshhold']/3600) # threshold in arcsec -> radians
     confusion_ratio = 2 # closest match must be 2x closer than second place
 
     keep = np.logical_and(distances[:, 0] < match_threshhold, distances[:, 1] / distances[:, 0] > confusion_ratio)
@@ -263,7 +263,7 @@ output: dictionary
         "matched_centroids": n by 2 array
         "matched_stars": n by 6 array (ra, dec, 3-vect, mag) (but with ra/dec in RADIANS)
 '''
-def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_match_threshhold':0.01, 'flag_display2':False, 'flag_debug':False}, output_dir=None, try_mirror_also=True):
+def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':False, 'flag_debug':False}, output_dir=None, try_mirror_also=True):
     centroids = np.array(centroids)
     if not len(centroids.shape)==2 or not centroids.shape[1] == 2:
         raise Exception("ERROR: expected an n by 2 array for centroids")
@@ -399,7 +399,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
 
 if __name__ == '__main__':
     #cProfile.run('main()')
-    options = {'flag_display':False, 'rough_match_threshhold':0.01, 'flag_display2':1, 'flag_debug':0}
+    options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':1, 'flag_debug':0}
     #path_data = 'D:/output4/CENTROID_OUTPUT20240229002931/data.zip' # zwo 3 zd 30
     path_data = 'D:\output4\CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
     #path_data = 'D:\output4\CENTROID_OUTPUT20240303040025/data.zip' # eclipse (Don) right

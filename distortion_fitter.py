@@ -94,7 +94,7 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
     # find matches, but exclude ambiguity
     # TODO fix 1-many matching bug
 
-    match_threshhold = options['rough_match_threshhold'] # in degrees
+    match_threshhold = options['rough_match_threshhold'] / 33600 # in degrees -> arcsec
     confusion_ratio = 2 # cloest match must be 2x closer than second place
 
     keep = np.logical_and(distances[:, 0] < match_threshhold, distances[:, 1] / distances[:, 0] > confusion_ratio) # note: this distance metric is not perfect (doesn't take into account meridian etc.)
@@ -168,13 +168,13 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     orig = transforms.to_polar(target)
     '''
     plate_solve_result = platesolve_triangle.platesolve(np.c_[other_stars_df['py'], other_stars_df['px']], image_size, dict(options, **{'flag_display':False}))
-
+    if not plate_solve_result['success']: # failed platesolve
+        raise Exception("BAD DATA - platesolve failed!")
     if plate_solve_result['mirror']:
         other_stars_df['py'], other_stars_df['px'] = other_stars_df['px'], other_stars_df['py']
         image_size = np.array([image_size[1], image_size[0]])
 
-    if not plate_solve_result['success']: # failed platesolve
-        raise Exception("BAD DATA - platesolve failed!")
+    
 
     initial_guess = plate_solve_result['x']
     ### now try to match other stars
@@ -385,5 +385,5 @@ if __name__ == '__main__':
     #new_data_path = "D:/output/FULL_DATA1707153601.071847.npz" # Don right calibration
     #new_data_path = "D:\output\FULL_DATA1707167920.0870245.npz" # E:/ZWO#3 2023-10-28/Zenith-01-3s/MEE2024.00003273.Zenith-Center2.fit
     new_data_path = 'D:\output4\CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
-    options = {"catalogue":"gaia", "output_dir":"D:/output", 'max_star_mag_dist':12, 'flag_display':False, 'flag_display2':True, 'rough_match_threshhold':0.01, 'guess_date':False}
+    options = {"catalogue":"gaia", "output_dir":"D:/output", 'max_star_mag_dist':12, 'flag_display':False, 'flag_display2':True, 'rough_match_threshhold':36, 'guess_date':False}
     match_and_fit_distortion(new_data_path, options , "D:/debugging")

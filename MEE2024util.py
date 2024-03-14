@@ -12,7 +12,7 @@ import logging
 import numpy as np
 
 def _version():
-    return 'v0.3.0'
+    return 'v0.3.1'
 
 '''
 if options['output_dir'] is empty, then output there
@@ -43,7 +43,11 @@ def read_ini(options):
     try:
         mydir_ini=os.path.join(os.path.dirname(sys.argv[0]),'MEE_config.txt')
         with open(mydir_ini, 'r', encoding="utf-8") as fp:
-            options.update(json.load(fp)) # if config has missing entries keep default   
+            loaded = json.load(fp)
+            if not '__version__' in loaded or not loaded['__version__'] == _version(): # update ini
+                loaded['__version__'] = _version()
+                loaded['rough_match_threshhold'] = 36 # reset threshhold (since it was changed from degrees to arcsec)
+            options.update(loaded) # if config has missing entries keep default   
     except Exception:
         traceback.print_exc()
         print('note: error reading config file - using default parameters')

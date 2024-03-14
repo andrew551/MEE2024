@@ -13,6 +13,10 @@ class _cache:
 
     catalogue_cache = {}
 
+    q = None
+
+    prepare_process = None
+
 class TriangleData:
 
     def __init__(self, cata_data):
@@ -35,11 +39,9 @@ def work(q):
     print("finished preparation work")
 
 def prepare_triangles():
-    global prepare_process
-    global q
-    q=Queue()
-    prepare_process = Process(target=work, args = (q,))
-    prepare_process.start()
+    _cache.q=Queue()
+    _cache.prepare_process = Process(target=work, args = (_cache.q,))
+    _cache.prepare_process.start()
     
 def open_database(path):
     if not path in _cache.database_cache:
@@ -54,12 +56,12 @@ def open_catalogue(path, debug_folder=None):
         elif path == triangles_path:
             #print(prepare_process, prepare_process.is_alive())
             i = 1
-            while q.empty():
+            while _cache.q.empty():
                 print(f"triangles not ready yet ... waiting for them to be ready ({i})")
                 time.sleep(1)
                 i+=1
-            _cache.catalogue_cache[path] = q.get()
-            prepare_process.join()
+            _cache.catalogue_cache[path] = _cache.q.get()
+            _cache.prepare_process.join()
             print("joined")
             
         else:

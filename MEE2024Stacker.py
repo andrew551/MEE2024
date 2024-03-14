@@ -67,7 +67,7 @@ options = {
     'DEFAULT_DATE': '2020-01-01', # the default date for date guessing
     'double_star_cutoff': 10, # within how many arcseconds to consider near_neighbour
     'double_star_mag': 17, # max mag of double stars
-    'rough_match_threshhold':1e-2, # (in degrees) normally, 1e-2
+    'rough_match_threshhold':36, # (in arcsec) (0.01 degrees)
     'enable_corrections':False,
     'observation_time':'',
     'observation_lat':'',
@@ -159,3 +159,8 @@ if __name__ == '__main__':
             MEE2024util.write_ini(options)       
         else:
             handle_files(files, options, flag_command_line = True) # use inputs from CLI
+    print('closing')
+    # join triangles
+    if database_cache._cache.prepare_process.is_alive():
+        database_cache._cache.prepare_process.terminate() # terminate the prepare thread
+        database_cache._cache.q.close()
