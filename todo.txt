@@ -3,7 +3,6 @@ todo 26/02/24
 High priority:
 * input fixed platescale and distortion coefficients
 	** fix cubic but allow linear degrees of freedom
-* fix tetra platesolver to work more reliably 
 
 Medium priority:
 * use local coordinates, pressure, and temperature to apply refraction correction
