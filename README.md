@@ -32,8 +32,9 @@ The program does its calculations in 32-bit FP to preserve accuracy. The 32-bit 
 The stack of Darks and Flat can also be saved (optional). These are saved as 32-bit FP FITS files.
 
 "Remove big bright object" is useful when images contain the Sun or Moon. It can be kept enabled for star fields with no Sun or Moon.
-The _blob_radius_extra_ parameter determines the extra exclusion zone outside the saturated region.
-The _centroid_gap_blob_ parameter determines which centroids outside the extra exclusion zone should be ignored.
+The _blob_radius_extra_ parameter determines the extra exclusion zone outside the saturated region. The "extra" distance is measured in pixels.
+The _centroid_gap_blob_ parameter determines which centroids outside the extra exclusion zone should be ignored. The "gap" distance is measured in pixels.
+Neither parameter is particularly sensitive. The purpose of this function is to limit the centroid search to areas away from the Moon and the solar corona.
 
 "Sensitive stacking mode" should only be use if images contain the Sun or Moon or are taken on a bright sky (e.g. twilight).
 For dark-sky star fields, this mode will take too long and is not recommended.
