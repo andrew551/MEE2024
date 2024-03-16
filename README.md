@@ -29,7 +29,8 @@ Choose the number of bright stars to be identified in the stacked image (the def
 The output FITS stacked image is by default resized to 16-bit (the same as the input). A second 32-bit floating point (FP) FITS file can also be saved (optional).
 The program does its calculations in 32-bit FP to preserve accuracy. The 32-bit FP file will be twice the size of the 16-bit file.
 
-The stack of Darks and Flat can also be saved (optional). These are saved as 32-bit FP FITS files.
+The Dark and Flat stacked images can also be saved (optional). They are saved as 32-bit FP FITS files.
+These stacks can be used in subsequent processing of Light frames.
 
 "Remove big bright object" is useful when images contain the Sun or Moon. It can be kept enabled for star fields with no Sun or Moon.
 The _blob_radius_extra_ parameter determines the extra exclusion zone outside the saturated region. The "extra" distance is measured in pixels.
