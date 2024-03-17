@@ -73,6 +73,7 @@ options = {
     'observation_lat':'',
     'observation_long':'',
     'enable_corrections_ref':False,
+    'enable_gravitational_def':False,
     'observation_temp':10,
     'observation_pressure':1010,
     'observation_humidity':0,

@@ -30,19 +30,20 @@ has_hacked = False
 class AstroCorrect:
 
     def __init__(self):
-        global has_hacked
-        if not has_hacked:  
-            #HACK to remove light deflection calculation from astropy
-            # the first argument of the erfa.ld function is the mass of the light-deflecting object ... we now set the mass to zero whenever this function is called by astropy
-            origin = erfa.ld
-            def no_grav_ld(bm, *args):
-                return origin(0, *args)
-            erfa.ld = no_grav_ld
-        has_hacked = True
+        #HACK to remove light deflection calculation from astropy
+        # the first argument of the erfa.ld function is the mass of the light-deflecting object ... we now set the mass to zero whenever this function is called by astropy
+        self.origin_ld = erfa.ld
+        def no_grav_ld(bm, *args):
+            return self.origin_ld(0, *args)
+        self.no_ld = no_grav_ld
 
     # TODO: add distance to compute parallax
     def correct_ra_dec(self, stardata, options):
         #print(lat, lon)
+        if options['enable_gravitational_def']:
+            erfa.ld = self.origin_ld
+        else:
+            erfa.ld = self.no_ld
         observing_location = EarthLocation(lat=options['observation_lat'], lon=options['observation_long'], height=options['observation_height']*u.m)  
         observing_time = Time(options['observation_date'] + ' ' + options['observation_time'])
         icrs_v = stardata.get_vectors()
@@ -75,7 +76,7 @@ class AstroCorrect:
         ret.haspm = False
         ret.c = c_app
         ret._update_vectors()
-        
+        erfa.ld = self.origin_ld # revert erfa to normal once we are done with it
         return ret, np.mean(local.alt.degree), np.mean(local.az.degree)
         
 

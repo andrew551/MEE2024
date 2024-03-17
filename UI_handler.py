@@ -116,6 +116,7 @@ def interpret_UI_values2(options, ui_values):
         raise Exception('invalid rough_match_threshhold value!')
     options['enable_corrections'] = ui_values['enable_corrections']
     options['enable_corrections_ref'] = ui_values['enable_corrections_ref']
+    options['enable_gravitational_def'] = ui_values['enable_gravitational_def']
     options['observation_time'] = ui_values['observation_time']
     options['observation_lat'] = ui_values['observation_lat']
     options['observation_long'] = ui_values['observation_long']
@@ -231,6 +232,7 @@ def inputUI(options):
         [sg.Text('Rough fit thresh-hold (arcsec)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
         [sg.Text('Corrections for aberration, parallax, and refraction:', font=('Helvetica', 12))],
         [sg.Checkbox('Enable aberration and parallax?', default=options['enable_corrections'], key='enable_corrections', enable_events=True)],
+        [sg.Checkbox('Enable gravitational correction?', default=options['enable_gravitational_def'], key='enable_gravitational_def', enable_events=True)],
         [sg.Text('Observation Time UTC (hh:mm:ss)',size=(32,1)), sg.Input(default_text=str(options['observation_time']),size=(12,1),key='observation_time',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Observation Latitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_lat']),size=(12,1),key='observation_lat',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Observation Longitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_long']),size=(12,1),key='observation_long',enable_events=True, disabled_readonly_background_color="Gray")],
@@ -280,7 +282,7 @@ def inputUI(options):
         window['observation_height'].update(disabled = not w)
         window['observation_date'].update(disabled=x)
 
-    update_corrections_enabled(options['enable_corrections'], options['enable_corrections_ref'], options['guess_date'])
+    update_corrections_enabled(options['enable_corrections'] or options['enable_gravitational_def'], options['enable_corrections_ref'], options['guess_date'])
     update_tab1_enabled(options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], options['delete_saturated_blob'])
     while True:
         event, values = window.read()
@@ -340,10 +342,11 @@ def inputUI(options):
             v = values['centroid_gaussian_subtract'] or values['sensitive_mode_stack']
             w = values['delete_saturated_blob']
             update_tab1_enabled(v, w)      
-        if event == 'enable_corrections' or event == 'enable_corrections_ref' or event == 'guess_date':
+        if event == 'enable_corrections' or event == 'enable_corrections_ref' or event == 'guess_date' or event == 'enable_gravitational_def':
             v = values['enable_corrections']
             w = values['enable_corrections_ref']
             x = values['guess_date']
+            y = values['enable_gravitational_def']
             if event == 'enable_corrections':
                 if not values['enable_corrections']:
                     window['enable_corrections_ref'].update(False)
@@ -361,7 +364,7 @@ def inputUI(options):
                 window['enable_corrections'].update(False)
                 v = False
                 w = False
-            update_corrections_enabled(v, w, x)
+            update_corrections_enabled(v or y, w, x)
             
             
 
