@@ -39,6 +39,7 @@ def work(q):
     print("finished preparation work")
 
 def prepare_triangles():
+    print('preparing')
     _cache.q=Queue()
     _cache.prepare_process = Process(target=work, args = (_cache.q,))
     _cache.prepare_process.start()
@@ -54,15 +55,16 @@ def open_catalogue(path, debug_folder=None):
         if path == 'gaia':
             _cache.catalogue_cache[path] = gaia_search.dbs_gaia()
         elif path == triangles_path:
-            #print(prepare_process, prepare_process.is_alive())
-            i = 1
-            while _cache.q.empty():
+            print(_cache.prepare_process, _cache.prepare_process.is_alive())
+            i = 1          
+            while _cache.q.empty() and not path in _cache.catalogue_cache:
                 print(f"triangles not ready yet ... waiting for them to be ready ({i})")
                 time.sleep(1)
                 i+=1
-            _cache.catalogue_cache[path] = _cache.q.get()
-            _cache.prepare_process.join()
-            print("joined")
+            if not path in _cache.catalogue_cache:
+                _cache.catalogue_cache[path] = _cache.q.get()
+                _cache.prepare_process.join()
+                print("joined")
             
         else:
             _cache.catalogue_cache[path] = database_lookup2.database_searcher(path, debug_folder=debug_folder, star_max_magnitude=12)

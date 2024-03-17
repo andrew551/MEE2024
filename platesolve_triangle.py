@@ -33,6 +33,7 @@ TOLERANCE = 0.01 # tolerance for triangle matching
 TOL_CENT = np.radians(0.025) # 0.025 degrees in center of frame tolerance
 TOL_ROLL = np.radians(0.025) # 0.025 degrees for roll tolerances
 log_TOL_SCALE = 0.01      # 1 part in 100 for platescale
+MAX_MATCH = 100 # maximum number of verification stars
 
 '''
 statistically estimate how many stars need to be matched to a given accuracy in order to accept a platesolve
@@ -353,9 +354,9 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                 
                 #print((rotation_matrix.T @ ivects.T).T)
                 platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # do weird +180 roll thing as usual
-                stardata, plate2, max_error = match_centroids(centroids, np.radians(platescale), image_size, options)
+                stardata, plate2, max_error = match_centroids(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options)
                 #print('max_error', max_error)
-                thresh = estimate_acceptance_threshold(n_obs, N_stars_catalog, max_error, g, addon=3)
+                thresh = estimate_acceptance_threshold(min(n_obs, MAX_MATCH), N_stars_catalog, max_error, g, addon=3)
                 
                 if stardata.shape[0] >= thresh:
                     n_matches += 1
@@ -398,6 +399,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
     return best_result
 
 if __name__ == '__main__':
+    database_cache.prepare_triangles()
     #cProfile.run('main()')
     options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':1, 'flag_debug':0}
     #path_data = 'D:/output4/CENTROID_OUTPUT20240229002931/data.zip' # zwo 3 zd 30
