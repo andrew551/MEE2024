@@ -32,7 +32,7 @@ class StarData:
         print('epoch', self.epoch)
         self.has_pm = has_pm
         self.mags = r['phot_g_mean_mag']
-        self.ids = r['source_id']
+        self.ids = r['SOURCE_ID']
         self.pm = np.zeros((self.nstars(), 2))
         self.parallax = np.ones(self.nstars())*1e-4
         if has_pm:

@@ -84,7 +84,7 @@ dec BETWEEN  {(dec - distance/3600):.5f} AND {(dec + distance / 3600):.5f})'
     star_table[:, 2] = np.cos(star_table[:, 0]) * np.cos(star_table[:, 1])
     star_table[:, 3] = np.sin(star_table[:, 0]) * np.cos(star_table[:, 1])
     star_table[:, 4] = np.sin(star_table[:, 1])
-    star_catID = results['source_id']
+    star_catID = results['SOURCE_ID']
     return StarData.StarData(results, 2016, False)
 
 gaia_limit=13
@@ -108,11 +108,11 @@ class dbs_gaia:
         star_table[:, 4] = np.sin(star_table[:, 1])
         star_table[:, 7] = results['pmra']
         star_table[:, 8] = results['pmdec']
-        star_catID = results['source_id']
+        star_catID = results['SOURCE_ID']
         return StarData.StarData(results, time, True)
 
 def select_bright(T1, max_mag):
-    query = f"SELECT source_id, phot_g_mean_mag, COORD1(ESDC_EPOCH_PROP_POS(ra, dec, parallax, pmra, pmdec, radial_velocity, ref_epoch, {T1})),\
+    query = f"SELECT SOURCE_ID, phot_g_mean_mag, COORD1(ESDC_EPOCH_PROP_POS(ra, dec, parallax, pmra, pmdec, radial_velocity, ref_epoch, {T1})),\
 COORD2(ESDC_EPOCH_PROP_POS(ra, dec, parallax, pmra, pmdec, radial_velocity, ref_epoch, {T1})) \
 FROM gaiadr3.gaia_source \
 WHERE phot_g_mean_mag BETWEEN -2 AND {max_mag}"
