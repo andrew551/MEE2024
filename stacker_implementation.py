@@ -588,7 +588,10 @@ def do_stack(files, darkfiles, flatfiles, options):
     shift = 0 if options['centroid_gaussian_subtract'] else 0.5
     plt.scatter(centroids_stacked[:options["d"], 1]-shift, centroids_stacked[:options["d"], 0]-shift, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
-        for index, row in df_identification.iterrows():
+        
+        for ind, (index, row) in enumerate(df_identification.iterrows()):
+            if ind >= options["d"]:
+                break
             plt.gca().annotate((str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) if 'ID' in row else '') + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
     plt.savefig(output_dir / ('CentroidsStackGood'+starttime+'.png'), bbox_inches="tight", dpi=600)
     if options['flag_display']:
