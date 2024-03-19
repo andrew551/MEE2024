@@ -5,19 +5,33 @@ import matplotlib.pyplot as plt
 import scipy
 import datetime
 from MEE2024util import date_string_to_float, date_from_float
+from scipy.special import legendre
 import copy
+import json
+from collections import defaultdict
 
-mapping = {'linear':1, 'cubic':3, 'quintic':5, 'septic':7}
+mapping = {'constant':0, 'linear':1, 'quadratic':2, 'cubic':3, 'quartic': 4, 'quintic':5, 'sextic': 6, 'septic':7}
 
-def get_basis(y, x, w, m, options):
+def get_basis(y, x, w, m, options, use_special=False):
     basis = []
-    for i in range(1, mapping[options['distortionOrder']]+1): # up to nth order binomials
-        for j in range(i+1):
-            basis.append(y ** j * x ** (i-j) / w**i)
-    return np.array(basis).T
+    order = mapping[options['distortionOrder']]
+    if options['basis_type'] == 'polynomial' or not use_special:
+        for i in range(1, order+1): # up to nth order binomials
+            for j in range(i+1):
+                basis.append(y ** j * x ** (i-j) / w**i)
+        return np.array(basis).T
+    elif options['basis_type'] == 'legendre':
+        legendre_polies = [legendre(i) for i in range(order+1)]
+        for i in range(1, order+1): # up to nth order legendre binomials
+            for j in range(i+1):
+                basis.append(legendre_polies[j](y) * legendre_polies[i-j](x) / w**i)
+        return np.array(basis).T
+    else:
+        raise Exception("invalid basis_type")
 
 def get_coeff_names(options):
     names = ['1']
+    # TODO: check basis type
     for i in range(1, mapping[options['distortionOrder']]+1): # up to nth order binomials
         for j in range(i+1):
             if j == 0:
@@ -144,21 +158,51 @@ q : initial guess of (platescale, ra, dec, roll)
 plate: (x, y) coordinates of stars
 target: corresponding(x', y', z') of star true positions according to catalogue
 '''
-def _cubic_helper(q, plate, target, w, m, options):
+def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, use_special=False):
     detransformed = transforms.detransform_vectors(q, target)
     errors = detransformed - plate
-    basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
-    reg_x = LinearRegression().fit(basis, errors[:, 1]*m)
-    reg_y = LinearRegression().fit(basis, errors[:, 0]*m)
-    plate_corrected = plate + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
-    return _get_corrected_q(q, reg_x, reg_y, w), plate_corrected, reg_x, reg_y, basis, errors
+    basis = get_basis(plate[:, 0], plate[:, 1], w, m, options, use_special)
+
+    '''
+    new: if requested, use "fixed" higher order contributions
+    '''
+    #partition basis into "fixed" and "free" components
+    order_total = mapping[options['distortionOrder']]
+    order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
+
+    n_free = (order_free+2) * (order_free+1) // 2 - 1
+    n_total = (order_total+2) * (order_total+1) // 2 - 1
+    print(n_free, n_total)
+    print(basis.shape)
+    basis_free = basis[:, :n_free]
+    basis_fixed = basis[:, n_free:]
+    errors_fixed = np.copy(errors)
+
+    if n_free < n_total:
+        coeffients_x = np.array(list(fix_coeff_x.values()))[n_free+1:]
+        coeffients_y = np.array(list(fix_coeff_y.values()))[n_free+1:]
+
+        
+        fixed_correction_x = np.einsum('ik,k->i', basis_fixed, coeffients_x)
+        fixed_correction_y = np.einsum('ik,k->i', basis_fixed, coeffients_y)
+  
+        errors_fixed[:, 1] -= fixed_correction_x / m
+        errors_fixed[:, 0] -= fixed_correction_y / m
+    
+    reg_x = LinearRegression().fit(basis_free, errors_fixed[:, 1]*m)
+    reg_y = LinearRegression().fit(basis_free, errors_fixed[:, 0]*m)
+    plate_corrected = plate + np.array([reg_y.predict(basis_free), reg_x.predict(basis_free)]).T / m
+    return _get_corrected_q(q, reg_x, reg_y, w), plate_corrected, reg_x, reg_y, basis, errors_fixed
 
 
 def apply_corrections(q, plate, reg_x, reg_y, img_shape, options):
     w = (max(img_shape)/2) # 1 # for astrometrica convention
     m = 1 #result.x[0] # for astrometrica convention
     basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
-    return plate + np.array([reg_y.predict(basis), reg_x.predict(basis)]).T / m
+    order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
+    n_free = (order_free+2) * (order_free+1) // 2 - 1                
+    basis_free = basis[:, :n_free]
+    return plate + np.array([reg_y.predict(basis_free), reg_x.predict(basis_free)]).T / m # TODO: add fixed
                       
 def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     fig = plt.figure()
@@ -172,7 +216,15 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     X = np.linspace(-img_shape[1]/2, img_shape[1]/2, 20)
     Y = np.linspace(-img_shape[0]/2, img_shape[0]/2, 20)
     X, Y = np.meshgrid(X, Y)
-    Z_x = reg_x.predict(get_basis(Y.flatten(), X.flatten(), w, m, options)).reshape(X.shape)
+
+    basis = get_basis(Y.flatten(), X.flatten(), w, m, options)
+    
+    ### fix for fixed coeffs
+    order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
+    n_free = (order_free+2) * (order_free+1) // 2 - 1                
+    basis_free = basis[:, :n_free]
+    
+    Z_x = reg_x.predict(basis_free).reshape(X.shape)
     surf = ax.plot_surface(X, Y, Z_x, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
                            linewidth=0, antialiased=False, alpha=0.4)
 
@@ -184,7 +236,7 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     ax2.set_ylabel('Y')
     ax2.set_zlabel('y-error (pixls)')
     ax2.set_title("y-error fit")
-    Z_y = reg_y.predict(get_basis(Y.flatten(), X.flatten(), w, m, options)).reshape(X.shape)
+    Z_y = reg_y.predict(basis_free).reshape(X.shape)
     surf = ax2.plot_surface(X, Y, Z_y, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
                            linewidth=0, antialiased=False, alpha=0.4)
 
@@ -207,17 +259,53 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
     target = stardata.get_vectors()
     w = (max(img_shape)/2) # 1 # for astrometrica convention
     m = 1 #result.x[0] # for astrometrica convention
+    fix_coeff_x, fix_coeff_y = _open_distortion_files(options)
     
-    q_corrected = _cubic_helper(initial_guess, plate, target, w, m, options)[0]
-    q_corrected = _cubic_helper(q_corrected, plate, target, w, m, options)[0]
-    q_corrected, plate_corrected, reg_x, reg_y, basis, errors = _cubic_helper(q_corrected, plate, target, w, m, options) # apply for third time to really shrink the unwanted coefficients
+    q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, options)[0]
+    q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options)[0]
+    q_corrected, plate_corrected, reg_x, reg_y, basis, errors = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options) # apply for third time to really shrink the unwanted coefficients
 
     print(reg_x.coef_, reg_x.intercept_)
     print(reg_y.coef_, reg_y.intercept_)
 
-    print('residuals_x\n', reg_x.predict(basis) / m - errors[:, 1])
-    print('residuals_y\n', reg_y.predict(basis) / m - errors[:, 0])
+    '''
+    now if needed, apply the special basis functions
+    if not options['basis_type'] == 'polynomial':
+        print("now using special basis")
+        q_corrected, plate_corrected, reg_x, reg_y, basis, errors = _cubic_helper(q_corrected, plate, target, w, m, options, use_special=True) # apply for third time to really shrink the unwanted coefficients
+    '''
+
+    #print('residuals_x\n', reg_x.predict(basis) / m - errors[:, 1])
+    #print('residuals_y\n', reg_y.predict(basis) / m - errors[:, 0])
     
     _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options)
  
     return q_corrected, plate_corrected, reg_x, reg_y
+
+
+def _open_distortion_files(options):
+    files = options['distortion_reference_files'].split(';')
+    loaded = []
+    for file in files:
+        if file == '':
+            continue
+        with open(file, encoding="utf-8") as fp:
+            loaded.append(json.load(fp))
+    n = len(loaded)
+    coeff_x = defaultdict(float)
+    coeff_y = defaultdict(float)
+    orders = []
+    for data in loaded:
+        for k, v in data["distortion coeffs x"].items():
+            coeff_x[k] += v/n
+        for k, v in data["distortion coeffs y"].items():
+            coeff_y[k] += v/n
+        if "distortion order" in data: # legacy compatible
+            orders.append(data["distortion order"])
+    if len(set(orders)) > 1:
+        raise Exception("input distortion files are not same order: " + str(orders))
+    coeff_x, coeff_y = dict(coeff_x), dict(coeff_y)
+    print(coeff_x)
+    print(coeff_y)
+    return coeff_x, coeff_y
+    

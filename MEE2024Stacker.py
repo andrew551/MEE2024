@@ -60,7 +60,7 @@ options = {
     'max_star_mag_dist':12,
     'observation_date':'2023-12-01',
     'distortion_fit_tol':1, # arcseconds tolerance
-    'remove_edgy_centroids':False,
+    'remove_edgy_centroids':True,
     'sigma_subtract':3,
     'distortionOrder':'cubic',
     'guess_date': False,
@@ -82,6 +82,9 @@ options = {
     'triple_triang_platesolve_patterns':(80000, 120000, 0, 700000, 0.01, 0.65, 1.7),
             # (advanced): parameters for generating triangle platesolver patterns
     'do_tetra_platesolve':False,
+    'basis_type':'polynomial', # legendre (under development) or polynomial
+    'distortion_reference_files':'',
+    'distortion_fixed_coefficients':'None',
 }
 
 def precheck_files(files, options, flag_write_ini=False):

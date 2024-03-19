@@ -262,6 +262,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'RA':np.degrees(result[1]),
                        'DEC':np.degrees(result[2]),
                        'ROLL':np.degrees(result[3])-180, # TODO: clarify this dodgy +/- 180 thing
+                       'distortion order': options['distortionOrder'],
                        'distortion coeffs x': dict(zip(coeff_names, [reg_x.intercept_]+list( reg_x.coef_))),
                        'distortion coeffs y': dict(zip(coeff_names, [reg_y.intercept_]+list( reg_y.coef_))),
                        'nearest-neighbour error correlation': nn_corr,

@@ -93,6 +93,8 @@ def interpret_UI_values(options, ui_values, no_file = False):
 
 def interpret_UI_values2(options, ui_values):
     check_files([ui_values['-FILE2-']])
+    options['distortion_reference_files'] = ui_values['distortion_reference_files']
+    options['distortion_fixed_coefficients'] = ui_values['distortion_fixed_coefficients']
     options['output_dir'] = ui_values['output_dir2']
     options['flag_display2'] = ui_values['Show graphics2']
     options['distortionOrder'] = ui_values['distortionOrder']
@@ -219,7 +221,9 @@ def inputUI(options):
     layout_distortion = [
         [sg.Text('File(s)', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE2-'),
          sg.FilesBrowse('Choose data (data.zip)', key = 'Choose data.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['output_dir'])],
-        
+        [sg.Text('Fix distortion file(s)', size=(7, 1), key = 'Fix distortion file(s)'), sg.InputText(default_text='',size=(75,1),key='distortion_reference_files'),
+         sg.FilesBrowse('Choose distortion files', key = 'Choose distortion files', file_types=(("distortion files", "*.txt"),),initial_folder=options['output_dir'])],
+        [sg.Text('Fix order higher than',size=(32,1)), sg.Combo(['None', 'constant', 'linear', 'quadratic', 'cubic', 'quartic', 'quintic', 'sextic', 'septic'], default_value=options['distortion_fixed_coefficients'], key='distortion_fixed_coefficients', size=(12, 1))],
         [sg.Text('Output folder (blank for same as input):', size=(50, 1), key = 'Output Folder (blank for same as input):2')],
         [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir2'),
             sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
@@ -350,6 +354,8 @@ def inputUI(options):
             if event == 'enable_corrections':
                 if not values['enable_corrections']:
                     window['enable_corrections_ref'].update(False)
+                    window['enable_gravitational_def'].update(False)
+                    y = False
                     w = False
                 else:
                     window['guess_date'].update(False)
@@ -362,8 +368,15 @@ def inputUI(options):
             if event == 'guess_date' and x:
                 window['enable_corrections_ref'].update(False)
                 window['enable_corrections'].update(False)
+                window['enable_gravitational_def'].update(False)
                 v = False
                 w = False
+                y = False
+            if event == 'enable_gravitational_def' and values['enable_gravitational_def']:
+                window['enable_corrections'].update(True)
+                v = True
+                window['guess_date'].update(False)
+                x = False
             update_corrections_enabled(v or y, w, x)
             
             
