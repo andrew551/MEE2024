@@ -83,10 +83,10 @@ def remove_saturated_blob(img, sat_val=65535, radius=100, radius2=150, min_size=
     if not perform:
         return img, np.zeros(img.shape, dtype=int), np.zeros(img.shape, dtype=int)
     if sat_val is None:
-        sat_val = np.max(img)
+        sat_val = np.percentile(img, 99) # change from maximum to 99th percentile
     down_downscaled = downscale_local_mean(img, (downscale, downscale))
     
-    is_sat = down_downscaled==sat_val
+    is_sat = down_downscaled>=sat_val
     #print(np.max(img),np.max(down_downscaled))
 
     labels = measure.label(is_sat, connectivity=1)

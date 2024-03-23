@@ -177,32 +177,49 @@ def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, use
     basis_free = basis[:, :n_free]
     basis_fixed = basis[:, n_free:]
     errors_fixed = np.copy(errors)
-
+    fixed_correction = np.zeros(plate.shape, plate.dtype)
+    coefficients_x = []
+    coefficients_y = []
     if n_free < n_total:
-        coeffients_x = np.array(list(fix_coeff_x.values()))[n_free+1:]
-        coeffients_y = np.array(list(fix_coeff_y.values()))[n_free+1:]
+        coefficients_x = np.array(list(fix_coeff_x.values()))[n_free+1:]
+        coefficients_y = np.array(list(fix_coeff_y.values()))[n_free+1:]
 
         
-        fixed_correction_x = np.einsum('ik,k->i', basis_fixed, coeffients_x)
-        fixed_correction_y = np.einsum('ik,k->i', basis_fixed, coeffients_y)
+        fixed_correction_x = np.einsum('ik,k->i', basis_fixed, coefficients_x)
+        fixed_correction_y = np.einsum('ik,k->i', basis_fixed, coefficients_y)
   
         errors_fixed[:, 1] -= fixed_correction_x / m
         errors_fixed[:, 0] -= fixed_correction_y / m
+        fixed_correction[:, 1] += fixed_correction_x / m
+        fixed_correction[:, 0] += fixed_correction_y / m
+
+    
     
     reg_x = LinearRegression().fit(basis_free, errors_fixed[:, 1]*m)
     reg_y = LinearRegression().fit(basis_free, errors_fixed[:, 0]*m)
-    plate_corrected = plate + np.array([reg_y.predict(basis_free), reg_x.predict(basis_free)]).T / m
-    return _get_corrected_q(q, reg_x, reg_y, w), plate_corrected, reg_x, reg_y, basis, errors_fixed
+    plate_corrected = plate + np.array([reg_y.predict(basis_free), reg_x.predict(basis_free)]).T / m + fixed_correction
+
+    coeff_x = [reg_x.intercept_] + list(reg_x.coef_) + list(coefficients_x)
+    coeff_y = [reg_y.intercept_] + list(reg_y.coef_) + list(coefficients_y)
+    
+    return _get_corrected_q(q, reg_x, reg_y, w), plate_corrected, coeff_x, coeff_y, basis, errors_fixed, reg_x, reg_y
 
 
-def apply_corrections(q, plate, reg_x, reg_y, img_shape, options):
+def apply_corrections(q, plate, coeff_x, coeff_y, img_shape, options):
     w = (max(img_shape)/2) # 1 # for astrometrica convention
     m = 1 #result.x[0] # for astrometrica convention
     basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
+    print(basis.shape)
+    corr_x = np.einsum('ji,i->j', basis, coeff_x[1:]) # 1: to remove constant (which should be near-zero)
+    corr_y = np.einsum('ji,i->j', basis, coeff_y[1:])
+    return plate + np.c_[corr_y, corr_x]
+    '''
+    order_total = mapping[options['distortionOrder']]
     order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
     n_free = (order_free+2) * (order_free+1) // 2 - 1                
     basis_free = basis[:, :n_free]
     return plate + np.array([reg_y.predict(basis_free), reg_x.predict(basis_free)]).T / m # TODO: add fixed
+    '''
                       
 def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     fig = plt.figure()
@@ -220,6 +237,7 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     basis = get_basis(Y.flatten(), X.flatten(), w, m, options)
     
     ### fix for fixed coeffs
+    order_total = mapping[options['distortionOrder']]
     order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
     n_free = (order_free+2) * (order_free+1) // 2 - 1                
     basis_free = basis[:, :n_free]
@@ -259,11 +277,25 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
     target = stardata.get_vectors()
     w = (max(img_shape)/2) # 1 # for astrometrica convention
     m = 1 #result.x[0] # for astrometrica convention
+    #w = 1
+    #m = max(img_shape)
     fix_coeff_x, fix_coeff_y = _open_distortion_files(options)
+    order_total = mapping[options['distortionOrder']]
+    order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
+
+    if order_free == 0: # special case for only constant degree of freedom: use a linear fit, then discard the stretch/skew coefficients
+        q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, dict(options, **{'distortion_fixed_coefficients':'linear'}))[0]
+        q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, dict(options, **{'distortion_fixed_coefficients':'linear'}))[0]
+        plate_corrected = apply_corrections(q_corrected, plate, list(fix_coeff_x.values()), list(fix_coeff_y.values()), img_shape, options)
+        detransformed = transforms.detransform_vectors(q_corrected, target)
+        errors = detransformed - plate_corrected
+        mean_error = np.mean(errors, axis=0)
+        print('mean error:', mean_error)
+        return q_corrected, plate_corrected, list(fix_coeff_x.values()), list(fix_coeff_y.values())
     
     q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, options)[0]
     q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options)[0]
-    q_corrected, plate_corrected, reg_x, reg_y, basis, errors = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options) # apply for third time to really shrink the unwanted coefficients
+    q_corrected, plate_corrected, coeff_x, coeff_y, basis, errors, reg_x, reg_y = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options) # apply for third time to really shrink the unwanted coefficients
 
     print(reg_x.coef_, reg_x.intercept_)
     print(reg_y.coef_, reg_y.intercept_)
@@ -280,7 +312,7 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
     
     _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options)
  
-    return q_corrected, plate_corrected, reg_x, reg_y
+    return q_corrected, plate_corrected, coeff_x, coeff_y
 
 
 def _open_distortion_files(options):
@@ -296,6 +328,9 @@ def _open_distortion_files(options):
     coeff_y = defaultdict(float)
     orders = []
     for data in loaded:
+        print(data, options)
+        if not data["distortion order"] == options["distortionOrder"]:
+            raise Exception(f'input distortion order not consistent: {options["distortionOrder"]} was requested but input files have order {data["distortion order"]}')
         for k, v in data["distortion coeffs x"].items():
             coeff_x[k] += v/n
         for k, v in data["distortion coeffs y"].items():
@@ -304,6 +339,7 @@ def _open_distortion_files(options):
             orders.append(data["distortion order"])
     if len(set(orders)) > 1:
         raise Exception("input distortion files are not same order: " + str(orders))
+    
     coeff_x, coeff_y = dict(coeff_x), dict(coeff_y)
     print(coeff_x)
     print(coeff_y)

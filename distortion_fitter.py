@@ -16,7 +16,7 @@ import database_cache
 from sklearn.linear_model import LinearRegression
 import pandas as pd
 import datetime
-import distortion_cubic
+import distortion_polynomial
 import gaia_search
 from copy import copy
 import zipfile
@@ -134,47 +134,12 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     basename = Path(path_data).stem + data['starttime']
     
-    '''
-    if not data['platesolved']: # need initial platesolve
-        raise Exception("BAD DATA - Data did not have platesolve included!")
-    df_id = pd.read_csv(archive.open('data/STACKED_CENTROIDS_MATCHED_ID.csv'))
-    
-    #other_stars_df = pd.DataFrame(data=data['detection_arr'],    # values
-    #                     columns=data['detection_arr_cols'])
-    
-    
-    #df_id = pd.DataFrame(data=data['identification_arr'],    # values
-    #                     columns=data['identification_arr_cols'])
-    df_id = df_id.astype({'RA':float, 'DEC':float, 'px':float, 'py':float, 'magV':float}) # fix datatypes
-
-    df_id['vx'] = np.cos(np.radians(df_id['DEC'])) * np.cos(np.radians(df_id['RA']))
-    df_id['vy'] = np.cos(np.radians(df_id['DEC'])) * np.sin(np.radians(df_id['RA']))
-    df_id['vz'] = np.sin(np.radians(df_id['DEC']))
-    
-    print(df_id.to_string())
-    target = np.array([df_id['vx'], df_id['vy'], df_id['vz']]).T
-    plate = np.array([df_id['py'], df_id['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
-    f = get_fitfunc(plate, target)
-
-    # note: negative scale == rotation by 180. Do we always want this +180 hack?
-    print('ra/dec guess:', data['RA'], data['DEC'])
-    initial_guess = tuple(np.radians([data['platescale'], data['RA'], data['DEC'], data['roll']+180]))
-    print('initial guess:', initial_guess) 
-    result = scipy.optimize.minimize(get_fitfunc(plate, target), initial_guess, method = 'Nelder-Mead')  # BFGS doesn't like something here
-    print(result)
-
-    resi = transforms.to_polar(transforms.linear_transform(initial_guess, plate))
-    resv = transforms.to_polar(transforms.linear_transform(result.x, plate))
-    orig = transforms.to_polar(target)
-    '''
     plate_solve_result = platesolve_triangle.platesolve(np.c_[other_stars_df['py'], other_stars_df['px']], image_size, dict(options, **{'flag_display':False}))
     if not plate_solve_result['success']: # failed platesolve
         raise Exception("BAD DATA - platesolve failed!")
     if plate_solve_result['mirror']:
         other_stars_df['py'], other_stars_df['px'] = other_stars_df['px'], other_stars_df['py']
         image_size = np.array([image_size[1], image_size[0]])
-
-    
 
     initial_guess = plate_solve_result['x']
     ### now try to match other stars
@@ -190,14 +155,14 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     if options['guess_date']:
         dateguess = options['DEFAULT_DATE'] # initial guess
-        dateguess = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, dict(options, **{'flag_display2':False}))
+        dateguess = distortion_polynomial._date_guess(dateguess, initial_guess, plate2, stardata, image_size, dict(options, **{'flag_display2':False}))
         # re-get gaia database
         stardata, plate2, alt, az = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
 
 
     # now recompute matches
     
-    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, stardata, initial_guess, image_size, dict(options, **{'flag_display2':False}))
+    result, plate2_corrected, _, _  = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, dict(options, **{'flag_display2':False}))
 
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
@@ -231,12 +196,12 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     # do 2nd fit with outliers removed
 
     if options['guess_date']:
-        dateguess = distortion_cubic._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
+        dateguess = distortion_polynomial._date_guess(dateguess, initial_guess, plate2, stardata, image_size, options)
         #stardata_new = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(dateguess))
         #stardata.update_data(stardata_new)
         stardata.update_epoch(date_string_to_float(dateguess))
     
-    result, plate2_corrected, reg_x, reg_y = distortion_cubic.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
+    result, plate2_corrected, coeff_x, coeff_y = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
@@ -245,12 +210,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     detransformed = transforms.detransform_vectors(result, stardata.get_vectors())
     px_errors = plate2_corrected-detransformed
     nn_corr, nn_r = get_nn_correlation_error(plate2, px_errors, options)
-    coeff_names = distortion_cubic.get_coeff_names(options)
+    coeff_names = distortion_polynomial.get_coeff_names(options)
 
     # recover errors for filtered points
     
-
-
     output_results = { 'final rms error (arcseconds)': np.degrees(np.mean(mag_errors**2)**0.5)*3600,
                        '#stars used':plate2.shape[0],
                        'observation_date':options['observation_date'] if not options['guess_date'] else dateguess,
@@ -263,15 +226,16 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'DEC':np.degrees(result[2]),
                        'ROLL':np.degrees(result[3])-180, # TODO: clarify this dodgy +/- 180 thing
                        'distortion order': options['distortionOrder'],
-                       'distortion coeffs x': dict(zip(coeff_names, [reg_x.intercept_]+list( reg_x.coef_))),
-                       'distortion coeffs y': dict(zip(coeff_names, [reg_y.intercept_]+list( reg_y.coef_))),
+                       'distortion coeffs x': dict(zip(coeff_names, coeff_x)),
+                       'distortion coeffs y': dict(zip(coeff_names, coeff_y)),
                        'nearest-neighbour error correlation': nn_corr,
                        'aberration/parallax correction enabled?': options['enable_corrections'],
                        'gravitational correction enabled?': options['enable_gravitational_def'],
                        'refraction correction enabled?': options['enable_corrections_ref'],
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
                        }
-    additional_info = { 'observation_long (degrees)':options['observation_lat'],
+    additional_info = { 'obervation_time (UTC)':options['observation_time'],
+                        'observation_long (degrees)':options['observation_lat'],
                         'observation_lat (degrees)':options['observation_long'],
                         'observation_temp (°C)':options['observation_temp'],
                         'observation_pressure (millibars)':options['observation_pressure'],
@@ -319,7 +283,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     plt.close()
 
 
-    plate2_unfiltered_corrected = distortion_cubic.apply_corrections(result, plate2_unfiltered, reg_x, reg_y, image_size, options)
+    plate2_unfiltered_corrected = distortion_polynomial.apply_corrections(result, plate2_unfiltered, coeff_x, coeff_y, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_unfiltered_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - stardata_unfiltered.get_vectors(), axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
@@ -388,6 +352,6 @@ if __name__ == '__main__':
     #new_data_path = "D:\output\FULL_DATA1707152800.7054024.npz" # zwo 3 zd 45 centre
     #new_data_path = "D:/output/FULL_DATA1707153601.071847.npz" # Don right calibration
     #new_data_path = "D:\output\FULL_DATA1707167920.0870245.npz" # E:/ZWO#3 2023-10-28/Zenith-01-3s/MEE2024.00003273.Zenith-Center2.fit
-    new_data_path = 'D:\output4\CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
+    new_data_path = 'D:/output4/CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
     options = {"catalogue":"gaia", "output_dir":"D:/output", 'max_star_mag_dist':12, 'flag_display':False, 'flag_display2':True, 'rough_match_threshhold':36, 'guess_date':False}
     match_and_fit_distortion(new_data_path, options , "D:/debugging")

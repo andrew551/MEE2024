@@ -303,7 +303,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
     unique, counts = np.unique(labels, return_counts=True)
     counts = dict(zip(unique, counts))
     best=-1
-    best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None}
+    best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None, 'platescale/arcsec':None, 'ra':None, 'dec':None, 'roll':None}
     n_matches = 0
     for i in range(n_components):
         if counts[i] >= 3:
