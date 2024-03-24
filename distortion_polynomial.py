@@ -218,13 +218,6 @@ def apply_corrections(q, plate, coeff_x, coeff_y, img_shape, options):
     corr_x = np.einsum('ji,i->j', basis, coeff_x[1:]) # 1: to remove constant (which should be near-zero)
     corr_y = np.einsum('ji,i->j', basis, coeff_y[1:])
     return plate + np.c_[corr_y, corr_x]
-    '''
-    order_total = mapping[options['distortionOrder']]
-    order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
-    n_free = (order_free+2) * (order_free+1) // 2 - 1                
-    basis_free = basis[:, :n_free]
-    return plate + np.array([reg_y.predict(basis_free), reg_x.predict(basis_free)]).T / m # TODO: add fixed
-    '''
                       
 def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     fig = plt.figure()
@@ -284,13 +277,14 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
     m = 1 #result.x[0] # for astrometrica convention
     #w = 1
     #m = max(img_shape)
-    fix_coeff_x, fix_coeff_y = _open_distortion_files(options)
+    fix_coeff_x, fix_coeff_y, fix_platescale = _open_distortion_files(options)
     order_total = mapping[options['distortionOrder']]
     order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
 
     if order_free == 0: # special case for only constant degree of freedom: use a linear fit, then discard the stretch/skew coefficients
         q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, dict(options, **{'distortion_fixed_coefficients':'linear'}))[0]
         q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, dict(options, **{'distortion_fixed_coefficients':'linear'}))[0]
+        q_corrected = tuple([np.radians(fix_platescale/3600)]+list(q_corrected[1:4]))
         plate_corrected = apply_corrections(q_corrected, plate, list(fix_coeff_x.values()), list(fix_coeff_y.values()), img_shape, options)
         detransformed = transforms.detransform_vectors(q_corrected, target)
         errors = detransformed - plate_corrected
@@ -332,8 +326,10 @@ def _open_distortion_files(options):
     coeff_x = defaultdict(float)
     coeff_y = defaultdict(float)
     orders = []
+    platescales = []
     for data in loaded:
-        print(data, options)
+        #print(data, options)
+        platescales.append(data["platescale (arcseconds/pixel)"])
         if "distortion order" in data and not data["distortion order"] == options["distortionOrder"]:
             raise Exception(f'input distortion order not consistent: {options["distortionOrder"]} was requested but input files have order {data["distortion order"]}')
         for k, v in data["distortion coeffs x"].items():
@@ -348,5 +344,5 @@ def _open_distortion_files(options):
     coeff_x, coeff_y = dict(coeff_x), dict(coeff_y)
     print(coeff_x)
     print(coeff_y)
-    return coeff_x, coeff_y
+    return coeff_x, coeff_y, np.mean(platescales)
     

@@ -5,7 +5,9 @@ import zipfile
 import matplotlib.pyplot as plt
 from refraction_correction import _find_rotation_matrix
 from transforms import to_polar
+import scipy
 
+import astropy
 from astropy.coordinates import EarthLocation,SkyCoord, Distance, get_body, AltAz
 from astropy.time import Time
 from astropy import units as u
@@ -22,8 +24,8 @@ def eclipse_analysis(path_data, options):
     df = pd.read_csv(archive.open('distortion/CATALOGUE_MATCHED_ERRORS.csv'))
     df = df.astype({'px':float, 'py':float, 'RA(catalog)':float, 'RA(obs)':float, 'DEC(catalog)':float, 'DEC(obs)':float,}) # fix datatypes
 
-    print(data)
-    print(df)
+    #print(data)
+    #print(df)
 
     
     if data['gravitational correction enabled?']:
@@ -37,6 +39,10 @@ def eclipse_analysis(path_data, options):
     print(sun)
     print(moon)
 
+    sun_apparent_angular_radius = np.degrees((astropy.constants.R_sun / sun.distance).to(u.dimensionless_unscaled).value)
+    moon_apparent_angular_radius = np.degrees((1737.4*u.km / moon.distance).to(u.dimensionless_unscaled).value)
+    print(sun_apparent_angular_radius)
+    print(moon_apparent_angular_radius)
     aa = AltAz(location=observing_location, obstime=observing_time)
 
     local_sun = sun.transform_to(aa)
@@ -48,9 +54,11 @@ def eclipse_analysis(path_data, options):
     fig, ax = plt.subplots()
     ax.scatter(df['RA(catalog)'], df['DEC(catalog)'], color='blue', label = 'catalog')
     ax.scatter(df['RA(obs)'], df['DEC(obs)'], marker='+', color='orange', label = 'observation')
-
-    sun_circle = plt.Circle((sun.ra.degree, sun.dec.degree), 32/60/2, color='yellow') # NOTE: sun and moon are not actually circles in RA/DEC space!
-    moon_circle = plt.Circle((moon.ra.degree, moon.dec.degree), 34/60/2, color='black')
+    ax.set_title(f"Eclipse Field with {df.shape[0]} chosen stars")
+    ax.set_xlabel("RA (degrees)")
+    ax.set_ylabel("DEC (degrees)")
+    sun_circle = plt.Circle((sun.ra.degree, sun.dec.degree), sun_apparent_angular_radius, color='yellow') # NOTE: sun and moon are not actually circles in RA/DEC space!
+    moon_circle = plt.Circle((moon.ra.degree, moon.dec.degree), moon_apparent_angular_radius, color='black')
     ax.add_patch(sun_circle)
     ax.add_patch(moon_circle)
     ax.legend()
@@ -64,15 +72,17 @@ def eclipse_analysis(path_data, options):
     stars_cata_v = as_unit_vector(np.radians(df['DEC(catalog)']), np.radians(df['RA(catalog)']))
     radial_distances_obs = np.arcsin(np.linalg.norm(stars_obs_v - sun_v, axis=1) / 2) * 2
     radial_distances_catalog = np.arcsin(np.linalg.norm(stars_cata_v - sun_v, axis=1) / 2) * 2
-    print(stars_obs_v)
-    print(stars_cata_v)
-    print(radial_distances_obs, radial_distances_catalog)
+    rad_dist = np.degrees(radial_distances_catalog) / sun_apparent_angular_radius
+    #print(stars_obs_v)
+    #print(stars_cata_v)
+    #print(radial_distances_obs, radial_distances_catalog)
 
-    rad_dist = np.degrees(radial_distances_catalog) * (32/60/2)**-1
-    deflection = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
+    '''
+    
+    deflection_obs = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
     if data['gravitational correction enabled?']:
-        deflection += 1.751 / rad_dist
-    plt.scatter(rad_dist, deflection)
+        deflection_obs += 1.751 / rad_dist
+    plt.scatter(rad_dist, deflection_obs)
     plt.ylabel("radial deflection (arcsec)")
     plt.xlabel("radial position (sun radii)")
 
@@ -81,45 +91,57 @@ def eclipse_analysis(path_data, options):
     plt.plot(xx, yy)
     
     plt.show()
+    '''
 
     delta_vectors = stars_cata_v - sun_v
     
-    e0 = np.degrees(np.sqrt(np.linalg.norm(stars_obs_v - stars_cata_v)**2 / stars_cata_v.shape[0]))*3600
-    print(e0)
-    print(rad_dist)
+    #e0 = np.degrees(np.sqrt(np.linalg.norm(stars_obs_v - stars_cata_v)**2 / stars_cata_v.shape[0]))*3600
+    #print(e0)
+    print("radial distances (in solar radii)", rad_dist)
+
+    # deflection: d = A / r
     def error_function1(deflection_const):
-        #stars_obs_v = as_unit_vector(np.radians(df['DEC(obs)']+ddec), np.radians(df['RA(obs)']+dra))
-        #radial_distances_obs = np.arcsin(np.linalg.norm(stars_obs_v - sun_v, axis=1) / 2) * 2
-        
-        #radial_distances_catalog = np.arcsin(np.linalg.norm(delta_vectors, axis=1) / 2) * 2
-        #rad_dist = np.degrees(radial_distances_catalog) * (32/60/2)**-1
-        #deflection = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
         deflection = np.radians(deflection_const / rad_dist / 3600)
         delta_vectors_unit = delta_vectors / np.linalg.norm(delta_vectors, axis = 1).reshape(delta_vectors.shape[0], 1)
-        #print(deflection)
         cata_vectors_corrected = stars_cata_v + deflection.reshape(delta_vectors.shape[0], 1) * delta_vectors_unit
         cata_vectors_corrected = cata_vectors_corrected / np.linalg.norm(cata_vectors_corrected, axis = 1).reshape(delta_vectors.shape[0], 1)
         rot = _find_rotation_matrix(stars_obs_v, cata_vectors_corrected)
         corrected = (rot.T @ stars_obs_v.T).T
-        '''
-        q1 = to_polar(cata_vectors_corrected)
-        q2 = to_polar(stars_cata_v)
-        plt.scatter(q1[:, 1], q1[:, 0], color='blue', marker='+')
-        plt.scatter(q2[:, 1], q2[:, 0], color='orange', marker='+')
-        plt.show()
-        '''
-        
         rms = np.degrees(np.sqrt(np.linalg.norm(corrected - cata_vectors_corrected)**2 / stars_cata_v.shape[0]))*3600
         return rms
-    print(error_function1(0))
+
+    # allow power-law relationship for deflection: d = A / r^B
+    def error_function2(deflection_const):
+        deflection = np.radians(deflection_const[0] / rad_dist**deflection_const[1] / 3600)
+        delta_vectors_unit = delta_vectors / np.linalg.norm(delta_vectors, axis = 1).reshape(delta_vectors.shape[0], 1)
+        cata_vectors_corrected = stars_cata_v + deflection.reshape(delta_vectors.shape[0], 1) * delta_vectors_unit
+        cata_vectors_corrected = cata_vectors_corrected / np.linalg.norm(cata_vectors_corrected, axis = 1).reshape(delta_vectors.shape[0], 1)
+        rot = _find_rotation_matrix(stars_obs_v, cata_vectors_corrected)
+        corrected = (rot.T @ stars_obs_v.T).T
+        rms = np.degrees(np.sqrt(np.linalg.norm(corrected - cata_vectors_corrected)**2 / stars_cata_v.shape[0]))*3600
+        return rms
     
-    xxx = np.linspace(-1, 3)
+    result1 = scipy.optimize.minimize(error_function1, 0, method = 'Nelder-Mead')
+    print(result1)
+
+    result2 = scipy.optimize.minimize(error_function2, (0, 1), method = 'Nelder-Mead')
+    print(result2)
+
+        
+    xxx = np.linspace(-0.25, 3)
     yyy = [error_function1(_)for _ in xxx]
     plt.plot(xxx, yyy)
+    plt.xlabel("deflection constant (arcsec)")
+    plt.ylabel("rms (arcsec)")
+
+    naive_error = result1.fun/np.sqrt(df.shape[0])
+    string = f"deflection constant = {result1.x[0]:.5f}\ndifference vs. accepted value: {100*(result1.x[0]-1.751)/1.751:.3f}%\n\ndeflected star position rms = {result1.fun:.3f} arcsec\nrms / sqrt(nstars) = {naive_error:.5f} arcsec\nnaive error estimate = {100*naive_error/1.751:.1f}%\n"
+    plt.annotate(string, xy = (result1.x[0], result1.fun), xytext=(result1.x[0]-0.3, result1.fun+0.2), fontsize=14, arrowprops=dict(facecolor='black', shrink=0.05))
+    plt.title("Least-squares deflection fit")
     plt.show()
-    
         
 if __name__ == '__main__':
+    pass
     #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323214311__data (2)20240317002546/distortion.zip', {}) # no cheat
-    eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323224137__data (2)20240317002546/distortion.zip', {}) # yes cheat
-    #eclipse_analysis('
+    #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323224137__data (2)20240317002546/distortion.zip', {}) # yes cheat
+    eclipse_analysis('D:/Don 2017 eclipse data/DISTORTION_OUTPUT20240324141609__data_eclipse20240317002546/distortion.zip', {})

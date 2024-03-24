@@ -94,7 +94,7 @@ def interpret_UI_values(options, ui_values, no_file = False):
         return [stack_files, dark_files, flat_files]
 
 def interpret_UI_values2(options, ui_values):
-    check_files([ui_values['-FILE2-']])
+    #check_files([ui_values['-FILE2-']])
     options['distortion_reference_files'] = ui_values['distortion_reference_files']
     options['distortion_fixed_coefficients'] = ui_values['distortion_fixed_coefficients']
     options['output_dir'] = ui_values['output_dir2']
@@ -313,25 +313,33 @@ def inputUI(options):
             else:
                 sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
         if event=='OK2':
-            if check_file(values['-FILE2-']):
-                input_okay_flag = True
-            else:
-                # display pop-up file not entered
-                input_okay_flag = False
-                sg.Popup(popup_messages['no_file_error'], keep_on_top=True)
+            files = values['-FILE2-'].split(';')
+            print(values['-FILE2-'])
+            print(files)
+            for file in files:
+                if check_file(file):
+                    input_okay_flag = True
+                else:
+                    # display pop-up file not entered
+                    input_okay_flag = False
+                    sg.Popup(popup_messages['no_file_error'], keep_on_top=True)
+                    break
             if not values['output_dir2'].strip():
                 input_okay_flag = False
                 sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
+
             if input_okay_flag:
-                try:
-                    interpret_UI_values2(options, values)
-                    MEE2024util.write_ini(options)
-                    distortion_fitter.match_and_fit_distortion(values['-FILE2-'], options, None)
-                    print('Done!')
-                    #sg.Popup('Done!', keep_on_top=True)
-                except Exception as inst:
-                    traceback.print_exc()
-                    sg.Popup('Error: ' + str(inst.args[0]), keep_on_top=True)
+                for file in files:
+                    try:
+                        interpret_UI_values2(options, values)
+                        MEE2024util.write_ini(options)
+                        distortion_fitter.match_and_fit_distortion(file, options, None)
+                        print('Done!')
+                        #sg.Popup('Done!', keep_on_top=True)
+                    except Exception as inst:
+                        traceback.print_exc()
+                        sg.Popup('Error: ' + str(inst.args[0]), keep_on_top=True)
+                        break
         if event == 'OK3':
             if check_file(values['-FILE3-']):
                 input_okay_flag = True
