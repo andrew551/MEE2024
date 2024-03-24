@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from refraction_correction import _find_rotation_matrix
 from transforms import to_polar
 import scipy
+from pathlib import Path
+import datetime
+from MEE2024util import output_path, _version
 
 import astropy
 from astropy.coordinates import EarthLocation,SkyCoord, Distance, get_body, AltAz
@@ -51,19 +54,20 @@ def eclipse_analysis(path_data, options):
     print(local_moon)
     #print(local_sun.ra, local_sun.dec)
     #print(local_moon.ra, local_moon.dec)
-    fig, ax = plt.subplots()
-    ax.scatter(df['RA(catalog)'], df['DEC(catalog)'], color='blue', label = 'catalog')
-    ax.scatter(df['RA(obs)'], df['DEC(obs)'], marker='+', color='orange', label = 'observation')
-    ax.set_title(f"Eclipse Field with {df.shape[0]} chosen stars")
-    ax.set_xlabel("RA (degrees)")
-    ax.set_ylabel("DEC (degrees)")
-    sun_circle = plt.Circle((sun.ra.degree, sun.dec.degree), sun_apparent_angular_radius, color='yellow') # NOTE: sun and moon are not actually circles in RA/DEC space!
-    moon_circle = plt.Circle((moon.ra.degree, moon.dec.degree), moon_apparent_angular_radius, color='black')
-    ax.add_patch(sun_circle)
-    ax.add_patch(moon_circle)
-    ax.legend()
-    ax.set_aspect('equal')
-    plt.show()
+    if options['flag_display3']:
+        fig, ax = plt.subplots()
+        ax.scatter(df['RA(catalog)'], df['DEC(catalog)'], color='blue', label = 'catalog')
+        ax.scatter(df['RA(obs)'], df['DEC(obs)'], marker='+', color='orange', label = 'observation')
+        ax.set_title(f"Eclipse Field with {df.shape[0]} chosen stars")
+        ax.set_xlabel("RA (degrees)")
+        ax.set_ylabel("DEC (degrees)")
+        sun_circle = plt.Circle((sun.ra.degree, sun.dec.degree), sun_apparent_angular_radius, color='yellow') # NOTE: sun and moon are not actually circles in RA/DEC space!
+        moon_circle = plt.Circle((moon.ra.degree, moon.dec.degree), moon_apparent_angular_radius, color='black')
+        ax.add_patch(sun_circle)
+        ax.add_patch(moon_circle)
+        ax.legend()
+        ax.set_aspect('equal')
+        plt.show()
 
     sun_v = as_unit_vector(sun.dec.radian, sun.ra.radian)
     moon_v = as_unit_vector(moon.dec.radian, sun.ra.radian)
@@ -127,21 +131,33 @@ def eclipse_analysis(path_data, options):
     result2 = scipy.optimize.minimize(error_function2, (0, 1), method = 'Nelder-Mead')
     print(result2)
 
-        
-    xxx = np.linspace(-0.25, 3)
-    yyy = [error_function1(_)for _ in xxx]
-    plt.plot(xxx, yyy)
-    plt.xlabel("deflection constant (arcsec)")
-    plt.ylabel("rms (arcsec)")
+    if options['flag_display3']:    
+        xxx = np.linspace(-0.25, 3)
+        yyy = [error_function1(_)for _ in xxx]
+        plt.plot(xxx, yyy)
+        plt.xlabel("deflection constant (arcsec)")
+        plt.ylabel("rms (arcsec)")
 
     naive_error = result1.fun/np.sqrt(df.shape[0])
     string = f"deflection constant = {result1.x[0]:.5f}\ndifference vs. accepted value: {100*(result1.x[0]-1.751)/1.751:.3f}%\n\ndeflected star position rms = {result1.fun:.3f} arcsec\nrms / sqrt(nstars) = {naive_error:.5f} arcsec\nnaive error estimate = {100*naive_error/1.751:.1f}%\n"
-    plt.annotate(string, xy = (result1.x[0], result1.fun), xytext=(result1.x[0]-0.3, result1.fun+0.2), fontsize=14, arrowprops=dict(facecolor='black', shrink=0.05))
-    plt.title("Least-squares deflection fit")
-    plt.show()
+    if options['flag_display3']:
+        plt.annotate(string, xy = (result1.x[0], result1.fun), xytext=(result1.x[0]-0.3, result1.fun+0.2), fontsize=14, arrowprops=dict(facecolor='black', shrink=0.05))
+        plt.title("Least-squares deflection fit")
+        plt.show()
+
+
+    starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    output_name = f'ECLIPSE_OUTPUT{starttime}.txt'
+    output_file = Path(output_path(output_name, options))
+    print(output_file)
+    with open(output_file, 'w') as f:
+        f.write(f"MEE2024 version: {_version()}\n")
+        f.write(f"input file: {path_data}\n")
+        f.write(string)
+        f.write(f"\n\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n")
         
 if __name__ == '__main__':
     pass
     #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323214311__data (2)20240317002546/distortion.zip', {}) # no cheat
     #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323224137__data (2)20240317002546/distortion.zip', {}) # yes cheat
-    eclipse_analysis('D:/Don 2017 eclipse data/DISTORTION_OUTPUT20240324141609__data_eclipse20240317002546/distortion.zip', {})
+    eclipse_analysis('D:/Don 2017 eclipse data/DISTORTION_OUTPUT20240324141609__data_eclipse20240317002546/distortion.zip', {'output_dir':'D:/output4', 'flag_display3':True})

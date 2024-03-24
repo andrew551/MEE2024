@@ -304,8 +304,9 @@ def inputUI(options):
         if event==sg.WIN_CLOSED or event=='Cancel' or event=='Cancel2':
             window.close()
             return None
-        if event=='Open output folder' or event=='Open output folder2':
-            x = values['output_dir'].strip() if event=='Open output folder' else values['output_dir2'].strip()
+        # tab 3 uses same output folder as tab 2
+        if event=='Open output folder' or event=='Open output folder2' or event=='Open output folder3':
+            x = values['output_dir'].strip() if event=='Open output folder' else values['output_dir2'].strip() if event == 'Open output folder2' else values['output_dir2'].strip()
             if not x:
                 x = options['workDir']
             if x and os.path.isdir(x):
