@@ -38,7 +38,9 @@ options = {
     'flag_debug':False,
     'save_dark_flat':False,
     'sensitive_mode_stack':True,
-    'workDir': '',                  
+    'workDir': '',
+    '-DARK-':'',
+    '-FLAT-':'',
     'output_dir': '',
     'database':'',
     'catalogue':'gaia',
@@ -85,6 +87,7 @@ options = {
     'basis_type':'polynomial', # legendre (under development) or polynomial
     'distortion_reference_files':'',
     'distortion_fixed_coefficients':'None',
+    'flag_display3':True,
 }
 
 def precheck_files(files, options, flag_write_ini=False):

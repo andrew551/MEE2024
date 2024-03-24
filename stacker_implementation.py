@@ -1,6 +1,6 @@
 """
 @author: Andrew Smith
-Version 6 January 2024
+Version 23 March 2024
 """
 
 from astropy.io import fits
@@ -613,7 +613,14 @@ def do_stack(files, darkfiles, flatfiles, options):
                          'platescale/arcsec' : solution['platescale/arcsec'],#solution['FOV'] / max(imgs_0.shape) if flag_found_IDs else None,
                          'source_files' : str(files),
                          'starttime':starttime,
+                         'remove saturated blob?':options['delete_saturated_blob'],
+                         'blob_radius_extra':options['blob_radius_extra'],
+                         'centroid_gap_blob':options['centroid_gap_blob'],
+                         'sensitive stacking mode?':options['centroid_gaussian_subtract'],
+                         'use sensitive on stacked result?':options['sensitive_mode_stack'],
                     }
+    if options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']:
+        results_dict.update({'sigma threshold detection':options['centroid_gaussian_thresh'], 'min_area':options['min_area'], 'sigma_subtract':options['sigma_subtract']})
     with open(data_dir / 'results.txt', 'w', encoding="utf-8") as fp:
             json.dump(results_dict, fp, sort_keys=False, indent=4)
     

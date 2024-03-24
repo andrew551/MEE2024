@@ -1,3 +1,8 @@
+"""
+@author: Andrew Smith
+Version 23 March 2024
+"""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy
@@ -23,6 +28,7 @@ import zipfile
 import refraction_correction
 import platesolve_triangle
 from MEE2024util import get_bbox
+import shutil
 
 def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
     def fitfunc(x):
@@ -122,7 +128,9 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
 
     return stardata, plate2, alt, az
 
-def match_and_fit_distortion(path_data, options, debug_folder=None):    
+def match_and_fit_distortion(path_data, options, debug_folder=None):
+    starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    
     path_catalogue = options['catalogue']
     
     archive = zipfile.ZipFile(path_data, 'r')
@@ -133,6 +141,12 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
 
     basename = Path(path_data).stem + data['starttime']
+
+    output_name = f'DISTORTION_OUTPUT{starttime}__'+basename
+    output_dir = Path(output_path(output_name, options))
+    data_dir = output_dir / 'distortion'
+    os.mkdir(output_dir)
+    os.mkdir(data_dir)
     
     plate_solve_result = platesolve_triangle.platesolve(np.c_[other_stars_df['py'], other_stars_df['px']], image_size, dict(options, **{'flag_display':False}))
     if not plate_solve_result['success']: # failed platesolve
@@ -233,10 +247,12 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'gravitational correction enabled?': options['enable_gravitational_def'],
                        'refraction correction enabled?': options['enable_corrections_ref'],
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
+                       'fixed distortion order':options['distortion_fixed_coefficients'],
+                       'fixed distortion reference files':str(options['distortion_reference_files']),
                        }
-    additional_info = { 'obervation_time (UTC)':options['observation_time'],
-                        'observation_long (degrees)':options['observation_lat'],
-                        'observation_lat (degrees)':options['observation_long'],
+    additional_info = { 'observation_time (UTC)':options['observation_time'],
+                        'observation_long (degrees)':options['observation_long'],
+                        'observation_lat (degrees)':options['observation_lat'],
                         'observation_temp (°C)':options['observation_temp'],
                         'observation_pressure (millibars)':options['observation_pressure'],
                         'observation_humidity (0.0 to 1.0)':options['observation_humidity'],
@@ -248,7 +264,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         output_results.update(additional_info)
 
     
-    with open(output_path(basename+'distortion_results.txt', options), 'w', encoding="utf-8") as fp:
+    with open(data_dir / 'distortion_results.txt', 'w', encoding="utf-8") as fp:
         json.dump(output_results, fp, sort_keys=False, indent=4)
 
     marker_colors = ['red' if is_missing_pm else 'orange' if is_double else '#1f77b4' for (is_missing_pm, is_double)
@@ -277,7 +293,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[1, 1].set_xlabel('radial coordinate (pixels)')
     axs[1, 1].grid()
     fig.tight_layout()
-    plt.savefig(output_path('Error_graphs'+basename+'.png', options), bbox_inches="tight", dpi=600)
+    plt.savefig(output_dir / 'Error_graphs.png', bbox_inches="tight", dpi=600)
     if options['flag_display2']:
         plt.show()
     plt.close()
@@ -303,7 +319,11 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                                'flag_missing_pm':flag_missing_pm,
                                'flag_is_outlier':flag_is_outlier,})
             
-    df_identification.to_csv(output_path('CATALOGUE_MATCHED_ERRORS'+basename+'.csv', options))
+    df_identification.to_csv(data_dir / 'CATALOGUE_MATCHED_ERRORS.csv')
+    shutil.make_archive(data_dir,
+                    'zip',
+                    Path(data_dir).parent,
+                    'distortion')
 
 # #unused
 def show_error_coherence(positions, errors, options):

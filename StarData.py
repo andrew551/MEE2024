@@ -20,7 +20,12 @@ def regularize_pm(pm):
     x = np.copy(pm)
     x[np.isnan(x)] = 0
     return x
+'''
+todo: generalise initialiser to be compatible also with:
+(1) tycho compressed
+(2) gaia downloaded
 
+'''
 # wrapper for gaia star data
 class StarData:
 

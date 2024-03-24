@@ -1,13 +1,12 @@
-todo 16/03/24
-
-High priority:
-* input fixed platescale and distortion coefficients
-	** fix cubic but allow linear degrees of freedom
+todo 23/03/24
 
 Medium priority:
 * (later): specialised routine for platesolving eclipse data, using stars at edges of image.
 	** compute radial deflection as function of distance to sun
 * compare centroid finding function with Astrometrica. Astrometrica might be better at finding centroids of very dim stars
 
+* offline gaia mode (download large file once)
+
 Low priority:
-* currently light deflection correction is always off, would an option to turn it back on be useful?
+	
+* display star names / IDs

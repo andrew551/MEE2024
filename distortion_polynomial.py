@@ -1,3 +1,8 @@
+"""
+@author: Andrew Smith
+Version 23 March 2024
+"""
+
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import transforms
@@ -329,7 +334,7 @@ def _open_distortion_files(options):
     orders = []
     for data in loaded:
         print(data, options)
-        if not data["distortion order"] == options["distortionOrder"]:
+        if "distortion order" in data and not data["distortion order"] == options["distortionOrder"]:
             raise Exception(f'input distortion order not consistent: {options["distortionOrder"]} was requested but input files have order {data["distortion order"]}')
         for k, v in data["distortion coeffs x"].items():
             coeff_x[k] += v/n

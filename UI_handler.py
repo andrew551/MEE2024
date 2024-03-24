@@ -1,6 +1,6 @@
 """
 @author: Andrew Smith
-Version 5 January 2024
+Version 23 March 2024
 """
 
 import math
@@ -15,7 +15,7 @@ import datetime
 from MEE2024util import resource_path, _version
 import MEE2024util
 import distortion_fitter
-
+import eclipse_analysis
 
 def check_files(files):
     try:
@@ -79,6 +79,8 @@ def interpret_UI_values(options, ui_values, no_file = False):
     stack_files=ui_values['-FILE-'].split(';')
     dark_files=ui_values['-DARK-'].split(';') if ui_values['-DARK-'] else []
     flat_files=ui_values['-FLAT-'].split(';') if ui_values['-FLAT-'] else []
+    options['-DARK-'] = ui_values['-DARK-']
+    options['-FLAT-'] = ui_values['-FLAT-']
     #options['database'] = ui_values['-DB-']
     options['output_dir'] = ui_values['output_dir']
     options['remove_edgy_centroids'] = ui_values['remove_edgy_centroids']
@@ -142,7 +144,10 @@ def interpret_UI_values2(options, ui_values):
         options['observation_wavelength'] = float(ui_values['observation_wavelength']) if ui_values['observation_wavelength'] else 0.5
     except ValueError: 
         raise Exception('invalid observation_wavelength value!')
-            
+
+def interpret_UI_values3(options, ui_values):
+    check_files([ui_values['-FILE3-']])
+    options['flag_display3'] = ui_values['Show graphics3']        
 # ------------------------------------------------------------------------------
 # use PIL to read data of one image
 # ------------------------------------------------------------------------------
@@ -179,9 +184,9 @@ def inputUI(options):
     layout_file_input = [
         [sg.Text('File(s)', size=(7, 1), key = 'File(s)'), sg.InputText(default_text=options['workDir'],size=(75,1),key='-FILE-'),
          sg.FilesBrowse('Choose images to stack', key = 'Choose images to stack', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
-        [sg.Text('Dark(s)', size=(7, 1), key = 'Dark(s)'), sg.InputText(default_text='',size=(75,1),key='-DARK-'),
+        [sg.Text('Dark(s)', size=(7, 1), key = 'Dark(s)'), sg.InputText(default_text=options['-DARK-'],size=(75,1),key='-DARK-'),
          sg.FilesBrowse('Choose Dark image(s)', key = 'Choose Dark image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
-        [sg.Text('Flat(s)', size=(7, 1), key = 'Flat(s)'), sg.InputText(default_text='',size=(75,1),key='-FLAT-'),
+        [sg.Text('Flat(s)', size=(7, 1), key = 'Flat(s)'), sg.InputText(default_text=options['-FLAT-'],size=(75,1),key='-FLAT-'),
          sg.FilesBrowse('Choose Flat image(s)', key = 'Choose Flat image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
         #[sg.Text('Database', size=(7, 1), key = 'Database'), sg.InputText(default_text=options['database'],size=(75,1),key='-DB-'),
         # sg.FilesBrowse('Choose Database', key = 'Choose Database', file_types=((".npz", "*.npz"),),initial_folder=options['workDir'])],
@@ -219,7 +224,7 @@ def inputUI(options):
     ]
 
     layout_distortion = [
-        [sg.Text('File(s)', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE2-'),
+        [sg.Text('File', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE2-'),
          sg.FilesBrowse('Choose data (data.zip)', key = 'Choose data.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['output_dir'])],
         [sg.Text('Fix distortion file(s)', size=(7, 1), key = 'Fix distortion file(s)'), sg.InputText(default_text='',size=(75,1),key='distortion_reference_files'),
          sg.FilesBrowse('Choose distortion files', key = 'Choose distortion files', file_types=(("distortion files", "*.txt"),),initial_folder=options['output_dir'])],
@@ -249,13 +254,19 @@ def inputUI(options):
         [sg.Push(), sg.Button('OK', key='OK2'), sg.Cancel(key='Cancel2'), sg.Button("Open output folder", key='Open output folder2', enable_events=True)]
     ]
 
-
+    layout_eclipse = [
+        [sg.Text('File', size=(7, 1), key = 'File3(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE3-'),
+         sg.FilesBrowse('Choose data (distortion.zip)', key = 'Choose distortion.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['output_dir'])],
+        [sg.Checkbox('Show graphics', default=options['flag_display3'], key='Show graphics3')],
+        [sg.Push(), sg.Button('OK', key='OK3'), sg.Cancel(key='Cancel3'), sg.Button("Open output folder", key='Open output folder3', enable_events=True)],
+    ]
 
     tab1_layout = layout_file_input + layout_folder_output + layout_base    
     tab2_layout = layout_distortion
 
     layout = [layout_title + [sg.TabGroup([[sg.Tab('Tab 1 - Find centroids', tab1_layout),
                          sg.Tab('Tab 2 - Compute Distortion', tab2_layout),
+                         sg.Tab('Tab 3 - Eclipse Analysis', layout_eclipse),
                          ]],
                        key='-group2-', title_color='gray',
                        selected_title_color='red', tab_location='top')
@@ -320,7 +331,27 @@ def inputUI(options):
                     #sg.Popup('Done!', keep_on_top=True)
                 except Exception as inst:
                     traceback.print_exc()
-                    sg.Popup('Error: ' + str(inst.args[0]), keep_on_top=True)    
+                    sg.Popup('Error: ' + str(inst.args[0]), keep_on_top=True)
+        if event == 'OK3':
+            if check_file(values['-FILE3-']):
+                input_okay_flag = True
+            else:
+                # display pop-up file not entered
+                input_okay_flag = False
+                sg.Popup(popup_messages['no_file_error'], keep_on_top=True)
+            if not values['output_dir2'].strip():
+                input_okay_flag = False
+                sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
+            if input_okay_flag:
+                try:
+                    interpret_UI_values3(options, values)
+                    MEE2024util.write_ini(options)
+                    eclipse_analysis.eclipse_analysis(values['-FILE3-'], options)
+                    print('Done!')
+                    #sg.Popup('Done!', keep_on_top=True)
+                except Exception as inst:
+                    traceback.print_exc()
+                    sg.Popup('Error: ' + str(inst.args[0]), keep_on_top=True)
         if event=='OK':
             if check_file(values['-FILE-']):
                 input_okay_flag = True

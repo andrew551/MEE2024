@@ -1,3 +1,8 @@
+"""
+@author: Andrew Smith
+Version 23 March 2024
+"""
+
 import numpy as np
 import scipy.ndimage
 import scipy.optimize
@@ -48,7 +53,8 @@ note: not taken into account that stars dimmer than the dimmest star in the cata
 note2: we assume stars are isotropically distributed in the sky
 '''
 def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, addon=3):
-    p = N_stars_catalog * threshold_match**2 / 4 # propability that a randomly chosen point will be with threshold of a star
+    p = N_stars_catalog * threshold_match**2 / 4 # propability that a randomly chosen point will be with threshold of a star.
+    # the factor of 4 comes from the ratio of the surface area of a sphere to a circle of a given radius
 
     poisson_lambda = p*(n_obs-3) # for a single random match, the number of matches can be approximated by a Poisson distribution
     # the minus three is because three of the observed stars are used to platesolve a match
@@ -392,7 +398,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
         plt.title(f"{len(best_non_redundant)} triangles matched\nplatescale={best_result['platescale/arcsec']:.4f} arcsec/pixel\nra={best_result['ra']:.4f}, dec={best_result['dec']:.4f}, roll={best_result['roll']:.4f}")
         plt.tight_layout()
         if not output_dir is None:
-            plt.savefig(output_dir / 'triangle_matches.png')
+            plt.savefig(output_dir / 'triangle_matches.png', dpi=600)
         if options['flag_display']:
             plt.show()
         plt.close()
@@ -403,14 +409,14 @@ if __name__ == '__main__':
     #cProfile.run('main()')
     options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':1, 'flag_debug':0}
     #path_data = 'D:/output4/CENTROID_OUTPUT20240229002931/data.zip' # zwo 3 zd 30
-    path_data = 'D:\output4\CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
-    #path_data = 'D:\output4\CENTROID_OUTPUT20240303040025/data.zip' # eclipse (Don) right
-    #path_data = 'D:\output4\CENTROID_OUTPUT20240310015116/data.zip' # eclipse (Berry)
-    #path_data = 'D:\output4\CENTROID_OUTPUT20240310020236/data.zip' # ZWO 1
-    #path_data = 'D:\output4\CENTROID_OUTPUT20240310194735/data.zip' # moontest 1
-    #path_data = 'D:\output4\CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
-    #path_data = 'E:\extra data\data.zip' # another moon test
-    #path_data = 'D:\output4\CENTROID_OUTPUT20240310200107\data.zip' # zwo 3 zd 75
+    path_data = 'D:/output4/CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
+    #path_data = 'D:/output4/CENTROID_OUTPUT20240303040025/data.zip' # eclipse (Don) right
+    #path_data = 'D:/output4/CENTROID_OUTPUT20240310015116/data.zip' # eclipse (Berry)
+    #path_data = 'D:/output4/CENTROID_OUTPUT20240310020236/data.zip' # ZWO 1
+    #path_data = 'D:/output4/CENTROID_OUTPUT20240310194735/data.zip' # moontest 1
+    #path_data = 'D:/output4/CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
+    #path_data = 'E:/extra data\data.zip' # another moon test
+    #path_data = 'D:/output4/CENTROID_OUTPUT20240310200107/data.zip' # zwo 3 zd 75
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('data/results.txt'))
     df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
@@ -421,7 +427,7 @@ if __name__ == '__main__':
 
     print(result)
 
-    path_data = 'D:\output4\CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
+    path_data = 'D:/output4/CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('data/results.txt'))
     df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
