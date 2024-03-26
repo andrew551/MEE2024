@@ -16,7 +16,7 @@ from MEE2024util import resource_path, _version
 import MEE2024util
 import distortion_fitter
 import eclipse_analysis
-
+from pathlib import Path
 def check_files(files):
     try:
         for file in files:
@@ -224,8 +224,8 @@ def inputUI(options):
     ]
 
     layout_distortion = [
-        [sg.Text('File', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE2-'),
-         sg.FilesBrowse('Choose data (data.zip)', key = 'Choose data.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['output_dir'])],
+        [sg.Text('File(s)', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['workDir2'],size=(75,1),key='-FILE2-'),
+         sg.FilesBrowse('Choose data (data.zip)', key = 'Choose data.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['workDir2'])],
         [sg.Text('Fix distortion file(s)', size=(7, 1), key = 'Fix distortion file(s)'), sg.InputText(default_text='',size=(75,1),key='distortion_reference_files'),
          sg.FilesBrowse('Choose distortion files', key = 'Choose distortion files', file_types=(("distortion files", "*.txt"),),initial_folder=options['output_dir'])],
         [sg.Text('Fix order higher than',size=(32,1)), sg.Combo(['None', 'constant', 'linear', 'quadratic', 'cubic', 'quartic', 'quintic', 'sextic', 'septic'], default_value=options['distortion_fixed_coefficients'], key='distortion_fixed_coefficients', size=(12, 1))],
@@ -238,7 +238,7 @@ def inputUI(options):
         [sg.Text('Observation Date UTC (YYYY-MM-DD)',size=(32,1)), sg.Input(default_text=str(options['observation_date']),size=(12,1),key='observation_date',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Distortion fit tolerance (arcsec)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
         [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic', 'septic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
-        [sg.Text('Rough fit thresh-hold (arcsec)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
+        [sg.Text('Rough fit threshold (arcsec)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
         [sg.Text('Corrections for aberration, parallax, and refraction:', font=('Helvetica', 12))],
         [sg.Checkbox('Enable aberration and parallax?', default=options['enable_corrections'], key='enable_corrections', enable_events=True)],
         [sg.Checkbox('Enable gravitational correction?', default=options['enable_gravitational_def'], key='enable_gravitational_def', enable_events=True)],
@@ -332,6 +332,7 @@ def inputUI(options):
             if input_okay_flag:
                 for file in files:
                     try:
+                        options['workDir2'] = str(Path(file).parent)
                         interpret_UI_values2(options, values)
                         MEE2024util.write_ini(options)
                         distortion_fitter.match_and_fit_distortion(file, options, None)

@@ -514,7 +514,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     if options['flag_display']:
         #plt.tight_layout()
         plt.show()
-
+    plt.close()
     # now do actual stacking
     #shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts) if not shift is None]
     #stacked = np.mean(np.array(shifted_images), axis = 0)

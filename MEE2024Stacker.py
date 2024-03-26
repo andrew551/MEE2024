@@ -39,6 +39,7 @@ options = {
     'save_dark_flat':False,
     'sensitive_mode_stack':True,
     'workDir': '',
+    'workDir2':'',
     '-DARK-':'',
     '-FLAT-':'',
     'output_dir': '',

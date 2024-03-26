@@ -239,6 +239,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'RA':np.degrees(result[1]),
                        'DEC':np.degrees(result[2]),
                        'ROLL':np.degrees(result[3])-180, # TODO: clarify this dodgy +/- 180 thing
+                       'rough fit threshold (arcsec)':options['rough_match_threshhold'],
                        'distortion order': options['distortionOrder'],
                        'distortion coeffs x': dict(zip(coeff_names, coeff_x)),
                        'distortion coeffs y': dict(zip(coeff_names, coeff_y)),

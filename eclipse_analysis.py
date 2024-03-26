@@ -157,8 +157,8 @@ def eclipse_analysis(path_data, options):
         f.write(f"MEE2024 version: {_version()}\n")
         f.write(f"input file: {path_data}\n")
         f.write(string)
-        f.write(f"\n\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n")
-        f.write("radial distances: " + str(rad_dist) + "\n")
+        f.write(f"\n\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n\n\n")
+        f.write("radial distances: " + str(rad_dist) + "\n\n")
         f.write("deflection (arcsec): " + str(deflection_obs)+"\n")
         
 if __name__ == '__main__':
