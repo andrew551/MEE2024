@@ -252,7 +252,7 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False, debug_displ
     img, mask, mask2 = img_mask2
     if not options['centroid_gaussian_subtract']:
         centroids = tetra3.get_centroids_from_image(img)
-        return [(-1, -1, x) for x in centroids]
+        return [(-1, -1, x) for x in centroids] # return tetra centroids
     if not options['experimental_background_subtract']:
         blur = cv2.GaussianBlur(img, (ksize, ksize), 0)
     else:
@@ -326,8 +326,25 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False, debug_displ
         acc_centroids.append((x0+correction[0], x1+correction[1]))
     '''
 
-    sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area']], reverse=True)
     
+
+    
+
+    sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area']], reverse=True)
+    print(f"n centroids initial {len(sorted_c)}")
+    # sanity check: mean(3x3 around centroid) > mean(5x5 around centroid) > mean(7x7) > mean(9x9) around centroid in raw img
+    # this should help heal with fake centroids due to artifacts like dead pixels
+
+    def sanity_check(centroid):
+        x0, x1 = int(centroid[0]), int(centroid[1])
+        mean_sequence = [np.mean(img[x0-r:x0+r+1, x1-r:x1+r+1]) for r in range(1, 5)]
+        for i in range(len(mean_sequence) - 1):
+            if mean_sequence[i] < mean_sequence[i+1]:
+                return False
+        return True
+    if options['sanity_check_centroids']:
+        sorted_c = [cc for cc in sorted_c if sanity_check(cc[2])]
+        print(f"n centroids sanity-filtered {len(sorted_c)}")
     #sorted_c = [(f, c) for f,c in zip(fluxes, centroids)], reverse=True)
     print('found:', sorted_c)
     return sorted_c

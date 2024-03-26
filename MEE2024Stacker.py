@@ -89,6 +89,7 @@ options = {
     'distortion_reference_files':'',
     'distortion_fixed_coefficients':'None',
     'flag_display3':True,
+    'sanity_check_centroids':True,
 }
 
 def precheck_files(files, options, flag_write_ini=False):
