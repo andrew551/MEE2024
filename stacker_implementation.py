@@ -330,7 +330,7 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False, debug_displ
 
     
 
-    sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area']], reverse=True)
+    sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area'] and not math.isnan(c[0])], reverse=True)
     print(f"n centroids initial {len(sorted_c)}")
     # sanity check: mean(3x3 around centroid) > mean(5x5 around centroid) > mean(7x7) > mean(9x9) around centroid in raw img
     # this should help heal with fake centroids due to artifacts like dead pixels
