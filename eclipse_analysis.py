@@ -23,9 +23,9 @@ def eclipse_analysis(path_data, options):
     print(path_data)
     archive = zipfile.ZipFile(path_data, 'r')
 
-    data = json.load(archive.open('distortion/distortion_results.txt'))
+    data = json.load(archive.open('distortion_results.txt'))
     #image_size = data['img_shape']
-    df = pd.read_csv(archive.open('distortion/CATALOGUE_MATCHED_ERRORS.csv'))
+    df = pd.read_csv(archive.open('CATALOGUE_MATCHED_ERRORS.csv'))
     df = df.astype({'px':float, 'py':float, 'RA(catalog)':float, 'RA(obs)':float, 'DEC(catalog)':float, 'DEC(obs)':float,}) # fix datatypes
 
     #print(data)
@@ -33,7 +33,7 @@ def eclipse_analysis(path_data, options):
 
     
     if data['gravitational correction enabled?']:
-        print('warning: grav enabled')
+        print('WARNING: gravity was enabled in the input data')
         #raise Exception("expected 'gravitational correction enabled?':False")
 
     observing_location = EarthLocation(lat=data['observation_lat (degrees)'], lon=data['observation_long (degrees)'], height=data['observation_height (m)']*u.m)  

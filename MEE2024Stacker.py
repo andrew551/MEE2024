@@ -39,7 +39,6 @@ options = {
     'save_dark_flat':False,
     'sensitive_mode_stack':True,
     'workDir': '',
-    'workDir2':'',
     '-DARK-':'',
     '-FLAT-':'',
     'output_dir': '',
@@ -53,6 +52,7 @@ options = {
     'pxl_tol':10, # for stacking centroid matching
     'cutoff':100, # for stacking centroid matching, penalty saturation distance
     'delete_saturated_blob':True,
+    'blob_saturation_level':100,
     'blob_radius_extra':100, # delete pixels near saturated moon/sun region
     'centroid_gap_blob':30,  # ignore centroids within this distance of saturated region + radius_extra
     'centroid_gaussian_subtract':False, # use the "sensitive mode" of custom centroid detection
@@ -82,14 +82,13 @@ options = {
     'observation_humidity':0,
     'observation_height':0,
     'observation_wavelength':0.65,
-    'triple_triang_platesolve_patterns':(80000, 120000, 0, 700000, 0.01, 0.65, 1.7),
+    #'triple_triang_platesolve_patterns':(80000, 120000, 0, 700000, 0.01, 0.65, 1.7),
             # (advanced): parameters for generating triangle platesolver patterns
     'do_tetra_platesolve':False,
     'basis_type':'polynomial', # legendre (under development) or polynomial
     'distortion_reference_files':'',
     'distortion_fixed_coefficients':'None',
     'flag_display3':True,
-    'sanity_check_centroids':True,
 }
 
 def precheck_files(files, options, flag_write_ini=False):

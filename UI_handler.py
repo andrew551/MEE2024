@@ -29,6 +29,7 @@ def check_files(files):
 def interpret_UI_values(options, ui_values, no_file = False):
     options['flag_display'] = ui_values['Show graphics']
     options['delete_saturated_blob'] = ui_values['delete_saturated_blob']
+    options['blob_saturation_level'] = ui_values['blob_saturation_level']
     options['centroid_gaussian_subtract'] = ui_values['centroid_gaussian_subtract']
     options['save_dark_flat'] = ui_values['save_dark_flat']
     options['float_fits'] = ui_values['float_fits']
@@ -46,11 +47,11 @@ def interpret_UI_values(options, ui_values, no_file = False):
         options['k'] = int(ui_values['-k-']) if ui_values['-k-'] else 10
     except ValueError : 
         raise Exception('invalid k value!')
-    '''
     try : 
         options['pxl_tol'] = float(ui_values['-pxl_tol-']) if ui_values['-pxl_tol-'] else 5
     except ValueError : 
         raise Exception('invalid pxl_tol value!')
+    '''
     try : 
         options['d'] = int(ui_values['-d-']) if ui_values['-d-'] else 10
     except ValueError : 
@@ -95,6 +96,8 @@ def interpret_UI_values(options, ui_values, no_file = False):
 
 def interpret_UI_values2(options, ui_values):
     #check_files([ui_values['-FILE2-']])
+    if not ui_values['distortion_fixed_coefficients'] == 'None' and ui_values['distortion_reference_files'] == '':
+        raise Exception(f"Fix order other than 'None' requires distortion files input! (you have rquested {ui_values['distortion_fixed_coefficients']})")
     options['distortion_reference_files'] = ui_values['distortion_reference_files']
     options['distortion_fixed_coefficients'] = ui_values['distortion_fixed_coefficients']
     options['output_dir'] = ui_values['output_dir2']
@@ -207,6 +210,7 @@ def inputUI(options):
      ],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
     [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob',enable_events=True)],
+    [sg.Text('    saturation level (%)', size=(32, 1)), sg.Spin(list(range(80, 101)), initial_value=options['blob_saturation_level'], key='blob_saturation_level')],
     [sg.Text('    blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Text('    centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Checkbox('Sensitive stacking mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract',enable_events=True)],
@@ -215,10 +219,10 @@ def inputUI(options):
     [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1), disabled_readonly_background_color="Gray")],
     [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Checkbox('Remove centroids near edges', default=options['remove_edgy_centroids'], key='remove_edgy_centroids')],
-    [sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
+    #[sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
     #[sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
     #[sg.Text('    n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],
-    [sg.Text('    pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
+    #[sg.Text('    pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
     #[sg.Text('    k_stars_plate_solve',size=(32,1), key='k_stars_plate_solve'), sg.Input(default_text=str(options['k']),size=(8,1),key='-k-',enable_events=True)],
     [sg.Push(), sg.Button('OK'), sg.Cancel(), sg.Button("Open output folder", key='Open output folder', enable_events=True)]
     ]
@@ -227,7 +231,7 @@ def inputUI(options):
         [sg.Text('File(s)', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['workDir2'],size=(75,1),key='-FILE2-'),
          sg.FilesBrowse('Choose data (data.zip)', key = 'Choose data.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['workDir2'])],
         [sg.Text('Fix distortion file(s)', size=(7, 1), key = 'Fix distortion file(s)'), sg.InputText(default_text='',size=(75,1),key='distortion_reference_files'),
-         sg.FilesBrowse('Choose distortion files', key = 'Choose distortion files', file_types=(("distortion files", "*.txt"),),initial_folder=options['output_dir'])],
+         sg.FilesBrowse('Choose distortion files', key = 'Choose distortion zip', file_types=(("distortion files", "*.zip *.txt"),),initial_folder=options['workDir2'])],
         [sg.Text('Fix order higher than',size=(32,1)), sg.Combo(['None', 'constant', 'linear', 'quadratic', 'cubic', 'quartic', 'quintic', 'sextic', 'septic'], default_value=options['distortion_fixed_coefficients'], key='distortion_fixed_coefficients', size=(12, 1))],
         [sg.Text('Output folder (blank for same as input):', size=(50, 1), key = 'Output Folder (blank for same as input):2')],
         [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir2'),
@@ -328,7 +332,6 @@ def inputUI(options):
             if not values['output_dir2'].strip():
                 input_okay_flag = False
                 sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
-
             if input_okay_flag:
                 for file in files:
                     try:

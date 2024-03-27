@@ -79,11 +79,11 @@ def expand_labels(labels):
 # find the largest connected region of saturated pixels
 # and set it to a dark value
 
-def remove_saturated_blob(img, sat_val=65535, radius=100, radius2=150, min_size=20000, downscale=8, perform=True):
+def remove_saturated_blob(img, sat_val=65535, radius=100, radius2=150, min_size=20000, downscale=8, blob_saturation=1, perform=True):
     if not perform:
         return img, np.zeros(img.shape, dtype=int), np.zeros(img.shape, dtype=int)
     if sat_val is None:
-        sat_val = np.percentile(img, 99)*0.97 # change from maximum to 99th percentile times 0.97
+        sat_val = np.max(img)*blob_saturation # change from maximum to 99th percentile times 0.97
     down_downscaled = downscale_local_mean(img, (downscale, downscale))
     
     is_sat = down_downscaled>=sat_val
@@ -401,7 +401,7 @@ def add_img_to_stack(data, output_array=None, count_array=None):
 
 def open_img_and_preprocess(file, options = {}, dark=0, flat=1):
     img = open_image(file)
-    desatblob_img, mask, mask2 = remove_saturated_blob(img, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
+    desatblob_img, mask, mask2 = remove_saturated_blob(img, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], blob_saturation=options['blob_saturation_level']/100, perform=options['delete_saturated_blob'])
     reg_img = (desatblob_img - dark) / flat
     return reg_img, mask, mask2
 
@@ -443,7 +443,7 @@ def do_stack(files, darkfiles, flatfiles, options):
     
 
     imgs_0 = open_image(files[0])#do_loop_with_progress_bar([files[0]], open_image, message='Opening files...')
-    _, masks_0, masks2_0 = remove_saturated_blob(imgs_0, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], perform=options['delete_saturated_blob'])
+    _, masks_0, masks2_0 = remove_saturated_blob(imgs_0, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], blob_saturation=options['blob_saturation_level']/100, perform=options['delete_saturated_blob'])
     dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs_0.shape, dtype=imgs_0.dtype)
     flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs_0.shape, dtype=float)
 
@@ -631,6 +631,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                          'source_files' : str(files),
                          'starttime':starttime,
                          'remove saturated blob?':options['delete_saturated_blob'],
+                         'blob saturation level':options['blob_saturation_level'],
                          'blob_radius_extra':options['blob_radius_extra'],
                          'centroid_gap_blob':options['centroid_gap_blob'],
                          'sensitive stacking mode?':options['centroid_gaussian_subtract'],
@@ -644,7 +645,9 @@ def do_stack(files, darkfiles, flatfiles, options):
     print('making archive', output_dir, Path(output_dir).parent)                                           
     shutil.make_archive(data_dir,
                     'zip',
-                    Path(data_dir).parent,
-                    'data')
+                    Path(data_dir))
+                    #'data')
+    zipfilepath = Path(data_dir).parent / 'data.zip'
+    shutil.move(zipfilepath, Path(output_dir).parent / f'centroid_data{starttime}.zip')
     
     logger.info('end time: ' + str(datetime.datetime.now()) + '\n')    

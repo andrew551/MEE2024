@@ -14,6 +14,7 @@ from scipy.special import legendre
 import copy
 import json
 from collections import defaultdict
+import zipfile
 
 mapping = {'constant':0, 'linear':1, 'quadratic':2, 'cubic':3, 'quartic': 4, 'quintic':5, 'sextic': 6, 'septic':7}
 
@@ -320,8 +321,12 @@ def _open_distortion_files(options):
     for file in files:
         if file == '':
             continue
-        with open(file, encoding="utf-8") as fp:
-            loaded.append(json.load(fp))
+        if file.endswith('.zip'):
+            archive = zipfile.ZipFile(file, 'r')
+            loaded.append(json.load(archive.open('distortion_results.txt')))
+        else:
+            with open(file) as fp:
+                loaded.append(json.load(fp))
     n = len(loaded)
     coeff_x = defaultdict(float)
     coeff_y = defaultdict(float)

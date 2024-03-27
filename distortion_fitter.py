@@ -134,12 +134,14 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     path_catalogue = options['catalogue']
     
     archive = zipfile.ZipFile(path_data, 'r')
-
-    data = json.load(archive.open('data/results.txt'))
-    image_size = data['img_shape']
-    other_stars_df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
+    try:
+        data = json.load(archive.open('results.txt'))
+        other_stars_df = pd.read_csv(archive.open('STACKED_CENTROIDS_DATA.csv'))
+    except Exception: # backwards compatibility with old format
+        data = json.load(archive.open('data/results.txt'))
+        other_stars_df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
     other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
-
+    image_size = data['img_shape']
     basename = Path(path_data).stem + data['starttime']
 
     output_name = f'DISTORTION_OUTPUT{starttime}__'+basename
@@ -323,8 +325,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     df_identification.to_csv(data_dir / 'CATALOGUE_MATCHED_ERRORS.csv')
     shutil.make_archive(data_dir,
                     'zip',
-                    Path(data_dir).parent,
-                    'distortion')
+                    Path(data_dir))
+    zipfilepath = Path(data_dir).parent / 'distortion.zip'
+    shutil.move(zipfilepath, Path(output_dir).parent / f'distortion_data{starttime}__{basename}.zip')
 
 # #unused
 def show_error_coherence(positions, errors, options):
