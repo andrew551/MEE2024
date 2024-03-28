@@ -92,6 +92,8 @@ options = {
     'distortion_fixed_coefficients':'None',
     'flag_display3':True,
     'background_subtraction_mode':'annular',
+    'eclipse_limiting_mag':11,
+    'remove_double_stars_eclipse':False,
 }
 
 def precheck_files(files, options, flag_write_ini=False):

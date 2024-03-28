@@ -25,8 +25,12 @@ def eclipse_analysis(path_data, options):
     data = json.load(archive.open('distortion_results.txt'))
     #image_size = data['img_shape']
     df = pd.read_csv(archive.open('CATALOGUE_MATCHED_ERRORS.csv'))
-    df = df.astype({'px':float, 'py':float, 'RA(catalog)':float, 'RA(obs)':float, 'DEC(catalog)':float, 'DEC(obs)':float,}) # fix datatypes
-
+    print(df)
+    df = df.astype({'px':float, 'py':float, 'RA(catalog)':float, 'RA(obs)':float, 'DEC(catalog)':float, 'DEC(obs)':float, 'magV':float}) # fix datatypes
+    df = df.loc[df['magV'] <= options['eclipse_limiting_mag']]
+    print(df)
+    if options['remove_double_stars_eclipse']:
+        df = df.loc[~df['flag_is_double']]
     #print(data)
     #print(df)
 
@@ -54,11 +58,12 @@ def eclipse_analysis(path_data, options):
     print(local_moon)
     #print(local_sun.ra, local_sun.dec)
     #print(local_moon.ra, local_moon.dec)
+    field_describe = f"Eclipse Field with {df.shape[0]} chosen stars with magnitudes {np.min(df['magV']):.1f} to {np.max(df['magV']):.1f}"
     if options['flag_display3']:
         fig, ax = plt.subplots()
         ax.scatter(df['RA(catalog)'], df['DEC(catalog)'], color='blue', label = 'catalog')
         ax.scatter(df['RA(obs)'], df['DEC(obs)'], marker='+', color='orange', label = 'observation')
-        ax.set_title(f"Eclipse Field with {df.shape[0]} chosen stars")
+        ax.set_title(field_describe)
         ax.set_xlabel("RA (degrees)")
         ax.set_ylabel("DEC (degrees)")
         sun_circle = plt.Circle((sun.ra.degree, sun.dec.degree), sun_apparent_angular_radius, color='yellow') # NOTE: sun and moon are not actually circles in RA/DEC space!
@@ -67,8 +72,8 @@ def eclipse_analysis(path_data, options):
         ax.add_patch(moon_circle)
         ax.legend()
         ax.set_aspect('equal')
-        for i in range(df.shape[0]):
-            ax.annotate('    ' + df['ID'][i][5:], (df['RA(catalog)'][i], df['DEC(catalog)'][i]), fontsize=6)
+        for id_i, ra_i, dec_i, mag_i in zip(df['ID'], df['RA(catalog)'], df['DEC(catalog)'], df['magV']):
+            ax.annotate(f'    {id_i[5:]} mag={mag_i:.1f}', (ra_i, dec_i), fontsize=6)
         plt.show()
 
     sun_v = as_unit_vector(sun.dec.radian, sun.ra.radian)
@@ -113,7 +118,7 @@ def eclipse_analysis(path_data, options):
 
     result2 = scipy.optimize.minimize(error_function2, (0, 1), method = 'Nelder-Mead')
     print(result2)
-
+    ### rms minimisation curve
     if options['flag_display3']:    
         xxx = np.linspace(-0.25, 3)
         yyy = [error_function1(_)for _ in xxx]
@@ -130,15 +135,16 @@ def eclipse_analysis(path_data, options):
     deflection_obs = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
     if data['gravitational correction enabled?']:
         deflection_obs += 1.751 / rad_dist
-        
-    plt.annotate(string, xy = (result1.x[0], result1.fun), xytext=(result1.x[0]-0.3, result1.fun+0.2), fontsize=14, arrowprops=dict(facecolor='black', shrink=0.05))
-    plt.title("Least-squares deflection fit")
-    plt.show()
-
+    if options['flag_display3']:        
+        plt.annotate(string, xy = (result1.x[0], result1.fun), xytext=(result1.x[0]-0.3, result1.fun+0.2), fontsize=14, arrowprops=dict(facecolor='black', shrink=0.05))
+        plt.title(f"Least-squares deflection fit for {df.shape[0]} chosen stars with magnitudes {np.min(df['magV']):.1f} to {np.max(df['magV']):.1f}")
+        plt.show()
+    ### scatter of deflection vs. radius
     plt.scatter(rad_dist, deflection_obs)
     plt.ylabel("radial deflection (arcsec)")
     plt.xlabel("radial position (solar radii)")
     plt.annotate(f"L = {result1.x[0]:.5f}", (3, 1.25), fontsize=11)
+    plt.title(field_describe)
     xx = np.linspace(1, 5)
     yy = result1.x[0] / xx
     plt.plot(xx, yy, color='black')
@@ -154,9 +160,12 @@ def eclipse_analysis(path_data, options):
     print(output_file)
     with open(output_file, 'w') as f:
         f.write(f"MEE2024 version: {_version()}\n")
-        f.write(f"input file: {path_data}\n")
+        f.write(f"input file: {path_data}\n\n")
+        f.write(f"limiting magnitude: {options['eclipse_limiting_mag']}\n")
+        f.write(f"remove double stars: {options['remove_double_stars_eclipse']}\n")
+        f.write(f"number of stars used: {df.shape[0]}\n")
         f.write(string)
-        f.write(f"\n\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n\n\n")
+        f.write(f"\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n\n")
         f.write("radial distances: " + str(rad_dist) + "\n\n")
         f.write("deflection (arcsec): " + str(deflection_obs)+"\n")
     
