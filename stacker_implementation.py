@@ -329,8 +329,9 @@ def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, d
     centroids = [region.centroid_weighted for region in properties_exp]
     fluxes = []
     for i in range(len(centroids)):
-        if math.isnan(centroids[i][0]):
+        if np.isnan(centroids[i][0]):
             fluxes.append(None)
+            continue
         around_data = data[int(centroids[i][0])-r_max:int(centroids[i][0])+r_max+1, int(centroids[i][1])-r_max:int(centroids[i][1])+r_max+1]
         around_labels = centroid_labels_exp[int(centroids[i][0])-r_max:int(centroids[i][0])+r_max+1, int(centroids[i][1])-r_max:int(centroids[i][1])+r_max+1]
         fluxes.append(np.sum(around_data[around_labels==i+1]))
@@ -377,7 +378,7 @@ def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, d
 
     
 
-    sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area'] and not math.isnan(c[0])], reverse=True)
+    sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area'] and not np.isnan(c[0])], reverse=True)
     print(f"n centroids initial {len(sorted_c)}")
     # sanity check: mean(3x3 around centroid) > mean(5x5 around centroid) > mean(7x7) > mean(9x9) around centroid in raw img
     # this should help heal with fake centroids due to artifacts like dead pixels
@@ -701,4 +702,5 @@ def do_stack(files, darkfiles, flatfiles, options):
     zipfilepath = Path(data_dir).parent / 'data.zip'
     shutil.move(zipfilepath, Path(output_dir).parent / f'centroid_data{starttime}.zip')
     
-    logger.info('end time: ' + str(datetime.datetime.now()) + '\n')    
+    logger.info('end time: ' + str(datetime.datetime.now()) + '\n')
+    print('Done!')
