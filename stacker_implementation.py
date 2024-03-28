@@ -34,6 +34,7 @@ import shutil
 import json
 import logging
 import platesolve_triangle
+import multiprocessing
 
 # return fit file image as np array
 def open_image(file):
@@ -179,6 +180,39 @@ def do_loop_with_progress_bar(items, fxn, message='Progress', **kwargs):
     for i in range(len(items)): 
         ret.append(fxn(items[i], **kwargs))
         progress_bar.update_bar(i+1)
+    window.close()
+    return ret
+
+def multiprocessing_fxn(q, fxn, item, i, **kwargs):
+    #print(item, kwargs)
+    q.put((i, fxn(item, **kwargs)))
+
+def do_loop_with_progress_bar_multiprocessing(items, fxn, message='Progress', nthreads=4, **kwargs):
+    layout = [[sg.Text(message)], [sg.ProgressBar(max_value=len(items), orientation='h', size=(20, 20), key='progress')]]
+    window = sg.Window('Progress Meter', layout, finalize=True)
+    progress_bar = window['progress']
+    ret = [None for _ in items]
+    progress_bar.update_bar(0)
+    q = multiprocessing.Queue()
+    procs = []
+    for i, item in enumerate(items[:nthreads]):
+        p = multiprocessing.Process(target=multiprocessing_fxn, args = (q, fxn, item, i), kwargs=kwargs)
+        p.start()
+        procs.append(p)
+    n_ret = 0
+    i = nthreads
+    while n_ret < len(items):
+        x = q.get()
+        ret[x[0]] = x[1] # this way order of inputs is preserved
+        n_ret += 1
+        progress_bar.update_bar(n_ret)
+        if i < len(items):
+            p = multiprocessing.Process(target=multiprocessing_fxn, args = (q, fxn, items[i], i), kwargs=kwargs)
+            p.start()
+            procs.append(p)
+            i += 1
+    for p in procs:
+        p.join()
     window.close()
     return ret
 
@@ -432,13 +466,11 @@ def do_stack(files, darkfiles, flatfiles, options):
     logger.info('stacking files:'+str(files))
     logger.info('using darks:'+str(darkfiles))
     logger.info('using flats:'+str(flatfiles))
-    logger.info('using database:'+str(options['database']))
     print('using version:'+_version())
     print('using options:'+str(options))
     print('stacking files:'+str(files))
     print('using darks:'+str(darkfiles))
     print('using flats:'+str(flatfiles))
-    print('using database:'+str(options['database']))
 
     
 
@@ -455,8 +487,9 @@ def do_stack(files, darkfiles, flatfiles, options):
             fits.writeto(output_dir / ('DARK_STACK'+starttime+'.fit'), dark.astype(np.float32))
         if flatfiles:
             fits.writeto(output_dir / ('FLAT_STACK'+starttime+'.fit'), flat.astype(np.float32))
-
+    t_start_c = time.time()
     centroids_data = do_loop_with_progress_bar(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)
+    print("--- %s seconds for centroid finding---" % (time.time() - t_start_c))
     centroids = [np.array([x[2] for x in y]) for y in centroids_data]
     
     # simple stacking: use the first image as the "key" and fit all others to it

@@ -59,6 +59,7 @@ options = {
     'centroid_gaussian_thresh':5, # threshhold for detecting centroids (sensitive mode)
     'min_area':4, # minimum area for found centroids (sensitive mode)
     'experimental_background_subtract':False, # use experimental "ring" kernel
+    'sanity_check_centroids':True,
     'float_fits':False, # output fits files with float type
     'max_star_mag_dist':12,
     'observation_date':'2023-12-01',
