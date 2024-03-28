@@ -160,7 +160,8 @@ def eclipse_analysis(path_data, options):
         f.write(f"\n\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n\n\n")
         f.write("radial distances: " + str(rad_dist) + "\n\n")
         f.write("deflection (arcsec): " + str(deflection_obs)+"\n")
-   print('Done!')     
+    print('Done!')
+    
 if __name__ == '__main__':
     pass
     #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323214311__data (2)20240317002546/distortion.zip', {}) # no cheat
