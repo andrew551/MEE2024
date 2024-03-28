@@ -290,7 +290,7 @@ def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, d
     if not options['centroid_gaussian_subtract']:
         centroids = tetra3.get_centroids_from_image(img)
         return [(-1, -1, x) for x in centroids] # return tetra centroids
-    if not options['experimental_background_subtract']:
+    if options['background_subtraction_mode'] =='Gaussian':
         blur = cv2.GaussianBlur(img, (ksize, ksize), 0)
     else:
         inner = 3
@@ -680,6 +680,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                          'DEC' : solution['dec'],
                          'roll' : solution['roll'],
                          'platescale/arcsec' : solution['platescale/arcsec'],#solution['FOV'] / max(imgs_0.shape) if flag_found_IDs else None,
+                         '#frames stacked':len(files),
                          'source_files' : str(files),
                          'starttime':starttime,
                          'remove saturated blob?':options['delete_saturated_blob'],
@@ -688,6 +689,7 @@ def do_stack(files, darkfiles, flatfiles, options):
                          'centroid_gap_blob':options['centroid_gap_blob'],
                          'sensitive stacking mode?':options['centroid_gaussian_subtract'],
                          'use sensitive on stacked result?':options['sensitive_mode_stack'],
+                         'background stubtraction mode':options['background_subtraction_mode'],
                     }
     if options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']:
         results_dict.update({'sigma threshold detection':options['centroid_gaussian_thresh'], 'min_area':options['min_area'], 'sigma_subtract':options['sigma_subtract']})

@@ -34,6 +34,7 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['save_dark_flat'] = ui_values['save_dark_flat']
     options['float_fits'] = ui_values['float_fits']
     options['sensitive_mode_stack'] = ui_values['sensitive_mode_stack']
+    options['background_subtraction_mode'] = ui_values['background_subtraction_mode']
     '''
     try : 
         options['m'] = int(ui_values['-m-']) if ui_values['-m-'] else 10
@@ -218,6 +219,7 @@ def inputUI(options):
     [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1), disabled_readonly_background_color="Gray")],
     [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1), disabled_readonly_background_color="Gray")],
     [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True, disabled_readonly_background_color="Gray")],
+    [sg.Text('    background subtraction mode',size=(32,1)), sg.Combo(['Gaussian', 'annular'], default_value=options['background_subtraction_mode'], key='background_subtraction_mode', size=(12, 1))],
     [sg.Checkbox('Remove centroids near edges', default=options['remove_edgy_centroids'], key='remove_edgy_centroids')],
     #[sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
     #[sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],

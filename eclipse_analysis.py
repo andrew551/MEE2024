@@ -22,7 +22,6 @@ def eclipse_analysis(path_data, options):
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     print(path_data)
     archive = zipfile.ZipFile(path_data, 'r')
-
     data = json.load(archive.open('distortion_results.txt'))
     #image_size = data['img_shape']
     df = pd.read_csv(archive.open('CATALOGUE_MATCHED_ERRORS.csv'))
@@ -160,7 +159,6 @@ def eclipse_analysis(path_data, options):
         f.write(f"\n\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n\n\n")
         f.write("radial distances: " + str(rad_dist) + "\n\n")
         f.write("deflection (arcsec): " + str(deflection_obs)+"\n")
-    print('Done!')
     
 if __name__ == '__main__':
     pass
