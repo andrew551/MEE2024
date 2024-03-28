@@ -7,6 +7,8 @@ Medium priority:
 
 * offline gaia mode (download large file once)
 
+* options to ignore stars in corners (where distortion is large)
+
 Low priority:
 	
 * display star names / IDs

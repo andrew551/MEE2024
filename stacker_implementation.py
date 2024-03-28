@@ -35,6 +35,8 @@ import json
 import logging
 import platesolve_triangle
 import multiprocessing
+import cProfile
+import warnings
 
 # return fit file image as np array
 def open_image(file):
@@ -282,7 +284,8 @@ def filter_edgy_centroids(centroids_data, img, f=3, d=16, thresh=2, edge_thresho
             
     
 
-def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False, debug_display=False):
+def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, debug_display=False):
+    t_start = time.time()
     img, mask, mask2 = img_mask2
     if not options['centroid_gaussian_subtract']:
         centroids = tetra3.get_centroids_from_image(img)
@@ -310,17 +313,27 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False, debug_displ
     passed[expand_mask(mask2, 8)] = 0 # TODO: reflect on this quick fix to edge problems
     #plt.imshow(data, cmap='gray_r', vmin=4, vmax=5)
     #plt.show()
-    
+    print("--- %s seconds for centroid finding (prepare)---" % (time.time() - t_start))
     centroid_labels = measure.label(passed, connectivity=1)
     centroid_labels_exp = expand_labels(centroid_labels) # expand by one more ring of pixels
     properties = measure.regionprops(centroid_labels, data)
-    properties_exp = measure.regionprops(centroid_labels_exp, data)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(action='ignore', message='Mean of empty slice') # RuntimeWarning: invalid value encountered in scalar divide
+        warnings.filterwarnings(action='ignore', message='invalid value encountered in scalar divide')
+        properties_exp = measure.regionprops(centroid_labels_exp, data)
 
-    
+    print("--- %s seconds for centroid finding (labelling)---" % (time.time() - t_start))
+
     
     areas = [region.area for region in properties]
     centroids = [region.centroid_weighted for region in properties_exp]
-    fluxes = [np.sum(data[centroid_labels_exp==i]) for i in range(1, len(centroids)+1)]
+    fluxes = []
+    for i in range(len(centroids)):
+        if math.isnan(centroids[i][0]):
+            fluxes.append(None)
+        around_data = data[int(centroids[i][0])-r_max:int(centroids[i][0])+r_max+1, int(centroids[i][1])-r_max:int(centroids[i][1])+r_max+1]
+        around_labels = centroid_labels_exp[int(centroids[i][0])-r_max:int(centroids[i][0])+r_max+1, int(centroids[i][1])-r_max:int(centroids[i][1])+r_max+1]
+        fluxes.append(np.sum(around_data[around_labels==i+1]))
 
 
     if debug_display:
@@ -377,9 +390,13 @@ def get_centroids_blur(img_mask2, ksize=17, options={}, gauss=False, debug_displ
                 return False
         return True
     if options['sanity_check_centroids']:
-        sorted_c = [cc for cc in sorted_c if sanity_check(cc[2])]
-        print(f"n centroids sanity-filtered {len(sorted_c)}")
+        with warnings.catch_warnings():
+            warnings.filterwarnings(action='ignore', message='Mean of empty slice') # RuntimeWarning: invalid value encountered in scalar divide
+            warnings.filterwarnings(action='ignore', message='invalid value encountered in scalar divide')
+            sorted_c = [cc for cc in sorted_c if sanity_check(cc[2])]
+            print(f"n centroids sanity-filtered {len(sorted_c)}")
     #sorted_c = [(f, c) for f,c in zip(fluxes, centroids)], reverse=True)
+    print("--- %s seconds for centroid finding (all)---" % (time.time() - t_start))
     print('found:', sorted_c)
     return sorted_c
     
@@ -488,6 +505,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         if flatfiles:
             fits.writeto(output_dir / ('FLAT_STACK'+starttime+'.fit'), flat.astype(np.float32))
     t_start_c = time.time()
+    #cProfile.runctx("do_loop_with_progress_bar(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)", globals(), locals(), sort='cumtime')
     centroids_data = do_loop_with_progress_bar(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)
     print("--- %s seconds for centroid finding---" % (time.time() - t_start_c))
     centroids = [np.array([x[2] for x in y]) for y in centroids_data]
