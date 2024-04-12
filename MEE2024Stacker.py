@@ -94,6 +94,8 @@ options = {
     'background_subtraction_mode':'annular',
     'eclipse_limiting_mag':11,
     'remove_double_stars_eclipse':False,
+    'safety_limit_mag':13,
+    'object_centre_moon':False,
 }
 
 def precheck_files(files, options, flag_write_ini=False):

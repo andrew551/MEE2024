@@ -79,11 +79,13 @@ def eclipse_analysis(path_data, options):
     sun_v = as_unit_vector(sun.dec.radian, sun.ra.radian)
     moon_v = as_unit_vector(moon.dec.radian, sun.ra.radian)
 
+    reference_v = moon_v if options['object_centre_moon'] else sun_v
+
     stars_obs_v = as_unit_vector(np.radians(df['DEC(obs)']), np.radians(df['RA(obs)']))
     stars_cata_v = as_unit_vector(np.radians(df['DEC(catalog)']), np.radians(df['RA(catalog)']))
-    radial_distances_catalog = np.arcsin(np.linalg.norm(stars_cata_v - sun_v, axis=1) / 2) * 2
+    radial_distances_catalog = np.arcsin(np.linalg.norm(stars_cata_v - reference_v, axis=1) / 2) * 2
     rad_dist = np.degrees(radial_distances_catalog) / sun_apparent_angular_radius
-    delta_vectors = stars_cata_v - sun_v
+    delta_vectors = stars_cata_v - reference_v
     
     print("radial distances (in solar radii)", rad_dist)
 
@@ -130,7 +132,7 @@ def eclipse_analysis(path_data, options):
     naive_error = result1.fun/np.sqrt(df.shape[0])
     string = f"deflection constant = {result1.x[0]:.5f}\ndifference vs. accepted value: {100*(result1.x[0]-1.751)/1.751:.3f}%\n\ndeflected star position rms = {result1.fun:.3f} arcsec\nrms / sqrt(nstars) = {naive_error:.5f} arcsec\nnaive uncertainty estimate = {100*naive_error/1.751:.1f}%\n"
     obs_rot = (rot.T @ stars_obs_v.T).T
-    radial_distances_obs = np.arcsin(np.linalg.norm(obs_rot - sun_v, axis=1) / 2) * 2
+    radial_distances_obs = np.arcsin(np.linalg.norm(obs_rot - reference_v, axis=1) / 2) * 2
 
     deflection_obs = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
     if data['gravitational correction enabled?']:

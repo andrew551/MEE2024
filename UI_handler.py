@@ -153,6 +153,7 @@ def interpret_UI_values3(options, ui_values):
     check_files([ui_values['-FILE3-']])
     options['flag_display3'] = ui_values['Show graphics3']
     options['remove_double_stars_eclipse'] = ui_values['remove_double_stars_eclipse']
+    options['object_centre_moon'] = ui_values['object_centre_moon']
     try: 
         options['eclipse_limiting_mag'] = float(ui_values['eclipse_limiting_mag']) if ui_values['eclipse_limiting_mag'] else 13
     except ValueError: 
@@ -271,6 +272,7 @@ def inputUI(options):
         [sg.Checkbox('Show graphics', default=options['flag_display3'], key='Show graphics3')],
         [sg.Text('Limiting magnitude',size=(32,1)), sg.Input(default_text=str(options['eclipse_limiting_mag']),size=(12,1),key='eclipse_limiting_mag',enable_events=True)],
         [sg.Checkbox('Remove double stars', default=options['remove_double_stars_eclipse'], key='remove_double_stars_eclipse')],
+        [sg.Checkbox('Center on Moon instead (default Sun)', default=options['object_centre_moon'], key='object_centre_moon')],
         [sg.Push(), sg.Button('OK', key='OK3'), sg.Cancel(key='Cancel3'), sg.Button("Open output folder", key='Open output folder3', enable_events=True)],
     ]
 

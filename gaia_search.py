@@ -87,12 +87,15 @@ dec BETWEEN  {(dec - distance/3600):.5f} AND {(dec + distance / 3600):.5f})'
     star_catID = results['SOURCE_ID']
     return StarData.StarData(results, 2016, False)
 
-gaia_limit=13
 class dbs_gaia:
+
+    def __init__(self, gaia_limit=13):
+        self.gaia_limit=gaia_limit
+    
     def lookup_objects(self, range_ra, range_dec, star_max_magnitude=12, time=2024):
-        if star_max_magnitude>gaia_limit:
-            star_max_magnitude = gaia_limit # safety
-            print(f'note: star_max_magnitude reduced to {gaia_limit} for safety')
+        if star_max_magnitude>self.gaia_limit:
+            star_max_magnitude = self.gaia_limit # safety
+            print(f'note: star_max_magnitude reduced to {self.gaia_limit} for safety')
         results = select_in_box(time, range_ra, range_dec, star_max_magnitude) # TODO: dynamic current epoch
         l = len(results)
 

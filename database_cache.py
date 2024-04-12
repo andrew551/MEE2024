@@ -50,10 +50,10 @@ def open_database(path):
 
     return _cache.database_cache[path]
 
-def open_catalogue(path, debug_folder=None):
+def open_catalogue(path, debug_folder=None, **kwaargs):
     if not path in _cache.catalogue_cache:
         if path == 'gaia':
-            _cache.catalogue_cache[path] = gaia_search.dbs_gaia()
+            _cache.catalogue_cache[path] = gaia_search.dbs_gaia(**kwaargs)
         elif path == triangles_path:
             print(_cache.prepare_process, _cache.prepare_process.is_alive())
             i = 1          

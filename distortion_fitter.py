@@ -161,7 +161,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     ### now try to match other stars
 
     corners = transforms.to_polar(transforms.linear_transform(plate_solve_result['x'], np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
-    dbs = database_cache.open_catalogue(path_catalogue)
+    dbs = database_cache.open_catalogue(path_catalogue, gaia_limit=options['safety_limit_mag'])
     alt, az = None, None
     lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
     stardata, plate2, alt, az = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, lookupdate, options)
