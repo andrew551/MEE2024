@@ -68,7 +68,8 @@ def eclipse_analysis(path_data, options):
         ax.set_ylabel("DEC (degrees)")
         sun_circle = plt.Circle((sun.ra.degree, sun.dec.degree), sun_apparent_angular_radius, color='yellow') # NOTE: sun and moon are not actually circles in RA/DEC space!
         moon_circle = plt.Circle((moon.ra.degree, moon.dec.degree), moon_apparent_angular_radius, color='black')
-        ax.add_patch(sun_circle)
+        if not options['object_centre_moon']:
+            ax.add_patch(sun_circle)
         ax.add_patch(moon_circle)
         ax.legend()
         ax.set_aspect('equal')
@@ -77,7 +78,7 @@ def eclipse_analysis(path_data, options):
         plt.show()
 
     sun_v = as_unit_vector(sun.dec.radian, sun.ra.radian)
-    moon_v = as_unit_vector(moon.dec.radian, sun.ra.radian)
+    moon_v = as_unit_vector(moon.dec.radian, moon.ra.radian)
 
     reference_v = moon_v if options['object_centre_moon'] else sun_v
 
