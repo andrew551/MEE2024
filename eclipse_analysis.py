@@ -148,7 +148,7 @@ def eclipse_analysis(path_data, options):
     plt.xlabel("radial position (solar radii)")
     plt.annotate(f"L = {result1.x[0]:.5f}", (3, 1.25), fontsize=11)
     plt.title(field_describe)
-    xx = np.linspace(1, 5)
+    xx = np.linspace(1, np.max(rad_dist))
     yy = result1.x[0] / xx
     plt.plot(xx, yy, color='black')
     plt.savefig(output_path(f'ECLIPSE_DEFLECTIONS{starttime}.png', options), dpi=400)
