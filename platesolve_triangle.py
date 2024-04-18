@@ -32,8 +32,8 @@ import math
 '''
 PARAMETERS (TODO: make controllable by options)
 '''
-f = 5 # how many anchor stars to check
-g = 8 # how many neighbour to check
+f = 7 # how many anchor stars to check
+g = 12 # how many neighbour to check
 TOLERANCE = 0.01 # tolerance for triangle matching
 TOL_CENT = np.radians(0.025) # 0.025 degrees in center of frame tolerance
 TOL_ROLL = np.radians(0.025) # 0.025 degrees for roll tolerances

@@ -558,7 +558,8 @@ def do_stack(files, darkfiles, flatfiles, options):
         lbl = '$\\Delta_{0' + str(i) + ',rms} = ' + format(rms_errors[i-1], '.3f') + '$'
         plt.scatter(deltas[i-1][:, 1], deltas[i-1][:, 0], label = lbl)
     plt.gca().set_aspect('equal')
-    plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
+    if len(files) < 30:
+        plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('2D residuals between centroids')
     plt.grid()
     plt.savefig(output_dir / ('TWOD_RESIDUALS'+starttime+'.png'), dpi=600)
@@ -573,7 +574,8 @@ def do_stack(files, darkfiles, flatfiles, options):
         #print(centroids, shifts)
         plt.scatter(centroids[i][:, 1]+shifts[i][1], centroids[i][:, 0]+shifts[i][0], label = str(i))
     plt.gca().set_aspect('equal')
-    plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
+    if len(files) < 30:
+        plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
     plt.title('Centroids found on each image')
     plt.xlim((0, imgs_0.shape[1]))
     plt.ylim((0, imgs_0.shape[0]))
