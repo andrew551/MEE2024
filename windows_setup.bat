@@ -3,8 +3,8 @@ pip install astropy
 pip install matplotlib
 pip install photutils
 pip install scikit-image
-pip install astroquery
-pip install pysimplegui
+pip install astroquery==0.4.6
+pip install pysimplegui==4.60.5
 pip install opencv-python
 pip install pandas
 pip install scikit-learn
