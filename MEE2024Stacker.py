@@ -96,6 +96,7 @@ options = {
     'remove_double_stars_eclipse':False,
     'safety_limit_mag':13,
     'object_centre_moon':False,
+    'gravity_sweep':True
 }
 
 def precheck_files(files, options, flag_write_ini=False):

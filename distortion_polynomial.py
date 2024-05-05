@@ -309,8 +309,8 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
 
     #print('residuals_x\n', reg_x.predict(basis) / m - errors[:, 1])
     #print('residuals_y\n', reg_y.predict(basis) / m - errors[:, 0])
-    
-    _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options)
+    if not ('no_plot' in options and options['no_plot']):
+        _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options)
  
     return q_corrected, plate_corrected, coeff_x, coeff_y
 

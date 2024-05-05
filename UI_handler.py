@@ -105,6 +105,7 @@ def interpret_UI_values2(options, ui_values):
     options['flag_display2'] = ui_values['Show graphics2']
     options['distortionOrder'] = ui_values['distortionOrder']
     options['guess_date'] = ui_values['guess_date']
+    options['gravity_sweep'] = ui_values['gravity_sweep']
     try : 
         options['max_star_mag_dist'] = float(ui_values['max_star_mag_dist']) if ui_values['max_star_mag_dist'] else 12
     except ValueError: 
@@ -254,6 +255,7 @@ def inputUI(options):
         [sg.Text('Corrections for aberration, parallax, and refraction:', font=('Helvetica', 12))],
         [sg.Checkbox('Enable aberration and parallax?', default=options['enable_corrections'], key='enable_corrections', enable_events=True)],
         [sg.Checkbox('Enable gravitational correction?', default=options['enable_gravitational_def'], key='enable_gravitational_def', enable_events=True)],
+        [sg.Checkbox('[new] sweep deflection constant', default=options['gravity_sweep'], key='gravity_sweep', enable_events=True)],
         [sg.Text('Observation Time UTC (hh:mm:ss)',size=(32,1)), sg.Input(default_text=str(options['observation_time']),size=(12,1),key='observation_time',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Observation Latitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_lat']),size=(12,1),key='observation_lat',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Observation Longitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_long']),size=(12,1),key='observation_long',enable_events=True, disabled_readonly_background_color="Gray")],

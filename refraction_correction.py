@@ -37,13 +37,22 @@ class AstroCorrect:
             return self.origin_ld(0, *args)
         self.no_ld = no_grav_ld
 
+        def variable_ld(relative_gravity):
+            def f(bm, *args):
+                return self.origin_ld(bm*relative_gravity, *args)
+            return f
+        self.variable_ld = variable_ld
+
     # TODO: add distance to compute parallax
-    def correct_ra_dec(self, stardata, options):
+    def correct_ra_dec(self, stardata, options, var_grav = None):
         #print(lat, lon)
         if options['enable_gravitational_def']:
             erfa.ld = self.origin_ld
         else:
             erfa.ld = self.no_ld
+        if not var_grav is None:
+            erfa.ld = self.variable_ld(var_grav)
+            
         observing_location = EarthLocation(lat=options['observation_lat'], lon=options['observation_long'], height=options['observation_height']*u.m)  
         observing_time = Time(options['observation_date'] + ' ' + options['observation_time'])
         icrs_v = stardata.get_vectors()

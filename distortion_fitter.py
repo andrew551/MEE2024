@@ -29,6 +29,7 @@ import refraction_correction
 import platesolve_triangle
 from MEE2024util import get_bbox
 import shutil
+import gravity_sweep
 
 def get_fitfunc(plate, target, transform_function=transforms.linear_transform, img_shape=None):
     def fitfunc(x):
@@ -68,10 +69,10 @@ todo: update using the better version in platesolve_triangle
 def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size, lookupdate, options):
     #TODO: this will be broken if we wrap around 360 degrees
     alt, az = None, None
-    stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(lookupdate)) # convert to decimal year (approximate)
+    stardata0 = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(lookupdate)) # convert to decimal year (approximate)
     if options['enable_corrections']:
         astrocorrect = refraction_correction.AstroCorrect()
-        stardata, alt, az = astrocorrect.correct_ra_dec(stardata, options)
+        stardata, alt, az = astrocorrect.correct_ra_dec(stardata0, options)
 
     all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
     transformed_all = transforms.to_polar(transforms.linear_transform(rough_platesolve_x, all_star_plate))
@@ -122,11 +123,11 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
     if options['flag_display2']:
         plt.show()
     plt.close()
-
-    stardata.select_indices(indices[keep_i, 0].flatten())
+    mask_select = indices[keep_i, 0].flatten()
+    stardata.select_indices(mask_select)
     plate2 = all_star_plate[keep_i, :][0]
 
-    return stardata, plate2, alt, az
+    return stardata0, stardata, plate2, alt, az, mask_select
 
 def match_and_fit_distortion(path_data, options, debug_folder=None):
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -164,7 +165,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     dbs = database_cache.open_catalogue(path_catalogue, gaia_limit=options['safety_limit_mag'])
     alt, az = None, None
     lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
-    stardata, plate2, alt, az = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, lookupdate, options)
+    stardata0, stardata, plate2, alt, az, mask_select = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, lookupdate, options)
     
     ### fit again 
 
@@ -173,7 +174,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         dateguess = options['DEFAULT_DATE'] # initial guess
         dateguess = distortion_polynomial._date_guess(dateguess, initial_guess, plate2, stardata, image_size, dict(options, **{'flag_display2':False}))
         # re-get gaia database
-        stardata, plate2, alt, az = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
+        _, stardata, plate2, alt, az, _ = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, dateguess, dict(options, **{'flag_display2':False}))
 
 
     # now recompute matches
@@ -216,6 +217,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         #stardata_new = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=options['max_star_mag_dist'], time=date_string_to_float(dateguess))
         #stardata.update_data(stardata_new)
         stardata.update_epoch(date_string_to_float(dateguess))
+
+    if options['gravity_sweep']:
+        gravity_sweep.gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, starttime, basename, options)
     
     result, plate2_corrected, coeff_x, coeff_y = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
