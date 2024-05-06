@@ -8,7 +8,7 @@ import scipy
 
 
 
-def gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, starttime, basename, options):
+def gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, mask_select2, starttime, basename, options):
     options = options.copy()
     options['no_plot'] = True
     rmses = []
@@ -18,6 +18,7 @@ def gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, sta
     def error_func(g):
         stardata, alt, az = astrocorrect.correct_ra_dec(stardata0, options, var_grav=g/1.751)
         stardata.select_indices(mask_select)
+        stardata.select_indices(mask_select2)
         result, plate2_corrected, coeff_x, coeff_y = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
         transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
         mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
@@ -42,4 +43,23 @@ def gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, sta
 
     plt.annotate(string, xy = (result1.x[0], result1.fun), xytext=(result1.x[0]-0.3, result1.fun+0.02), fontsize=14, arrowprops=dict(facecolor='black', shrink=0.05))
     plt.savefig(output_path(f'ECLIPSE_L_SWEEP{starttime}__{basename}.png', options), dpi=400)
-    plt.show()
+    if options['flag_display2']:
+        plt.show()
+
+    ## corrected plate and return polynomial coeffs
+    
+    stardata, alt, az = astrocorrect.correct_ra_dec(stardata0, options, var_grav=result1.x[0]/1.751)
+    stardata.select_indices(mask_select)
+    stardata.select_indices(mask_select2)
+    result, plate2_corrected, coeff_x, coeff_y = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
+    #transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
+    #mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
+    #errors_arcseconds = np.degrees(mag_errors)*3600
+    #mean_rms = np.degrees(np.mean(mag_errors**2)**0.5)*3600
+
+    return result1.x[0], (result, plate2_corrected, coeff_x, coeff_y)
+    
+    
+
+
+    

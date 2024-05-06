@@ -102,17 +102,28 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
     # TODO fix 1-many matching bug
 
     match_threshhold = options['rough_match_threshhold'] / 33600 # in degrees -> arcsec
-    confusion_ratio = 2 # cloest match must be 2x closer than second place
+    confusion_ratio = 2 # closest match must be 2x closer than second place
 
     keep = np.logical_and(distances[:, 0] < match_threshhold, distances[:, 1] / distances[:, 0] > confusion_ratio) # note: this distance metric is not perfect (doesn't take into account meridian etc.)
     keep = np.logical_and(keep, indices_bar[indices[:, 0]].flatten() == np.arange(indices.shape[0])) # is the nearest-neighbour relation reflexive? [this eliminates 1-to-many matching]
+
+    if options['crop_circle']:
+        radial_dist = 2 * np.linalg.norm(all_star_plate, axis=1) / np.linalg.norm(list(image_size))
+        within_circle = radial_dist < options['crop_circle_thresh']
+        circle_removed = np.logical_and(keep, ~within_circle)
+        keep = np.logical_and(keep, within_circle)
+
     keep_i = np.nonzero(keep)
 
     obs_matched = transformed_all[keep_i, :][0]
     cata_matched = candidate_stars[indices[keep_i, 0], :][0]
-    
+
+
     plt.scatter(cata_matched[:, 1], cata_matched[:, 0], label='catalogue')
-    plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations')
+    plt.scatter(obs_matched[:, 1], obs_matched[:, 0], marker='+', label='observations (used)')
+    if options['crop_circle']:
+        obs_circle_removed = transformed_all[np.nonzero(circle_removed), :][0]
+        plt.scatter(obs_circle_removed[:, 1], obs_circle_removed[:, 0], marker='x', label='observations (excluded)', color='red')
     for i in range(stardata.nstars()):
         if i in indices[keep_i, 0]:
             plt.gca().annotate(str(stardata.ids[i]) + '\n' + f'mag={stardata.get_mags()[i]:.2f}', (np.degrees(stardata.get_ra()[i])+0.015, np.degrees(stardata.get_dec()[i])), color='black', fontsize=5)
@@ -219,9 +230,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         stardata.update_epoch(date_string_to_float(dateguess))
 
     if options['gravity_sweep']:
-        gravity_sweep.gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, starttime, basename, options)
-    
-    result, plate2_corrected, coeff_x, coeff_y = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
+        gravity_sweep_L, (result, plate2_corrected, coeff_x, coeff_y) = gravity_sweep.gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, keep_j, starttime, basename, options)
+    else:
+        result, plate2_corrected, coeff_x, coeff_y = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
@@ -252,6 +263,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'nearest-neighbour error correlation': nn_corr,
                        'aberration/parallax correction enabled?': options['enable_corrections'],
                        'gravitational correction enabled?': options['enable_gravitational_def'],
+                       'gravity sweep mode?': options['gravity_sweep'],
                        'refraction correction enabled?': options['enable_corrections_ref'],
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
                        'fixed distortion order':options['distortion_fixed_coefficients'],
@@ -270,6 +282,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     if options['enable_corrections'] or options['enable_corrections_ref']:
         output_results.update(additional_info)
 
+    if options['gravity_sweep']:
+        output_results.update({'gravity_sweep_L(arcsec)':gravity_sweep_L})
     
     with open(data_dir / 'distortion_results.txt', 'w', encoding="utf-8") as fp:
         json.dump(output_results, fp, sort_keys=False, indent=4)

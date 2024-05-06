@@ -58,11 +58,43 @@ def eclipse_analysis(path_data, options):
     print(local_moon)
     #print(local_sun.ra, local_sun.dec)
     #print(local_moon.ra, local_moon.dec)
+    
+
+    sun_v = as_unit_vector(sun.dec.radian, sun.ra.radian)
+    moon_v = as_unit_vector(moon.dec.radian, moon.ra.radian)
+
+    reference_v = moon_v if options['object_centre_moon'] else sun_v
+
+    stars_obs_v = as_unit_vector(np.radians(df['DEC(obs)']), np.radians(df['RA(obs)']))
+    stars_cata_v = as_unit_vector(np.radians(df['DEC(catalog)']), np.radians(df['RA(catalog)']))
+    radial_distances_catalog = np.arcsin(np.linalg.norm(stars_cata_v - reference_v, axis=1) / 2) * 2
+    rad_dist = np.degrees(radial_distances_catalog) / sun_apparent_angular_radius
+    delta_vectors = stars_cata_v - reference_v
+
+    
+    print("radial distances (in solar radii)", rad_dist)
+
+
+    if options['limit_radial_sun_radii']:
+        print("limiting radii to",  options['limit_radial_sun_radii_value'])
+        mask = rad_dist < options['limit_radial_sun_radii_value']
+        df_rem = df.loc[~mask]
+        df = df.loc[mask]
+        stars_obs_v  =stars_obs_v[mask]
+        stars_cata_v = stars_cata_v[mask]
+        radial_distances_catalog = radial_distances_catalog[mask]
+        rad_dist = rad_dist[mask]
+        delta_vectors = delta_vectors[mask]
+    else:
+        print("not limiting radii")
+
     field_describe = f"Eclipse Field with {df.shape[0]} chosen stars with magnitudes {np.min(df['magV']):.1f} to {np.max(df['magV']):.1f}"
     if options['flag_display3']:
         fig, ax = plt.subplots()
         ax.scatter(df['RA(catalog)'], df['DEC(catalog)'], color='blue', label = 'catalog')
-        ax.scatter(df['RA(obs)'], df['DEC(obs)'], marker='+', color='orange', label = 'observation')
+        ax.scatter(df['RA(obs)'], df['DEC(obs)'], marker='+', color='orange', label = 'observation (used)')
+        if options['limit_radial_sun_radii']:
+            ax.scatter(df_rem['RA(obs)'], df_rem['DEC(obs)'], marker='x', color='red', label = 'observation (excluded)')
         ax.set_title(field_describe)
         ax.set_xlabel("RA (degrees)")
         ax.set_ylabel("DEC (degrees)")
@@ -77,19 +109,7 @@ def eclipse_analysis(path_data, options):
             ax.annotate(f'    {id_i[5:]} mag={mag_i:.1f}', (ra_i, dec_i), fontsize=6)
         plt.show()
 
-    sun_v = as_unit_vector(sun.dec.radian, sun.ra.radian)
-    moon_v = as_unit_vector(moon.dec.radian, moon.ra.radian)
-
-    reference_v = moon_v if options['object_centre_moon'] else sun_v
-
-    stars_obs_v = as_unit_vector(np.radians(df['DEC(obs)']), np.radians(df['RA(obs)']))
-    stars_cata_v = as_unit_vector(np.radians(df['DEC(catalog)']), np.radians(df['RA(catalog)']))
-    radial_distances_catalog = np.arcsin(np.linalg.norm(stars_cata_v - reference_v, axis=1) / 2) * 2
-    rad_dist = np.degrees(radial_distances_catalog) / sun_apparent_angular_radius
-    delta_vectors = stars_cata_v - reference_v
     
-    print("radial distances (in solar radii)", rad_dist)
-
     # deflection: d = A / r
     def error_function1(deflection_const, return_rotation=False):
         deflection = np.radians(deflection_const / rad_dist / 3600)
@@ -136,19 +156,21 @@ def eclipse_analysis(path_data, options):
     radial_distances_obs = np.arcsin(np.linalg.norm(obs_rot - reference_v, axis=1) / 2) * 2
 
     deflection_obs = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
-    if data['gravitational correction enabled?']:
-        deflection_obs += 1.751 / rad_dist
+    #if data['gravitational correction enabled?']:
+    #    deflection_obs += 1.751 / rad_dist
     if options['flag_display3']:        
         plt.annotate(string, xy = (result1.x[0], result1.fun), xytext=(result1.x[0]-0.3, result1.fun+0.2), fontsize=14, arrowprops=dict(facecolor='black', shrink=0.05))
         plt.title(f"Least-squares deflection fit for {df.shape[0]} chosen stars with magnitudes {np.min(df['magV']):.1f} to {np.max(df['magV']):.1f}")
         plt.show()
     ### scatter of deflection vs. radius
+    plt.axhline(0, color='black')
     plt.scatter(rad_dist, deflection_obs)
     plt.ylabel("radial deflection (arcsec)")
     plt.xlabel("radial position (solar radii)")
-    plt.annotate(f"L = {result1.x[0]:.5f}", (3, 1.25), fontsize=11)
+    
+    plt.annotate(f"L = {result1.x[0]:.5f}", (3, result1.x/3+0.3), fontsize=11)
     plt.title(field_describe)
-    xx = np.linspace(1, np.max(rad_dist))
+    xx = np.linspace(np.min(rad_dist)-0.5, np.max(rad_dist))
     yy = result1.x[0] / xx
     plt.plot(xx, yy, color='black')
     plt.savefig(output_path(f'ECLIPSE_DEFLECTIONS{starttime}.png', options), dpi=400)
@@ -165,6 +187,10 @@ def eclipse_analysis(path_data, options):
         f.write(f"MEE2024 version: {_version()}\n")
         f.write(f"input file: {path_data}\n\n")
         f.write(f"limiting magnitude: {options['eclipse_limiting_mag']}\n")
+        if options['limit_radial_sun_radii']:
+            f.write(f"cutoff sun radii: {options['limit_radial_sun_radii_value']}")
+        else:
+            f.write(f"cutoff sun radii: None")
         f.write(f"remove double stars: {options['remove_double_stars_eclipse']}\n")
         f.write(f"number of stars used: {df.shape[0]}\n")
         f.write(string)

@@ -106,6 +106,7 @@ def interpret_UI_values2(options, ui_values):
     options['distortionOrder'] = ui_values['distortionOrder']
     options['guess_date'] = ui_values['guess_date']
     options['gravity_sweep'] = ui_values['gravity_sweep']
+    options['crop_circle'] = ui_values['crop_circle']
     try : 
         options['max_star_mag_dist'] = float(ui_values['max_star_mag_dist']) if ui_values['max_star_mag_dist'] else 12
     except ValueError: 
@@ -149,14 +150,23 @@ def interpret_UI_values2(options, ui_values):
         options['observation_wavelength'] = float(ui_values['observation_wavelength']) if ui_values['observation_wavelength'] else 0.5
     except ValueError: 
         raise Exception('invalid observation_wavelength value!')
+    try: 
+        options['crop_circle_thresh'] = float(ui_values['crop_circle_thresh']) if ui_values['crop_circle_thresh'] else 0.8
+    except ValueError: 
+        raise Exception('invalid crop_circle_thresh value!')
 
 def interpret_UI_values3(options, ui_values):
     check_files([ui_values['-FILE3-']])
     options['flag_display3'] = ui_values['Show graphics3']
     options['remove_double_stars_eclipse'] = ui_values['remove_double_stars_eclipse']
     options['object_centre_moon'] = ui_values['object_centre_moon']
+    options['limit_radial_sun_radii'] = ui_values['limit_radial_sun_radii']
     try: 
         options['eclipse_limiting_mag'] = float(ui_values['eclipse_limiting_mag']) if ui_values['eclipse_limiting_mag'] else 13
+    except ValueError: 
+        raise Exception('invalid limiting magnitude!')
+    try: 
+        options['limit_radial_sun_radii_value'] = float(ui_values['limit_radial_sun_radii_value']) if ui_values['limit_radial_sun_radii_value'] else 9
     except ValueError: 
         raise Exception('invalid limiting magnitude!')
 # ------------------------------------------------------------------------------
@@ -252,6 +262,7 @@ def inputUI(options):
         [sg.Text('Distortion fit tolerance (arcsec)',size=(32,1)), sg.Input(default_text=str(options['distortion_fit_tol']),size=(12,1),key='distortion_fit_tol',enable_events=True)],
         [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic', 'septic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
         [sg.Text('Rough fit threshold (arcsec)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
+        [sg.Checkbox('Crop circle? (input 0.0 to 1.0)',size=(30,1), default=options['crop_circle'], key='crop_circle'), sg.Input(default_text=str(options['crop_circle_thresh']),size=(12,1),key='crop_circle_thresh',enable_events=True)],
         [sg.Text('Corrections for aberration, parallax, and refraction:', font=('Helvetica', 12))],
         [sg.Checkbox('Enable aberration and parallax?', default=options['enable_corrections'], key='enable_corrections', enable_events=True)],
         [sg.Checkbox('Enable gravitational correction?', default=options['enable_gravitational_def'], key='enable_gravitational_def', enable_events=True)],
@@ -272,7 +283,8 @@ def inputUI(options):
         [sg.Text('File', size=(7, 1), key = 'File3(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE3-'),
          sg.FilesBrowse('Choose data (distortion.zip)', key = 'Choose distortion.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['output_dir'])],
         [sg.Checkbox('Show graphics', default=options['flag_display3'], key='Show graphics3')],
-        [sg.Text('Limiting magnitude',size=(32,1)), sg.Input(default_text=str(options['eclipse_limiting_mag']),size=(12,1),key='eclipse_limiting_mag',enable_events=True)],
+        [sg.Text('Limiting magnitude',size=(30,1)), sg.Input(default_text=str(options['eclipse_limiting_mag']),size=(12,1),key='eclipse_limiting_mag',enable_events=True)],
+        [sg.Checkbox('Cutoff radius (solar radii)', default=options['limit_radial_sun_radii'], key='limit_radial_sun_radii',size=(32,1)), sg.Input(default_text=str(options['limit_radial_sun_radii_value']),size=(12,1),key='limit_radial_sun_radii_value',enable_events=True)],
         [sg.Checkbox('Remove double stars', default=options['remove_double_stars_eclipse'], key='remove_double_stars_eclipse')],
         [sg.Checkbox('Center on Moon instead (default Sun)', default=options['object_centre_moon'], key='object_centre_moon')],
         [sg.Push(), sg.Button('OK', key='OK3'), sg.Cancel(key='Cancel3'), sg.Button("Open output folder", key='Open output folder3', enable_events=True)],

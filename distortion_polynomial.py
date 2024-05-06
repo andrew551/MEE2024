@@ -290,16 +290,15 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
         detransformed = transforms.detransform_vectors(q_corrected, target)
         errors = detransformed - plate_corrected
         mean_error = np.mean(errors, axis=0)
-        print('mean error:', mean_error)
+        if not options['no_plot']:
+            print('mean error:', mean_error)
         return q_corrected, plate_corrected, list(fix_coeff_x.values()), list(fix_coeff_y.values())
     
     q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, options)[0]
     q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options)[0]
     q_corrected, plate_corrected, coeff_x, coeff_y, basis, errors, reg_x, reg_y = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options) # apply for third time to really shrink the unwanted coefficients
 
-    print(reg_x.coef_, reg_x.intercept_)
-    print(reg_y.coef_, reg_y.intercept_)
-
+    
     '''
     now if needed, apply the special basis functions
     if not options['basis_type'] == 'polynomial':
@@ -310,6 +309,9 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
     #print('residuals_x\n', reg_x.predict(basis) / m - errors[:, 1])
     #print('residuals_y\n', reg_y.predict(basis) / m - errors[:, 0])
     if not ('no_plot' in options and options['no_plot']):
+        print(reg_x.coef_, reg_x.intercept_)
+        print(reg_y.coef_, reg_y.intercept_)
+
         _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options)
  
     return q_corrected, plate_corrected, coeff_x, coeff_y
