@@ -97,10 +97,10 @@ options = {
     'safety_limit_mag':13,
     'object_centre_moon':False,
     'gravity_sweep':False,
-    'limit_radial_sun_radii':True,
+    'limit_radial_sun_radii':False,
     'limit_radial_sun_radii_value':9,
-    'crop_circle':True,
-    'crop_circle_thresh':0.8,
+    'crop_circle':False,
+    'crop_circle_thresh':1.0,
 }
 
 def precheck_files(files, options, flag_write_ini=False):
