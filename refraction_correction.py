@@ -1,3 +1,8 @@
+"""
+@author: Andrew Smith
+Version 6 May 2024
+"""
+
 from astropy.coordinates import EarthLocation,SkyCoord, Distance
 from astropy.time import Time
 from astropy import units as u

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 @author: Andrew Smith
-Version 23 March 2024
+Version 6 May 2024
 
 --------------------------------------------------------------
 Front end of MEE2024 Stacker

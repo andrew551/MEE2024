@@ -1,3 +1,8 @@
+"""
+@author: Andrew Smith
+Version 6 May 2024
+"""
+
 import transforms
 import numpy as np
 from MEE2024util import output_path, date_string_to_float

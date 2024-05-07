@@ -1,6 +1,6 @@
 """
 @author: Andrew Smith
-Version 23 March 2024
+Version 6 May 2024
 """
 
 from sklearn.linear_model import LinearRegression

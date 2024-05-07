@@ -1,3 +1,8 @@
+"""
+@author: Andrew Smith
+Version 6 May 2024
+"""
+
 import pandas as pd
 import numpy as np
 import json

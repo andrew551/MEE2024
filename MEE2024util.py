@@ -1,6 +1,6 @@
 """
 @author: Andrew Smith
-Version 23 March 2024
+Version 6 May 2024
 """
 
 import datetime
@@ -12,7 +12,7 @@ import logging
 import numpy as np
 
 def _version():
-    return 'v0.4.5'
+    return 'v0.4.6'
 
 '''
 if options['output_dir'] is empty, then output there
