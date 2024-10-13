@@ -33,7 +33,7 @@ import math
 PARAMETERS (TODO: make controllable by options)
 '''
 f = 7 # how many anchor stars to check
-g = 12 # how many neighbour to check
+g = 18 # how many neighbour to check
 TOLERANCE = 0.01 # tolerance for triangle matching
 TOL_CENT = np.radians(0.025) # 0.025 degrees in center of frame tolerance
 TOL_ROLL = np.radians(0.025) # 0.025 degrees for roll tolerances
@@ -188,12 +188,9 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
 def load():
     data = database_cache.open_catalogue("TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz")
     return data.kd_tree, data.anchors, data.pattern_ind, data.pattern_data, data.triangles
-    
-def match_triangles(centroids, image_shape, options):
-    t0 = time.perf_counter(), time.process_time()
-    kd_tree, anchors, pattern_ind, pattern_data, triangles = load()
+
+def match_triangles_inner(centroids, image_shape, options, kd_tree, anchors, pattern_ind, pattern_data, triangles):
     pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
-    print('loaded database')
     vectors = np.c_[centroids[:, 1], centroids[:, 0]] - np.array([image_shape[1], image_shape[0]]) / 2 # zero-centre pixel vectors, also (for some reason) use (x, y) convention
     #vectors = np.c_[df['px'], df['py']] - np.array([meta_data['img_shape'][1], meta_data['img_shape'][0]]) / 2
     #plt.scatter(vectors[:, 0], vectors[:, 1])
@@ -208,7 +205,6 @@ def match_triangles(centroids, image_shape, options):
     match_info = []
     triangle_info = []
     t1 = time.perf_counter(), time.process_time()
-    print(f" Real time loading: {t1[0] - t0[0]:.2f} seconds")
     for i in range(f):
         for n, (j, k) in enumerate(itertools.combinations(range(g), 2)):
             if j == i or k == i or max(i, k) >= vectors.shape[0]:
@@ -257,6 +253,16 @@ def match_triangles(centroids, image_shape, options):
     print(f" Real time platescale compute: {t4[0] - t3[0]:.2f} seconds")
     return scale, roll, center_vect, match_info, triangle_info, vectors, target
 
+
+def match_triangles(centroids, image_shape, options):
+    t0 = time.perf_counter(), time.process_time()
+    kd_tree, anchors, pattern_ind, pattern_data, triangles = load()
+    print('loaded database')
+    t1 = time.perf_counter(), time.process_time()
+    print(f" Real time loading: {t1[0] - t0[0]:.2f} seconds")
+    cProfile.runctx("match_triangles_inner(centroids, image_shape, options, kd_tree, anchors, pattern_ind, pattern_data, triangles)", globals(), locals())
+    return match_triangles_inner(centroids, image_shape, options, kd_tree, anchors, pattern_ind, pattern_data, triangles)
+
 '''
 input:
     centroids: n by 2 array of centroids positions (in pixel space)
@@ -288,11 +294,11 @@ def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_mat
         result['mirror'] = True
         result['matched_centroids'][:, [0, 1]] = result['matched_centroids'][:, [1, 0]]
     return result
-
 def _platesolve_helper(centroids, image_size, options, output_dir=None):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     N_stars_catalog = dbs.star_table.shape[0]
     t00 = time.perf_counter(), time.process_time()
+    
     scale, roll, center_vect, match_info, triangle_info, vectors, target_vectors = match_triangles(centroids, image_size, options)
     print(f'initial triangle matches: {scale.shape[0]}')
     n_obs = centroids.shape[0]
@@ -311,8 +317,9 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
     best=-1
     best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None, 'platescale/arcsec':None, 'ra':None, 'dec':None, 'roll':None}
     n_matches = 0
+    t33 = time.perf_counter(), time.process_time()
     for i in range(n_components):
-        if counts[i] >= 3:
+        if counts[i] >= 4:
             indices = np.nonzero(labels==i)[0]
             # remove redundant triangles (a, b, c), (b, a, c) etc.
             seen = set()
@@ -322,7 +329,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                     continue
                 seen.update(list(itertools.permutations(match_info[ind])))
                 non_redundant.append(ind)
-            if len(non_redundant) >= 3:
+            if len(non_redundant) >= 4:
                 matchset = dict()
                 for ind in non_redundant:
                     matchset.update(zip(match_info[ind], target_vectors[ind].T))
@@ -377,7 +384,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                     print(f"note: candidate match rejected (nstars matched = {stardata.shape[0]}, thresh = {thresh})")         
     print(f'npairs = {len(candidate_pairs)}')
     t4 = time.perf_counter(), time.process_time()
-    print(f" Real star matching: {t4[0] - t2[0]:.2f} seconds")
+    print(f" Real star matching: {t4[0] - t33[0]:.2f} {t33[0] - t3[0]:.2f} {t3[0] - t2[0]:.2f} seconds")
     tff = time.perf_counter(), time.process_time()
     print(f" TOTAL TIME: {tff[0] - t00[0]:.2f} seconds")
     if n_matches > 1:
@@ -409,7 +416,8 @@ if __name__ == '__main__':
     #cProfile.run('main()')
     options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':1, 'flag_debug':0}
     #path_data = 'D:/output4/CENTROID_OUTPUT20240229002931/data.zip' # zwo 3 zd 30
-    path_data = 'D:/output4/CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
+    ##path_data = 'D:/output4/CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
+    path_data = 'D:/output4/CENTROID_OUTPUT20240319001412/data.zip' # ??? 'CENTROID_OUTPUT20240319001412
     #path_data = 'D:/output4/CENTROID_OUTPUT20240303040025/data.zip' # eclipse (Don) right
     #path_data = 'D:/output4/CENTROID_OUTPUT20240310015116/data.zip' # eclipse (Berry)
     #path_data = 'D:/output4/CENTROID_OUTPUT20240310020236/data.zip' # ZWO 1
@@ -426,7 +434,9 @@ if __name__ == '__main__':
     result = platesolve(centroids, meta_data['img_shape'], options)
 
     print(result)
+    ##cProfile.run("platesolve(centroids, meta_data['img_shape'], options)")
 
+    '''
     path_data = 'D:/output4/CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('data/results.txt'))
@@ -437,5 +447,5 @@ if __name__ == '__main__':
     result = platesolve(centroids, meta_data['img_shape'], options)
 
     print(result)
-    
+    '''
     
