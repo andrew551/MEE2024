@@ -163,8 +163,9 @@ polynomial in x and y of the requested order (1, 3 or 5)
 q : initial guess of (platescale, ra, dec, roll)
 plate: (x, y) coordinates of stars
 target: corresponding(x', y', z') of star true positions according to catalogue
+new Oct'24: option for weighted centroids 
 '''
-def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, use_special=False):
+def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, use_special=False, weights=1):
     detransformed = transforms.detransform_vectors(q, target)
     errors = detransformed - plate
     basis = get_basis(plate[:, 0], plate[:, 1], w, m, options, use_special)
@@ -199,10 +200,11 @@ def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, use
         fixed_correction[:, 1] += fixed_correction_x / m
         fixed_correction[:, 0] += fixed_correction_y / m
 
+    if weights == 1:
+        weights = np.ones(plate.shape[0])
     
-    
-    reg_x = LinearRegression().fit(basis_free, errors_fixed[:, 1]*m)
-    reg_y = LinearRegression().fit(basis_free, errors_fixed[:, 0]*m)
+    reg_x = LinearRegression().fit(basis_free, errors_fixed[:, 1]*m, weights)
+    reg_y = LinearRegression().fit(basis_free, errors_fixed[:, 0]*m, weights)
     plate_corrected = plate + np.array([reg_y.predict(basis_free), reg_x.predict(basis_free)]).T / m + fixed_correction
 
     coeff_x = [reg_x.intercept_] + list(reg_x.coef_) + list(coefficients_x)
@@ -272,7 +274,7 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
         plt.show()
     plt.close()
 
-def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
+def do_cubic_fit(plate, stardata, initial_guess, img_shape, options, weights=1):
     target = stardata.get_vectors()
     w = (max(img_shape)/2) # 1 # for astrometrica convention
     m = 1 #result.x[0] # for astrometrica convention
@@ -290,13 +292,13 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
         detransformed = transforms.detransform_vectors(q_corrected, target)
         errors = detransformed - plate_corrected
         mean_error = np.mean(errors, axis=0)
-        if not options['no_plot']:
-            print('mean error:', mean_error)
+        #if not options['no_plot']:
+        #    print('mean error:', mean_error)
         return q_corrected, plate_corrected, list(fix_coeff_x.values()), list(fix_coeff_y.values())
     
-    q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, options)[0]
-    q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options)[0]
-    q_corrected, plate_corrected, coeff_x, coeff_y, basis, errors, reg_x, reg_y = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options) # apply for third time to really shrink the unwanted coefficients
+    q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights)[0]
+    q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights)[0]
+    q_corrected, plate_corrected, coeff_x, coeff_y, basis, errors, reg_x, reg_y = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights) # apply for third time to really shrink the unwanted coefficients
 
     
     '''
@@ -316,6 +318,59 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options):
  
     return q_corrected, plate_corrected, coeff_x, coeff_y
 
+
+def show_coef_boxplot(loaded):
+    coeff_x = defaultdict(list)
+    coeff_y = defaultdict(list)
+    for data in loaded:
+        for k, v in data["distortion coeffs x"].items():
+            if k in ['1']:#, 'x^2', 'y^2', 'x * y']:
+                continue
+            coeff_x[k].append(v)
+        for k, v in data["distortion coeffs y"].items():
+            if k in ['1']:#, 'x^2', 'y^2', 'x * y']:
+                continue
+            coeff_y[k].append(v)
+    fig, ax = plt.subplots(2, 1)
+    data = [coeff_x[k] for k in coeff_x]
+    ax[0].axhline()
+    ax[0].set_title("Distortion Coefficients X", fontsize=16)
+    ax[0].boxplot(data)
+    ax[0].set_ylabel('distortion coefficient (pixels)', fontsize=14)
+    ax[0].set_xticklabels(['$'+k.replace('*', '')+'$' for k in coeff_x], fontsize=14)
+    ax[0].set_ylim(-15, 15)
+    data = [coeff_y[k] for k in coeff_y]
+    ax[1].set_title("Distortion Coefficients Y", fontsize=16)
+    ax[1].axhline()
+    ax[1].boxplot(data)
+    ax[1].set_xticklabels(['$'+k.replace('*', '')+'$' for k in coeff_y], fontsize=14)
+    ax[1].set_ylabel('distortion coefficient (pixels)', fontsize=14)
+    ax[1].set_ylim(-15, 15)
+    num_boxes = len(coeff_x)
+    pos = np.arange(num_boxes) + 1
+    upper_labels = [f'{np.mean(coeff_x[k]):.2f}' for k in coeff_x]
+    weights = ['bold', 'semibold']
+    for tick, label in zip(range(num_boxes), ax[0].get_xticklabels()):
+        k = tick % 2
+        ax[0].text(pos[tick], .95, upper_labels[tick],
+                 transform=ax[0].get_xaxis_transform(),
+                 horizontalalignment='center', size='small')
+                 #weight=weights[k], color=box_colors[k])
+
+    num_boxes = len(coeff_y)
+    pos = np.arange(num_boxes) + 1
+    upper_labels = [f'{np.mean(coeff_y[k]):.2f}' for k in coeff_y]
+    weights = ['bold', 'semibold']
+    for tick, label in zip(range(num_boxes), ax[1].get_xticklabels()):
+        k = tick % 2
+        ax[1].text(pos[tick], .95, upper_labels[tick],
+                 transform=ax[1].get_xaxis_transform(),
+                 horizontalalignment='center', size='small')
+                 #weight=weights[k], color=box_colors[k])
+
+    
+    plt.show()
+        
 
 def _open_distortion_files(options):
     files = options['distortion_reference_files'].split(';')
@@ -347,7 +402,7 @@ def _open_distortion_files(options):
             orders.append(data["distortion order"])
     if len(set(orders)) > 1:
         raise Exception("input distortion files are not same order: " + str(orders))
-    
+    #show_coef_boxplot(loaded)
     coeff_x, coeff_y = dict(coeff_x), dict(coeff_y)
     print(coeff_x)
     print(coeff_y)

@@ -6,7 +6,7 @@ from scipy.spatial import KDTree
 import time
 import platesolve_new
 from multiprocessing import Process, Queue
-
+from multiprocessing import Manager
 class _cache:
 
     database_cache = {}
@@ -40,7 +40,9 @@ def work(q):
 
 def prepare_triangles():
     print('preparing')
-    _cache.q=Queue()
+    manager = Manager()
+    result_queue = manager.Queue()
+    _cache.q=result_queue
     _cache.prepare_process = Process(target=work, args = (_cache.q,))
     _cache.prepare_process.start()
     

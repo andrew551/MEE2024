@@ -19,17 +19,22 @@ def gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, mas
     rmses = []
     Ls = []
     astrocorrect = refraction_correction.AstroCorrect()
-
+    
     def error_func(g):
         stardata, alt, az = astrocorrect.correct_ra_dec(stardata0, options, var_grav=g/1.751)
         stardata.select_indices(mask_select)
         stardata.select_indices(mask_select2)
+        #weights = 100**(-np.maximum(stardata.get_mags(), 8)/5)
+        #weights = weights / np.sum(weights)
+        weights = 1
         result, plate2_corrected, coeff_x, coeff_y = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
         transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
         mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
         errors_arcseconds = np.degrees(mag_errors)*3600
         mean_rms = np.degrees(np.mean(mag_errors**2)**0.5)*3600
-        return mean_rms
+        #weighted_rms = np.degrees(weights.T @ (mag_errors**2)**0.5)*3600
+        weighted_rms = mean_rms # use mean rms for now
+        return weighted_rms
     
     for g in np.linspace(-0.5, 3, 20):
         mean_rms = error_func(g)

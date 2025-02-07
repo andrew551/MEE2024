@@ -211,7 +211,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     flag_is_outlier = errors_arcseconds >= options['distortion_fit_tol']
     flag_unexplained_outlier = np.logical_and(np.logical_and(flag_is_outlier, np.logical_not(flag_missing_pm)), np.logical_not(flag_is_double))
     print(np.sum(flag_unexplained_outlier), ' unexplained outliers')
-    keep_j = errors_arcseconds < options['distortion_fit_tol']
+    if options['remove_double_tab2']:
+        keep_j = np.logical_and(np.logical_and(errors_arcseconds < options['distortion_fit_tol'], ~flag_is_double), ~flag_missing_pm)
+    else:
+        keep_j = errors_arcseconds < options['distortion_fit_tol']
 
     plate2_unfiltered = plate2
     stardata_unfiltered = copy(stardata)
@@ -268,7 +271,11 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
                        'fixed distortion order':options['distortion_fixed_coefficients'],
                        'fixed distortion reference files':str(options['distortion_reference_files']),
+                       'simultaneous_deflection_and_platescale':str(options['gravity_sweep']),
+                       'crop_circle':str(options['crop_circle']),
                        }
+    if options['crop_circle']:
+        output_results['crop_circle_thresh'] = options['crop_circle_thresh']
     additional_info = { 'observation_time (UTC)':options['observation_time'],
                         'observation_long (degrees)':options['observation_long'],
                         'observation_lat (degrees)':options['observation_lat'],

@@ -107,6 +107,7 @@ def interpret_UI_values2(options, ui_values):
     options['guess_date'] = ui_values['guess_date']
     options['gravity_sweep'] = ui_values['gravity_sweep']
     options['crop_circle'] = ui_values['crop_circle']
+    options['remove_double_tab2'] = ui_values['remove_double_tab2']
     try : 
         options['max_star_mag_dist'] = float(ui_values['max_star_mag_dist']) if ui_values['max_star_mag_dist'] else 12
     except ValueError: 
@@ -263,10 +264,11 @@ def inputUI(options):
         [sg.Text('Distortion polynomial order',size=(32,1)), sg.Combo(['linear', 'cubic', 'quintic', 'septic'], default_value=options['distortionOrder'], key='distortionOrder', size=(12, 1))],
         [sg.Text('Rough fit threshold (arcsec)',size=(32,1)), sg.Input(default_text=str(options['rough_match_threshhold']),size=(12,1),key='rough_match_threshhold')],
         [sg.Checkbox('Crop circle? (input 0.0 to 1.0)',size=(30,1), default=options['crop_circle'], key='crop_circle'), sg.Input(default_text=str(options['crop_circle_thresh']),size=(12,1),key='crop_circle_thresh',enable_events=True)],
+        [sg.Checkbox('Discard double-stars or stars with missing proper-motion',size=(60,1), default=options['remove_double_tab2'], key='remove_double_tab2')],
         [sg.Text('Corrections for aberration, parallax, and refraction:', font=('Helvetica', 12))],
         [sg.Checkbox('Enable aberration and parallax?', default=options['enable_corrections'], key='enable_corrections', enable_events=True)],
         [sg.Checkbox('Enable gravitational correction?', default=options['enable_gravitational_def'], key='enable_gravitational_def', enable_events=True)],
-        [sg.Checkbox('[new] sweep deflection constant', default=options['gravity_sweep'], key='gravity_sweep', enable_events=True)],
+        [sg.Checkbox('Simultaneous deflection constant and platescale fit', default=options['gravity_sweep'], key='gravity_sweep', enable_events=True)],
         [sg.Text('Observation Time UTC (hh:mm:ss)',size=(32,1)), sg.Input(default_text=str(options['observation_time']),size=(12,1),key='observation_time',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Observation Latitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_lat']),size=(12,1),key='observation_lat',enable_events=True, disabled_readonly_background_color="Gray")],
         [sg.Text('Observation Longitude (degrees)',size=(32,1)), sg.Input(default_text=str(options['observation_long']),size=(12,1),key='observation_long',enable_events=True, disabled_readonly_background_color="Gray")],

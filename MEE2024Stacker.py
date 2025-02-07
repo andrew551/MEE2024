@@ -101,6 +101,7 @@ options = {
     'limit_radial_sun_radii_value':9,
     'crop_circle':False,
     'crop_circle_thresh':1.0,
+    'remove_double_tab2':False,
 }
 
 def precheck_files(files, options, flag_write_ini=False):

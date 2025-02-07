@@ -280,6 +280,12 @@ def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_mat
     centroids = np.array(centroids)
     if not len(centroids.shape)==2 or not centroids.shape[1] == 2:
         raise Exception("ERROR: expected an n by 2 array for centroids")
+    #### try to use hint platescale
+
+
+    ####
+
+    
     result = _platesolve_helper(centroids, image_shape, options, output_dir=output_dir)
     # if we are friendly, could mirror (x, y) and try again if failed
     result['mirror'] = False
@@ -297,6 +303,7 @@ def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_mat
 def _platesolve_helper(centroids, image_size, options, output_dir=None):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     N_stars_catalog = dbs.star_table.shape[0]
+
     t00 = time.perf_counter(), time.process_time()
     
     scale, roll, center_vect, match_info, triangle_info, vectors, target_vectors = match_triangles(centroids, image_size, options)
@@ -318,7 +325,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
     best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None, 'platescale/arcsec':None, 'ra':None, 'dec':None, 'roll':None}
     n_matches = 0
     t33 = time.perf_counter(), time.process_time()
-    for i in range(n_components):
+    for i in range(n_components):#np.argsort(counts)[::-1]: # try most promising matches first
         if counts[i] >= 4:
             indices = np.nonzero(labels==i)[0]
             # remove redundant triangles (a, b, c), (b, a, c) etc.
@@ -341,13 +348,13 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                 #print(matchset)
                 if options['flag_debug']:
                     # show platesolve
-                    plt.scatter(vectors[:, 0], vectors[:, 1])
+                    plt.scatter(centroids[:, 0], centroids[:, 1])
                     for t in non_redundant:
                         tri = match_info[t]
-                        v = np.array([vectors[_] for _ in tri]+[vectors[tri[0]]])
+                        v = np.array([centroids[_] for _ in tri]+[centroids[tri[0]]])
                         plt.plot(v[:, 0], v[:, 1], color='red')
                     plt.gca().invert_yaxis()
-                    plt.title(f"{len(non_redundant)} triangles matched\nplatescale={np.degrees(scale[el])*3600:.4f} arcsec/pixel\nra={radec[0][1]:.4f}, dec={radec[0][0]:.4f}")
+                    plt.title(f"{len(non_redundant)} triangles matched\nplate scale={np.degrees(scale[el])*3600:.4f} arcsec/pixel\nra={radec[0][1]:.4f}, dec={radec[0][0]:.4f}")
                     plt.show()
                 plate = (np.degrees(scale[el]), radec[0][1], radec[0][0], np.degrees(roll[el])+90) # this plus 90 is very weird and probably is need because of a coordinate bug
                 #print('scale/degrees, ra, dec, roll', plate)
@@ -393,20 +400,27 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
         print("Platesolve FAILED")
     elif n_matches == 1:
         print("Platescale SUCCESS")
-    if (options['flag_display'] or not output_dir is None) and n_matches >= 1:
+    if (options['flag_display2'] or not output_dir is None) and n_matches >= 1:
         # show platesolve
-        plt.scatter(vectors[:, 0]+image_size[1], vectors[:, 1]+image_size[0])
+        plt.scatter(centroids[:, 1], centroids[:, 0])
+        plt.xlim(0, image_size[1])
+        plt.ylim(0, image_size[0])
+        
         for t in best_non_redundant:
             tri = match_info[t]
-            v = np.array([vectors[_] for _ in tri]+[vectors[tri[0]]])
-            plt.plot(v[:, 0]+image_size[1], v[:, 1]+image_size[0], color='red')
+            v = np.array([centroids[_] for _ in tri]+[centroids[tri[0]]])
+            plt.plot(v[:, 1], v[:, 0], color='red')
         plt.gca().invert_yaxis()
         plt.gca().set_aspect('equal')
-        plt.title(f"{len(best_non_redundant)} triangles matched\nplatescale={best_result['platescale/arcsec']:.4f} arcsec/pixel\nra={best_result['ra']:.4f}, dec={best_result['dec']:.4f}, roll={best_result['roll']:.4f}")
+        plt.xlabel("pixel X", fontsize=16)
+        plt.ylabel("pixel Y", fontsize=16)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        plt.title(f"{len(best_non_redundant)} triangles matched\nplatescale={best_result['platescale/arcsec']:.4f} arcsec/pixel\nra={best_result['ra']:.4f}, dec={best_result['dec']:.4f}, roll={best_result['roll']:.4f}", fontsize=16)
         plt.tight_layout()
         if not output_dir is None:
             plt.savefig(output_dir / 'triangle_matches.png', dpi=600)
-        if options['flag_display']:
+        if options['flag_display2']:
             plt.show()
         plt.close()
     return best_result
