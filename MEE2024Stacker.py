@@ -184,4 +184,4 @@ if __name__ == '__main__':
     # join triangles
     if database_cache._cache.prepare_process.is_alive():
         database_cache._cache.prepare_process.terminate() # terminate the prepare thread
-        database_cache._cache.q.close()
+        database_cache._cache.q._close()

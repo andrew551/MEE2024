@@ -73,7 +73,8 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
     if options['enable_corrections']:
         astrocorrect = refraction_correction.AstroCorrect()
         stardata, alt, az = astrocorrect.correct_ra_dec(stardata0, options)
-
+    else:
+        stardata = stardata0
     all_star_plate = np.array([other_stars_df['py'], other_stars_df['px']]).T - np.array([image_size[0]/2, image_size[1]/2])
     transformed_all = transforms.to_polar(transforms.linear_transform(rough_platesolve_x, all_star_plate))
 
