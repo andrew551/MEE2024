@@ -260,7 +260,7 @@ def match_triangles(centroids, image_shape, options):
     print('loaded database')
     t1 = time.perf_counter(), time.process_time()
     print(f" Real time loading: {t1[0] - t0[0]:.2f} seconds")
-    cProfile.runctx("match_triangles_inner(centroids, image_shape, options, kd_tree, anchors, pattern_ind, pattern_data, triangles)", globals(), locals())
+    #cProfile.runctx("match_triangles_inner(centroids, image_shape, options, kd_tree, anchors, pattern_ind, pattern_data, triangles)", globals(), locals())
     return match_triangles_inner(centroids, image_shape, options, kd_tree, anchors, pattern_ind, pattern_data, triangles)
 
 '''
