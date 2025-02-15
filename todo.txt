@@ -1,14 +1,10 @@
-todo 23/03/24
+todo 15/02/2025
 
 Medium priority:
-* (later): specialised routine for platesolving eclipse data, using stars at edges of image.
-	** compute radial deflection as function of distance to sun
+
 * compare centroid finding function with Astrometrica. Astrometrica might be better at finding centroids of very dim stars
 
 * offline gaia mode (download large file once)
 
-* options to ignore stars in corners (where distortion is large)
+* clean up platesolver (spinoff?)
 
-Low priority:
-	
-* display star names / IDs

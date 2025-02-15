@@ -14,7 +14,7 @@ import sklearn.metrics._pairwise_distances_reduction._datasets_pair
 import sklearn.metrics._pairwise_distances_reduction._middle_term_computer
 import database_lookup2
 import os
-from MEE2024util import output_path, date_string_to_float
+from MEE2024util import output_path, date_string_to_float, _version
 import json
 from pathlib import Path
 import database_cache
@@ -191,7 +191,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     # now recompute matches
     
-    result, plate2_corrected, _, _  = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, dict(options, **{'flag_display2':False}))
+    result, plate2_corrected, _, _, _  = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, dict(options, **{'flag_display2':False}))
 
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
@@ -234,9 +234,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         stardata.update_epoch(date_string_to_float(dateguess))
 
     if options['gravity_sweep']:
-        gravity_sweep_L, (result, plate2_corrected, coeff_x, coeff_y) = gravity_sweep.gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, keep_j, starttime, basename, options)
+        gravity_sweep_L, (result, plate2_corrected, coeff_x, coeff_y, platescale_stderror) = gravity_sweep.gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, keep_j, starttime, basename, options)
     else:
-        result, plate2_corrected, coeff_x, coeff_y = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
+        result, plate2_corrected, coeff_x, coeff_y, platescale_stderror = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
     errors_arcseconds = np.degrees(mag_errors)*3600
@@ -249,13 +249,15 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     # recover errors for filtered points
     
-    output_results = { 'final rms error (arcseconds)': np.degrees(np.mean(mag_errors**2)**0.5)*3600,
+    output_results = { 'MEE2024 version': _version(),
+                       'final rms error (arcseconds)': np.degrees(np.mean(mag_errors**2)**0.5)*3600,
                        '#stars used':plate2.shape[0],
                        'observation_date':options['observation_date'] if not options['guess_date'] else dateguess,
                        'date_guessed?': options['guess_date'],
                        'star max magnitude':options['max_star_mag_dist'],
                        'error tolerance (as)':options['distortion_fit_tol'],
                        'platescale (arcseconds/pixel)': np.degrees(result[0])*3600,
+                       'platescale_relative_uncertainty': platescale_stderror,
                        'mirror?':plate_solve_result['mirror'],
                        'RA':np.degrees(result[1]),
                        'DEC':np.degrees(result[2]),

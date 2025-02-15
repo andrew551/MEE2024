@@ -7,4 +7,4 @@ pip install -U scikit-image
 pip install -U opencv-python
 pip install -U pandas
 pip install -U scikit-learn
-pip install -U git+https://github.com/esa/tetra3.git
+pip install -U statsmodels

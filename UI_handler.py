@@ -162,6 +162,7 @@ def interpret_UI_values3(options, ui_values):
     options['remove_double_stars_eclipse'] = ui_values['remove_double_stars_eclipse']
     options['object_centre_moon'] = ui_values['object_centre_moon']
     options['limit_radial_sun_radii'] = ui_values['limit_radial_sun_radii']
+    options['eclipse_method'] = ui_values['eclipse_method']
     try: 
         options['eclipse_limiting_mag'] = float(ui_values['eclipse_limiting_mag']) if ui_values['eclipse_limiting_mag'] else 13
     except ValueError: 
@@ -285,6 +286,7 @@ def inputUI(options):
         [sg.Text('File', size=(7, 1), key = 'File3(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE3-'),
          sg.FilesBrowse('Choose data (distortion.zip)', key = 'Choose distortion.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['output_dir'])],
         [sg.Checkbox('Show graphics', default=options['flag_display3'], key='Show graphics3')],
+        [sg.Text('Eclipse analysis method',size=(32,1)), sg.Combo(['Method 1', 'Method 2', 'Method 1 & 2'], default_value=options['eclipse_method'], key='eclipse_method', size=(12, 1))],
         [sg.Text('Limiting magnitude',size=(30,1)), sg.Input(default_text=str(options['eclipse_limiting_mag']),size=(12,1),key='eclipse_limiting_mag',enable_events=True)],
         [sg.Checkbox('Cutoff radius (solar radii)', default=options['limit_radial_sun_radii'], key='limit_radial_sun_radii',size=(32,1)), sg.Input(default_text=str(options['limit_radial_sun_radii_value']),size=(12,1),key='limit_radial_sun_radii_value',enable_events=True)],
         [sg.Checkbox('Remove double stars', default=options['remove_double_stars_eclipse'], key='remove_double_stars_eclipse')],

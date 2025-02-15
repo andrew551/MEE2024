@@ -10,4 +10,4 @@ PySimpleGUI
 OpenCV-python
 Pandas
 scikit-learn
-tetra3
+statsmodels

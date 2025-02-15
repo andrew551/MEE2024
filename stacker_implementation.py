@@ -675,7 +675,9 @@ def do_stack(files, darkfiles, flatfiles, options):
     identification_arr = df_identification.to_numpy() if flag_found_IDs else None
     identification_arr_cols = df_identification.columns.values if flag_found_IDs else None
 
-    results_dict = {'platesolved' : flag_found_IDs,
+    results_dict = {
+                         'MEE2024 version': _version(),
+                         'platesolved' : flag_found_IDs,
                          'n_centroids' : centroids_stacked.shape[0],
                          'img_shape' : imgs_0.shape,
                          'RA' : solution['ra'],

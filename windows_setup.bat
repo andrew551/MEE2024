@@ -8,4 +8,4 @@ pip install pysimplegui==4.60.5
 pip install opencv-python
 pip install pandas
 pip install scikit-learn
-pip install git+https://github.com/esa/tetra3.git
+pip install statsmodels

@@ -102,6 +102,7 @@ options = {
     'crop_circle':False,
     'crop_circle_thresh':1.0,
     'remove_double_tab2':False,
+    'eclipse_method':'Method 1 & 2',
 }
 
 def precheck_files(files, options, flag_write_ini=False):

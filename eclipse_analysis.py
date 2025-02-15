@@ -21,6 +21,67 @@ from astropy.coordinates import EarthLocation,SkyCoord, Distance, get_body, AltA
 from astropy.time import Time
 from astropy import units as u
 
+###
+#https://matplotlib.org/stable/gallery/statistics/confidence_ellipse.html
+from matplotlib.patches import Ellipse
+import matplotlib.transforms as transforms
+import statsmodels.api as sm
+from sklearn.linear_model import LinearRegression
+
+def confidence_ellipse(cov, mu, ax, n_std=3.0, facecolor='none', **kwargs):
+    """
+    Create a plot of the covariance confidence ellipse of *x* and *y*.
+
+    Parameters
+    ----------
+    x, y : array-like, shape (n, )
+        Input data.
+
+    ax : matplotlib.axes.Axes
+        The Axes object to draw the ellipse into.
+
+    n_std : float
+        The number of standard deviations to determine the ellipse's radiuses.
+
+    **kwargs
+        Forwarded to `~matplotlib.patches.Ellipse`
+
+    Returns
+    -------
+    matplotlib.patches.Ellipse
+    """
+    #if x.size != y.size:
+    #    raise ValueError("x and y must be the same size")
+
+    
+    pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
+    print(pearson)
+    # Using a special case to obtain the eigenvalues of this
+    # two-dimensional dataset.
+    ell_radius_x = np.sqrt(1 + pearson)
+    ell_radius_y = np.sqrt(1 - pearson)
+    ellipse = Ellipse((0, 0), width=ell_radius_x * 2, height=ell_radius_y * 2,
+                      facecolor=facecolor, **kwargs)
+
+    # Calculating the standard deviation of x from
+    # the squareroot of the variance and multiplying
+    # with the given number of standard deviations.
+    scale_x = np.sqrt(cov[0, 0]) * n_std
+    mean_x = mu[0]
+
+    # calculating the standard deviation of y ...
+    scale_y = np.sqrt(cov[1, 1]) * n_std
+    mean_y = mu[1]
+    #print(scale_x, scale_y, ell_radius_x, ell_radius_y)
+    #print(mu)
+    transf = transforms.Affine2D() \
+        .rotate_deg(45) \
+        .scale(scale_x, scale_y) \
+        .translate(mean_x, mean_y)
+
+    ellipse.set_transform(transf + ax.transData)
+    return ax.add_patch(ellipse)
+
 def as_unit_vector(dec, ra):
     return np.array([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)]).T 
 
@@ -182,12 +243,13 @@ def eclipse_analysis(path_data, options):
     result3 = scipy.optimize.minimize(error_function3, (0, 0), method = 'Nelder-Mead')
     print(result3)
     ### rms minimisation curve
-    if options['flag_display3']:    
+    if options['flag_display3'] and False:    
         xxx = np.linspace(-0.25, 3)
         yyy = [error_function1(_)for _ in xxx]
         plt.plot(xxx, yyy)
         plt.xlabel("deflection constant (arcsec)")
         plt.ylabel("rms (arcsec)")
+        plt.title("RMS minimisation for 1/r deflection")
         
     rms, rot = error_function1(result1.x[0], return_rotation=True)
     naive_error = result1.fun/np.sqrt(df.shape[0])
@@ -196,48 +258,6 @@ def eclipse_analysis(path_data, options):
     radial_distances_obs = np.arcsin(np.linalg.norm(obs_rot - reference_v, axis=1) / 2) * 2
 
     deflection_obs = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
-    #if data['gravitational correction enabled?']:
-    #    deflection_obs += 1.751 / rad_dist
-    if options['flag_display3']:        
-        plt.annotate(string, xy = (result1.x[0], result1.fun), xytext=(result1.x[0]-0.3, result1.fun+0.05), fontsize=14, arrowprops=dict(facecolor='black', shrink=0.05))
-        plt.title(f"Least-squares deflection fit for {df.shape[0]} chosen stars with magnitudes {np.min(df['magV']):.1f} to {np.max(df['magV']):.1f}")
-        plt.show()
-    ### scatter of deflection vs. radius
-    plt.axhline(0, color='black')
-    plt.scatter(rad_dist, deflection_obs)
-    plt.ylabel("radial deflection (arcsec)")
-    plt.xlabel("radial position (solar radii)")
-    
-    plt.annotate(f"L = {result1.x[0]:.5f}", (3, result1.x/3+0.3), fontsize=11)
-    plt.title(field_describe)
-    xx = np.linspace(np.min(rad_dist)-0.5, np.max(rad_dist))
-    yy = result1.x[0] / xx
-    plt.plot(xx, yy, color='black')
-    plt.savefig(output_path(f'ECLIPSE_DEFLECTIONS{starttime}.png', options), dpi=400)
-    if options['flag_display3']:      
-        plt.show()
-    plt.close()
-    
-    plt.scatter(1/rad_dist, deflection_obs)
-    plt.ylabel("radial deflection (arcsec)")
-    plt.xlabel("1/radial position (solar radii)")
-    
-    plt.annotate(f"L = {result1.x[0]:.5f}", (3, result1.x/3+0.3), fontsize=11)
-    plt.title(field_describe)
-    xx = np.linspace(np.min(rad_dist)-0.5, np.max(rad_dist))
-
-    from sklearn.linear_model import LinearRegression
-    reg = LinearRegression(fit_intercept=False).fit(1/rad_dist.reshape(-1, 1), deflection_obs)
-    
-    #yy = result1.x[0] / xx
-    yy = reg.coef_[0] / xx
-    print(reg)
-    plt.annotate(f"L = {reg.coef_[0]:.5f}", (1/3, 0.5), fontsize=11)
-    plt.plot(1/xx, yy, color='black')
-    #plt.savefig(output_path(f'ECLIPSE_DEFLECTIONS{starttime}.png', options), dpi=400)
-    if options['flag_display3']:      
-        plt.show()
-
 
     output_name = f'ECLIPSE_OUTPUT{starttime}.txt'
     output_file = Path(output_path(output_name, options))
@@ -260,194 +280,121 @@ def eclipse_analysis(path_data, options):
     
     r_0 = np.arcsin(np.linalg.norm(stars_obs_v - reference_v, axis=1) / 2) * 2
     deflection_obs_0 = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
-    plt.scatter(rad_dist, deflection_obs_0)
 
-    xx = np.linspace(np.min(rad_dist)-0.5, np.max(rad_dist))
-    '''
-    reg = LinearRegression(fit_intercept=False).fit(1/rad_dist.reshape(-1, 1), deflection_obs_0)
-    samples=[]
-    for _ in range(1000):
-        sample_ind = np.random.choice(rad_dist.size, rad_dist.size)
-        sample_r = rad_dist[sample_ind]
-        sample_d = deflection_obs_0[sample_ind]
-        reg2 = LinearRegression(fit_intercept=False).fit(np.c_[1/sample_r.reshape(-1, 1), sample_r.reshape(-1, 1)], sample_d)
-        print(reg2.coef_)
-        samples.append(reg2.coef_)
-    samples = np.array(samples)
-    
-    #yy = result1.x[0] / xx
-    yy = reg.coef_[0] / xx
-    print(reg.coef_)
-    
-    plt.annotate(f"L = {reg.coef_[0]:.5f}", (3, 1), fontsize=11)
-    plt.plot(xx, yy, color='black')
-
-    
-    plt.show()
-    plt.clf()
-
-    plt.scatter(samples[:, 0], samples[:, 1])
-    plt.show()
-    '''
-#def bootstrap(
-
-    ###
-
-    ###
-    #https://matplotlib.org/stable/gallery/statistics/confidence_ellipse.html
-    from matplotlib.patches import Ellipse
-    import matplotlib.transforms as transforms
-    def confidence_ellipse(cov, mu, ax, n_std=3.0, facecolor='none', **kwargs):
-        """
-        Create a plot of the covariance confidence ellipse of *x* and *y*.
-
-        Parameters
-        ----------
-        x, y : array-like, shape (n, )
-            Input data.
-
-        ax : matplotlib.axes.Axes
-            The Axes object to draw the ellipse into.
-
-        n_std : float
-            The number of standard deviations to determine the ellipse's radiuses.
-
-        **kwargs
-            Forwarded to `~matplotlib.patches.Ellipse`
-
-        Returns
-        -------
-        matplotlib.patches.Ellipse
-        """
-        #if x.size != y.size:
-        #    raise ValueError("x and y must be the same size")
-
-        
-        pearson = cov[0, 1]/np.sqrt(cov[0, 0] * cov[1, 1])
-        print(pearson)
-        # Using a special case to obtain the eigenvalues of this
-        # two-dimensional dataset.
-        ell_radius_x = np.sqrt(1 + pearson)
-        ell_radius_y = np.sqrt(1 - pearson)
-        ellipse = Ellipse((0, 0), width=ell_radius_x * 2, height=ell_radius_y * 2,
-                          facecolor=facecolor, **kwargs)
-
-        # Calculating the standard deviation of x from
-        # the squareroot of the variance and multiplying
-        # with the given number of standard deviations.
-        scale_x = np.sqrt(cov[0, 0]) * n_std
-        mean_x = mu[0]
-
-        # calculating the standard deviation of y ...
-        scale_y = np.sqrt(cov[1, 1]) * n_std
-        mean_y = mu[1]
-        #print(scale_x, scale_y, ell_radius_x, ell_radius_y)
-        #print(mu)
-        transf = transforms.Affine2D() \
-            .rotate_deg(45) \
-            .scale(scale_x, scale_y) \
-            .translate(mean_x, mean_y)
-
-        ellipse.set_transform(transf + ax.transData)
-        return ax.add_patch(ellipse)
-    
-    '''
-
-    fig, ax_nstd = plt.subplots(figsize=(6, 6))
-
-    dependency_nstd = [[0.8, 0.75],
-                       [-0.2, 0.35]]
-    mu = 0, 0
-    scale = 8, 5
-
-    #ax_nstd.axvline(c='grey', lw=1)
-    #ax_nstd.axhline(c='grey', lw=1)
-
-    x, y = samples[:, 0], samples[:, 1] #get_correlated_dataset(500, dependency_nstd, mu, scale)
-    ax_nstd.scatter(x, y, s=0.5)
-    cov = np.cov(x, y)
-    mu = [np.mean(x), np.mean(y)]
-    confidence_ellipse(cov, mu, ax_nstd, n_std=1,
-                       label=r'$1\sigma$', edgecolor='firebrick')
-    confidence_ellipse(cov, mu, ax_nstd, n_std=2,
-                       label=r'$2\sigma$', edgecolor='fuchsia', linestyle='--')
-    confidence_ellipse(cov, mu, ax_nstd, n_std=3,
-                       label=r'$3\sigma$', edgecolor='blue', linestyle=':')
-    
-    #ax_nstd.scatter(mu[0], mu[1], c='red', s=3)
-    ax_nstd.set_title('Different standard deviations')
-    ax_nstd.legend()
-    plt.show()
-    '''
-
-    import statsmodels.api as sm
     platescale0 = data['platescale (arcseconds/pixel)']
-    model = sm.OLS(deflection_obs_0,np.c_[1/rad_dist.reshape(-1, 1), rad_dist.reshape(-1, 1)])
-    results = model.fit()
-    print(results.params)
-    print(results.bse)
-    print(results.summary())
-    cov = results.cov_params()
-    mu = results.params
-    #mu[1] += platescale0
-    print(results.cov_params())
-    fig, ax_nstd = plt.subplots(figsize=(6, 6))
-    print(mu)
-
-    factor = 3600 / platescale0 * sun_apparent_angular_radius
-    mu[1] /= factor
-    cov[:, 1] /= factor
-    cov[1, :] /= factor
-    mu[1] += platescale0
-    print("shifted and scaled mu")
-    print(mu)
-    print("scaled cov")
-    print(cov)
-    confidence_ellipse(cov, mu, ax_nstd, n_std=1,
-                       label=r'$1\sigma$', edgecolor='firebrick')
-    confidence_ellipse(cov, mu, ax_nstd, n_std=2,
-                       label=r'$2\sigma$', edgecolor='fuchsia')
-    confidence_ellipse(cov, mu, ax_nstd, n_std=3,
-                       label=r'$3\sigma$', edgecolor='blue')
-    plt.scatter([mu[0]], [mu[1]], marker='+', s=100)
-    ax_nstd.text(mu[0]+0.04, mu[1], f"({mu[0]:.3f}, {mu[1]:.6f})", fontsize=12, bbox=dict(boxstyle='square,pad=.3', facecolor='white', edgecolor='white'))
-    ax_nstd.set_xlabel('L (arcsec / solar radius)', fontsize = 16)
-    ax_nstd.set_ylabel('Plate Scale (arcsec / pixel)', fontsize=16)
-    ax_nstd.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.5f'))
-    ax_nstd.set_title('Covariance of Deflection Constant and Plate Scale', fontsize=16)
-    ax_nstd.legend(prop={'size': 12})
-    plt.xlim(mu[0] - 4 * cov[0,0]**0.5, mu[0] + 4 * cov[0,0]**0.5)
-    plt.ylim(mu[1] - 4 * cov[1,1]**0.5, mu[1] + 4 * cov[1,1]**0.5)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.show()
 
 
-    deflections_corrected = deflection_obs_0 - (mu[1]-platescale0) * factor * rad_dist
+    def plot_confidence_ellipse(cov, mu, edgecolor='firebrick', labelx = '', output_save=False):
+        confidence_ellipse(cov, mu, ax_nstd, n_std=1,
+                           label=r'$1\sigma$'+labelx, edgecolor=edgecolor)
+        confidence_ellipse(cov, mu, ax_nstd, n_std=2,
+                           label=r'$2\sigma$'+labelx, edgecolor=edgecolor, linestyle=':')
+        #confidence_ellipse(cov, mu, ax_nstd, n_std=3,
+        #                   label=r'$3\sigma$', edgecolor='blue')
+        ax_nstd.scatter([mu[0]], [mu[1]], marker='+', s=100)
+        ax_nstd.text(mu[0]+0.04, mu[1], f"{mu[0]:.3f}±{cov[0,0]**0.5:.3f}, {mu[1]:.6f}±{cov[1,1]**0.5:.6f}\nuncertainty: {(cov[0,0]**0.5/mu[0]*100):.1f}%", fontsize=12, bbox=dict(boxstyle='square,pad=.3', facecolor='white', edgecolor='white'))
+        ax_nstd.set_xlabel('L (arcsec / solar radius)', fontsize = 16)
+        ax_nstd.set_ylabel('Plate Scale (arcsec / pixel)', fontsize=16)
+        ax_nstd.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.5f'))
+        ax_nstd.set_title('Covariance of Deflection Constant and Plate Scale', fontsize=16)
+        ax_nstd.legend(prop={'size': 12}, loc = 'lower left')
+        #ax_nstd.set_xlim(mu[0] - 4 * cov[0,0]**0.5, mu[0] + 4 * cov[0,0]**0.5)
+        #ax_nstd.set_ylim(mu[1] - 4 * cov[1,1]**0.5, mu[1] + 4 * cov[1,1]**0.5)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        #plt.show()
 
-
-    plt.clf()
-    plt.axhline(0, color='black')
-    plt.scatter(rad_dist, deflections_corrected)
-    plt.ylabel("radial deflection (arcsec)", fontsize=16)
-    plt.xlabel("radial position (solar radii)", fontsize=16)
-    plt.xticks(np.arange(2, 12, 1.0), fontsize=14)
-    plt.yticks(fontsize=14)
-    ax.tick_params(axis='both', which='major', labelsize=12)
-    plt.annotate(f"L = {mu[0]:.3f}", (3, 1.5), fontsize=16)
-    plt.title('Deflections for ' + field_describe, fontsize=16)
-    xx = np.linspace(np.min(rad_dist)-0.5, np.max(rad_dist))
-    yy = mu[0] / xx
-    plt.plot(xx, yy, color='black')
-    plt.savefig(output_path(f'ECLIPSE_DEFLECTIONS_corrected{starttime}.png', options), dpi=400)
-    if options['flag_display3']:      
-        plt.show()
-    plt.close()
-
+    def show_deflection_scatter(cov, mu, deflections_obs_0, labelx=''):
+        factor = 3600 / platescale0 * sun_apparent_angular_radius
+        deflections_corrected = deflection_obs_0 - (mu[1]-platescale0) * factor * rad_dist
+        plt.clf()
+        plt.axhline(0, color='black')
+        plt.scatter(rad_dist, deflections_corrected)
+        plt.ylabel("radial deflection (arcsec)", fontsize=16)
+        plt.xlabel("radial position (solar radii)", fontsize=16)
+        plt.xticks(np.arange(2, 12, 1.0), fontsize=14)
+        plt.yticks(fontsize=14)
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        plt.annotate(f"L = {mu[0]:.3f}", (3, 1.5), fontsize=16)
+        plt.title('Deflections for ' + field_describe + ' ' + labelx, fontsize=16)
+        xx = np.linspace(np.min(rad_dist)-0.5, np.max(rad_dist))
+        yy = mu[0] / xx
+        plt.plot(xx, yy, color='black')
+        plt.savefig(output_path(f'ECLIPSE_DEFLECTIONS_corrected{labelx}{starttime}.png', options), dpi=400)
+        if options['flag_display3']:      
+            plt.show()
+        plt.close()
     
+
+    # fit 1/r with fixed platescale
+    # use uncertainty from platescale_relative_uncertainty
+    def analysis_mode_1(rad_dist, deflection_obs, platescale0, sun_apparent_angular_radius, platescale_relative_uncertainty):
+        model = sm.OLS(deflection_obs,np.c_[1/rad_dist.reshape(-1, 1)])
+        results = model.fit()
+        print(results.params)
+        print(results.bse)
+        print(results.summary())
+
+        factor = 3600 / platescale0 * sun_apparent_angular_radius
+        plate_covariance2 = np.dot(1/rad_dist, rad_dist) / np.dot(1/rad_dist, 1/rad_dist) * platescale_relative_uncertainty * factor
+        print("pbcovarice2", plate_covariance2)
+          
+        cov = results.cov_params()
+        mu = results.params
+        print(cov, mu)
+
+        cov2 = np.zeros((2, 2), dtype=np.float64)
+        cov2[0,0] = cov[0,0] + plate_covariance2**2 #+ plate_covariance * platescale_relative_uncertainty**2 * factor**2
+        cov2[1,1] = (platescale_relative_uncertainty*platescale0)**2
+        cov2[1, 0] = -plate_covariance2 * platescale_relative_uncertainty * platescale0
+        cov2[0, 1] = -plate_covariance2 * platescale_relative_uncertainty * platescale0
+        print("initial std , corrected", cov[0,0]**0.5, cov2[0,0]**0.5)
+        mu2 = [mu[0], platescale0]
+        print("final cov mu ", cov2, mu2)
+        return mu2, cov2
+
+    # fit A/r + Br fit (platescale degree of freedom kept)
+    # derive platescale uncertainty from regression
+    def analysis_mode_2(rad_dist, deflection_obs, platescale0, sun_apparent_angular_radius):
+        model = sm.OLS(deflection_obs,np.c_[1/rad_dist.reshape(-1, 1), rad_dist.reshape(-1, 1)])
+        results = model.fit()
+        print(results.params)
+        print(results.bse)
+        print(results.summary())
+
+        factor = 3600 / platescale0 * sun_apparent_angular_radius
+        cov = results.cov_params()
+        mu = results.params
+        print(cov, mu)
+        mu[1] /= factor
+        cov[:, 1] /= factor
+        cov[1, :] /= factor
+        mu[1] += platescale0
+        print("final cov, mu", cov, mu)
+        return mu, cov
+        
+
+    fig, ax_nstd = plt.subplots(figsize=(6, 6))
+    if options['eclipse_method'] in ('Method 1', 'Method 1 & 2'):
+        mu1, cov1 = analysis_mode_1(rad_dist, deflection_obs_0, platescale0, sun_apparent_angular_radius, data['platescale_relative_uncertainty'])
+        plot_confidence_ellipse(cov1, mu1, edgecolor='firebrick', labelx=' (method 1)')
+    #fig, ax_nstd = plt.subplots(figsize=(6, 6))
+    if options['eclipse_method'] in ('Method 2', 'Method 1 & 2'):
+        mu2, cov2 = analysis_mode_2(rad_dist, deflection_obs_0, platescale0, sun_apparent_angular_radius)
+        plot_confidence_ellipse(cov2, mu2, edgecolor='fuchsia', labelx=' (method 2)')
+    plt.savefig(output_path(f'ECLIPSE_confidence_ellipse{starttime}.png', options), dpi=400)
+    plt.show()
+    if options['eclipse_method'] in ('Method 1', 'Method 1 & 2'):
+        show_deflection_scatter(cov1, mu1, deflection_obs_0, labelx=' (method 1)')
+    if options['eclipse_method'] in ('Method 2', 'Method 1 & 2'):
+        show_deflection_scatter(cov2, mu2, deflection_obs_0, labelx=' (method 2)')
+        
+    plt.show()
     
 if __name__ == '__main__':
-    pass
+    #pass
     #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323214311__data (2)20240317002546/distortion.zip', {}) # no cheat
     #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323224137__data (2)20240317002546/distortion.zip', {}) # yes cheat
-    eclipse_analysis('D:/Don 2017 eclipse data/DISTORTION_OUTPUT20240324141609__data_eclipse20240317002546/distortion.zip', {'output_dir':'D:/output4', 'flag_display3':True})
+    #eclipse_analysis('D:/Don 2017 eclipse data/DISTORTION_OUTPUT20240324141609__data_eclipse20240317002546/distortion.zip', {'output_dir':'D:/output4', 'flag_display3':True})
+    eclipse_analysis('D:/feb7test/Don2017_clean2/scratch/distortion_data20250215023641__centroid_data2025021417222420250214172224.zip', {'output_dir':'D:/output4', 'flag_display3':True, 'eclipse_limiting_mag':11, 'remove_double_stars_eclipse':True, 'object_centre_moon':False, 'limit_radial_sun_radii':False, 'eclipse_method':'Method 1 & 2'})
+

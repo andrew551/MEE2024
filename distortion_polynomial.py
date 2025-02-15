@@ -15,6 +15,7 @@ import copy
 import json
 from collections import defaultdict
 import zipfile
+import statsmodels.api as sm
 
 mapping = {'constant':0, 'linear':1, 'quadratic':2, 'cubic':3, 'quartic': 4, 'quintic':5, 'sextic': 6, 'septic':7}
 
@@ -67,11 +68,11 @@ shifts in q
 returns: corrected q
 '''
 def _get_corrected_q(q, reg_x, reg_y, w):
-    platescale_multiplier = ((1 + reg_x.coef_[0] / w) * (1 + reg_y.coef_[1] / w))**0.5
+    platescale_multiplier = ((1 + reg_x.params[1] / w) * (1 + reg_y.params[2] / w))**0.5
     new_platescale = q[0] * platescale_multiplier
     theta = q[3]
-    shiftRA_DEC = q[0] * np.array([[1/np.cos(q[2]), 0], [0, 1]]) @ np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta),  np.cos(theta)]]) @ np.array([reg_x.intercept_, reg_y.intercept_])
-    shift_roll_angle = reg_x.coef_[1] / w # small angle appromixation
+    shiftRA_DEC = q[0] * np.array([[1/np.cos(q[2]), 0], [0, 1]]) @ np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta),  np.cos(theta)]]) @ np.array([reg_x.params[0], reg_y.params[0]])
+    shift_roll_angle = reg_x.params[2] / w # small angle appromixation
     corrected_q = (new_platescale, q[1] + shiftRA_DEC[0], q[2] + shiftRA_DEC[1], q[3]-shift_roll_angle)
     return corrected_q
 
@@ -201,17 +202,23 @@ def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, use
         fixed_correction[:, 0] += fixed_correction_y / m
 
     if weights == 1:
-        weights = np.ones(plate.shape[0])
+        weights = np.ones(plate.shape[0]) # TODO: unused remove!
     
-    reg_x = LinearRegression().fit(basis_free, errors_fixed[:, 1]*m, weights)
-    reg_y = LinearRegression().fit(basis_free, errors_fixed[:, 0]*m, weights)
-    plate_corrected = plate + np.array([reg_y.predict(basis_free), reg_x.predict(basis_free)]).T / m + fixed_correction
-
-    coeff_x = [reg_x.intercept_] + list(reg_x.coef_) + list(coefficients_x)
-    coeff_y = [reg_y.intercept_] + list(reg_y.coef_) + list(coefficients_y)
+    ols_result_x = sm.OLS(errors_fixed[:, 1]*m, sm.add_constant(basis_free)).fit()
+    ols_result_y = sm.OLS(errors_fixed[:, 0]*m, sm.add_constant(basis_free)).fit()
     
-    return _get_corrected_q(q, reg_x, reg_y, w), plate_corrected, coeff_x, coeff_y, basis, errors_fixed, reg_x, reg_y
+    #print("OLS_X_SE", ols_result_x.HC0_se, '\n', "coeff", ols_result_x.params)
+    #print("OLS_Y_SE", ols_result_y.HC0_se, '\n', "coeff", ols_result_y.params)
 
+    plate_corrected = plate + np.array([ols_result_y.predict(sm.add_constant(basis_free)), ols_result_x.predict(sm.add_constant(basis_free))]).T / m + fixed_correction
+    
+    coeff_x = list(ols_result_x.params) + list(coefficients_x)
+    coeff_y = list(ols_result_y.params) + list(coefficients_y)
+
+    platescale_stdrelerror = (ols_result_x.HC0_se[1]**2 + ols_result_y.HC0_se[2]**2)**0.5 / w
+    #print("PTSCALE STDERR:", platescale_stderror, ' vs. ', q[0])
+    
+    return _get_corrected_q(q, ols_result_x, ols_result_y, w), plate_corrected, coeff_x, coeff_y, basis, errors_fixed, ols_result_x, ols_result_y, platescale_stdrelerror
 
 def apply_corrections(q, plate, coeff_x, coeff_y, img_shape, options):
     w = (max(img_shape)/2) # 1 # for astrometrica convention
@@ -243,7 +250,7 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     n_free = (order_free+2) * (order_free+1) // 2 - 1                
     basis_free = basis[:, :n_free]
     
-    Z_x = reg_x.predict(basis_free).reshape(X.shape)
+    Z_x = reg_x.predict(sm.add_constant(basis_free)).reshape(X.shape)
     surf = ax.plot_surface(X, Y, Z_x, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
                            linewidth=0, antialiased=False, alpha=0.4)
 
@@ -255,7 +262,7 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     ax2.set_ylabel('Y')
     ax2.set_zlabel('y-error (pixls)')
     ax2.set_title("y-error fit")
-    Z_y = reg_y.predict(basis_free).reshape(X.shape)
+    Z_y = reg_y.predict(sm.add_constant(basis_free)).reshape(X.shape)
     surf = ax2.plot_surface(X, Y, Z_y, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
                            linewidth=0, antialiased=False, alpha=0.4)
 
@@ -280,7 +287,7 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options, weights=1):
     m = 1 #result.x[0] # for astrometrica convention
     #w = 1
     #m = max(img_shape)
-    fix_coeff_x, fix_coeff_y, fix_platescale = _open_distortion_files(options)
+    fix_coeff_x, fix_coeff_y, fix_platescale, combined_platescale_uncertainty = _open_distortion_files(options)
     order_total = mapping[options['distortionOrder']]
     order_free = mapping[options['distortion_fixed_coefficients']] if not options['distortion_fixed_coefficients'] == 'None' else order_total
 
@@ -294,11 +301,11 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options, weights=1):
         mean_error = np.mean(errors, axis=0)
         #if not options['no_plot']:
         #    print('mean error:', mean_error)
-        return q_corrected, plate_corrected, list(fix_coeff_x.values()), list(fix_coeff_y.values())
+        return q_corrected, plate_corrected, list(fix_coeff_x.values()), list(fix_coeff_y.values()), combined_platescale_uncertainty
     
     q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights)[0]
     q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights)[0]
-    q_corrected, plate_corrected, coeff_x, coeff_y, basis, errors, reg_x, reg_y = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights) # apply for third time to really shrink the unwanted coefficients
+    q_corrected, plate_corrected, coeff_x, coeff_y, basis, errors, reg_x, reg_y, platescale_stdrelerror = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights) # apply for third time to really shrink the unwanted coefficients
 
     
     '''
@@ -311,12 +318,12 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options, weights=1):
     #print('residuals_x\n', reg_x.predict(basis) / m - errors[:, 1])
     #print('residuals_y\n', reg_y.predict(basis) / m - errors[:, 0])
     if not ('no_plot' in options and options['no_plot']):
-        print(reg_x.coef_, reg_x.intercept_)
-        print(reg_y.coef_, reg_y.intercept_)
+        print(reg_x.params)
+        print(reg_y.params)
 
         _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options)
  
-    return q_corrected, plate_corrected, coeff_x, coeff_y
+    return q_corrected, plate_corrected, coeff_x, coeff_y, platescale_stdrelerror
 
 
 def show_coef_boxplot(loaded):
@@ -389,9 +396,12 @@ def _open_distortion_files(options):
     coeff_y = defaultdict(float)
     orders = []
     platescales = []
+    platescale_uncertainties = []
     for data in loaded:
         #print(data, options)
         platescales.append(data["platescale (arcseconds/pixel)"])
+        if "platescale_relative_uncertainty" in data:
+            platescale_uncertainties.append(data["platescale_relative_uncertainty"])
         if "distortion order" in data and not data["distortion order"] == options["distortionOrder"]:
             raise Exception(f'input distortion order not consistent: {options["distortionOrder"]} was requested but input files have order {data["distortion order"]}')
         for k, v in data["distortion coeffs x"].items():
@@ -406,5 +416,13 @@ def _open_distortion_files(options):
     coeff_x, coeff_y = dict(coeff_x), dict(coeff_y)
     print(coeff_x)
     print(coeff_y)
-    return coeff_x, coeff_y, np.mean(platescales)
+    if platescale_uncertainties:
+        combined_platescale_uncertainty = np.linalg.norm(platescale_uncertainties) / len(platescale_uncertainties)
+    elif len(platescales) >= 3:
+        print("WARNING: no platescale uncertainty found in files, using variance of observations")
+        combined_platescale_uncertainty = np.std(platescales) * (len(platescales) / (len(platescales) - 1))**0.5
+    else:
+        print("WARNING: no platescale uncertainty could be made")
+        combined_platescale_uncertainty = -1
+    return coeff_x, coeff_y, np.mean(platescales), combined_platescale_uncertainty
     
