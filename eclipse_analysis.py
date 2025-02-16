@@ -259,23 +259,7 @@ def eclipse_analysis(path_data, options):
 
     deflection_obs = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
 
-    output_name = f'ECLIPSE_OUTPUT{starttime}.txt'
-    output_file = Path(output_path(output_name, options))
-    print(output_file)
-    with open(output_file, 'w') as f:
-        f.write(f"MEE2024 version: {_version()}\n")
-        f.write(f"input file: {path_data}\n\n")
-        f.write(f"limiting magnitude: {options['eclipse_limiting_mag']}\n")
-        if options['limit_radial_sun_radii']:
-            f.write(f"cutoff sun radii: {options['limit_radial_sun_radii_value']}")
-        else:
-            f.write(f"cutoff sun radii: None")
-        f.write(f"remove double stars: {options['remove_double_stars_eclipse']}\n")
-        f.write(f"number of stars used: {df.shape[0]}\n")
-        f.write(string)
-        f.write(f"\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n\n")
-        f.write("radial distances: " + str(rad_dist) + "\n\n")
-        f.write("deflection (arcsec): " + str(deflection_obs)+"\n")
+
 
     
     r_0 = np.arcsin(np.linalg.norm(stars_obs_v - reference_v, axis=1) / 2) * 2
@@ -304,7 +288,7 @@ def eclipse_analysis(path_data, options):
         plt.yticks(fontsize=14)
         #plt.show()
 
-    def show_deflection_scatter(cov, mu, deflections_obs_0, labelx=''):
+    def show_deflection_scatter(cov, mu, resid, deflections_obs_0, labelx=''):
         factor = 3600 / platescale0 * sun_apparent_angular_radius
         deflections_corrected = deflection_obs_0 - (mu[1]-platescale0) * factor * rad_dist
         plt.clf()
@@ -315,7 +299,7 @@ def eclipse_analysis(path_data, options):
         plt.xticks(np.arange(2, 12, 1.0), fontsize=14)
         plt.yticks(fontsize=14)
         ax.tick_params(axis='both', which='major', labelsize=12)
-        plt.annotate(f"L = {mu[0]:.3f}", (3, 1.5), fontsize=16)
+        plt.annotate(f"L = {mu[0]:.3f}\n radial rmse = {resid:.3f} arcsec", (3, 1.5), fontsize=16)
         plt.title('Deflections for ' + field_describe + ' ' + labelx, fontsize=16)
         xx = np.linspace(np.min(rad_dist)-0.5, np.max(rad_dist))
         yy = mu[0] / xx
@@ -329,12 +313,13 @@ def eclipse_analysis(path_data, options):
     # fit 1/r with fixed platescale
     # use uncertainty from platescale_relative_uncertainty
     def analysis_mode_1(rad_dist, deflection_obs, platescale0, sun_apparent_angular_radius, platescale_relative_uncertainty):
-        model = sm.OLS(deflection_obs,np.c_[1/rad_dist.reshape(-1, 1)])
+        x=np.c_[1/rad_dist.reshape(-1, 1)]
+        model = sm.OLS(deflection_obs,x)
         results = model.fit()
         print(results.params)
         print(results.bse)
         print(results.summary())
-
+        errs = results.predict(x)-deflection_obs
         factor = 3600 / platescale0 * sun_apparent_angular_radius
         plate_covariance2 = np.dot(1/rad_dist, rad_dist) / np.dot(1/rad_dist, 1/rad_dist) * platescale_relative_uncertainty * factor
         print("pbcovarice2", plate_covariance2)
@@ -351,17 +336,18 @@ def eclipse_analysis(path_data, options):
         print("initial std , corrected", cov[0,0]**0.5, cov2[0,0]**0.5)
         mu2 = [mu[0], platescale0]
         print("final cov mu ", cov2, mu2)
-        return mu2, cov2
+        return mu2, cov2, np.mean(errs**2)**0.5
 
     # fit A/r + Br fit (platescale degree of freedom kept)
     # derive platescale uncertainty from regression
     def analysis_mode_2(rad_dist, deflection_obs, platescale0, sun_apparent_angular_radius):
-        model = sm.OLS(deflection_obs,np.c_[1/rad_dist.reshape(-1, 1), rad_dist.reshape(-1, 1)])
+        x = np.c_[1/rad_dist.reshape(-1, 1), rad_dist.reshape(-1, 1)]
+        model = sm.OLS(deflection_obs,x)
         results = model.fit()
         print(results.params)
         print(results.bse)
         print(results.summary())
-
+        errs = results.predict(x)-deflection_obs
         factor = 3600 / platescale0 * sun_apparent_angular_radius
         cov = results.cov_params()
         mu = results.params
@@ -370,26 +356,49 @@ def eclipse_analysis(path_data, options):
         cov[:, 1] /= factor
         cov[1, :] /= factor
         mu[1] += platescale0
-        print("final cov, mu", cov, mu)
-        return mu, cov
+        print("final cov, mu", cov, mu)        
+        return mu, cov, np.mean(errs**2)**0.5
         
 
     fig, ax_nstd = plt.subplots(figsize=(6, 6))
     if options['eclipse_method'] in ('Method 1', 'Method 1 & 2'):
-        mu1, cov1 = analysis_mode_1(rad_dist, deflection_obs_0, platescale0, sun_apparent_angular_radius, data['platescale_relative_uncertainty'])
+        mu1, cov1, resid1 = analysis_mode_1(rad_dist, deflection_obs_0, platescale0, sun_apparent_angular_radius, data['platescale_relative_uncertainty'])
         plot_confidence_ellipse(cov1, mu1, edgecolor='firebrick', labelx=' (method 1)')
     #fig, ax_nstd = plt.subplots(figsize=(6, 6))
     if options['eclipse_method'] in ('Method 2', 'Method 1 & 2'):
-        mu2, cov2 = analysis_mode_2(rad_dist, deflection_obs_0, platescale0, sun_apparent_angular_radius)
+        mu2, cov2, resid2 = analysis_mode_2(rad_dist, deflection_obs_0, platescale0, sun_apparent_angular_radius)
         plot_confidence_ellipse(cov2, mu2, edgecolor='fuchsia', labelx=' (method 2)')
     plt.savefig(output_path(f'ECLIPSE_confidence_ellipse{starttime}.png', options), dpi=400)
     plt.show()
     if options['eclipse_method'] in ('Method 1', 'Method 1 & 2'):
-        show_deflection_scatter(cov1, mu1, deflection_obs_0, labelx=' (method 1)')
+        show_deflection_scatter(cov1, mu1, resid1, deflection_obs_0, labelx=' (method 1)')
     if options['eclipse_method'] in ('Method 2', 'Method 1 & 2'):
-        show_deflection_scatter(cov2, mu2, deflection_obs_0, labelx=' (method 2)')
+        show_deflection_scatter(cov2, mu2, resid2, deflection_obs_0, labelx=' (method 2)')
         
     plt.show()
+
+    output_name = f'ECLIPSE_OUTPUT{starttime}.txt'
+    output_file = Path(output_path(output_name, options))
+    print(output_file)
+    with open(output_file, 'w') as f:
+        f.write(f"MEE2024 version: {_version()}\n")
+        f.write(f"input file: {path_data}\n\n")
+        f.write(f"limiting magnitude: {options['eclipse_limiting_mag']}\n")
+        if options['limit_radial_sun_radii']:
+            f.write(f"cutoff sun radii: {options['limit_radial_sun_radii_value']}\n")
+        else:
+            f.write(f"cutoff sun radii: None")
+        f.write(f"remove double stars: {options['remove_double_stars_eclipse']}\n")
+        f.write(f"number of stars used: {df.shape[0]}\n")
+        f.write(string)
+        if options['eclipse_method'] in ('Method 1', 'Method 1 & 2'):
+            f.write(f"Method 1 results: L={mu1[0]:.3f}±{cov1[0,0]**0.5:.3f}, platescale={mu1[1]:.6f}±{cov1[1,1]**0.5:.6f} arcsec, L uncertainty: {(cov1[0,0]**0.5/mu1[0]*100):.1f}%\n\n")
+        if options['eclipse_method'] in ('Method 2', 'Method 1 & 2'):
+            f.write(f"Method 1 results: L={mu2[0]:.3f}±{cov2[0,0]**0.5:.3f}, platescale={mu2[1]:.6f}±{cov2[1,1]**0.5:.6f} arcsec, L uncertainty: {(cov2[0,0]**0.5/mu2[0]*100):.1f}%\n\n")
+  
+        #f.write(f"\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n\n")
+        f.write("radial distances: " + str(rad_dist) + "\n\n")
+        f.write("deflection (arcsec): " + str(deflection_obs)+"\n")
     
 if __name__ == '__main__':
     #pass
