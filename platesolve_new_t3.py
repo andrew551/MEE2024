@@ -236,6 +236,14 @@ def generate():
         
         swap_r2_mask = r2_norm == max_r
         swap_r3_mask = r3_norm == max_r
+
+        # TODO insert permutation tracking = p(swap_mask, swap_r2, swap_r3)
+        # 000, 010, 001, 100, 110, 101 -> 0 to 5
+        p0 = swap_mask.astype(np.uint8)  # Convert boolean to 0/1
+        p1 = swap_r2_mask.astype(np.uint8) << 1  # Shift left by 1
+        p2 = swap_r3_mask.astype(np.uint8) << 2  # Shift left by 2
+
+        permutation_data = (p0 | p1 | p2)
         
         r1_final = np.where(swap_r2_mask, r2_norm, np.where(swap_r3_mask, r3_norm, r1_norm))
         r2_final = np.where(swap_r2_mask, r3_norm, np.where(swap_r3_mask, r1_norm, r2_norm))
@@ -257,12 +265,12 @@ def generate():
         triangles[:, :, 1] = (r1_final**2 + r2_final**2 - 2 * r3_final**2) / denom
         triangles[:, :, 2] = (4 * 3**0.5 * area) / denom
         
-        return triangles
+        return triangles, permutation_data
 
-    triangles = compute_triangles(vectors_kept, pattern_data)
+    triangles, permutation_data = compute_triangles(vectors_kept, pattern_data)
             
     Path("TripleTrianglePlatesolveDatabase2").mkdir(exist_ok=True)
-    np.savez_compressed("TripleTrianglePlatesolveDatabase2/TripleTriangle_pattern_data2.npz", anchors = vectors_kept, pattern_ind=pattern_ind, pattern_data=pattern_data, triangles=triangles)
+    np.savez_compressed("TripleTrianglePlatesolveDatabase2/TripleTriangle_pattern_data2.npz", anchors = vectors_kept, pattern_ind=pattern_ind, pattern_data=pattern_data, triangles=triangles, permutation_data=permutation_data)
     print(f"completed generating triangle database -- {triangles.size//3} triangles saved")        
             
 if __name__ == '__main__':
