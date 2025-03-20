@@ -8,12 +8,14 @@ from scipy.spatial import KDTree
 from collections import Counter
 import cProfile
 import pickle
+from scipy.stats import binom
 from scipy.spatial.distance import pdist, cdist
 from scipy.sparse.csgraph import connected_components
 from collections import deque
 from scipy.sparse import csr_matrix
 import time
 import math
+import scipy
 # MEE2024 imports
 import transforms
 from MEE2024util import resource_path, get_bbox
@@ -30,7 +32,7 @@ TOLERANCE_TRIANGLE = 0.001 # recommended value: 4 / img_size (?)
 TOL_CENT = np.radians(0.025) # 0.025 degrees in center of frame tolerance == 90 arcsec
 TOL_ROLL = np.radians(0.025) # 0.025 degrees for roll tolerances == 90 arcsec
 log_TOL_SCALE = 0.01      # 1 part in 100 for platescale
-MAX_MATCH = 100 # maximum number of verification stars
+MAX_MATCH = 32 # maximum number of verification stars
 
 dbase = np.load("TripleTrianglePlatesolveDatabase2/TripleTriangle_pattern_data2.npz")
 
@@ -268,7 +270,7 @@ def match_image_triangles(centroids, image_shape):
     match_cand = np.array(match_cand)
     match_data = np.array(match_data)
     match_vect = np.array(match_vect)
-    print(f'{len(reps)=}')
+    #print(f'{len(reps)=}')
     reps = np.array(reps)
     if 0:
         fig = plt.figure()
@@ -283,6 +285,19 @@ def match_image_triangles(centroids, image_shape):
 
 
 def match_platescales(centroids, image_size, options, output_dir=None):
+    '''
+    input:
+        centroids: n by 2 array of centroids positions (in pixel space)
+        image_shape: shape of image in pixels
+        options: dictionary of other parameters
+        try_mirror_also: tolerate a mirrored input by also trying to platesolve the mirrored image
+    output: dictionary
+            "success": True or False
+            "platescale", "ra", "dec", "roll": (scale, ra, dec, roll) in arcsec/degrees
+            "x": tuple of the above but in RADIANS, and with a 180 degree (pi) flip in roll for some convention consistency (TODO: fix?)
+            "matched_centroids": n by 2 array
+            "matched_stars": n by 6 array (ra, dec, 3-vect, mag) (but with ra/dec in RADIANS)
+    '''
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     N_stars_catalog = dbs.star_table.shape[0]
 
@@ -326,9 +341,9 @@ def match_platescales(centroids, image_size, options, output_dir=None):
 
                 el = non_redundant[0]
                 radec = transforms.to_polar(center_vect[el])
-                print('triangle match:', len(non_redundant), [match_info[_] for _ in non_redundant])
-                print(counts[i], radec, scale[el], roll[el], match_info[el])
-                print(matchset)
+                #print('triangle match:', len(non_redundant), [match_info[_] for _ in non_redundant])
+                #print(counts[i], radec, scale[el], roll[el], match_info[el])
+                #print(matchset)
                 if options['flag_debug']:
                     # show platesolve
                     plt.scatter(centroids[:, 0], centroids[:, 1])
@@ -408,28 +423,6 @@ def match_platescales(centroids, image_size, options, output_dir=None):
         plt.close()
     return best_result
     
-def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':False, 'flag_debug':False}, output_dir=None, try_mirror_also=True):
-    '''
-    input:
-        centroids: n by 2 array of centroids positions (in pixel space)
-        image_shape: shape of image in pixels
-        options: dictionary of other parameters
-        try_mirror_also: tolerate a mirrored input by also trying to platesolve the mirrored image
-    output: dictionary
-            "success": True or False
-            "platescale", "ra", "dec", "roll": (scale, ra, dec, roll) in arcsec/degrees
-            "x": tuple of the above but in RADIANS, and with a 180 degree (pi) flip in roll for some convention consistency (TODO: fix?)
-            "matched_centroids": n by 2 array
-            "matched_stars": n by 6 array (ra, dec, 3-vect, mag) (but with ra/dec in RADIANS)
-    '''
-    centroids = np.array(centroids)
-    if not len(centroids.shape)==2 or not centroids.shape[1] == 2:
-        raise Exception("ERROR: expected an n by 2 array for centroids")
-    #plt.scatter(centroids[:, 0], centroids[:, 1])
-    #plt.show()
-    
-    matched_triangs = match_image_triangles(centroids, image_shape)
-    
 '''
 statistically estimate how many stars need to be matched to a given accuracy in order to accept a platesolve
 n_obs: how many stars were observed
@@ -443,14 +436,13 @@ note: not taken into account that stars dimmer than the dimmest star in the cata
 note2: we assume stars are isotropically distributed in the sky
 '''
 def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, addon=3):
-    '''
     p = N_stars_catalog * threshold_match**2 / 4 # propability that a randomly chosen point will be with threshold of a star.
     # the factor of 4 comes from the ratio of the surface area of a sphere to a circle of a given radius
 
     poisson_lambda = p*(n_obs-3) # for a single random match, the number of matches can be approximated by a Poisson distribution
     # the minus three is because three of the observed stars are used to platesolve a match
     
-    N = math.comb(N_stars_catalog, 3) * math.comb(g, 3) * TOLERANCE**2
+    N = math.comb(N_stars_catalog, 3) * math.comb(g, 3) * TOLERANCE_TRIANGLE**2 / 4
     # number of "attempts" at sampling the Poisson distribution we have by matching a triangle of
     # observed stars to a triangle of catalogue stars
     # note that this is quite a vast overestimate - since almost all triangles will not
@@ -467,12 +459,7 @@ def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, ad
     x1 = x0 + (math.log(poisson_lambda) - poisson_lambda - math.log(2*math.pi)/2 - 3 * math.log(x0)/2) / (math.log(x0) - math.log(poisson_lambda))
     # Threshold ~ 3 + int(x1) (the '3' comes from the triangle of 3 stars that is already matched)
     threshold = round(x1) + 3
-    #print(n_obs, N_stars_catalog, poisson_lambda, N, x0, x1, threshold)
     return threshold + addon
-    '''
-    return 10
-    
-    
 
 def match_centroids(centroids, platescale_fit, image_size, options):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
@@ -546,13 +533,12 @@ def _find_rotation_matrix(image_vectors, catalog_vectors):
     (U, S, V) = np.linalg.svd(H)
     return np.dot(U, V)
 
-
 if __name__ == '__main__':
     #database_cache.prepare_triangles()
-    options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':1, 'flag_debug':0}
-    path_data = r'D:\feb7test\Don2017_clean2\eclipse_field\centroid_data20250214172224.zip' # eclipse (Don)
-    #path_data = r'D:\feb7test\station1\centroid_data20250320001655.zip' # zenith (Don)
-    path_data = r'D:\Station 1 data\centroid_data20240416232626.zip' # Station 1 2024
+    options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':0, 'flag_debug':0}
+    #path_data = r'D:\feb7test\Don2017_clean2\eclipse_field\centroid_data20250214172224.zip' # eclipse (Don)
+    path_data = r'D:\feb7test\station1\centroid_data20250320001655.zip' # zenith (Don)
+    #path_data = r'D:\Station 1 data\centroid_data20240416232626.zip' # Station 1 2024
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('results.txt'))
     df = pd.read_csv(archive.open('STACKED_CENTROIDS_DATA.csv'))
