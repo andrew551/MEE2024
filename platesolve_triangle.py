@@ -439,9 +439,12 @@ if __name__ == '__main__':
     #path_data = 'D:/output4/CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
     #path_data = 'E:/extra data\data.zip' # another moon test
     #path_data = 'D:/output4/CENTROID_OUTPUT20240310200107/data.zip' # zwo 3 zd 75
+    #path_data = r'D:\feb7test\station1\centroid_data20250320001655.zip' # zenith (Don)
+    path_data = r'D:\feb7test\Don2017_clean2\eclipse_field\centroid_data20250214172224.zip' # eclipse (Don)
     archive = zipfile.ZipFile(path_data, 'r')
-    meta_data = json.load(archive.open('data/results.txt'))
-    df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
+    meta_data = json.load(archive.open('results.txt'))
+    df = pd.read_csv(archive.open('STACKED_CENTROIDS_DATA.csv'))
+    #df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
     df = df.astype({'px':float, 'py':float}) # fix datatypes
     centroids = np.c_[df['py'], df['px']] # important: (y, x) representation expected
 
