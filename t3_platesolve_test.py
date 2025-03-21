@@ -21,6 +21,7 @@ import transforms
 from MEE2024util import resource_path, get_bbox
 import database_cache
 from sklearn.neighbors import NearestNeighbors
+import tqdm
 
 '''
 PARAMETERS (TODO: make controllable by options)
@@ -144,7 +145,7 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
     vec2 = sdat[1, :, 2:5]
     
     perm = permutation_data[n, rem]
-    print(Counter(perm))
+    #print(Counter(perm))
     mask_12 = (perm & 1).astype(bool)
     mask_2f = (perm & 2).astype(bool)[:, np.newaxis]
     mask_3f = (perm & 4).astype(bool)[:, np.newaxis]
@@ -195,7 +196,7 @@ def get_2Dtriang_rep(v1, v2, v3):
     v1, v2, v3: x-y coordinates of triangle as arrays
     '''
     r1, r2, r3 = v1-v2, v2-v3, v3-v1
-    swap_flag = np.cross(r1, r2) > 0
+    swap_flag = r1[0]*r2[1] - r1[1]*r2[0] > 0
     r1 = (r1[0]**2+r1[1]**2)**0.5
     r2 = (r2[0]**2+r2[1]**2)**0.5
     r3 = (r3[0]**2+r3[1]**2)**0.5
@@ -283,8 +284,41 @@ def match_image_triangles(centroids, image_shape):
 
     return scale, roll, center_vect, match_info, triangle_info, vectors, target
 
+def match_platescales(centroids, image_size, options={'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':False, 'flag_debug':False}, output_dir=None, try_mirror_also=True, print_flag=True):
+    '''
+    input:
+        centroids: n by 2 array of centroids positions (in pixel space)
+        image_shape: shape of image in pixels
+        options: dictionary of other parameters
+        try_mirror_also: tolerate a mirrored input by also trying to platesolve the mirrored image
+    output: dictionary
+            "success": True or False
+            "platescale", "ra", "dec", "roll": (scale, ra, dec, roll) in arcsec/degrees
+            "x": tuple of the above but in RADIANS, and with a 180 degree (pi) flip in roll for some convention consistency (TODO: fix?)
+            "matched_centroids": n by 2 array
+            "matched_stars": n by 6 array (ra, dec, 3-vect, mag) (but with ra/dec in RADIANS)
+    '''
+    centroids = np.array(centroids)
+    if not len(centroids.shape)==2 or not centroids.shape[1] == 2:
+        raise Exception("ERROR: expected an n by 2 array for centroids")
+    result = match_platescales_helper(centroids, image_size, options, output_dir=output_dir, print_flag=print_flag)
+    # if we are friendly, could mirror (x, y) and try again if failed
+    result['mirror'] = False
+    if result['success'] or not try_mirror_also:
+        return result
+    if print_flag:
+        print('platesolve failed ... trying mirror image of field')
+    centroids = np.copy(centroids)
+    centroids[:, [0, 1]] = centroids[:, [1, 0]]
+    image_size = (image_size[1], image_size[0])
+    result = match_platescales_helper(centroids, image_size, options, output_dir=output_dir, print_flag=print_flag)
+    if result['success']:
+        result['mirror'] = True
+        result['matched_centroids'][:, [0, 1]] = result['matched_centroids'][:, [1, 0]]
+    return result
 
-def match_platescales(centroids, image_size, options, output_dir=None):
+
+def match_platescales_helper(centroids, image_size, options, output_dir=None, print_flag=True):
     '''
     input:
         centroids: n by 2 array of centroids positions (in pixel space)
@@ -304,7 +338,8 @@ def match_platescales(centroids, image_size, options, output_dir=None):
     t00 = time.perf_counter(), time.process_time()
     
     scale, roll, center_vect, match_info, triangle_info, vectors, target_vectors = match_image_triangles(centroids, image_size)
-    print(f'initial triangle matches: {scale.shape[0]}')
+    if print_flag:
+        print(f'initial triangle matches: {scale.shape[0]}')
     n_obs = centroids.shape[0]
     all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
     t2 = time.perf_counter(), time.process_time()
@@ -317,7 +352,8 @@ def match_platescales(centroids, image_size, options, output_dir=None):
     graph = csr_matrix(([1 for _ in candidate_pairs], ([x[0] for x in candidate_pairs], [x[1] for x in candidate_pairs])), shape=(N, N))
     n_components, labels = connected_components(csgraph=graph, directed=False, return_labels=True)
     unique, counts = np.unique(labels, return_counts=True)
-    print("counts:", Counter(counts))
+    if print_flag:
+        print("counts:", Counter(counts))
     counts = dict(zip(unique, counts))
     best=-1
     best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None, 'platescale/arcsec':None, 'ra':None, 'dec':None, 'roll':None}
@@ -378,26 +414,30 @@ def match_platescales(centroids, image_size, options, output_dir=None):
                 
                 if stardata.shape[0] >= thresh:
                     n_matches += 1
-                    print(f"MATCH ACCEPTED (nstars matched = {stardata.shape[0]}, thresh = {thresh})")
                     rms = 3600*np.degrees(np.linalg.norm(catvects - (rotation_matrix.T @ ivects.T).T) / catvects.shape[0])
-                    print('accurate ra dec roll', acc_ra, acc_dec, acc_roll, 'rough rms=', rms, 'arcsec')
+                    if print_flag:
+                        print(f"MATCH ACCEPTED (nstars matched = {stardata.shape[0]}, thresh = {thresh})")
+                        print('accurate ra dec roll', acc_ra, acc_dec, acc_roll, 'rough rms=', rms, 'arcsec')
                     if stardata.shape[0] > best:
                         best = stardata.shape[0]
                         best_non_redundant = non_redundant
                         best_result = {'success':True, 'x': np.radians(platescale), 'platescale/arcsec':3600*np.degrees(scale[el]), 'ra':acc_ra, 'dec':acc_dec, 'roll':acc_roll, 'matched_centroids':plate2+np.array([image_size[0]/2, image_size[1]/2]), 'matched_stars':stardata}
                 else:
-                    print(f"note: candidate match rejected (nstars matched = {stardata.shape[0]}, thresh = {thresh})")         
-    print(f'npairs = {len(candidate_pairs)}')
+                    if print_flag:
+                        print(f"note: candidate match rejected (nstars matched = {stardata.shape[0]}, thresh = {thresh})")         
+    
     t4 = time.perf_counter(), time.process_time()
-    print(f" Real star matching: {t4[0] - t33[0]:.2f} {t33[0] - t3[0]:.2f} {t3[0] - t2[0]:.2f} seconds")
     tff = time.perf_counter(), time.process_time()
-    print(f" TOTAL TIME: {tff[0] - t00[0]:.2f} seconds")
-    if n_matches > 1:
-        print(f"WARNING: multiple ({n_matches}) platesolves were successful, returning best one")
-    elif n_matches == 0:
-        print("Platesolve FAILED")
-    elif n_matches == 1:
-        print("Platescale SUCCESS")
+    if print_flag:
+        print(f'npairs = {len(candidate_pairs)}')
+        print(f" Real star matching: {t4[0] - t33[0]:.2f} {t33[0] - t3[0]:.2f} {t3[0] - t2[0]:.2f} seconds")
+        print(f" TOTAL TIME: {tff[0] - t00[0]:.2f} seconds")
+        if n_matches > 1:
+            print(f"WARNING: multiple ({n_matches}) platesolves were successful, returning best one")
+        elif n_matches == 0:
+            print("Platesolve FAILED")
+        elif n_matches == 1:
+            print("Platescale SUCCESS")
     if (options['flag_display2'] or not output_dir is None) and n_matches >= 1:
         # show platesolve
         plt.scatter(centroids[:, 1], centroids[:, 0])
@@ -459,7 +499,10 @@ def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, ad
     x1 = x0 + (math.log(poisson_lambda) - poisson_lambda - math.log(2*math.pi)/2 - 3 * math.log(x0)/2) / (math.log(x0) - math.log(poisson_lambda))
     # Threshold ~ 3 + int(x1) (the '3' comes from the triangle of 3 stars that is already matched)
     threshold = round(x1) + 3
-    return threshold + addon
+    ans = threshold + addon
+    if ans > n_obs:
+        ans -= addon
+    return ans
 
 def match_centroids(centroids, platescale_fit, image_size, options):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
@@ -479,6 +522,9 @@ def match_centroids(centroids, platescale_fit, image_size, options):
         for i in range(stardata.shape[0]):
             plt.gca().annotate(f'mag={stardata[i, 5]:.2f}', (np.degrees(stardata[i, 0]), np.degrees(stardata[i, 1])), color='black', fontsize=5)
         plt.show()
+    if candidate_star_vectors.shape[0] < 3:
+        # failure case - shouldn't happen unless input is incorrectly specified
+        return np.empty((0, 2)), None, np.radians(options['rough_match_threshhold']/3600)
      
     # find nearest two catalogue stars to each observed star
     # use 3-vector distance (and small angle approximation)
@@ -535,16 +581,32 @@ def _find_rotation_matrix(image_vectors, catalog_vectors):
 
 if __name__ == '__main__':
     #database_cache.prepare_triangles()
+    print("in main")
     options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':0, 'flag_debug':0}
     #path_data = r'D:\feb7test\Don2017_clean2\eclipse_field\centroid_data20250214172224.zip' # eclipse (Don)
     path_data = r'D:\feb7test\station1\centroid_data20250320001655.zip' # zenith (Don)
     #path_data = r'D:\Station 1 data\centroid_data20240416232626.zip' # Station 1 2024
+    #path_data = r'D:\feb7test\station1\centroid_data20250320225454.zip' # moon (hard)
+    path_data = r'D:\feb7test\station1\centroid_data20250320231043.zip' # moon (hard)
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('results.txt'))
+    print(f'{meta_data["img_shape"]=}')
     df = pd.read_csv(archive.open('STACKED_CENTROIDS_DATA.csv'))
     df = df.astype({'px':float, 'py':float}) # fix datatypes
     centroids = np.c_[df['py'], df['px']] # important: (y, x) representation expected
     #centroids = np.c_[df['px'], df['py']] # important: (y, x) representation expected
     #cProfile.run("platesolve(centroids, meta_data['img_shape'], options)")
-    result = match_platescales(centroids, meta_data['img_shape'], options)
+    result = match_platescales(centroids, meta_data['img_shape'], options, print_flag=True)
+    #print(result)
+    #end
+    def test():
+        np.random.seed(123)
+        for sim in tqdm.tqdm(range(20)):
+            simarr = np.random.random((30, 2))
+            result = match_platescales(simarr, [1,1], options, print_flag=False)
+            #print(result['success'])
+    cProfile.run("test()")
+        #if result['success']:
+        #    print(sim)
+    
 
