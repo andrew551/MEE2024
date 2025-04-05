@@ -11,6 +11,7 @@ import pickle
 from scipy.stats import binom
 from scipy.spatial.distance import pdist, cdist
 from scipy.sparse.csgraph import connected_components
+from scipy.spatial.transform import Rotation as scipy_R
 from collections import deque
 from scipy.sparse import csr_matrix
 import time
@@ -22,6 +23,7 @@ from MEE2024util import resource_path, get_bbox
 import database_cache
 from sklearn.neighbors import NearestNeighbors
 import tqdm
+#os.environ["XDG_SESSION_TYPE"] = "xcb" # suggestion for linux problem
 
 '''
 PARAMETERS (TODO: make controllable by options)
@@ -42,13 +44,17 @@ pattern_data = dbase['pattern_data']
 anchors = dbase['anchors']
 permutation_data = dbase['permutation_data']
 
-#kd_tree = KDTree(triangles.reshape(-1, 3))
-with open("kdtree.pkl", "rb") as kdfile:
-    kd_tree = pickle.load(kdfile)
+kd_tree = KDTree(triangles.reshape(-1, 3))
 
-print("built kd_tree")
-#with open("kdtree.pkl", "wb") as kdfile:
-#    pickle.dump(kd_tree, kdfile)
+READ_OLD = True
+
+if READ_OLD:
+    with open("kdtree.pkl", "rb") as kdfile:
+        kd_tree = pickle.load(kdfile)
+    print("built kd_tree")
+else:
+    with open("kdtree.pkl", "wb") as kdfile:
+    	pickle.dump(kd_tree, kdfile)
 print(permutation_data.shape, permutation_data.dtype, permutation_data[:10])
 print(triangles.shape)
 
@@ -186,10 +192,12 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
     rmatrix = batch_polar_approximation(rmatrix) # first order iterative correction to rotation matrix
     #r_errors = np.array([rotation_matrix_error(x) for x in rmatrix])
     #print("errors", r_errors[::3000])
-    
+    # TODO: get quaternion rep of rmatrix
+    rot = scipy_R.from_matrix(rmatrix)
+    quat = rot.as_quat()
     center_vect = rmatrix[:, :, 0]
     roll = np.arctan2(rmatrix[:, 1, 2], rmatrix[:, 2, 2]) % (2*np.pi)
-    return scale, roll, center_vect, rmatrix, target
+    return scale, roll, center_vect, rmatrix, target, quat
 
 def get_2Dtriang_rep(v1, v2, v3):
     '''
@@ -238,6 +246,9 @@ def match_image_triangles(centroids, image_shape):
                     # v1, v2: vectors from center star to the two neighbouring stars
     match_info = []
     triangle_info = []
+    dummy = []
+    dmat = np.array([[((va[0]-vb[0])**2+(va[1]-vb[1])**2)**0.5 for vb in vectors] for va in vectors])
+    # TODO: check for heavy code in this for loop
     for i in range(f):
         for n, (j, k) in enumerate(itertools.combinations(range(g), 2)):
             if j == i or k == i or max(i, k) >= vectors.shape[0]:
@@ -249,24 +260,27 @@ def match_image_triangles(centroids, image_shape):
             ind = np.array(cand) // triangles.shape[1]
             
             array_vect = np.c_[vectors[triplet[0]], vectors[triplet[1]], vectors[triplet[2]]]
-            r1 = max(np.linalg.norm(vectors[i]-vectors[j]), np.linalg.norm(vectors[i]-vectors[k]), np.linalg.norm(vectors[j]-vectors[k]))
-            sidelengths = (np.linalg.norm(array_vect[:, 0] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 2] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 0] - array_vect[:, 2]))
+            #r1 = max(np.linalg.norm(vectors[i]-vectors[j]), np.linalg.norm(vectors[i]-vectors[k]), np.linalg.norm(vectors[j]-vectors[k]))
+            #sidelengths = (np.linalg.norm(array_vect[:, 0] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 2] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 0] - array_vect[:, 2]))
+            sidelengths = (dmat[triplet[0], triplet[1]], dmat[triplet[1], triplet[2]], dmat[triplet[2], triplet[0]])
             #print(triplet, perm)
             #print(r1)
             #print(np.linalg.norm(array_vect[:, 0] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 2] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 0] - array_vect[:, 2]))
             #print(np.linalg.norm(vectors[i]-vectors[j]), np.linalg.norm(vectors[j]-vectors[k]), np.linalg.norm(vectors[k]-vectors[i]))
-            if not r1 == np.linalg.norm(array_vect[:, 0] - array_vect[:, 1]):
-                raise Exception("max-permute failed")
+            #if not r1 == np.linalg.norm(array_vect[:, 0] - array_vect[:, 1]):
+            #    raise Exception("max-permute failed")
             phi1 = 0 # dummy var
-            for ind_, cand_ in zip(ind, cand):              
+            for ind_, cand_ in zip(ind, cand): # TODO: check if this is inefficient      
                 #matches[i][ind_].append((cand_, r1, phi1, array_vect))
                 match_cand.append(cand_)
+                dummy.append(sidelengths)
                 #match_data.append([r1, phi1])
                 match_data.append(sidelengths)
                 match_vect.append(array_vect.T)
                 match_info.append(triplet)
                 rem = cand_ % triangles.shape[1]
                 triangle_info.append(pairs[rem])
+                dummy.append(sidelengths)
             reps.append(rep)
     match_cand = np.array(match_cand)
     match_data = np.array(match_data)
@@ -280,9 +294,9 @@ def match_image_triangles(centroids, image_shape):
         ax.set_aspect('equal')
         plt.show()
     # compute platescales
-    scale, roll, center_vect, matrix, target = compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect)
+    scale, roll, center_vect, matrix, target, quat = compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect)
 
-    return scale, roll, center_vect, match_info, triangle_info, vectors, target
+    return scale, roll, center_vect, match_info, triangle_info, vectors, target, quat
 
 def match_platescales(centroids, image_size, options={'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':False, 'flag_debug':False}, output_dir=None, try_mirror_also=True, print_flag=True):
     '''
@@ -337,9 +351,10 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
 
     t00 = time.perf_counter(), time.process_time()
     
-    scale, roll, center_vect, match_info, triangle_info, vectors, target_vectors = match_image_triangles(centroids, image_size)
+    scale, roll, center_vect, match_info, triangle_info, vectors, target_vectors, quat = match_image_triangles(centroids, image_size)
     if print_flag:
         print(f'initial triangle matches: {scale.shape[0]}')
+        print(f'{quat.shape=}')
     n_obs = centroids.shape[0]
     all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
     t2 = time.perf_counter(), time.process_time()
@@ -354,13 +369,15 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
     unique, counts = np.unique(labels, return_counts=True)
     if print_flag:
         print("counts:", Counter(counts))
+    nviews_unique = sum(Counter(counts).values())
     counts = dict(zip(unique, counts))
+    #print(f'{nviews_unique=}')
     best=-1
     best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None, 'platescale/arcsec':None, 'ra':None, 'dec':None, 'roll':None}
     n_matches = 0
     t33 = time.perf_counter(), time.process_time()
     for i in range(n_components):#np.argsort(counts)[::-1]: # try most promising matches first
-        if counts[i] >= 4:
+        if counts[i] >= 3:
             indices = np.nonzero(labels==i)[0]
             # remove redundant triangles (a, b, c), (b, a, c) etc.
             seen = set()
@@ -370,7 +387,7 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
                     continue
                 seen.update(list(itertools.permutations(match_info[ind])))
                 non_redundant.append(ind)
-            if len(non_redundant) >= 4:
+            if len(non_redundant) >= 3:
                 matchset = dict()
                 for ind in non_redundant:
                     matchset.update(zip(match_info[ind], target_vectors[ind].T))
@@ -408,13 +425,17 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
                 
                 #print((rotation_matrix.T @ ivects.T).T)
                 platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # do weird +180 roll thing as usual
-                stardata, plate2, max_error = match_centroids(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options)
+                stardata, plate2, max_error, errors = match_centroids(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options)
                 #print('max_error', max_error)
-                thresh = estimate_acceptance_threshold(min(n_obs, MAX_MATCH), N_stars_catalog, max_error, g, addon=3)
-                
+                rms_error_match = np.mean(errors**2)**0.5
+                thresh = estimate_acceptance_threshold(min(n_obs, MAX_MATCH), N_stars_catalog, rms_error_match, g, addon=3)
+                p_value = calculate_pvalue(min(n_obs, MAX_MATCH), N_stars_catalog, rms_error_match, nviews_unique, stardata.shape[0])
+                p_value_thresh = calculate_pvalue(min(n_obs, MAX_MATCH), N_stars_catalog, max_error, nviews_unique, thresh-3)
+                print(f"p_value={p_value} {n_obs=} nmatch={stardata.shape[0]} {max_error=}; {thresh=} {p_value_thresh=}")
                 if stardata.shape[0] >= thresh:
                     n_matches += 1
                     rms = 3600*np.degrees(np.linalg.norm(catvects - (rotation_matrix.T @ ivects.T).T) / catvects.shape[0])
+                    
                     if print_flag:
                         print(f"MATCH ACCEPTED (nstars matched = {stardata.shape[0]}, thresh = {thresh})")
                         print('accurate ra dec roll', acc_ra, acc_dec, acc_roll, 'rough rms=', rms, 'arcsec')
@@ -503,6 +524,14 @@ def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, ad
     if ans > n_obs:
         ans -= addon
     return ans
+    
+def calculate_pvalue(n_obs, N_stars_catalog, threshold_match, nviews, nmatched):
+    p = N_stars_catalog * threshold_match**2 / 4 # propability that a randomly chosen point will be with threshold of a star.
+    binom_p = scipy.stats.binom.sf(nmatched - 3 - 1, n_obs - 3, p) # minus three because triangle is already matched
+    print("binom_p: ", binom_p)
+    p_value = 1 - (1-binom_p) ** nviews
+    alt_pvalue = 1 - math.exp(-binom_p*nviews)
+    return p_value, alt_pvalue
 
 def match_centroids(centroids, platescale_fit, image_size, options):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
@@ -519,7 +548,7 @@ def match_centroids(centroids, platescale_fit, image_size, options):
     if options['flag_debug']:
         plt.scatter(transformed_all[:, 1], transformed_all[:, 0])
         plt.scatter(candidate_stars[:, 1], candidate_stars[:, 0])
-        for i in range(stardata.shape[0]):
+        for i in range(min(1000,stardata.shape[0])):
             plt.gca().annotate(f'mag={stardata[i, 5]:.2f}', (np.degrees(stardata[i, 0]), np.degrees(stardata[i, 1])), color='black', fontsize=5)
         plt.show()
     if candidate_star_vectors.shape[0] < 3:
@@ -566,7 +595,7 @@ def match_centroids(centroids, platescale_fit, image_size, options):
     all_vectors = all_vectors[keep_i, :][0]
     errors = np.linalg.norm(stardata[:, 2:5]-all_vectors, axis=1)
     max_error = np.max(errors) if errors.size else match_threshhold
-    return stardata, plate2, max_error
+    return stardata, plate2, max_error, errors
 
 # note: lifted from tetra
 def _find_rotation_matrix(image_vectors, catalog_vectors):
@@ -588,6 +617,7 @@ if __name__ == '__main__':
     #path_data = r'D:\Station 1 data\centroid_data20240416232626.zip' # Station 1 2024
     #path_data = r'D:\feb7test\station1\centroid_data20250320225454.zip' # moon (hard)
     path_data = r'D:\feb7test\station1\centroid_data20250320231043.zip' # moon (hard)
+    path_data = r'/home/maxim/Downloads/centroid_data20250320230811.zip'
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('results.txt'))
     print(f'{meta_data["img_shape"]=}')
@@ -601,11 +631,12 @@ if __name__ == '__main__':
     #end
     def test():
         np.random.seed(123)
-        for sim in tqdm.tqdm(range(20)):
+        for sim in tqdm.tqdm(range(100)):
             simarr = np.random.random((30, 2))
             result = match_platescales(simarr, [1,1], options, print_flag=False)
             #print(result['success'])
-    cProfile.run("test()")
+    #test()
+    cProfile.run("test()", sort='time')
         #if result['success']:
         #    print(sim)
     
