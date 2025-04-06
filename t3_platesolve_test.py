@@ -131,6 +131,7 @@ def test_case(target, match, sdat):
     print(distances, dm)
     print(distances / max(distances), dm / max(dm))
 
+@line_profiler.profile # profile the code
 def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect):
     pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
     n = match_cand // triangles.shape[1]
@@ -233,7 +234,7 @@ def get_2Dtriang_rep(v1, v2, v3):
     z = (4 * 3**0.5 * area) / denom
     return (x, y, z), perm
 
-#@line_profiler.profile # profile the code
+@line_profiler.profile # profile the code
 def match_image_triangles(centroids, image_shape):
     pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
     vectors = np.c_[centroids[:, 1], centroids[:, 0]] - np.array([image_shape[1], image_shape[0]]) / 2
@@ -246,7 +247,6 @@ def match_image_triangles(centroids, image_shape):
     match_info = []
     triangle_info = []
     dmat = np.array([[((va[0]-vb[0])**2+(va[1]-vb[1])**2)**0.5 for vb in vectors] for va in vectors])
-    # TODO: check for heavy code in this for loop
     array_vect = np.zeros((2, 3), dtype=np.float64)
     for i in range(f):
         for n, (j, k) in enumerate(itertools.combinations(range(g), 2)):
@@ -263,9 +263,8 @@ def match_image_triangles(centroids, image_shape):
             sidelengths = (dmat[triplet[0], triplet[1]], dmat[triplet[1], triplet[2]], dmat[triplet[2], triplet[0]])
 
             array_vect_copy = array_vect.copy().T
-            for ind_, cand_ in zip(ind, cand): # TODO: check if this is inefficient      
+            for ind_, cand_ in zip(ind, cand):  
                 match_cand.append(cand_)
-                dummy.append(sidelengths)
                 match_data.append(sidelengths)
                 match_vect.append(array_vect_copy)
                 match_info.append(triplet)
@@ -320,7 +319,7 @@ def match_platescales(centroids, image_size, options={'flag_display':False, 'rou
         result['matched_centroids'][:, [0, 1]] = result['matched_centroids'][:, [1, 0]]
     return result
 
-
+@line_profiler.profile # profile the code
 def match_platescales_helper(centroids, image_size, options, output_dir=None, print_flag=True):
     '''
     input:
@@ -351,23 +350,40 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
     vector_plates = np.c_[np.log(scale) / log_TOL_SCALE, roll / TOL_ROLL, center_vect / TOL_CENT] 
     tree_matches = KDTree(vector_plates)
     t3 = time.perf_counter(), time.process_time()
-    candidate_pairs = tree_matches.query_pairs(1) # efficiently find all pairs of agreeing triangles
+    
+
+
+    
+
+    if 0:
+        candidate_pairs = tree_matches.query_pairs(1) # efficiently find all pairs of agreeing triangles
+        N = vector_plates.shape[0]
+        graph = csr_matrix(([1 for _ in candidate_pairs], ([x[0] for x in candidate_pairs], [x[1] for x in candidate_pairs])), shape=(N, N))
+        n_components, labels = connected_components(csgraph=graph, directed=False, return_labels=True)
+        unique, counts = np.unique(labels, return_counts=True)
+
+    # TODO: include twice vectors slightly below equator
+    tree_quat = KDTree(np.c_[np.log(scale) / log_TOL_SCALE, quat / TOL_ROLL])
+    candidate_quat_pairs = tree_quat.query_pairs(1)
     N = vector_plates.shape[0]
-    graph = csr_matrix(([1 for _ in candidate_pairs], ([x[0] for x in candidate_pairs], [x[1] for x in candidate_pairs])), shape=(N, N))
-    n_components, labels = connected_components(csgraph=graph, directed=False, return_labels=True)
-    unique, counts = np.unique(labels, return_counts=True)
+    graph_quat = csr_matrix(([1 for _ in candidate_quat_pairs], ([x[0] for x in candidate_quat_pairs], [x[1] for x in candidate_quat_pairs])), shape=(N, N))
+    n_components_quat, labels_quat = connected_components(csgraph=graph_quat, directed=False, return_labels=True)
+    unique_quat, counts_quat = np.unique(labels_quat, return_counts=True)
+    
+    
     if print_flag:
-        print("counts:", Counter(counts))
-    nviews_unique = sum(Counter(counts).values())
-    counts = dict(zip(unique, counts))
+        #print("counts:", Counter(counts))
+        print("counts_quat:", Counter(counts_quat))
+    nviews_unique = sum(Counter(counts_quat).values())
+    counts = dict(zip(unique_quat, counts_quat))
     #print(f'{nviews_unique=}')
     best=-1
     best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None, 'platescale/arcsec':None, 'ra':None, 'dec':None, 'roll':None}
     n_matches = 0
     t33 = time.perf_counter(), time.process_time()
-    for i in range(n_components):#np.argsort(counts)[::-1]: # try most promising matches first
-        if counts[i] >= 3:
-            indices = np.nonzero(labels==i)[0]
+    for i in range(n_components_quat):#np.argsort(counts)[::-1]: # try most promising matches first
+        if counts_quat[i] >= 3:
+            indices = np.nonzero(labels_quat==i)[0]
             # remove redundant triangles (a, b, c), (b, a, c) etc.
             seen = set()
             non_redundant = []
@@ -414,7 +430,7 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
                 
                 #print((rotation_matrix.T @ ivects.T).T)
                 platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # do weird +180 roll thing as usual
-                stardata, plate2, max_error, errors = match_centroids(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options)
+                stardata, plate2, max_error, errors = match_centroids2(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options)
                 #print('max_error', max_error)
                 rms_error_match = np.mean(errors**2)**0.5
                 thresh = estimate_acceptance_threshold(min(n_obs, MAX_MATCH), N_stars_catalog, rms_error_match, g, addon=3)
@@ -439,7 +455,7 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
     t4 = time.perf_counter(), time.process_time()
     tff = time.perf_counter(), time.process_time()
     if print_flag:
-        print(f'npairs = {len(candidate_pairs)}')
+        print(f'npairs = {len(candidate_quat_pairs)}')
         print(f" Real star matching: {t4[0] - t33[0]:.2f} {t33[0] - t3[0]:.2f} {t3[0] - t2[0]:.2f} seconds")
         print(f" TOTAL TIME: {tff[0] - t00[0]:.2f} seconds")
         if n_matches > 1:
@@ -521,6 +537,53 @@ def calculate_pvalue(n_obs, N_stars_catalog, errors, nviews, nmatched):
     print("binom_p: ", binom_p)
     pvalue = 1 - math.exp(-binom_p*nviews) # more numerically stable approximation of 1 - (1-binom_p) ** nviews
     return pvalue
+
+@line_profiler.profile # profile the code
+def match_centroids2(centroids, platescale_fit, image_size, options):
+    confusion_ratio = 2 # closest match must be 2x closer than second place
+    dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+    corners = transforms.to_polar(transforms.linear_transform(platescale_fit, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
+    stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=12)[0]
+    all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
+    all_vectors = transforms.linear_transform(platescale_fit, all_star_plate)
+    transformed_all = transforms.to_polar(all_vectors)
+    # match nearest neighbours
+    candidate_stars = np.zeros((stardata.shape[0], 2))
+    candidate_stars[:, 0] = np.degrees(stardata[:, 1])
+    candidate_stars[:, 1] = np.degrees(stardata[:, 0])
+    candidate_star_vectors = stardata[:, 2:5]
+    if options['flag_debug']:
+        plt.scatter(transformed_all[:, 1], transformed_all[:, 0])
+        plt.scatter(candidate_stars[:, 1], candidate_stars[:, 0])
+        for i in range(min(1000,stardata.shape[0])):
+            plt.gca().annotate(f'mag={stardata[i, 5]:.2f}', (np.degrees(stardata[i, 0]), np.degrees(stardata[i, 1])), color='black', fontsize=5)
+        plt.show()
+    if candidate_star_vectors.shape[0] < 3:
+        # failure case - shouldn't happen unless input is incorrectly specified
+        return np.empty((0, 2)), None, np.radians(options['rough_match_threshhold']/3600)
+
+    cand_tree = KDTree(candidate_star_vectors, balanced_tree=False, compact_nodes=False)
+    matched_ind_cata = []
+    matched_ind_obs = []
+    matched_errors = []
+    for i in range(all_vectors.shape[0]):
+        close = cand_tree.query_ball_point(all_vectors[i], np.radians(options['rough_match_threshhold']/3600))
+        if len(close):
+            errors_i = np.linalg.norm(stardata[close, 2:5]-all_vectors[i], axis=1)
+            argsorted = np.argsort(errors_i)
+            if len(close) == 1 or errors_i[argsorted[0]] < errors_i[argsorted[1]] / confusion_ratio:
+                matched_ind_cata.append(close[argsorted[0]])
+                matched_ind_obs.append(i)
+                matched_errors.append(errors_i[argsorted[0]])
+
+    stardata = stardata[matched_ind_cata, :]            
+    plate2 = all_star_plate[matched_ind_obs, :]
+    max_error = max(matched_errors)
+    return stardata, plate2, max_error, np.array(matched_errors)
+
+
+
+# TODO: fix performance of this function. It should be much faster
 
 def match_centroids(centroids, platescale_fit, image_size, options):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
@@ -624,8 +687,8 @@ if __name__ == '__main__':
             simarr = np.random.random((30, 2))
             result = match_platescales(simarr, [1,1], options, print_flag=False)
             #print(result['success'])
-    #test()
-    cProfile.run("test()", sort='time')
+    test()
+    #cProfile.run("test()", sort='time')
         #if result['success']:
         #    print(sim)
     
