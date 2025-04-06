@@ -23,7 +23,7 @@ from MEE2024util import resource_path, get_bbox
 import database_cache
 from sklearn.neighbors import NearestNeighbors
 import tqdm
-#os.environ["XDG_SESSION_TYPE"] = "xcb" # suggestion for linux problem
+import line_profiler
 
 '''
 PARAMETERS (TODO: make controllable by options)
@@ -57,8 +57,6 @@ else:
     	pickle.dump(kd_tree, kdfile)
 print(permutation_data.shape, permutation_data.dtype, permutation_data[:10])
 print(triangles.shape)
-
-#print(np.linalg.norm(triangles[0, :, :], axis=1))
 
 if 0:
     fig = plt.figure()
@@ -235,6 +233,7 @@ def get_2Dtriang_rep(v1, v2, v3):
     z = (4 * 3**0.5 * area) / denom
     return (x, y, z), perm
 
+#@line_profiler.profile # profile the code
 def match_image_triangles(centroids, image_shape):
     pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
     vectors = np.c_[centroids[:, 1], centroids[:, 0]] - np.array([image_shape[1], image_shape[0]]) / 2
@@ -246,9 +245,9 @@ def match_image_triangles(centroids, image_shape):
                     # v1, v2: vectors from center star to the two neighbouring stars
     match_info = []
     triangle_info = []
-    dummy = []
     dmat = np.array([[((va[0]-vb[0])**2+(va[1]-vb[1])**2)**0.5 for vb in vectors] for va in vectors])
     # TODO: check for heavy code in this for loop
+    array_vect = np.zeros((2, 3), dtype=np.float64)
     for i in range(f):
         for n, (j, k) in enumerate(itertools.combinations(range(g), 2)):
             if j == i or k == i or max(i, k) >= vectors.shape[0]:
@@ -258,34 +257,24 @@ def match_image_triangles(centroids, image_shape):
             triplet = (triplet[perm[0]], triplet[perm[1]], triplet[perm[2]]) # apply permutation to triplet to get "standard order"
             cand = kd_tree.query_ball_point(rep, TOLERANCE_TRIANGLE)
             ind = np.array(cand) // triangles.shape[1]
-            
-            array_vect = np.c_[vectors[triplet[0]], vectors[triplet[1]], vectors[triplet[2]]]
-            #r1 = max(np.linalg.norm(vectors[i]-vectors[j]), np.linalg.norm(vectors[i]-vectors[k]), np.linalg.norm(vectors[j]-vectors[k]))
-            #sidelengths = (np.linalg.norm(array_vect[:, 0] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 2] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 0] - array_vect[:, 2]))
+            for ii in range(3):
+                array_vect[:, ii] = vectors[triplet[ii]]
+                
             sidelengths = (dmat[triplet[0], triplet[1]], dmat[triplet[1], triplet[2]], dmat[triplet[2], triplet[0]])
-            #print(triplet, perm)
-            #print(r1)
-            #print(np.linalg.norm(array_vect[:, 0] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 2] - array_vect[:, 1]), np.linalg.norm(array_vect[:, 0] - array_vect[:, 2]))
-            #print(np.linalg.norm(vectors[i]-vectors[j]), np.linalg.norm(vectors[j]-vectors[k]), np.linalg.norm(vectors[k]-vectors[i]))
-            #if not r1 == np.linalg.norm(array_vect[:, 0] - array_vect[:, 1]):
-            #    raise Exception("max-permute failed")
-            phi1 = 0 # dummy var
+
+            array_vect_copy = array_vect.copy().T
             for ind_, cand_ in zip(ind, cand): # TODO: check if this is inefficient      
-                #matches[i][ind_].append((cand_, r1, phi1, array_vect))
                 match_cand.append(cand_)
                 dummy.append(sidelengths)
-                #match_data.append([r1, phi1])
                 match_data.append(sidelengths)
-                match_vect.append(array_vect.T)
+                match_vect.append(array_vect_copy)
                 match_info.append(triplet)
                 rem = cand_ % triangles.shape[1]
                 triangle_info.append(pairs[rem])
-                dummy.append(sidelengths)
             reps.append(rep)
     match_cand = np.array(match_cand)
     match_data = np.array(match_data)
     match_vect = np.array(match_vect)
-    #print(f'{len(reps)=}')
     reps = np.array(reps)
     if 0:
         fig = plt.figure()
@@ -429,8 +418,8 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
                 #print('max_error', max_error)
                 rms_error_match = np.mean(errors**2)**0.5
                 thresh = estimate_acceptance_threshold(min(n_obs, MAX_MATCH), N_stars_catalog, rms_error_match, g, addon=3)
-                p_value = calculate_pvalue(min(n_obs, MAX_MATCH), N_stars_catalog, rms_error_match, nviews_unique, stardata.shape[0])
-                p_value_thresh = calculate_pvalue(min(n_obs, MAX_MATCH), N_stars_catalog, max_error, nviews_unique, thresh-3)
+                p_value = calculate_pvalue(min(n_obs, MAX_MATCH), N_stars_catalog, errors, nviews_unique, stardata.shape[0])
+                p_value_thresh = calculate_pvalue(min(n_obs, MAX_MATCH), N_stars_catalog, errors, nviews_unique, thresh-3)
                 print(f"p_value={p_value} {n_obs=} nmatch={stardata.shape[0]} {max_error=}; {thresh=} {p_value_thresh=}")
                 if stardata.shape[0] >= thresh:
                     n_matches += 1
@@ -525,13 +514,13 @@ def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, ad
         ans -= addon
     return ans
     
-def calculate_pvalue(n_obs, N_stars_catalog, threshold_match, nviews, nmatched):
-    p = N_stars_catalog * threshold_match**2 / 4 # propability that a randomly chosen point will be with threshold of a star.
-    binom_p = scipy.stats.binom.sf(nmatched - 3 - 1, n_obs - 3, p) # minus three because triangle is already matched
+def calculate_pvalue(n_obs, N_stars_catalog, errors, nviews, nmatched):
+    p_arr = N_stars_catalog * errors**2 / 4 # propability that a randomly chosen point will be with threshold of a star.
+    p = 1 - np.exp(np.log(1-p_arr).mean()) # bound a sum of Bernoulli Distributions with a binomial (** TODO: insert proof)
+    binom_p = scipy.stats.binom.sf(nmatched - 3 - 1, n_obs - 3, p) # minus three because triangle is already matched; minus one for off-by-one from survival function
     print("binom_p: ", binom_p)
-    p_value = 1 - (1-binom_p) ** nviews
-    alt_pvalue = 1 - math.exp(-binom_p*nviews)
-    return p_value, alt_pvalue
+    pvalue = 1 - math.exp(-binom_p*nviews) # more numerically stable approximation of 1 - (1-binom_p) ** nviews
+    return pvalue
 
 def match_centroids(centroids, platescale_fit, image_size, options):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
@@ -617,7 +606,7 @@ if __name__ == '__main__':
     #path_data = r'D:\Station 1 data\centroid_data20240416232626.zip' # Station 1 2024
     #path_data = r'D:\feb7test\station1\centroid_data20250320225454.zip' # moon (hard)
     path_data = r'D:\feb7test\station1\centroid_data20250320231043.zip' # moon (hard)
-    path_data = r'/home/maxim/Downloads/centroid_data20250320230811.zip'
+    #path_data = r'/home/maxim/Downloads/centroid_data20250320230811.zip'
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('results.txt'))
     print(f'{meta_data["img_shape"]=}')
@@ -631,7 +620,7 @@ if __name__ == '__main__':
     #end
     def test():
         np.random.seed(123)
-        for sim in tqdm.tqdm(range(100)):
+        for sim in tqdm.tqdm(range(30)):
             simarr = np.random.random((30, 2))
             result = match_platescales(simarr, [1,1], options, print_flag=False)
             #print(result['success'])
