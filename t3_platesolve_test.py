@@ -140,17 +140,12 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
     s1 = pattern_data[n, pairs[rem][:, 0]]
     s2 = pattern_data[n, pairs[rem][:, 1]]
     sdat = np.stack([s1, s2])
-    #swap = s1[:, 0] < s2[:, 0]
-    #sdat[:, swap, :] = sdat[:, swap, :][(1, 0), :, :]
-    
-
 
     vec0 = anchors[n]
     vec1 = sdat[0, :, 2:5]
     vec2 = sdat[1, :, 2:5]
     
     perm = permutation_data[n, rem]
-    #print(Counter(perm))
     mask_12 = (perm & 1).astype(bool)
     mask_2f = (perm & 2).astype(bool)[:, np.newaxis]
     mask_3f = (perm & 4).astype(bool)[:, np.newaxis]
@@ -163,23 +158,9 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
 
     target = np.stack([vec0_final, vec1_final, vec2_final], axis=2)
 
-    #print(target.shape)
-    #for i in range(0, 10000, 2000):
-    #    test_case(target[i], match_vect[i], sdat[0, i, 0])
-
     scale = np.linalg.norm(vec0_final - vec1_final, axis = 1) / np.linalg.norm(match_vect[:, 0] - match_vect[:, 1], axis = 1)
     scaled = match_vect * scale[:, np.newaxis, np.newaxis]
-    ####
-    #print(match_data[:, plookup[perm]].shape, sdat[0, :, 0].shape)
-    #scale = sdat[0, :, 0] / match_data[np.arange(perm.size), plookup[perm]] # note approximate roll: (match_data[:, 1] - s1[:, 1]) % (np.pi*2)
-    #scaled = np.einsum('ijk,i -> ijk', match_vect, scale) # scale each triangle
     as_3vect = transforms.icoord_to_vector(scaled).swapaxes(1, 2)
-    
-
-
-    
-    # TODO: apply permutation required
-    # also: fix scale (also permutation based? or just lookup stars?)
     inv_matrix = np.zeros(as_3vect.shape, as_3vect.dtype)
     for i in range(3):
         for j in range(3):
@@ -189,14 +170,11 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
     inv_matrix /= np.linalg.det(as_3vect).reshape((-1, 1, 1))
     rmatrix = np.einsum('...ij,...jk -> ...ik', target, inv_matrix)
     rmatrix = batch_polar_approximation(rmatrix) # first order iterative correction to rotation matrix
-    #r_errors = np.array([rotation_matrix_error(x) for x in rmatrix])
-    #print("errors", r_errors[::3000])
-    # TODO: get quaternion rep of rmatrix
+    #get quaternion rep of rmatrix
     rot = scipy_R.from_matrix(rmatrix)
     quat = rot.as_quat()
-    center_vect = rmatrix[:, :, 0]
-    roll = np.arctan2(rmatrix[:, 1, 2], rmatrix[:, 2, 2]) % (2*np.pi)
-    return scale, roll, center_vect, rmatrix, target, quat
+    
+    return scale, quat, target
 
 def get_2Dtriang_rep(v1, v2, v3):
     '''
@@ -282,9 +260,9 @@ def match_image_triangles(centroids, image_shape):
         ax.set_aspect('equal')
         plt.show()
     # compute platescales
-    scale, roll, center_vect, matrix, target, quat = compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect)
+    scale, quat, target = compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect)
 
-    return scale, roll, center_vect, match_info, triangle_info, vectors, target, quat
+    return scale, quat, target, match_info, triangle_info, vectors
 
 def match_platescales(centroids, image_size, options={'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':False, 'flag_debug':False}, output_dir=None, try_mirror_also=True, print_flag=True):
     '''
@@ -339,45 +317,38 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
     
     t00 = time.perf_counter(), time.process_time()
     
-    scale, roll, center_vect, match_info, triangle_info, vectors, target_vectors, quat = match_image_triangles(centroids, image_size)
+    scale, quat, target_vectors, match_info, triangle_info, vectors = match_image_triangles(centroids, image_size)
     if print_flag:
         print(f'initial triangle matches: {scale.shape[0]}')
         print(f'{quat.shape=}')
     n_obs = centroids.shape[0]
     all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
     t2 = time.perf_counter(), time.process_time()
-
-    vector_plates = np.c_[np.log(scale) / log_TOL_SCALE, roll / TOL_ROLL, center_vect / TOL_CENT] 
-    tree_matches = KDTree(vector_plates)
-    t3 = time.perf_counter(), time.process_time()
-    
-
-
-    
-
-    if 0:
-        candidate_pairs = tree_matches.query_pairs(1) # efficiently find all pairs of agreeing triangles
-        N = vector_plates.shape[0]
-        graph = csr_matrix(([1 for _ in candidate_pairs], ([x[0] for x in candidate_pairs], [x[1] for x in candidate_pairs])), shape=(N, N))
-        n_components, labels = connected_components(csgraph=graph, directed=False, return_labels=True)
-        unique, counts = np.unique(labels, return_counts=True)
+    t3 = t2
 
     # TODO: include twice vectors slightly below equator
-    tree_quat = KDTree(np.c_[np.log(scale) / log_TOL_SCALE, quat / TOL_ROLL])
-    tree_quat = tree_matches
+    #print(quat[:10])
+    #print(np.mean(quat, axis=0))
+
+    near_equator = np.sum(quat, axis = 1) <= math.sin(TOL_ROLL)
+    N_doubled = np.sum(near_equator)
+    # duplicate near-eqautor points in the KDTree, then account for them smartly as each unique cluster will have at least one non-mirrored point
+    data = np.c_[np.log(scale) / log_TOL_SCALE, quat / TOL_ROLL]
+    data = np.r_[data, data[near_equator]]
+    indmap = np.nonzero(near_equator)[0]
+    tree_quat = KDTree(data)
+
     candidate_quat_pairs = tree_quat.query_pairs(1)
-    N = vector_plates.shape[0]
-    graph_quat = csr_matrix(([1 for _ in candidate_quat_pairs], ([x[0] for x in candidate_quat_pairs], [x[1] for x in candidate_quat_pairs])), shape=(N, N))
+    N = scale.shape[0]
+    graph_quat = csr_matrix(([1 for _ in candidate_quat_pairs], ([x[0] for x in candidate_quat_pairs], [x[1] for x in candidate_quat_pairs])), shape=(N+N_doubled, N+N_doubled))
     n_components_quat, labels_quat = connected_components(csgraph=graph_quat, directed=False, return_labels=True)
     unique_quat, counts_quat = np.unique(labels_quat, return_counts=True)
     
     
     if print_flag:
-        #print("counts:", Counter(counts))
         print("counts_quat:", Counter(counts_quat))
     nviews_unique = sum(Counter(counts_quat).values())
     counts = dict(zip(unique_quat, counts_quat))
-    #print(f'{nviews_unique=}')
     best=-1
     best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None, 'platescale/arcsec':None, 'ra':None, 'dec':None, 'roll':None}
     n_matches = 0
@@ -385,10 +356,14 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
     for i in range(n_components_quat):#np.argsort(counts)[::-1]: # try most promising matches first
         if counts_quat[i] >= 3:
             indices = np.nonzero(labels_quat==i)[0]
+            if indices[0] >= N:
+                continue # mirror points only case
             # remove redundant triangles (a, b, c), (b, a, c) etc.
             seen = set()
             non_redundant = []
             for ind in indices:
+                if ind >= N:
+                    ind = indmap[ind-N]
                 if match_info[ind] in seen:
                     continue
                 seen.update(list(itertools.permutations(match_info[ind])))
@@ -396,13 +371,11 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
             if len(non_redundant) >= 3:
                 matchset = dict()
                 for ind in non_redundant:
+                    if ind >= N:
+                        ind = indmap[ind-N]
                     matchset.update(zip(match_info[ind], target_vectors[ind].T))
 
                 el = non_redundant[0]
-                radec = transforms.to_polar(center_vect[el])
-                #print('triangle match:', len(non_redundant), [match_info[_] for _ in non_redundant])
-                #print(counts[i], radec, scale[el], roll[el], match_info[el])
-                #print(matchset)
                 if options['flag_debug']:
                     # show platesolve
                     plt.scatter(centroids[:, 0], centroids[:, 1])
@@ -413,13 +386,10 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
                     plt.gca().invert_yaxis()
                     plt.title(f"{len(non_redundant)} triangles matched\nplate scale={np.degrees(scale[el])*3600:.4f} arcsec/pixel\nra={radec[0][1]:.4f}, dec={radec[0][0]:.4f}")
                     plt.show()
-                plate = (np.degrees(scale[el]), radec[0][1], radec[0][0], np.degrees(roll[el])+90) # this plus 90 is very weird and probably is need because of a coordinate bug
-                #print('scale/degrees, ra, dec, roll', plate)
                 
                 ivects = transforms.icoord_to_vector(np.array([all_star_plate[_] for _ in matchset])*scale[el])
                 catvects = np.array([_ for _ in matchset.values()])
-                #print(ivects)
-                #print(catvects)
+
                 rotation_matrix = _find_rotation_matrix(ivects, catvects)
                 acc_ra = np.rad2deg(np.arctan2(rotation_matrix[0, 1],
                                                    rotation_matrix[0, 0])) % 360
@@ -427,10 +397,8 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
                                                     np.linalg.norm(rotation_matrix[1:3, 2])))
                 acc_roll = np.rad2deg(np.arctan2(rotation_matrix[1, 2],
                                                      rotation_matrix[2, 2])) % 360
-                acc_roll = (acc_roll + 180) % 360 # ???
-                
-                #print((rotation_matrix.T @ ivects.T).T)
-                platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # do weird +180 roll thing as usual
+                acc_roll = (acc_roll + 180) % 360 # annoying 180 degree thing
+                platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180)
                 stardata, plate2, max_error, errors = match_centroids2(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options, star_max_magnitude=options['platesolve_match_max_star_magnitude'])
                 #print('max_error', max_error)
                 rms_error_match = np.mean(errors) if errors.size else max_error
@@ -449,7 +417,7 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
                         best_result = {'success':True, 'x': np.radians(platescale), 'platescale/arcsec':3600*np.degrees(scale[el]), 'ra':acc_ra, 'dec':acc_dec, 'roll':acc_roll, 'matched_centroids':plate2+np.array([image_size[0]/2, image_size[1]/2]), 'matched_stars':stardata}
                 else:
                     if print_flag:
-                        print(f"note: candidate match rejected (nstars matched = {stardata.shape[0]}, thresh = {thresh})")         
+                        print(f"note: candidate match rejected (nstars matched = {stardata.shape[0]}, pvalue = {p_value})")         
     
     t4 = time.perf_counter(), time.process_time()
     tff = time.perf_counter(), time.process_time()
@@ -552,7 +520,6 @@ def match_centroids2(centroids, platescale_fit, image_size, options, star_max_ma
     max_error = max(matched_errors) if matched_errors else np.radians(options['rough_match_threshhold']/3600)
     return stardata, plate2, max_error, np.array(matched_errors)
 
-# note: lifted from tetra
 def _find_rotation_matrix(image_vectors, catalog_vectors):
     """Calculate the least squares best rotation matrix between the two sets of vectors.
     image_vectors and catalog_vectors both Nx3. Must be ordered as matching pairs.
@@ -566,12 +533,12 @@ def _find_rotation_matrix(image_vectors, catalog_vectors):
 if __name__ == '__main__':
     #database_cache.prepare_triangles()
     print("in main")
-    options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':0, 'flag_debug':0, 'platesolve_match_max_star_magnitude':10.5, 'detection_pvalue':1e-4}
-    #path_data = r'D:\feb7test\Don2017_clean2\eclipse_field\centroid_data20250214172224.zip' # eclipse (Don)
-    path_data = r'D:\feb7test\station1\centroid_data20250320001655.zip' # zenith (Don)
+    options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':0, 'flag_debug':0, 'platesolve_match_max_star_magnitude':12, 'detection_pvalue':1e-4}
+    path_data = r'D:\feb7test\Don2017_clean2\eclipse_field\centroid_data20250214172224.zip' # eclipse (Don)
+    #path_data = r'D:\feb7test\station1\centroid_data20250320001655.zip' # zenith (Don)
     #path_data = r'D:\Station 1 data\centroid_data20240416232626.zip' # Station 1 2024
     #path_data = r'D:\feb7test\station1\centroid_data20250320225454.zip' # moon (hard)
-    path_data = r'D:\feb7test\station1\centroid_data20250320231043.zip' # moon (hard)
+    #path_data = r'D:\feb7test\station1\centroid_data20250320231043.zip' # moon (hard)
     #path_data = r'/home/maxim/Downloads/centroid_data20250320230811.zip'
     archive = zipfile.ZipFile(path_data, 'r')
     meta_data = json.load(archive.open('results.txt'))
