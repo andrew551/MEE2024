@@ -141,17 +141,21 @@ class database_searcher:
 
 
     def lookup_objects(self, range_ra, range_dec, star_max_magnitude=12):
+        # max magnitude
+        brightness_range = np.searchsorted(self.star_table[:, 5], star_max_magnitude, side = 'right')
+        star_table_view = self.star_table[:brightness_range]
+        
         if range_ra is not None:
             range_ra = np.deg2rad(range_ra)
             if range_ra[0] < range_ra[1]: # Range does not cross 360deg discontinuity
-                kept = np.logical_and(self.star_table[:, 0] > range_ra[0], self.star_table[:, 0] < range_ra[1])
+                kept = np.logical_and(star_table_view[:, 0] > range_ra[0], star_table_view[:, 0] < range_ra[1])
             else:
-                kept = np.logical_or(self.star_table[:, 0] > range_ra[0], self.star_table[:, 0] < range_ra[1])
-            star_table = self.star_table[kept, :]
+                kept = np.logical_or(star_table_view[:, 0] > range_ra[0], star_table_view[:, 0] < range_ra[1])
+            star_table = star_table_view[kept, :]
             num_entries = star_table.shape[0]
             # Trim down catalogue ID to match
             
-            star_catID = self.star_catID[kept, :]
+            star_catID = self.star_catID[:brightness_range][kept, :]
             self._logger.info('Limited to RA range ' + str(np.rad2deg(range_ra)) + ', keeping ' \
                 + str(num_entries) + ' stars.')
         if range_dec is not None:
@@ -167,13 +171,7 @@ class database_searcher:
             star_catID = star_catID[kept, :]
             self._logger.info('Limited to DEC range ' + str(np.rad2deg(range_dec)) + ', keeping ' \
                 + str(num_entries) + ' stars.')
-        # max magnitude
-        kept = star_table[:, 5] < star_max_magnitude
-        star_table = star_table[kept, :]
-        num_entries = star_table.shape[0]
-        # Trim down catalogue ID to match
-
-        star_catID = star_catID[kept, :]
+            
         self._logger.info('Limited to magnitude to ' + str(star_max_magnitude) + ', keeping ' \
             + str(num_entries) + ' stars.')
         
@@ -184,6 +182,9 @@ class database_searcher:
         mydata[:, :2] = self.star_table[:, :2]
         mydata[:, 2] = self.star_table[:, 5]
         np.savez_compressed(file, mydata=mydata)
+
+    def nstars_mag_leq(self, star_max_magnitude):
+        return np.searchsorted(self.star_table[:, 5], star_max_magnitude, side = 'right')
 
 
 if __name__ == '__main__':
