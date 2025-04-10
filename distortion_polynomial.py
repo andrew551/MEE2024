@@ -60,16 +60,16 @@ def get_constant_and_linear_terms(coeff_x, coeff_y, img_shape, options):
         for i in range(2, order+1): # up to nth order legendre binomials
             for j in range(i+1):
                 const_ind = legendre_polies[j].coef[-1] * legendre_polies[i-j].coef[-1]
-                deriv_y = (legendre_polies[j].coef[-1] * legendre_polies[i-j].coef[-2]) if len(legendre_polies[i-j].coef) > 1 else 0
-                deriv_x = (legendre_polies[j].coef[-2] * legendre_polies[i-j].coef[-1]) if len(legendre_polies[j].coef) > 1 else 0
+                deriv_y = (legendre_polies[j].coef[-2] * legendre_polies[i-j].coef[-1]) * 2 / img_shape[0] if len(legendre_polies[j].coef) > 1 else 0
+                deriv_x = (legendre_polies[j].coef[-1] * legendre_polies[i-j].coef[-2]) * 2 / img_shape[1] if len(legendre_polies[i-j].coef) > 1 else 0
                 constant[0] += const_ind * coeff_x[ind]
                 constant[1] += const_ind * coeff_y[ind]
-                x_deri[0] += deriv_x * coeff_x[ind] * 2 / img_shape[1]
-                x_deri[1] += deriv_y * coeff_x[ind] * 2 / img_shape[1]
-                y_deri[0] += deriv_x * coeff_y[ind] * 2 / img_shape[0]
-                y_deri[1] += deriv_y * coeff_y[ind] * 2 / img_shape[0]
+                x_deri[0] += deriv_x * coeff_x[ind]
+                x_deri[1] += deriv_y * coeff_x[ind]
+                y_deri[0] += deriv_x * coeff_y[ind]
+                y_deri[1] += deriv_y * coeff_y[ind]
                 ind += 1
-    print(x_deri, y_deri)
+    print(x_deri, y_deri)    
     return constant, x_deri, y_deri
 
 def get_coeff_names(options):
