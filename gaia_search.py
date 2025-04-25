@@ -124,11 +124,21 @@ WHERE phot_g_mean_mag BETWEEN -2 AND {max_mag}"
     results = job.get_results()
     print(f'Table size (rows): {len(results)}')
 
-    results.pprint(max_width=400, max_lines=200)
+    results.pprint(max_width=400, max_lines=50)
     return results
         
 if __name__ == '__main__':
-    l = select_bright(2024.0, 4)
+    l = select_bright(2025.0, 10.5)
+    n = len(l)
+    s_id = np.zeros(n, dtype=np.uint64)
+    s_id[:] = l['SOURCE_ID']
+    data = np.zeros((n, 3), dtype=np.float64)
+    data[:, 0] = l['COORD1']
+    data[:, 1] = l['COORD2']
+    data[:, 2] = l['phot_g_mean_mag']
+    print(s_id)
+    print(data)
+    np.savez('gaia_top_stars_2.npz', source_id=s_id, radecmag=data)
     #l = select_in_box(2024, (37.4, 37.5), (0.35, 0.45), 16)
     #l = select_in_box(2016, (38.25, 38.35), (0.85, 0.95), 16)
     #l = select_in_box(2016, (38.5, 38.8), (0.65, 0.75), 16)

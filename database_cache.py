@@ -56,6 +56,8 @@ def open_catalogue(path, debug_folder=None, **kwaargs):
     if not path in _cache.catalogue_cache:
         if path == 'gaia':
             _cache.catalogue_cache[path] = gaia_search.dbs_gaia(**kwaargs)
+        elif path == 'gaia_offline':
+            _cache.catalogue_cache[path] = database_lookup2.database_searcher('gaia_top_stars_HIP_id.npz', debug_folder=debug_folder, star_max_magnitude=12)
         elif path == triangles_path:
             print(_cache.prepare_process, _cache.prepare_process.is_alive())
             i = 1          

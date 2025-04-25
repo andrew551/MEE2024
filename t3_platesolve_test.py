@@ -24,7 +24,7 @@ import database_cache
 from sklearn.neighbors import NearestNeighbors
 import tqdm
 import line_profiler
-
+import joblib
 '''
 PARAMETERS (TODO: make controllable by options)
 '''
@@ -37,26 +37,36 @@ TOL_ROLL = np.radians(0.025) # 0.025 degrees for roll tolerances == 90 arcsec
 log_TOL_SCALE = 0.01      # 1 part in 100 for platescale
 MAX_MATCH = 32 # maximum number of verification stars
 
-dbase = np.load("TripleTrianglePlatesolveDatabase2/TripleTriangle_pattern_data2.npz")
+@line_profiler.profile # profile the code
+def load_data():
+    global triangles
+    global pattern_data
+    global anchors
+    global permutation_data
+    global kd_tree
+    print('start load')
+    dbase = np.load("TripleTrianglePlatesolveDatabase3/TripleTriangle_pattern_data3.npz")
+    print('loaded')
+    triangles = dbase['triangles']
+    pattern_data = dbase['pattern_data']
+    anchors = dbase['anchors']
+    permutation_data = dbase['permutation_data']
+    print(triangles.shape)
+    print(pattern_data.shape)
+    READ_OLD = False
 
-triangles = dbase['triangles']
-pattern_data = dbase['pattern_data']
-anchors = dbase['anchors']
-permutation_data = dbase['permutation_data']
+    if READ_OLD:
+        with open("kdtree.pkl", "rb") as kdfile:
+            kd_tree = pickle.load(kdfile)
+        print("built kd_tree")
+    else:
+        kd_tree = KDTree(triangles.reshape(-1, 3))
+        with open("kdtree.pkl", "wb") as kdfile:
+            pickle.dump(kd_tree, kdfile)
+    print(permutation_data.shape, permutation_data.dtype, permutation_data[:10])
+    print(triangles.shape)
 
-kd_tree = KDTree(triangles.reshape(-1, 3))
-
-READ_OLD = True
-
-if READ_OLD:
-    with open("kdtree.pkl", "rb") as kdfile:
-        kd_tree = pickle.load(kdfile)
-    print("built kd_tree")
-else:
-    with open("kdtree.pkl", "wb") as kdfile:
-    	pickle.dump(kd_tree, kdfile)
-print(permutation_data.shape, permutation_data.dtype, permutation_data[:10])
-print(triangles.shape)
+load_data()
 
 if 0:
     fig = plt.figure()
@@ -481,6 +491,7 @@ def calculate_pvalue(n_obs, N_stars_catalog, errors, nviews, nmatched):
 def match_centroids2(centroids, platescale_fit, image_size, options, star_max_magnitude=12):
     confusion_ratio = 2 # closest match must be 2x closer than second place
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+    print(f'{dbs.star_table.shape=}', dbs.star_table[:, 5])
     corners = transforms.to_polar(transforms.linear_transform(platescale_fit, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
     stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=star_max_magnitude)[0]
     all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
@@ -553,7 +564,7 @@ if __name__ == '__main__':
     #end
     def test():
         np.random.seed(123)
-        for sim in tqdm.tqdm(range(1000)):
+        for sim in tqdm.tqdm(range(10)):
             simarr = np.random.random((30, 2))
             result = match_platescales(simarr, [1,1], options, print_flag=False)
             #print(result['success'])

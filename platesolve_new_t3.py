@@ -15,7 +15,8 @@ import database_cache
 import tqdm
 
 def generate():
-    dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+    #dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+    dbs = database_cache.open_catalogue("gaia_offline")
     print(dbs.star_table.shape)
 
     # parameters for step 1
@@ -28,15 +29,15 @@ def generate():
     d = 700000
     if a+b >= d:
         raise Exception("weird choice for paramters a,b,d")
-    e = 18
+    e = 18 # was 18
     theta_pat = np.radians(1.7)
 
     vectors = dbs.star_table[:d, 2:5].astype(np.float32)
     print(f'keeping down to mag {dbs.star_table[a, 5]}')
     kd_tree1 = KDTree(vectors)
 
-    kept = np.zeros(d, dtype=bool)
-    kept2 = np.zeros(d, dtype=bool)
+    kept = np.zeros(d, dtype=bool) # "anchor stars"
+    kept2 = np.zeros(d, dtype=bool) # "leg stars"
     '''
     step 1: find set of "anchor" stars
         (1.1) #a brightest stars (exclude double stars)
@@ -47,7 +48,14 @@ def generate():
     for i in tqdm.tqdm(range(d), desc='collecting stars'):
         neighbours = kd_tree1.query_ball_point(vectors[i], theta_sep)    
         neighbours2 = kd_tree1.query_ball_point(vectors[i], theta_double_star)
-            
+
+        if np.any(kept2[neighbours2]):
+            continue # double star skip
+        kept2[i] = 1
+        in_gap = not np.any(kept[neighbours])
+        if (in_gap and i < a + b) or i < a:
+            kept[i] = 1
+        '''    
         if not np.any(kept[neighbours]): # dim stars, in "holes"
             if i < a+b:
                 kept[i] = 1
@@ -56,6 +64,7 @@ def generate():
             if i < a:
                 kept[i] = 1
             kept2[i] = 1
+        '''
     print(f'note kept {np.sum(kept[:a])} of first {a} stars as anchors')
     print(f'note kept {np.sum(kept[:a+b])} of first {a+b} stars as anchors')
     print(f'note kept {np.sum(kept2)} of first {d} stars as legs')
@@ -257,7 +266,8 @@ def generate():
         # Compute area using Heron's formula
         s = 0.5 * (r1_final + r2_final + r3_final)
         area = np.sqrt(s * (s - r1_final) * (s - r2_final) * (s - r3_final))
-        
+        print(np.nonzero(np.isnan(area)))
+        print(r1_final[np.nonzero(np.isnan(area))], r2_final[np.nonzero(np.isnan(area))],r3_final[np.nonzero(np.isnan(area))]) 
         # Normalizing denominator (scale-invariant quantity)
         denom = r1_final**2 + r2_final**2 + r3_final**2
         
@@ -269,8 +279,8 @@ def generate():
 
     triangles, permutation_data = compute_triangles(vectors_kept, pattern_data)
             
-    Path("TripleTrianglePlatesolveDatabase2").mkdir(exist_ok=True)
-    np.savez_compressed("TripleTrianglePlatesolveDatabase2/TripleTriangle_pattern_data2.npz", anchors = vectors_kept, pattern_ind=pattern_ind, pattern_data=pattern_data, triangles=triangles, permutation_data=permutation_data)
+    Path("TripleTrianglePlatesolveDatabase3").mkdir(exist_ok=True)
+    np.savez_compressed("TripleTrianglePlatesolveDatabase3/TripleTriangle_pattern_data3.npz", anchors = vectors_kept, pattern_ind=pattern_ind, pattern_data=pattern_data, triangles=triangles, permutation_data=permutation_data)
     print(f"completed generating triangle database -- {triangles.size//3} triangles saved")        
             
 if __name__ == '__main__':

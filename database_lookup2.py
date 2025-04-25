@@ -17,16 +17,27 @@ class database_searcher:
         self._logger = logging.getLogger('database_searcher.databasesearcher')
         if str(catalogue_path).endswith('.npz'):
             data = np.load(catalogue_path)
-            mydata  = data['mydata']
-            self.num_entries = mydata.shape[0]
+            if 'mydata' in data: #tycho compressed database
+                mydata  = data['mydata']
+                self.num_entries = mydata.shape[0]
+                ra  = mydata[:, 0]
+                dec = mydata[:, 1]
+                mags = mydata[:, 2]
+                ids = np.zeros((mydata.shape[0], 1)) # just zeros for catid
+            else:
+                ra = data['ra']
+                dec = data['dec']
+                ids = data['ids']
+                mags = data['magG']
+                self.num_entries = ids.size
             self.star_table = np.zeros((self.num_entries, 6), dtype=np.float32)
-            self.star_table[:, :2] = mydata[:, :2]
-            self.star_table[:, 5] = mydata[:, 2]
+            self.star_table[:, 0] = ra
+            self.star_table[:, 1] = dec
+            self.star_table[:, 5] = mags
             self.star_table[:, 2] = np.cos(self.star_table[:, 0]) * np.cos(self.star_table[:, 1])
             self.star_table[:, 3] = np.sin(self.star_table[:, 0]) * np.cos(self.star_table[:, 1])
             self.star_table[:, 4] = np.sin(self.star_table[:, 1])
-            #self.star_catID = data['star_catID'] # leave out catID for now because its format is annoying
-            self.star_catID = np.zeros((mydata.shape[0], 1)) # just zeros for catid
+            self.star_catID = ids
             return
         if not self._logger.hasHandlers():
             # Add new handlers to the logger if there are none
