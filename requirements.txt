@@ -5,8 +5,8 @@ Photutils
 SciPy
 Matplotlib
 scikit-image
-Astroquery
-PySimpleGUI
+Astroquery==0.4.6
+FreeSimpleGUI
 OpenCV-python
 Pandas
 scikit-learn

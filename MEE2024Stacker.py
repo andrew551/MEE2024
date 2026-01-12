@@ -19,7 +19,7 @@ import UI_handler
 #import CLI_handler
 from astropy.io import fits
 import cProfile
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import traceback
 import cv2
 import json

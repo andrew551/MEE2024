@@ -1,4 +1,3 @@
-import tetra3
 import database_lookup2
 import gaia_search
 import numpy as np
@@ -47,10 +46,7 @@ def prepare_triangles():
     _cache.prepare_process.start()
     
 def open_database(path):
-    if not path in _cache.database_cache:
-        _cache.database_cache[path] = tetra3.Tetra3(load_database=path)
-
-    return _cache.database_cache[path]
+    raise Exception("Function has been removed")
 
 def open_catalogue(path, debug_folder=None, **kwaargs):
     if not path in _cache.catalogue_cache:

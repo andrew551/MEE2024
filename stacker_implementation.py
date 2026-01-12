@@ -8,11 +8,10 @@ from pathlib import Path
 import glob
 import numpy as np
 from scipy import signal
-
+import scipy.ndimage
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 from matplotlib import cm
-import tetra3
 import math
 from scipy.optimize import minimize
 import MEE2024util
@@ -20,7 +19,7 @@ import time
 from MEE2024util import output_path, _version, setup_logger
 import datetime
 import pandas as pd
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 from collections import Counter
 from skimage import measure
 import cv2
@@ -282,13 +281,67 @@ def filter_edgy_centroids(centroids_data, img, f=3, d=16, thresh=2, edge_thresho
         '''
     return ret
             
-    
+def simple_get_centroids(image):
+    # --- 1. Convert to 2D float32 grayscale ---
+    image = np.asarray(image, dtype=np.float32)
+    if image.ndim == 3:
+        if image.shape[2] == 3:
+            image = (
+                0.299 * image[:, :, 0]
+                + 0.587 * image[:, :, 1]
+                + 0.114 * image[:, :, 2]
+            )
+        else:
+            image = image.squeeze(axis=2)
+
+    height, width = image.shape
+
+    # --- 2. Local-mean background subtraction (filtsize=25) ---
+    bg = scipy.ndimage.uniform_filter(image, size=25)
+    image = image - bg
+
+    # --- 3. Global RMS noise estimate + threshold (sigma=2) ---
+    img_std = np.sqrt(np.mean(image ** 2))
+    image_th = 2.0 * img_std
+
+    # --- 4. Binary threshold + opening ---
+    bin_mask = image > image_th
+    bin_mask = scipy.ndimage.binary_opening(bin_mask)
+
+    # --- 5. Label connected components ---
+    labels, num_labels = scipy.ndimage.label(bin_mask)
+    if num_labels == 0:
+        return np.empty((0, 2))
+
+    # --- 6. Compute centroids with area filtering ---
+    centroids = []
+
+    for label in range(1, num_labels + 1):
+        mask = labels == label
+        area = np.count_nonzero(mask)
+        if area < 5 or area > 100:
+            continue
+
+        y, x = np.nonzero(mask)
+        weights = image[mask]
+        m0 = weights.sum()
+        if m0 <= 0:
+            continue
+
+        cy = (y * weights).sum() / m0 + 0.5
+        cx = (x * weights).sum() / m0 + 0.5
+        centroids.append((cy, cx))
+
+    if not centroids:
+        return np.empty((0, 2))
+
+    return np.asarray(centroids)
 
 def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, debug_display=False):
     t_start = time.time()
     img, mask, mask2 = img_mask2
     if not options['centroid_gaussian_subtract']:
-        centroids = tetra3.get_centroids_from_image(img)
+        centroids = simple_get_centroids(img)
         return [(-1, -1, x) for x in centroids] # return tetra centroids
     if options['background_subtraction_mode'] =='Gaussian':
         blur = cv2.GaussianBlur(img, (ksize, ksize), 0)
@@ -400,16 +453,6 @@ def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, d
     print("--- %s seconds for centroid finding (all)---" % (time.time() - t_start))
     print('found:', sorted_c)
     return sorted_c
-    
-    
-    if 1:
-        fig, ax = plt.subplots()
-        plt.imshow(sub, vmin=np.percentile(sub,80), vmax=np.percentile(sub, 95))
-        show_scanlines(sub, fig, ax)
-        plt.show(block=True)
-    centroids = tetra3.get_centroids_from_image(sub, sigma=2.5, min_area=1)
-    print(centroids)
-    return centroids
 
 def show_scanlines(src_img, fig, ax):
     fig2, ax2 = plt.subplots(dpi=100, figsize=(5, 5))
@@ -622,34 +665,23 @@ def do_stack(files, darkfiles, flatfiles, options):
     # plate solve
     flag_found_IDs = False
     df_identification = None
-    solution = {'ra':None, 'dec':None, 'roll':None, 'FOV':None, 'platescale/arcsec':None}
-    #if options['database'] and options['do_tetra_platesolve']:
-    if 1:
-        #t3 = database_cache.open_database(options['database'])
-        #t3 = tetra3.Tetra3(load_database=options['database']) #tyc_dbase_test3 #hip_database938
-        #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True)
-        #solution = t3.solve_from_centroids(centroids_stacked, size=stacked.shape, pattern_checking_stars=options['k'], return_matches=True, fov_estimate=5, fov_max_error=1, distortion = (-0.0020, -0.0005))
-        solution = platesolve_triangle.platesolve(centroids_stacked, stacked.shape, options = options, output_dir = output_dir)
-        print(solution)
-        logger.info(str(solution))
-        # TODO identify stars using catalogue
-        # and save catalogue ids of each identified star (currently only around 20 are matched by the tetra software "for free"
-        if not solution['ra'] is None:
-            df_identification = pd.DataFrame({'px': np.array(solution['matched_centroids'])[:, 1],
-                               'py': np.array(solution['matched_centroids'])[:, 0],
-                               #'ID': solution['matched_catID'],
-                               'RA': np.degrees(np.array(solution['matched_stars'])[:, 0]),
-                               'DEC': np.degrees(np.array(solution['matched_stars'])[:, 1]),
-                               'magV': np.array(solution['matched_stars'])[:, 5]})
-            
-            df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
-            flag_found_IDs = True
-        else:
-            logger.error("ERROR: platesolve failed to identify location")
-            print("ERROR: platesolve failed to identify location")
+    solution = platesolve_triangle.platesolve(centroids_stacked, stacked.shape, options = options, output_dir = output_dir)
+    print(solution)
+    logger.info(str(solution))
+    if not solution['ra'] is None:
+        df_identification = pd.DataFrame({'px': np.array(solution['matched_centroids'])[:, 1],
+                           'py': np.array(solution['matched_centroids'])[:, 0],
+                           #'ID': solution['matched_catID'],
+                           'RA': np.degrees(np.array(solution['matched_stars'])[:, 0]),
+                           'DEC': np.degrees(np.array(solution['matched_stars'])[:, 1]),
+                           'magV': np.array(solution['matched_stars'])[:, 5]})
+        
+        df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
+        flag_found_IDs = True
     else:
-        #print('no database provided or platesolve not requested, so skipping platesolve')
-        logger.info('no database provided or platesolve not requested, so skipping platesolve')
+        logger.error("ERROR: platesolve failed to identify location")
+        print("ERROR: platesolve failed to identify location")
+    
 
     plt.close()
     fig, ax = plt.subplots(figsize=(10, 10))

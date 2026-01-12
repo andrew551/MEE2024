@@ -4,7 +4,7 @@ Version 6 May 2024
 """
 
 import math
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import sys
 import json
 import os
