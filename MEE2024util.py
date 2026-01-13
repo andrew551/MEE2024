@@ -12,7 +12,7 @@ import logging
 import numpy as np
 
 def _version():
-    return 'v0.5.2'
+    return 'v0.5.3'
 
 '''
 if options['output_dir'] is empty, then output there

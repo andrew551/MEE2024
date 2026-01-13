@@ -24,7 +24,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="MEE_2024_v0.5.2c",
+    name="MEE_2024_v0.5.3",
     onefile=True,
     console=True,
 )
@@ -33,6 +33,6 @@ exe = EXE(
 if sys.platform == "darwin":
     app = BUNDLE(
         exe,
-        name="MEE_2025_v0.5.2c.app",
+        name="MEE_2024_v0.5.3.app",
         bundle_identifier="org.mee2024.mee2024",
     )

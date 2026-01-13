@@ -30,6 +30,8 @@ import MEE2024util
 import datetime
 import database_cache
 from multiprocessing import Process, Manager
+import matplotlib
+matplotlib.use("TkAgg") # fix exe bug
 
 # default values for all options
 options = {

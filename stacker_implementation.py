@@ -282,60 +282,64 @@ def filter_edgy_centroids(centroids_data, img, f=3, d=16, thresh=2, edge_thresho
     return ret
             
 def simple_get_centroids(image):
-    # --- 1. Convert to 2D float32 grayscale ---
+    """
+    Simplified, faithful Tetra-style centroid extraction using fixed defaults.
+    Returns centroids as (y, x) pixel coordinates.
+    """
+
+    # ---- 1. Ensure float32 mono image ----
     image = np.asarray(image, dtype=np.float32)
     if image.ndim == 3:
-        if image.shape[2] == 3:
-            image = (
-                0.299 * image[:, :, 0]
-                + 0.587 * image[:, :, 1]
-                + 0.114 * image[:, :, 2]
-            )
-        else:
-            image = image.squeeze(axis=2)
+        image = image[..., 0]*0.299 + image[..., 1]*0.587 + image[..., 2]*0.114
+    assert image.ndim == 2
 
-    height, width = image.shape
+    # ---- 2. Background subtraction (local mean) ----
+    image = image - scipy.ndimage.uniform_filter(image, size=25)
 
-    # --- 2. Local-mean background subtraction (filtsize=25) ---
-    bg = scipy.ndimage.uniform_filter(image, size=25)
-    image = image - bg
+    # ---- 3. Threshold (sigma * global root-square noise) ----
+    img_std = np.sqrt(np.mean(image**2))
+    image_th = 2 * img_std
 
-    # --- 3. Global RMS noise estimate + threshold (sigma=2) ---
-    img_std = np.sqrt(np.mean(image ** 2))
-    image_th = 2.0 * img_std
-
-    # --- 4. Binary threshold + opening ---
+    # ---- 4. Binary mask + opening ----
     bin_mask = image > image_th
     bin_mask = scipy.ndimage.binary_opening(bin_mask)
 
-    # --- 5. Label connected components ---
+    # ---- 5. Label regions ----
     labels, num_labels = scipy.ndimage.label(bin_mask)
     if num_labels == 0:
         return np.empty((0, 2))
 
-    # --- 6. Compute centroids with area filtering ---
+    # ---- 6. Extract centroids (unbiased) ----
     centroids = []
-
-    for label in range(1, num_labels + 1):
-        mask = labels == label
-        area = np.count_nonzero(mask)
+    total_weights = []
+    slices = scipy.ndimage.find_objects(labels)
+    
+    for i, slc in enumerate(slices, start=1):
+        region_mask = (labels[slc] == i)
+        area = np.count_nonzero(region_mask)
         if area < 5 or area > 100:
             continue
 
-        y, x = np.nonzero(mask)
-        weights = image[mask]
+        region = image[slc]
+        weights = region[region_mask]
         m0 = weights.sum()
         if m0 <= 0:
             continue
 
-        cy = (y * weights).sum() / m0 + 0.5
-        cx = (x * weights).sum() / m0 + 0.5
+        yy, xx = np.nonzero(region_mask)
+
+        # Pixel centers
+        yy = yy + slc[0].start + 0.5
+        xx = xx + slc[1].start + 0.5
+
+        cy = np.sum(weights * yy) / m0
+        cx = np.sum(weights * xx) / m0
+
         centroids.append((cy, cx))
+        total_weights.append(m0)
 
-    if not centroids:
-        return np.empty((0, 2))
-
-    return np.asarray(centroids)
+    s = np.argsort(total_weights)[::-1]
+    return np.asarray(centroids)[s]
 
 def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, debug_display=False):
     t_start = time.time()
