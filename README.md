@@ -16,24 +16,29 @@ The Windows executable (see releases) will run on Windows 10 and 11 computers wi
 - Then to either install or run, paste the following into a terminal (you may want to save the command to a local re-usable bash file):
 
 ```
+set -e
+
 APP_NAME="mee2024"
 ENV_DIR="$HOME/.mee2024env"
+REPO_URL="git+https://github.com/andrew551/MEE2024.git"
 
-# Check if virtualenv exists
+echo "Using environment: $ENV_DIR"
+
 if [ ! -d "$ENV_DIR" ]; then
-    echo "Creating virtual environment at $ENV_DIR..."
+    echo "Creating virtual environment..."
     python3 -m venv "$ENV_DIR"
-    source "$ENV_DIR/bin/activate"
-    echo "Installing MEE2024 via pip..."
-    pip install --upgrade pip
-    pip install git+https://github.com/andrew551/MEE2024.git
-else
-    source "$ENV_DIR/bin/activate"
 fi
 
-# Run the app
+source "$ENV_DIR/bin/activate"
+
+if ! command -v mee2024 >/dev/null 2>&1; then
+    echo "Installing / reinstalling MEE2024..."
+    pip install --upgrade pip
+    pip install --upgrade "$REPO_URL"
+fi
+
 echo "Launching MEE2024..."
-mee2024
+exec mee2024
 ```
 After installing, you may use this to run MEE2024:
 ```
