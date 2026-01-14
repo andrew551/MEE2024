@@ -35,6 +35,12 @@ fi
 echo "Launching MEE2024..."
 mee2024
 ```
+After installing, you may use this to run MEE2024:
+```
+source "$HOME/.mee2024env/bin/activate"
+mee2024
+```
+
 
 ### Installation from Source
 
