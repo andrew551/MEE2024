@@ -1,23 +1,60 @@
 # MEE2024
 Modern Eddington Experiment codebase
 
-- To run the Python source code, install the most recent version of Python from python.org.
+## Installation
 
-- During installation under Windows, make sure to check the box to include the PATH.
+### Windows
 
-- For a Windows install, double click the _windows_setup_ batch file to install the needed Python libraries.
+The Windows executable (see releases) will run on Windows 10 and 11 computers without having to install Python.
 
-- If you are installing an update of this software, you can double click on the _window_update_ batch file to make sure you are using the most recent Python libraries. 
+### Mac/Linux
 
-- It is important that the PIP package manager itself is up to date for some of the libraries to install correctly.
+The recommended way to install MEE2024 is via pip in the terminal. As a pre-requisite, this requires an install of Python 3.9+, with Python add to path (see https://www.python.org/downloads/). Note that a terminal is required both to install and launch the program.
 
-A simpler way to run this software is to use the Windows executable file, which can be found under **Releases**.
-In this case, no Python environment is required. Simply double-click on the executable file or call it using a command line entry.
+Then to either install or run, paste the following into a terminal (you may want to save the command to a local re-usable bash file):
+
+```
+APP_NAME="mee2024"
+ENV_DIR="$HOME/.mee2024env"
+
+# Check if virtualenv exists
+if [ ! -d "$ENV_DIR" ]; then
+    echo "Creating virtual environment at $ENV_DIR..."
+    python3 -m venv "$ENV_DIR"
+    source "$ENV_DIR/bin/activate"
+    echo "Installing MEE2024 via pip..."
+    pip install --upgrade pip
+    pip install git+https://github.com/andrew551/MEE2024.git
+else
+    source "$ENV_DIR/bin/activate"
+fi
+
+# Run the app
+echo "Launching MEE2024..."
+mee2024
+```
+
+### Installation from Source
+
+- To run (and potentially edit) the Python source code, install the most recent version of Python from python.org (make sure to check the box to add Python to PATH on windows).
+
+- To install requirements: pip install -r requirements.txt
+
+- Run with python: python mee2024/main.py
+
+## Tips
+
+A small platesolve database is built into the executable (derived from the Tycho catalogue).
+
+An internet connection is required to connect to the Gaia database.
+
+Note that when the program is run for the first time, it may take a few minutes to perform some one-off precomputation.
 
 
-### **Usage**
 
-For stacking, run the Python file _MEE2024Stacker_ or the Windows executable file.
+## **Usage**
+
+Run the Python file / executable obtained following installation.
 Select the images to be stacked (the "Light frames").
 Dark frame(s) and Flat frame(s) can also be selected, if desired.
 
@@ -48,5 +85,5 @@ A higher _sigma_subtract_ will increase the background cutoff, thereby eliminati
 "Remove centroids near edges" will remove extraneous centroids associated with edge effects near the Moon or the solar corona.
 This function can be left on, just like "Remove big bright object", even when processing normal star fields.
 
-The file called _MEE_config.txt_ stores the program parameters, including the input and output directories.
-It is automatically updated each time the program is run, and can also be manually edited.
+The file called _MEE_config.txt_ (saved in your appdata or userdata) stores the program parameters, including the input and output directories.
+It is automatically updated each time the program is run, and can also be manually edited for advanced use (all standard parameters can be edited via the GUI).
