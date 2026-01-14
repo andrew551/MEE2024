@@ -39,11 +39,22 @@ import warnings
 
 # return fit file image as np array
 def open_image(file):
-    with fits.open(file) as hdul:
-        if 'PRIMARY' in hdul:
-            return hdul['PRIMARY'].data
-        else:
-            return hdul[0].data
+    try:
+        with fits.open(file) as hdul:
+            if 'PRIMARY' in hdul:
+                image = hdul['PRIMARY'].data
+            else:
+                image = hdul[0].data
+    except Exception as e:
+        img_bgr = cv2.imread(file)
+        # (Optional) Convert BGR to RGB if needed for compatibility with other libraries like Matplotlib
+        image = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+    image = np.asarray(image, dtype=np.float32)
+    if image.ndim == 3:
+        image = image[..., 0]*0.299 + image[..., 1]*0.587 + image[..., 2]*0.114
+    assert image.ndim == 2
+    return image
 
 def open_images(files):
     return [open_image(file) for file in files]

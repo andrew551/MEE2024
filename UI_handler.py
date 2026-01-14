@@ -207,11 +207,11 @@ def inputUI(options):
 
     layout_file_input = [
         [sg.Text('File(s)', size=(7, 1), key = 'File(s)'), sg.InputText(default_text=options['workDir'],size=(75,1),key='-FILE-'),
-         sg.FilesBrowse('Choose images to stack', key = 'Choose images to stack', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose images to stack', key = 'Choose images to stack', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=options['workDir'])],
         [sg.Text('Dark(s)', size=(7, 1), key = 'Dark(s)'), sg.InputText(default_text=options['-DARK-'],size=(75,1),key='-DARK-'),
-         sg.FilesBrowse('Choose Dark image(s)', key = 'Choose Dark image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose Dark image(s)', key = 'Choose Dark image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=options['workDir'])],
         [sg.Text('Flat(s)', size=(7, 1), key = 'Flat(s)'), sg.InputText(default_text=options['-FLAT-'],size=(75,1),key='-FLAT-'),
-         sg.FilesBrowse('Choose Flat image(s)', key = 'Choose Flat image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *tiff"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose Flat image(s)', key = 'Choose Flat image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=options['workDir'])],
         #[sg.Text('Database', size=(7, 1), key = 'Database'), sg.InputText(default_text=options['database'],size=(75,1),key='-DB-'),
         # sg.FilesBrowse('Choose Database', key = 'Choose Database', file_types=((".npz", "*.npz"),),initial_folder=options['workDir'])],
     ]

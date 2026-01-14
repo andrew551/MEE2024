@@ -10,9 +10,10 @@ import sys
 import json
 import logging
 import numpy as np
+from pathlib import Path
 
 def _version():
-    return 'v0.5.3'
+    return 'v0.5.4'
 
 '''
 if options['output_dir'] is empty, then output there
@@ -24,14 +25,20 @@ def output_path(path, options):
     return os.path.join(options['output_dir'], os.path.basename(path))
 
 def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
+    """
+    Get absolute path to a resource.
 
-    return os.path.join(base_path, relative_path)
+    - Works for PyInstaller (_MEIPASS)
+    - Works for pip-installed package (relative to package)
+    """
+    try:
+        # PyInstaller
+        base_path = sys._MEIPASS
+        return os.path.join(base_path, relative_path)
+    except AttributeError:
+        # pip-installed package
+        package_dir = Path(__file__).parent
+        return str(package_dir / relative_path)
 
 '''
 open config.txt and read parameters
