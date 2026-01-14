@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "MEE2024"
+version: "0.6.0"
+date-released: 2025-01-14
+type: software
+
+authors:
+  - family-names: Smith
+    given-names: Andrew
+  - family-names: Smith
+    given-names: Douglas
+
+repository-code: "https://github.com/andrew551/MEE2024"
+
+keywords:
+  - astronomy
+  - astrometry
+  - plate solving
+  - image stacking
+  - Python

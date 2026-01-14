@@ -7,6 +7,8 @@ data/hip_database938.npz
 MEE_config.txt
 *.pyc
 pattern_data.npz
+mee2024/TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz
+mee2024/TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_dataB.npz
+mee2024/build/
+mee2024/dist/
 TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz
-build/
-dist/

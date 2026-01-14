@@ -1,0 +1,3 @@
+[console_scripts]
+mee2024 = mee2024.main:main
+

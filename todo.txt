@@ -1,4 +1,4 @@
-todo 15/02/2025
+todo 14/01/2026
 
 Medium priority:
 
@@ -6,5 +6,6 @@ Medium priority:
 
 * offline gaia mode (download large file once)
 
-* clean up platesolver (spinoff?)
+* platesolve wide fields better?
+
 

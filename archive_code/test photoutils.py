@@ -1,2 +1,0 @@
-import photutils
-photutils.test()

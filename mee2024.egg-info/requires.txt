@@ -1,11 +1,10 @@
-#Python 3
 NumPy
 Astropy
 Photutils
 SciPy
 Matplotlib
 scikit-image
-Astroquery==0.4.6
+astroquery==0.4.6
 FreeSimpleGUI
 OpenCV-python
 Pandas
