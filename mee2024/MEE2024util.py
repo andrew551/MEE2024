@@ -11,7 +11,7 @@ import json
 import logging
 import numpy as np
 from pathlib import Path
-from platformdirs import user_data_dir
+from platformdirs import user_data_dir, user_config_dir
 
 def _version():
     return 'v0.6.0'
@@ -41,16 +41,24 @@ def resource_path(relative_path):
         package_dir = Path(__file__).parent
         return str(package_dir / relative_path)
 
+APP_NAME = "MEE2024"
+APP_AUTHOR = "MEE2024"
+
 def get_triangle_db_path():
     base = Path(
         user_data_dir(
-            appname="mee2024",
-            appauthor="andrew551",  # optional but recommended
+            appname=APP_NAME,
+            appauthor=APP_AUTHOR,  # optional but recommended
         )
     )
     db_dir = base / "TripleTrianglePlatesolveDatabase"
     db_dir.mkdir(parents=True, exist_ok=True)
     return db_dir / "TripleTriangle_pattern_data.npz"
+
+def get_config_path():
+    cfg_dir = Path(user_config_dir(APP_NAME, APP_AUTHOR))
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    return cfg_dir / "MEE_config.txt"
 
 '''
 open config.txt and read parameters
@@ -60,13 +68,14 @@ def read_ini(options):
     # check for config.txt file for working directory
     print('loading config file...')
     try:
-        mydir_ini=os.path.join(os.path.dirname(sys.argv[0]),'MEE_config.txt')
-        with open(mydir_ini, 'r', encoding="utf-8") as fp:
+        with open(get_config_path(), 'r', encoding="utf-8") as fp:
             loaded = json.load(fp)
             if not '__version__' in loaded or not loaded['__version__'] == _version(): # update ini
                 loaded['__version__'] = _version()
                 loaded['rough_match_threshhold'] = 36 # reset threshhold (since it was changed from degrees to arcsec)
             options.update(loaded) # if config has missing entries keep default   
+    except FileNotFoundError:
+        print('note: no config file found - using default parameters')
     except Exception:
         traceback.print_exc()
         print('note: error reading config file - using default parameters')
@@ -75,12 +84,11 @@ def read_ini(options):
 def write_ini(options):
     try:
         print('saving config file ...')
-        mydir_ini = os.path.join(os.path.dirname(sys.argv[0]),'MEE_config.txt')
-        with open(mydir_ini, 'w', encoding="utf-8") as fp:
+        with open(get_config_path(), 'w', encoding="utf-8") as fp:
             json.dump(options, fp, sort_keys=True, indent=4)
     except Exception:
         traceback.print_exc()
-        print('ERROR: failed to write config file: ' + mydir_ini)
+        print('ERROR: failed to write config file: ' + get_config_path())
 
 '''
 convert a iso-format datestring e.g 01/02/2023 to a float (e.g. 2023.08)
