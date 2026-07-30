@@ -42,6 +42,67 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-07-30 — all-sky G<12 built; two of my earlier claims corrected
+
+**`gaia_dr3_g12` is built and verified: 3,087,821 stars, 33 min, 160 MB on disk.** Stage 2
+through it reproduces the online run exactly on both fields (109.6 mas / 434 / 2023-10-28
+and 111.9 mas / 1564 / 2023-09-06).
+
+### Correction 1 — the speed benefit is field-dependent, not general
+
+I implied offline would simply be faster. On the small zwo3 field it is **not**: 21 s
+online vs 23 s offline, because the query is already quick there and the plate solve
+dominates. The benefit appears with density and depth — a 10°×10° dense field near the
+galactic plane, identical 18,886 stars both ways:
+
+| | stars | time |
+|---|---|---|
+| online | 18,886 | 10.13 s |
+| offline | 18,886 | **0.02 s** |
+
+**632×.** That is exactly the mag-13 eclipse-field case. For a small calibration field,
+offline buys reproducibility and no network dependency, not speed.
+
+### Correction 2 — the bright-star gap is worse than I said, and Tycho does not close it
+
+I claimed part of "Gaia misses the brightest stars" was our own `BETWEEN 3` query floor.
+That floor was real but **minor**. The dominant cause is that **Gaia DR3 has no entry at
+all** for the brightest stars — they saturate the instrument. Querying with no magnitude
+filter whatsoever:
+
+| star | V | what Gaia DR3 holds at that position |
+|---|---|---|
+| Sirius | −1.46 | 20 sources, brightest G = **8.52** (unrelated field stars) |
+| Vega | +0.03 | 13 sources, brightest G = **14.58** |
+| Arcturus | −0.05 | 2 sources, brightest G = **15.12** |
+| Canopus | −0.74 | 1 source, G = **19.13** |
+
+Zero NULL photometry — the stars are simply absent.
+
+And a second gap I had not anticipated: **the bundled Tycho catalogue is also missing the
+very brightest stars.** It has Arcturus (V=+0.16) and Canopus (V=−0.63) but not Sirius or
+Vega, and only 8 entries brighter than V=1 where the sky has ~15:
+
+| | V<1 | V<2 | V<3 | V<4 | V<5 | V<6 |
+|---|---|---|---|---|---|---|
+| bundled Tycho | 8 | 40 | 151 | 479 | 1535 | 4813 |
+| real sky (approx) | 15 | 50 | 170 | 520 | 1600 | 4800 |
+
+Tycho-2 shunts ~120 very bright stars into *Supplement 1*, a separate file from the
+`tyc_main.dat` this npz was built from. So the merge fixes Arcturus and Canopus but not
+Sirius or Vega.
+
+**Implication for the design:** use **Hipparcos** as the bright fill, not Tycho-2.
+Hipparcos is complete to V≈7.3, contains every naked-eye star, and has better bright-star
+astrometry than Tycho-2. We already needed a HIP crossmatch for the label layer, so one
+small artefact solves both problems. Tycho then fills only V≈7–9 where HIP thins out.
+
+Practical impact of the gap is probably modest — such stars are saturated in real frames
+and largely removed by the blob masking — but it would bite on a plate solve of a field
+containing one.
+
+---
+
 ## 2026-07-30 — offline catalogue builder, and it reproduces the online results exactly
 
 **The offline path is now testable end to end.** `tools/build_gaia_offline.py` builds a
