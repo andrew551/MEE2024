@@ -258,3 +258,113 @@ def test_install_rejects_a_corrupted_archive(tmp_path, monkeypatch):
                      '--name', 'bad']) == 1
     assert not (root / 'bad').exists(), (
         'a failed transfer must not leave a half-installed catalogue behind')
+
+
+# ---------------------------------------------------- default interface & remote check
+
+def test_no_arguments_opens_the_app_by_default(monkeypatch):
+    """From v1.0.0 a double-clicked exe opens the new interface, not the classic one."""
+    from mee2024 import main as main_module
+
+    called = []
+    monkeypatch.setattr(main_module, 'default_interface', lambda: 'app')
+    # patch the function on the module itself: `from mee2024.ui import app` binds the
+    # package attribute, so swapping sys.modules would not be seen and the real UI
+    # would launch and block
+    monkeypatch.setattr('mee2024.ui.app.launch',
+                        lambda *a, **k: called.append('app') or 0)
+    assert main_module.main([]) == 0
+    assert called == ['app']
+
+
+def test_the_classic_interface_can_be_made_the_default(monkeypatch):
+    from mee2024 import main as main_module
+
+    called = []
+    monkeypatch.setattr(main_module, 'default_interface', lambda: 'classic')
+    monkeypatch.setattr(main_module, 'run_gui', lambda: called.append('classic'))
+    assert main_module.main([]) == 0
+    assert called == ['classic']
+
+
+def test_a_failing_app_window_falls_back_to_the_classic_interface(monkeypatch):
+    """A double-clicked exe has no console, so a failure must still leave a usable app."""
+    from mee2024 import main as main_module
+
+    called = []
+    monkeypatch.setattr(main_module, 'default_interface', lambda: 'app')
+
+    def explode(*args, **kwargs):
+        raise RuntimeError('no display')
+
+    monkeypatch.setattr('mee2024.ui.app.launch', explode)
+    monkeypatch.setattr(main_module, 'run_gui', lambda: called.append('classic'))
+    assert main_module.main([]) == 0
+    assert called == ['classic']
+
+
+@pytest.mark.parametrize('value,expected', [
+    ('app', 'app'), ('classic', 'classic'), ('legacy', 'classic'), ('gui', 'classic'),
+    ('anything else', 'app'),
+])
+def test_default_interface_reads_the_config(tmp_path, monkeypatch, value, expected):
+    import json as _json
+    from mee2024 import main as main_module
+
+    config = tmp_path / 'cfg.txt'
+    config.write_text(_json.dumps({'default_interface': value}), encoding='utf-8')
+    monkeypatch.setattr('mee2024.MEE2024util.get_config_path', lambda: config)
+    assert main_module.default_interface() == expected
+
+
+def test_check_remote_reports_a_missing_asset_clearly(monkeypatch, capsys):
+    """The command exists so a release can be verified without downloading 138 MB."""
+    import urllib.error
+    from mee2024.starcat import download
+
+    def fake_urlopen(*args, **kwargs):
+        raise urllib.error.HTTPError('u', 404, 'Not Found', {}, None)
+
+    monkeypatch.setattr(download.urllib.request, 'urlopen', fake_urlopen)
+    assert cli.main(['catalogue', '--no-config', '--check-remote']) == 1
+    output = capsys.readouterr().out
+    assert 'FAIL' in output
+    assert 'catalogues-v1' in output, 'the message should name the expected tag'
+    assert 'draft' in output, 'a draft release is the most likely cause'
+
+
+def test_check_remote_accepts_a_correctly_published_asset(monkeypatch, capsys):
+    from mee2024.starcat import download
+
+    class FakeResponse:
+        headers = {'Content-Length': str(download.RELEASES['gaia_dr3_g12'].size_bytes)}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(download.urllib.request, 'urlopen', lambda *a, **k: FakeResponse())
+    monkeypatch.setitem(download.RELEASES, 'gaia_dr3_g12_13',
+                        download.RELEASES['gaia_dr3_g12'])
+    assert cli.main(['catalogue', '--no-config', '--check-remote']) == 0
+    assert 'reachable' in capsys.readouterr().out
+
+
+def test_check_remote_notices_a_different_file_was_uploaded(monkeypatch, capsys):
+    """A re-zipped upload has the wrong size, and would fail hash verification later."""
+    from mee2024.starcat import download
+
+    class WrongSize:
+        headers = {'Content-Length': '999'}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(download.urllib.request, 'urlopen', lambda *a, **k: WrongSize())
+    assert cli.main(['catalogue', '--no-config', '--check-remote']) == 1
+    assert 'size mismatch' in capsys.readouterr().out

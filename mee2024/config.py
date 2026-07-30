@@ -92,6 +92,9 @@ DEFAULT_OPTIONS = {
     # Empty until an archive is published; set with `mee2024 catalogue --set-source`,
     # so moving from an interim host to Zenodo is a config change, not a code change.
     'catalogue_sources': {},
+    # which interface a no-argument launch (or a double-clicked .exe) opens:
+    # 'app' for the new window, 'classic' for the original FreeSimpleGUI one
+    'default_interface': 'app',
 }
 
 

@@ -278,6 +278,22 @@ def cmd_catalogue(args):
               f'{manifest["band"]}<{manifest["magnitude_limit"]} -- checksums verified')
         return 0
 
+    if args.check_remote:
+        options = get_default_options()
+        MEE2024util.read_ini(options, path=args.config)
+        failures = 0
+        for result in download.check_remote(options=options):
+            print(f"[{'OK  ' if result['ok'] else 'FAIL'}] {result['name']}")
+            print(f"       {result['url']}")
+            print(f"       {result['detail']}")
+            failures += 0 if result['ok'] else 1
+        if failures:
+            print('\nSee RELEASING.md for the exact tag and asset names expected.')
+        else:
+            print('\nAll catalogue assets are reachable; '
+                  '`mee2024 catalogue --fetch NAME` will work.')
+        return 1 if failures else 0
+
     if args.verify:
         release = download.get_release(args.verify)
         directory = release.directory()
@@ -436,6 +452,8 @@ def build_parser():
                    help='catalogue name for --install (default: the archive filename)')
     p.add_argument('--force', action='store_true',
                    help='let --install replace an existing catalogue')
+    p.add_argument('--check-remote', action='store_true',
+                   help='check the published archives are reachable, without downloading them')
     p.add_argument('--quiet', action='store_true', help='suppress the progress bar')
     _add_common(p)
     p.set_defaults(func=cmd_catalogue)

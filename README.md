@@ -74,6 +74,16 @@ The classic interface is still there and unchanged:
 mee2024 gui
 ```
 
+## Running it
+
+Double-clicking the executable (or running `mee2024` with no arguments) opens the new app
+window. The classic interface is still there:
+
+```bash
+mee2024 gui                                     # the classic interface, once
+mee2024 config --set default_interface=classic  # ...or make it the default again
+```
+
 ## Command line
 
 Running `mee2024` with no arguments opens the classic GUI, as before. With arguments it

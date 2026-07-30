@@ -98,12 +98,47 @@ def run_gui():
         database_cache.shutdown_triangles()
 
 
+def default_interface():
+    """Which interface a no-argument launch opens: 'app' (new) or 'classic'.
+
+    Reads `default_interface` from the config, so someone who prefers the classic window
+    can set it once with `mee2024 config --set default_interface=classic` and never pass a
+    flag again -- including from a packaged .exe, where there is no command line to type.
+    """
+    settings = get_default_options()
+    try:
+        MEE2024util.read_ini(settings)
+    except Exception:
+        pass
+    choice = str(settings.get('default_interface', 'app')).strip().lower()
+    return 'classic' if choice in ('classic', 'legacy', 'gui') else 'app'
+
+
+def run_default_interface():
+    """Open the configured interface, falling back to the classic one if it cannot start.
+
+    Double-clicking the executable is the common case and it has no console to read an
+    error from, so a failure to open the app window must still leave the user with a
+    working program rather than a window that never appears.
+    """
+    if default_interface() == 'classic':
+        run_gui()
+        return 0
+    from mee2024.ui import app
+    try:
+        return app.launch() or 0
+    except Exception:
+        traceback.print_exc()
+        print('the app window could not start; opening the classic interface instead')
+        run_gui()
+        return 0
+
+
 def main(argv=None):
     freeze_support()  # enables multiprocessing for py-2-exe
     argv = sys.argv[1:] if argv is None else list(argv)
     if not argv:
-        run_gui()
-        return 0
+        return run_default_interface()
     from mee2024 import cli
     return cli.main(argv)
 

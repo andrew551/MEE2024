@@ -268,6 +268,49 @@ def ensure_available(name=DEFAULT_RELEASE, progress=None, allow_download=True,
     return directory
 
 
+def check_remote(name=None, options=None):
+    """Is each catalogue actually downloadable from where the code expects?
+
+    Sends a HEAD request and compares the reported size against the registry, without
+    downloading 138 MB. Written for the moment just after uploading release assets, when
+    the question is "did I get the tag and the filenames right?" -- a draft release, a
+    typo in the tag, or a renamed asset all show up here as a plain 404.
+    """
+    names = [name] if name else list(RELEASES)
+    results = []
+    for entry in names:
+        release = get_release(entry, options=options)
+        result = {'name': entry, 'url': release.url, 'ok': False, 'detail': ''}
+        if not release.is_published:
+            result['detail'] = 'no URL configured'
+            results.append(result)
+            continue
+        request = urllib.request.Request(release.url, method='HEAD',
+                                         headers={'User-Agent': 'mee2024'})
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                size = int(response.headers.get('Content-Length') or 0)
+            result['size'] = size
+            if release.size_bytes and size and size != release.size_bytes:
+                result['detail'] = (f'size mismatch: expected {release.size_bytes} bytes, '
+                                    f'server has {size}. Was a different file uploaded?')
+            else:
+                result['ok'] = True
+                result['detail'] = f'reachable, {size / 1e6:.0f} MB'
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                result['detail'] = ('404 not found. Check the release tag is exactly '
+                                    f'"{CATALOGUE_TAG}", the asset is named exactly '
+                                    f'"{entry}.zip", and the release is published '
+                                    'rather than left as a draft.')
+            else:
+                result['detail'] = f'HTTP {exc.code} {exc.reason}'
+        except urllib.error.URLError as exc:
+            result['detail'] = f'could not reach the host: {exc.reason}'
+        results.append(result)
+    return results
+
+
 def installed_catalogues():
     """Every catalogue release currently present on disk."""
     return [release for release in RELEASES.values() if release.is_installed()]
