@@ -11,12 +11,14 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 317 passing (`pytest` = 301 fast + 16 behind `--runslow`) |
+| Tests | 331 passing (`pytest` = 310 fast + 21 behind `--runslow`) |
 | Lint | pyflakes clean apart from two intentional PyInstaller import shims |
 | Pipeline | stages 1–3 all runnable headlessly from the CLI |
 | Catalogues | Gaia G<12 and 12<G<13 built locally; Hipparcos + labels bundled |
 
-See `docs/CATALOGUE_INVENTORY.md` for the full catalogue inventory and unification plan.
+Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
+`docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
+`docs/UI_DESIGN.md` (new UI strategy).
 
 ### Measured baseline — do not regress these
 
@@ -42,6 +44,50 @@ Stage 2 (`guess_date` seeded with 2020-01-01, blind):
 | zwo1 | septic | 100.9 mas | 1564 | 2023-09-20 | −39 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-07-30 — plate solver measured end to end; estimator hole found and fixed
+
+**New instrument: `tools/synthetic_field.py`** — ground-truth centroid lists synthesized
+from the offline Gaia catalogue (gnomonic projection → cubic distortion → detection
+incompleteness → noise). This is what makes the solver measurable; full results and the
+statistical theory are in `docs/PLATESOLVER_DESIGN.md`.
+
+**Measured envelope** (113,121 anchors × 153 = 17.3 M triangle DB): solves 2–8° reliably
+at mid-latitudes and in the galactic plane; fails at 1° (DB star-list depth) and at 10°
+(the brightest-18-per-pattern-disc window plus projective breakdown of similarity
+invariants). Solves down to 10 detected stars, up to ~4 px centroid noise. 5–9 s per
+solve after a 10.4 s DB load. Junk fields: 3/3 rejected.
+
+**The reliability problem in numbers**: over 8 random detection-ordering draws per
+pointing — 8/8 at mid-lat, but **6/8 at a sparse high-latitude pointing and 4/8 at 8°
+FOV**. The failure mode is which bright stars survive detection ordering, i.e. the strict
+brightest-`f` anchor prefix. This is the cheapest big win (sample anchors from ~2f).
+
+**False-positive estimator audited against the exact max-of-N-Poisson quantile.** The
+Lambert-W approximation is excellent (within 1–2 everywhere, covered by the +3 addon) —
+but it assumed all-sky mean density, and the galactic plane runs 3–10× that, making the
+threshold **unsafe by 12–23 matches in dense fields**. Fixed: the threshold now uses the
+local density from the bbox star count that `match_centroids` already had in hand.
+Verified against exact quantiles by new tests; the real-field corpus still passes.
+
+**Theory, checked against measurement**: the ≥4-triangle consensus rule is exactly the
+information budget (45 bits of solution space / 14.3 bits per triangle at tolerance 0.01);
+predicted 865 chance matches per query triangle vs ~900–1000 observed. Current tolerance
+is ~50× coarser than centroid noise supports — because the *Tycho DB* is the noisy party —
+so rebuilding the pattern DB from the offline Gaia catalogue is the gain that unlocks the
+rest (finer tolerance → fewer candidates → faster and more reliable). The Kendall
+shape-space idea (from the other branch) is endorsed with the metric argument; quads are
+the right tool only beyond ~8–10° where projective invariants are needed.
+
+**UI strategy written** (`docs/UI_DESIGN.md`): the pipeline is already headless, so the
+one missing piece is a typed event bus extending `ProgressReporter` (P0, small, useful to
+milestones B/E regardless). Recommended shell: pywebview + a self-contained local HTML
+frontend (unlimited visual ceiling, tiny packaging, Win/macOS first-class, `--browser`
+fallback). Three modes: Simple (drop files + Auto + score cards), Advanced (today's
+options), Live (watch folder; per-frame solve at the measured 5–9 s is fast enough for
+instant pointing/quality feedback during acquisition). Legacy FreeSimpleGUI kept.
 
 ---
 

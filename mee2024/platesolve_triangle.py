@@ -38,11 +38,19 @@ addon: empirical integer to add to threshold to get a "significant" value. For t
 will provide an assurance approaching certainty that the match is correct. Default: 3
 
 note: not taken into account that stars dimmer than the dimmest star in the catalog should be excluded from the observed stars
-note2: we assume stars are isotropically distributed in the sky
+note2: without local_density, we assume stars are isotropically distributed in the sky.
+This underestimates the chance-match rate in the galactic plane (3-10x the mean density),
+where the exact max-of-N-Poisson quantile can exceed this threshold by 10-25 matches --
+so pass local_density (stars per steradian in the candidate footprint) whenever a bbox
+star count is available.
 '''
-def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, addon=3):
-    p = N_stars_catalog * threshold_match**2 / 4 # propability that a randomly chosen point will be with threshold of a star.
-    # the factor of 4 comes from the ratio of the surface area of a sphere to a circle of a given radius
+def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, addon=3,
+                                  local_density=None):
+    if local_density is not None:
+        p = local_density * math.pi * threshold_match**2 # chance a random point lands within threshold of a star
+    else:
+        p = N_stars_catalog * threshold_match**2 / 4 # propability that a randomly chosen point will be with threshold of a star.
+        # the factor of 4 comes from the ratio of the surface area of a sphere to a circle of a given radius
 
     poisson_lambda = p*(n_obs-3) # for a single random match, the number of matches can be approximated by a Poisson distribution
     # the minus three is because three of the observed stars are used to platesolve a match
@@ -69,10 +77,22 @@ def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, ad
     
     
 
+def _bbox_solid_angle(ra_range, dec_range):
+    """Solid angle of a (possibly RA-wrapping) bounding box, in steradians."""
+    dra = (ra_range[1] - ra_range[0]) % 360 or 360
+    sin_hi = math.sin(math.radians(max(dec_range)))
+    sin_lo = math.sin(math.radians(min(dec_range)))
+    return math.radians(dra) * (sin_hi - sin_lo)
+
+
 def match_centroids(centroids, platescale_fit, image_size, options):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     corners = transforms.to_polar(transforms.linear_transform(platescale_fit, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
-    stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=12)[0]
+    bbox = get_bbox(corners)
+    stardata = dbs.lookup_objects(*bbox, star_max_magnitude=12)[0]
+    # local catalogue density: the false-match rate scales with it, and the galactic
+    # plane runs 3-10x the all-sky mean, so the acceptance threshold must know it
+    local_density = stardata.shape[0] / max(_bbox_solid_angle(*bbox), 1e-12)
     all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
     all_vectors = transforms.linear_transform(platescale_fit, all_star_plate)
     transformed_all = transforms.to_polar(all_vectors)
@@ -128,7 +148,7 @@ def match_centroids(centroids, platescale_fit, image_size, options):
     all_vectors = all_vectors[keep_i, :][0]
     errors = np.linalg.norm(stardata[:, 2:5]-all_vectors, axis=1)
     max_error = np.max(errors) if errors.size else match_threshhold
-    return stardata, plate2, max_error
+    return stardata, plate2, max_error, local_density
 
 # note: lifted from tetra
 def _find_rotation_matrix(image_vectors, catalog_vectors):
@@ -362,9 +382,10 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                 
                 #print((rotation_matrix.T @ ivects.T).T)
                 platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # do weird +180 roll thing as usual
-                stardata, plate2, max_error = match_centroids(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options)
+                stardata, plate2, max_error, local_density = match_centroids(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options)
                 #print('max_error', max_error)
-                thresh = estimate_acceptance_threshold(min(n_obs, MAX_MATCH), N_stars_catalog, max_error, g, addon=3)
+                thresh = estimate_acceptance_threshold(min(n_obs, MAX_MATCH), N_stars_catalog, max_error, g, addon=3,
+                                                       local_density=local_density)
                 
                 if stardata.shape[0] >= thresh:
                     n_matches += 1

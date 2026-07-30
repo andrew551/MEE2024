@@ -50,6 +50,59 @@ def test_acceptance_threshold_addon_is_additive():
     assert plus == base + 5
 
 
+def _exact_threshold(n_obs, N_cat, theta, p_fail=1e-3, density=None):
+    """Smallest k with P(max of N Poisson draws >= k) <= p_fail -- the ground truth."""
+    import math
+    from scipy import stats
+    p = (density * math.pi * theta**2 if density is not None
+         else N_cat * theta**2 / 4)
+    lam = p * (n_obs - 3)
+    N = math.comb(N_cat, 3) * math.comb(18, 3) * pst.TOLERANCE**2
+    for k in range(3, 400):
+        log_cdf = stats.poisson.logcdf(k - 1, lam)
+        if -np.expm1(N * log_cdf) <= p_fail:
+            return k + 3
+    raise AssertionError('no threshold found')
+
+
+@pytest.mark.parametrize('n_obs,theta_arcsec', [(30, 36.0), (100, 5.0), (100, 36.0),
+                                                (100, 120.0), (300, 36.0)])
+def test_acceptance_threshold_beats_the_exact_quantile(n_obs, theta_arcsec):
+    """The Lambert-W approximation plus the +3 addon must cover the exact 1e-3 quantile."""
+    theta = np.radians(theta_arcsec / 3600)
+    estimated = pst.estimate_acceptance_threshold(n_obs, 1034887, theta, 18, addon=3)
+    exact = _exact_threshold(n_obs, 1034887, theta)
+    assert estimated >= exact, f'estimator {estimated} below exact quantile {exact}'
+    assert estimated <= exact + 8, f'estimator {estimated} wastefully above exact {exact}'
+
+
+@pytest.mark.parametrize('density_factor', [3.0, 5.0, 10.0])
+def test_acceptance_threshold_tracks_local_density(density_factor):
+    """The galactic plane runs 3-10x the mean star density.
+
+    Without the local_density parameter the threshold is unsafe by 10-25 matches there;
+    with it, the estimator must again cover the exact quantile.
+    """
+    theta = np.radians(36 / 3600)
+    N_cat = 1034887
+    rho = density_factor * N_cat / (4 * np.pi)
+    estimated = pst.estimate_acceptance_threshold(100, N_cat, theta, 18, addon=3,
+                                                  local_density=rho)
+    exact = _exact_threshold(100, N_cat, theta, density=rho)
+    assert estimated >= exact, (
+        f'at {density_factor}x density: estimator {estimated} below exact {exact}')
+
+
+def test_acceptance_threshold_without_density_matches_the_mean_density():
+    """local_density = N_cat/(4 pi) must reproduce the isotropic default exactly."""
+    theta = np.radians(36 / 3600)
+    N_cat = 1034887
+    default = pst.estimate_acceptance_threshold(100, N_cat, theta, 18)
+    explicit = pst.estimate_acceptance_threshold(100, N_cat, theta, 18,
+                                                 local_density=N_cat / (4 * np.pi))
+    assert default == explicit
+
+
 # --------------------------------------------------------------- input checks
 
 def test_platesolve_rejects_wrongly_shaped_input():
@@ -99,3 +152,44 @@ def test_platesolve_platescale_agrees_with_the_optics(field_name):
     """
     expected = load_field(field_name)['expected']
     assert 1.80 < expected['platescale_arcsec'] < 1.92
+
+
+# ------------------------------------------------- synthetic fields (slow)
+
+def _offline_catalogue_or_skip():
+    from mee2024.starcat import providers
+    try:
+        return providers.GaiaOfflineProvider.from_installed(['gaia_dr3_g12'])
+    except Exception:
+        pytest.skip('gaia_dr3_g12 not installed; build it with tools/build_gaia_offline.py')
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize('fov,ra,dec', [(2.0, 210.0, 35.0), (6.0, 103.0, -5.0)])
+def test_platesolve_solves_synthetic_fields(options, fov, ra, dec):
+    """Ground-truth fields synthesized from the offline Gaia catalogue must solve."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from tools.synthetic_field import synthesize_field, solution_matches_truth
+
+    catalogue = _offline_catalogue_or_skip()
+    centroids, truth = synthesize_field(catalogue, ra, dec, roll_deg=57.0,
+                                        fov_width_deg=fov, seed=int(fov * 10))
+    result = pst.platesolve(centroids, (2000, 3000), options=options)
+    assert solution_matches_truth(result, truth), (
+        f'failed to recover fov={fov} at ({ra}, {dec}): {result.get("ra")}')
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize('seed', [0, 1, 2])
+def test_platesolve_rejects_junk_fields(options, seed):
+    """Uniform random centroids contain no sky; accepting one is a false positive."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from tools.synthetic_field import junk_field
+
+    result = pst.platesolve(junk_field((2000, 3000), n=120, seed=seed), (2000, 3000),
+                            options=options)
+    assert not result['success'], 'accepted a field of pure noise'
