@@ -59,35 +59,32 @@ mee2024
 
 ## The app window
 
-```
-mee2024 ui
-```
+Double-clicking the executable, or running `mee2024` with no arguments, opens the app
+window — a native window using the platform's own web view. Choose your light frames, pick
+a processing preset, press Run. Progress, a stacked-image preview, the fitted distortion
+field and graded score cards all appear in the window; no plot pop-ups.
 
-Opens a native window (using the platform's own web view) with a simplified workflow:
-choose your light frames, pick a processing preset, press Run. Progress, a stacked-image
-preview, and graded score cards appear in the window — no plot pop-ups. `--browser` uses
-your default browser instead, serving the same interface from the same local server.
+There is also a **Watch** mode: point it at a folder and frames are stacked and solved as
+they arrive, so you get pointing and quality feedback while the telescope is still on the
+field. A frame is only opened once it has stopped changing, so a file still being written
+is never read half-finished.
+
+```
+mee2024 ui              # explicitly, if you prefer
+mee2024 ui --browser    # same interface, in your default browser
+```
 
 The classic interface is still there and unchanged:
 
-```
-mee2024 gui
-```
-
-## Running it
-
-Double-clicking the executable (or running `mee2024` with no arguments) opens the new app
-window. The classic interface is still there:
-
 ```bash
-mee2024 gui                                     # the classic interface, once
+mee2024 gui                                     # open it once
 mee2024 config --set default_interface=classic  # ...or make it the default again
 ```
 
 ## Command line
 
-Running `mee2024` with no arguments opens the classic GUI, as before. With arguments it
-runs headlessly, which is what the test suite and any batch processing use:
+With arguments, `mee2024` runs headlessly — which is what the test suite and any batch
+processing use:
 
 ```
 mee2024 stack       LIGHTS... [--dark ...] [--flat ...] [-o DIR]   # stage 1
