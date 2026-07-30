@@ -35,7 +35,7 @@ Both files are already built and waiting in `dist/upload/`:
 | file | size (bytes) | sha256 |
 |---|---|---|
 | `gaia_dr3_g12.zip` | 137,952,319 | `f4a579e369c41b6d7099bac6b20d58c69f6b750092cd62f4085c77c670fbc5cb` |
-| `gaia_dr3_g12_13.zip` | 188,985,889 | `28607c07a9f60c89f09ba653eac06f890ff89631d28252e9af7af63be1adb71b` |
+| `gaia_dr3_g12_13.zip` | 188,640,212 | `28607c07a9f60c89f09ba653eac06f890ff89631d28252e9af7af63be1adb71b` |
 
 Those hashes are compiled into the application, which refuses any download that does not
 match. **Do not rename, re-zip or re-compress the files** — that changes the hash and every
