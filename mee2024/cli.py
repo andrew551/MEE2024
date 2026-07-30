@@ -179,6 +179,40 @@ def cmd_gui(args):
     return 0
 
 
+def cmd_catalogue(args):
+    """Inspect, verify or fetch the offline star catalogues."""
+    from mee2024.starcat import download, store
+
+    if args.verify:
+        release = download.get_release(args.verify)
+        directory = release.directory()
+        if not release.is_installed():
+            print(f'{args.verify} is not installed at {directory}')
+            return 1
+        problems = store.verify(directory)
+        if problems:
+            print(f'{args.verify}: FAILED')
+            for problem in problems:
+                print(f'  {problem}')
+            return 1
+        manifest = store.read_manifest(directory)
+        print(f'{args.verify}: OK -- {manifest["n_stars"]} stars, '
+              f'epoch {manifest["epoch"]}, {manifest["band"]}<{manifest["magnitude_limit"]}')
+        return 0
+
+    if args.fetch:
+        directory = download.ensure_available(args.fetch, progress=make_progress(args))
+        print(f'{args.fetch} ready at {directory}')
+        return 0
+
+    print(download.status())
+    print()
+    from mee2024.starcat import providers
+    print('catalogue names accepted by --catalogue: '
+          + ', '.join(providers.known_catalogues()))
+    return 0
+
+
 def cmd_build_triangle_db(args):
     """Regenerate the triangle plate-solving database (takes several minutes)."""
     from mee2024 import platesolve_new
@@ -256,6 +290,15 @@ def build_parser():
     _add_common(p)
     p.set_defaults(func=cmd_config)
 
+    p = sub.add_parser('catalogue', help='list, verify or fetch offline star catalogues')
+    p.add_argument('--verify', metavar='NAME',
+                   help='check an installed catalogue against its checksums')
+    p.add_argument('--fetch', metavar='NAME',
+                   help='download a catalogue if it is not already installed')
+    p.add_argument('--quiet', action='store_true', help='suppress the progress bar')
+    _add_common(p)
+    p.set_defaults(func=cmd_catalogue)
+
     p = sub.add_parser('build-triangle-db',
                        help='regenerate the plate-solving triangle database')
     _add_common(p)
@@ -269,10 +312,14 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        args.func(args)
-    except ValueError as exc:  # bad --set, unknown option: a user error, not a crash
-        parser.error(str(exc))
-    return 0
+        return args.func(args) or 0
+    except (ValueError, KeyError) as exc:
+        # bad --set, unknown option or unknown catalogue: a user error, not a crash
+        parser.error(str(exc).strip('"\''))
+    except RuntimeError as exc:
+        # an actionable situation, e.g. a catalogue that has to be built first
+        print(f'error: {exc}', file=sys.stderr)
+        return 1
 
 
 if __name__ == '__main__':

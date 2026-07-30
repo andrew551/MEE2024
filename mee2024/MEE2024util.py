@@ -44,16 +44,21 @@ def resource_path(relative_path):
 APP_NAME = "MEE2024"
 APP_AUTHOR = "MEE2024"
 
+def get_data_root():
+    return Path(user_data_dir(appname=APP_NAME, appauthor=APP_AUTHOR))
+
+
 def get_triangle_db_path():
-    base = Path(
-        user_data_dir(
-            appname=APP_NAME,
-            appauthor=APP_AUTHOR,  # optional but recommended
-        )
-    )
-    db_dir = base / "TripleTrianglePlatesolveDatabase"
+    db_dir = get_data_root() / "TripleTrianglePlatesolveDatabase"
     db_dir.mkdir(parents=True, exist_ok=True)
     return db_dir / "TripleTriangle_pattern_data.npz"
+
+
+def get_catalogue_root():
+    """Where downloaded or locally built star catalogues live."""
+    catalogue_dir = get_data_root() / "catalogues"
+    catalogue_dir.mkdir(parents=True, exist_ok=True)
+    return catalogue_dir
 
 def get_config_path():
     cfg_dir = Path(user_config_dir(APP_NAME, APP_AUTHOR))

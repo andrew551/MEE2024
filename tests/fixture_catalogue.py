@@ -22,7 +22,14 @@ def load_field(name):
 
 
 def load_gaia_rows(name):
-    return np.load(DATA / 'gaia' / f'{name}.npy')
+    """The raw Gaia columns at their reference epoch."""
+    return load_gaia_fixture(name)[0]
+
+
+def load_gaia_fixture(name):
+    """(rows, prop_epoch). rows carries ra_prop/dec_prop: Gaia's own propagated answer."""
+    with np.load(DATA / 'gaia' / f'{name}.npz') as archive:
+        return archive['rows'], float(archive['prop_epoch'])
 
 
 def build_centroid_zip(field_name, path):

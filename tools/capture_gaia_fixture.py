@@ -44,6 +44,10 @@ DTYPE = np.dtype([
     ('parallax', 'f4'), ('radial_velocity', 'f4'),
     ('phot_g_mean_mag', 'f4'),
     ('ref_epoch', 'f4'),
+    # Gaia's own server-side ESDC_EPOCH_PROP_POS answer at the observation epoch.
+    # Stored so tests can assert that local propagation reproduces it exactly, without
+    # needing the network.
+    ('ra_prop', 'f8'), ('dec_prop', 'f8'),
 ])
 
 
@@ -81,8 +85,8 @@ AND phot_g_mean_mag < {max_mag}"""
     # source_id must stay integral: a 19-digit Gaia id does not survive float64
     out['source_id'] = np.array(results['SOURCE_ID'], dtype=np.int64)
     for name in DTYPE.names:
-        if name == 'source_id':
-            continue
+        if name in ('source_id', 'ra_prop', 'dec_prop'):
+            continue  # ra_prop/dec_prop are filled in from the second query
         out[name] = np.array(results[name], dtype=float)
     return out
 
@@ -152,14 +156,11 @@ def main():
               f'Dec {dec_range[0]:.4f}..{dec_range[1]:.4f}')
 
         rows = query_raw(ra_range, dec_range, args.max_mag)
-        out = GAIA_DIR / f'{name}.npy'
-        np.save(out, rows)
-        print(f'  saved {len(rows)} rows -> {out.relative_to(REPO)} '
-              f'({out.stat().st_size / 1024:.1f} KB)')
 
         # the online reference: server-side ESDC_EPOCH_PROP_POS, what the pipeline uses today
         online = gaia_search.select_in_box(target_epoch, ra_range, dec_range, args.max_mag)
-        by_id = {int(i): k for k, i in enumerate(np.array(online['SOURCE_ID']))}
+        by_id = {int(i): k for k, i in enumerate(np.array(online['SOURCE_ID'],
+                                                         dtype=np.int64))}
         keep = np.array([i for i, sid in enumerate(rows['source_id']) if int(sid) in by_id])
         order = np.array([by_id[int(rows['source_id'][i])] for i in keep])
         matched = rows[keep]
@@ -167,6 +168,18 @@ def main():
         dec_online = np.array(online['COORD2'])[order]
         print(f'  matched {len(matched)} of {len(rows)} raw rows against the online query'
               f' (online returned {len(online)}; it applies a G>3 floor)')
+
+        # record Gaia's own propagated answer so tests can check ours against it offline
+        rows['ra_prop'] = np.nan
+        rows['dec_prop'] = np.nan
+        rows['ra_prop'][keep] = ra_online
+        rows['dec_prop'][keep] = dec_online
+        out = GAIA_DIR / f'{name}.npz'
+        np.savez_compressed(out, rows=rows, prop_epoch=np.float64(target_epoch))
+        (GAIA_DIR / f'{name}.npy').unlink(missing_ok=True)
+        print(f'  saved {len(rows)} rows -> {out.relative_to(REPO)} '
+              f'({out.stat().st_size / 1024:.1f} KB), '
+              f'{int(np.sum(~np.isnan(rows["ra_prop"])))} with a propagated reference')
 
         print('  local propagation vs Gaia ESDC_EPOCH_PROP_POS:')
         compare(matched, ra_online, dec_online, target_epoch,
