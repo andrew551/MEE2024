@@ -214,8 +214,50 @@ def cmd_ui(args):
 
 
 def cmd_catalogue(args):
-    """Inspect, verify or fetch the offline star catalogues."""
+    """Inspect, verify, fetch, pack or install the offline star catalogues."""
+    from mee2024.MEE2024util import get_catalogue_root
     from mee2024.starcat import download, store
+
+    if args.pack:
+        directory = _resolve_catalogue_dir(args.pack)
+        if directory is None:
+            print(f'{args.pack} is not installed; nothing to pack')
+            return 1
+        destination = Path(args.out) if args.out else Path.cwd() / f'{args.pack}.zip'
+        print(f'packing {directory} -> {destination}')
+        archive = store.pack(directory, destination)
+        size = archive.stat().st_size
+        print(f'wrote {archive} ({size / 1e6:.0f} MB)')
+        print(f'sha256 {store.sha256(archive)}')
+        print('\nCopy it to the other machine and run:')
+        print(f'    mee2024 catalogue --install {archive.name}')
+        return 0
+
+    if args.install:
+        source = Path(args.install)
+        if not source.exists():
+            print(f'no such archive: {source}')
+            return 1
+        name = args.name or source.stem
+        directory = get_catalogue_root() / name
+        if directory.exists() and not args.force:
+            print(f'{directory} already exists; pass --force to replace it')
+            return 1
+        print(f'installing {source} -> {directory}')
+        try:
+            store.unpack(source, directory, verify_checksums=True)
+        except Exception as exc:
+            # a failed transfer must not leave a half-installed catalogue that later
+            # looks usable; remove it and say plainly what went wrong
+            import shutil as _shutil
+            _shutil.rmtree(directory, ignore_errors=True)
+            print(f'install failed, nothing was kept: {exc}', file=sys.stderr)
+            print('the archive is corrupt or truncated -- copy it again', file=sys.stderr)
+            return 1
+        manifest = store.read_manifest(directory)
+        print(f'installed {name}: {manifest["n_stars"]} stars, epoch {manifest["epoch"]}, '
+              f'{manifest["band"]}<{manifest["magnitude_limit"]} -- checksums verified')
+        return 0
 
     if args.verify:
         release = download.get_release(args.verify)
@@ -240,11 +282,26 @@ def cmd_catalogue(args):
         return 0
 
     print(download.status())
+    locally_built = sorted(
+        d.name for d in get_catalogue_root().iterdir()
+        if d.is_dir() and not d.name.startswith('.') and _resolve_catalogue_dir(d.name))
+    if locally_built:
+        print('\nlocally built catalogues:')
+        for name in locally_built:
+            manifest = store.read_manifest(get_catalogue_root() / name)
+            print(f'  {name}: {manifest["n_stars"]} stars, '
+                  f'{manifest["band"]}<{manifest["magnitude_limit"]}')
     print()
     from mee2024.starcat import providers
     print('catalogue names accepted by --catalogue: '
-          + ', '.join(providers.known_catalogues()))
+          + ', '.join(providers.known_catalogues()) + ', or any name listed above')
     return 0
+
+
+def _resolve_catalogue_dir(name):
+    """The directory of an installed catalogue, whether registered or locally built."""
+    from mee2024 import database_cache
+    return database_cache._installed_catalogue_dir(name)
 
 
 def cmd_build_triangle_db(args):
@@ -335,11 +392,21 @@ def build_parser():
     _add_common(p)
     p.set_defaults(func=cmd_config)
 
-    p = sub.add_parser('catalogue', help='list, verify or fetch offline star catalogues')
+    p = sub.add_parser('catalogue',
+                       help='list, verify, fetch, pack or install offline star catalogues')
     p.add_argument('--verify', metavar='NAME',
                    help='check an installed catalogue against its checksums')
     p.add_argument('--fetch', metavar='NAME',
                    help='download a catalogue if it is not already installed')
+    p.add_argument('--pack', metavar='NAME',
+                   help='zip an installed catalogue for copying to another machine')
+    p.add_argument('--install', metavar='ARCHIVE',
+                   help='install a catalogue from a zip made by --pack')
+    p.add_argument('--out', metavar='FILE', help='where --pack writes its archive')
+    p.add_argument('--name', metavar='NAME',
+                   help='catalogue name for --install (default: the archive filename)')
+    p.add_argument('--force', action='store_true',
+                   help='let --install replace an existing catalogue')
     p.add_argument('--quiet', action='store_true', help='suppress the progress bar')
     _add_common(p)
     p.set_defaults(func=cmd_catalogue)

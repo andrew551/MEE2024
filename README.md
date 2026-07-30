@@ -88,6 +88,27 @@ mee2024 config      --show | --set key=value
 mee2024 build-triangle-db                                          # regenerate the platesolve database
 ```
 
+## Offline star catalogues
+
+`mee2024 catalogue` lists what is installed and where. Catalogues are built locally with
+`tools/build_gaia_offline.py` (all-sky Gaia G<12 is ~3.1 M stars, 29 queries, 10-22 min).
+
+To move one to another machine without re-downloading from Gaia:
+
+```bash
+mee2024 catalogue --pack gaia_dr3_g12          # -> gaia_dr3_g12.zip, prints its sha256
+# copy the zip across, then on the other machine:
+mee2024 catalogue --install gaia_dr3_g12.zip
+```
+
+Every column carries a SHA-256 in the catalogue's manifest, so `--install` verifies the
+transfer and refuses to leave a corrupt catalogue in place. `mee2024 catalogue --verify NAME`
+re-checks an installed one at any time.
+
+The plate-solving triangle database (`TripleTriangle_pattern_data.npz`, ~128 MB, in the
+same user-data directory) is a plain `.npz` and can simply be copied to save the few
+minutes it takes to regenerate.
+
 Any option can be overridden with `--set key=value` (repeatable), and `--no-display`
 suppresses every plot window so a run can complete unattended. For example:
 
