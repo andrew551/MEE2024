@@ -27,6 +27,11 @@ centroid_data*.zip
 distortion_data*.zip
 ECLIPSE_OUTPUT*
 
+# Packed star catalogues: `mee2024 catalogue --pack` writes ~138 MB into the cwd
+gaia_*.zip
+hipparcos*.zip
+*_catalogue.zip
+
 # Python / tooling
 __pycache__/
 *.egg-info/
