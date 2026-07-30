@@ -28,20 +28,21 @@ from contextlib import contextmanager
 
 # ---------------------------------------------------------------- event types
 
-STAGE_STARTED = 'stage_started'      # stage, label, n_items
+STAGE_STARTED = 'stage_started'      # stage, label, n_items, unit
 STAGE_FINISHED = 'stage_finished'    # stage, ok
-PROGRESS = 'progress'                # stage, done, of, label
+PROGRESS = 'progress'                # stage, done, of, label, unit
 FRAME_ALIGNED = 'frame_aligned'      # frame, shift, rms, n_matched
 CENTROIDS_FOUND = 'centroids_found'  # stage, n, image_shape
 SOLVE_CANDIDATE = 'solve_candidate'  # n_triangles, n_matched, threshold, accepted, ra, dec
 SOLVE_RESULT = 'solve_result'        # success, ra, dec, roll, platescale, n_matched, mirror
 METRICS = 'metrics'                  # any subset of the quality numbers
 IMAGE = 'image'                      # name, png (base64), width, height
+ANALYSIS = 'analysis'                # stars, surface, image_size, platescale, order
 LOG = 'log'                          # level, text
 ERROR = 'error'                      # text, traceback
 
 ALL_TYPES = (STAGE_STARTED, STAGE_FINISHED, PROGRESS, FRAME_ALIGNED, CENTROIDS_FOUND,
-             SOLVE_CANDIDATE, SOLVE_RESULT, METRICS, IMAGE, LOG, ERROR)
+             SOLVE_CANDIDATE, SOLVE_RESULT, METRICS, IMAGE, ANALYSIS, LOG, ERROR)
 
 
 # --------------------------------------------------------------------- sinks

@@ -334,11 +334,38 @@ def test_startable_propagation_beats_the_old_stardata_path():
 
 
 def test_offline_provider_caps_requests_at_its_own_depth(tmp_path, capsys):
+    """Asking deeper than the archive goes must say so rather than quietly return less."""
     table = table_from_fixture('zwo3_zenith')
     store.write_catalogue(tmp_path, table, name='zwo3', magnitude_limit=12.0)
     provider = prov.GaiaOfflineProvider(tmp_path)
     provider.lookup((354.0, 358.0), (44.0, 46.0), max_magnitude=13.0)
-    assert 'reaches only G<12' in capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert 'G<12' in printed and 'magnitude 13' in printed
+    # and it must name the way out, not merely complain
+    assert 'gaia_dr3_g12_13' in printed
+
+
+def test_depth_warning_reaches_the_event_bus(tmp_path):
+    """The app window learns about truncation through events, not through stdout."""
+    from mee2024 import events
+    table = table_from_fixture('zwo3_zenith')
+    store.write_catalogue(tmp_path, table, name='zwo3', magnitude_limit=12.0)
+    provider = prov.GaiaOfflineProvider(tmp_path)
+    sink = events.ListSink()
+    with events.using(events.EventBus([sink])):
+        provider.lookup((354.0, 358.0), (44.0, 46.0), max_magnitude=13.0)
+    warnings = [e for e in sink.events
+                if e['type'] == events.LOG and e.get('level') == 'warning']
+    assert len(warnings) == 1
+    assert 'G<12' in warnings[0]['text']
+
+
+def test_no_warning_when_the_request_fits_the_archive(tmp_path, capsys):
+    table = table_from_fixture('zwo3_zenith')
+    store.write_catalogue(tmp_path, table, name='zwo3', magnitude_limit=12.0)
+    provider = prov.GaiaOfflineProvider(tmp_path)
+    provider.lookup((354.0, 358.0), (44.0, 46.0), max_magnitude=11.0)
+    assert 'note:' not in capsys.readouterr().out
 
 
 def test_offline_provider_uses_precomputed_neighbour_flags(tmp_path):

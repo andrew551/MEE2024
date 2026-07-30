@@ -10,7 +10,7 @@ from pathlib import Path
 
 from mee2024 import events
 from mee2024.config import get_default_options
-from mee2024.progress import ProgressReporter
+from mee2024.progress import EventProgress, ProgressReporter
 
 IDLE = 'idle'
 RUNNING = 'running'
@@ -156,6 +156,18 @@ class PipelineRunner:
         options.update(spec.get('options') or {})
         return options
 
+    def prepare_catalogue(self, options):
+        """Fetch a missing catalogue and report depth problems, onto the event bus."""
+        from mee2024.starcat import download
+
+        for warning in download.prepare_catalogue(
+                options.get('catalogue') or 'gaia', options=options,
+                allow_download=options.get('auto_download_catalogue', True),
+                on_note=events.log,
+                progress_for=lambda name: EventProgress(
+                    stage=f'download:{name}', label=f'Downloading {name}', unit='bytes')):
+            events.log(warning, level='warning')
+
     def _work(self, spec):
         import matplotlib
         matplotlib.use('Agg')
@@ -169,6 +181,10 @@ class PipelineRunner:
                 progress = CancellableProgress(self.cancel_event)
                 events.log(f'starting: {len(spec["lights"])} light frame(s), '
                            f'preset={spec.get("preset", "auto")}')
+                if 'distortion' in stages:
+                    # only stage 2 consults the catalogue, but check before stage 1 so a
+                    # missing download is not discovered after minutes of stacking
+                    self.prepare_catalogue(options)
 
                 centroid_zip = spec.get('centroid_zip')
                 if 'stack' in stages:

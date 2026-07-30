@@ -12,6 +12,7 @@ import urllib.request
 import pytest
 
 from mee2024 import events
+from mee2024.MEE2024util import _version
 from mee2024.ui.runner import CancellableProgress, Cancelled, PipelineRunner
 from mee2024.ui.server import Api, UiServer
 
@@ -57,11 +58,12 @@ def test_hello_describes_the_app(api):
     assert hello['roots'], 'expected at least one browsable root'
 
 
-def test_default_catalogue_prefers_an_installed_offline_archive(api):
+def test_default_catalogue_prefers_offline_when_anything_is_installed(api):
+    """'gaia_offline' rather than an archive name: it reads every archive present, so
+    installing the deep extension deepens the default instead of being ignored."""
     from mee2024.starcat import download
-    default = api._default_catalogue()
-    installed = [r.name for r in download.RELEASES.values() if r.is_installed()]
-    assert default in (installed or ['gaia'])
+    expected = 'gaia_offline' if download.installed_catalogues() else 'gaia'
+    assert api._default_catalogue() == expected
 
 
 def test_browse_lists_directories_and_image_files(api, tmp_path):
@@ -408,7 +410,9 @@ def test_frontend_handles_every_event_type():
 def test_hello_reports_authors_and_watch_defaults(api):
     hello = api.hello()
     assert hello['authors'] == 'Andrew Smith and Douglas Smith'
-    assert hello['version'] == 'v1.0.0'
+    # against _version() rather than a literal, so a release does not need a test edit
+    assert hello['version'] == _version()
+    assert hello['version'].startswith('v')
     defaults = hello['watch_defaults']
     assert defaults['settle_seconds'] == 10.0
     assert defaults['batch_size'] >= 1
@@ -489,3 +493,116 @@ def test_fetch_of_an_installed_catalogue_is_a_no_op(api, monkeypatch):
     release = download.RELEASES['gaia_dr3_g12']
     monkeypatch.setattr(release, 'is_installed', lambda: True)
     assert api.fetch_catalogue('gaia_dr3_g12') == {'ok': True, 'already': True}
+
+
+def test_catalogues_carry_their_depth_and_recommendation(api):
+    entries = {c['name']: c for c in api.hello()['catalogues']}
+    assert entries['gaia_dr3_g12']['role'] == 'base'
+    # the deep archive is an extension: alone it holds nothing brighter than G=12
+    assert entries['gaia_dr3_g12_13']['role'] == 'extension'
+    assert entries['gaia_dr3_g12_13']['magnitude_limit'] == 13.0
+    assert all(c['recommended'] for c in entries.values())
+
+
+def test_hello_reports_how_deep_each_catalogue_reaches(api):
+    limits = api.hello()['catalogue_limits']
+    # the online archive has no practical limit, so it must not read as a shallow one
+    assert limits['gaia'] is None
+    assert limits['gaia_dr3_g12'] == 12.0
+    assert api.hello()['recommended_catalogue'] == 'gaia_offline'
+
+
+def test_the_default_catalogue_uses_every_installed_archive(api, monkeypatch):
+    """Naming one archive would cap the run at that archive's own depth."""
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download, 'installed_catalogues',
+                        lambda: [download.RELEASES['gaia_dr3_g12']])
+    assert api._default_catalogue() == 'gaia_offline'
+
+
+def test_no_installed_archive_falls_back_to_the_online_archive(api, monkeypatch):
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download, 'installed_catalogues', lambda: [])
+    assert api._default_catalogue() == 'gaia'
+
+
+def test_download_progress_is_labelled_as_bytes():
+    """A byte count rendered as an item count reads as gibberish in the progress bar."""
+    from mee2024.progress import EventProgress
+
+    sink = events.ListSink()
+    with events.using(events.EventBus([sink])):
+        progress = EventProgress(stage='download:x', label='Downloading x', unit='bytes')
+        progress.start(137_952_319, 'Downloading x')
+        progress.update(1_048_576)
+        progress.finish()
+    kinds = [e['type'] for e in sink.events]
+    assert kinds == [events.STAGE_STARTED, events.PROGRESS, events.STAGE_FINISHED]
+    assert all(e.get('unit') == 'bytes' for e in sink.events[:2])
+    assert sink.events[0]['n_items'] == 137_952_319
+
+
+# ------------------------------------------------------ catalogue preflight
+
+def test_a_run_fetches_a_missing_catalogue_before_stacking(monkeypatch):
+    """The download must happen up front, not after minutes of stacking work."""
+    from mee2024.starcat import download
+
+    fetched = []
+    monkeypatch.setattr(download, 'releases_needed',
+                        lambda catalogue, options=None: ['gaia_dr3_g12'])
+    monkeypatch.setattr(download, 'ensure_available',
+                        lambda name, **kw: fetched.append(name))
+    monkeypatch.setattr(download, 'effective_magnitude_limit',
+                        lambda catalogue, options=None: 12.0)
+
+    runner = PipelineRunner()
+    with events.using(runner.bus):
+        runner.prepare_catalogue({'catalogue': 'gaia_offline', 'max_star_mag_dist': 12.0,
+                                  'auto_download_catalogue': True})
+    assert fetched == ['gaia_dr3_g12']
+
+
+def test_a_run_refuses_rather_than_downloading_when_told_not_to(monkeypatch):
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download, 'releases_needed',
+                        lambda catalogue, options=None: ['gaia_dr3_g12'])
+    monkeypatch.setattr(download, 'ensure_available',
+                        lambda name, **kw: pytest.fail('must not download'))
+
+    runner = PipelineRunner()
+    with pytest.raises(RuntimeError, match='--fetch gaia_dr3_g12'):
+        runner.prepare_catalogue({'catalogue': 'gaia_offline',
+                                  'auto_download_catalogue': False})
+
+
+def test_a_run_warns_when_asked_for_stars_the_catalogue_lacks(monkeypatch):
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download, 'releases_needed',
+                        lambda catalogue, options=None: [])
+    monkeypatch.setattr(download, 'effective_magnitude_limit',
+                        lambda catalogue, options=None: 13.0)
+
+    runner = PipelineRunner()
+    with events.using(runner.bus):
+        runner.prepare_catalogue({'catalogue': 'gaia_offline', 'max_star_mag_dist': 14.0})
+    warnings = [e for e in runner.sink.events
+                if e['type'] == events.LOG and e.get('level') == 'warning']
+    assert len(warnings) == 1 and 'G<13' in warnings[0]['text']
+
+
+def test_no_warning_when_the_catalogue_is_deep_enough(monkeypatch):
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download, 'releases_needed', lambda catalogue, options=None: [])
+    monkeypatch.setattr(download, 'effective_magnitude_limit',
+                        lambda catalogue, options=None: 13.0)
+
+    runner = PipelineRunner()
+    with events.using(runner.bus):
+        runner.prepare_catalogue({'catalogue': 'gaia_offline', 'max_star_mag_dist': 12.0})
+    assert not [e for e in runner.sink.events if e.get('level') == 'warning']

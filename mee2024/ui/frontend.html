@@ -49,6 +49,13 @@ header{
 main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
 .col{overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
 .col.left{border-right:1px solid var(--line);background:rgba(19,24,36,.35)}
+/* Below this the controls column would leave the results pane a few pixels wide, which
+   collapses the plots to nothing. Stack instead and scroll the page as one column. */
+@media (max-width:820px){
+  main{grid-template-columns:1fr;overflow-y:auto}
+  .col{overflow:visible}
+  .col.left{border-right:none;border-bottom:1px solid var(--line)}
+}
 
 /* ---------------------------------------------------------------- cards */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -217,6 +224,27 @@ main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
   background:var(--bg);border:1px solid var(--line);color:var(--ink);
   border-radius:8px;padding:6px 9px;font-family:var(--mono);font-size:12px;width:130px
 }
+
+/* ------------------------------------------------------- advanced analysis */
+.subtabs{display:flex;gap:2px;background:var(--panel-2);padding:3px;border-radius:8px;
+  margin-bottom:12px;flex-wrap:wrap}
+.subtabs button{border:0;background:transparent;color:var(--ink-dim);padding:5px 11px;
+  border-radius:6px;font-size:12.5px;transition:.15s}
+.subtabs button.on{background:var(--accent);color:#0b0e14;font-weight:600}
+.subtabs button:not(.on):hover{color:var(--ink)}
+canvas.plot{width:100%;display:block;border-radius:10px;background:var(--bg);
+  border:1px solid var(--line);touch-action:none;cursor:grab}
+canvas.plot.rot:active{cursor:grabbing}
+.badge{background:#1d2a4d;color:var(--accent);border:1px solid #2c3f6d;border-radius:20px;
+  padding:1px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;
+  font-weight:700;flex:none}
+.warnline{color:var(--warn);font-size:12px;margin-top:9px;display:none}
+.warnline.on{display:block}
+.slider{display:flex;align-items:center;gap:11px;font-size:12.5px;color:var(--ink-dim)}
+.slider input[type=range]{flex:1;accent-color:var(--accent)}
+.tip{position:absolute;pointer-events:none;background:#050810;border:1px solid var(--line);
+  border-radius:7px;padding:5px 8px;font-size:11.5px;font-family:var(--mono);
+  color:var(--ink);display:none;z-index:20;white-space:pre}
 </style>
 </head>
 <body>
@@ -292,6 +320,7 @@ main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
           <label for="magmax">Max star magnitude</label>
           <input id="magmax" value="12">
         </div>
+        <div class="warnline" id="mag-warn"></div>
         <label class="check" style="margin-top:10px">
           <input type="checkbox" id="fieldplot" checked>
           <span>Show the distortion field</span>
@@ -376,6 +405,66 @@ main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
           </p>
           <div id="field"></div>
         </div>
+        <div class="card" id="analysis-card" style="display:none;margin-top:16px;
+             position:relative">
+          <div class="row" style="margin-bottom:10px">
+            <h3 style="margin:0">Advanced analysis</h3>
+            <div class="spacer"></div>
+            <button class="btn" id="analysis-toggle">Show</button>
+          </div>
+          <p class="faint" id="analysis-hint" style="margin:0;max-width:70ch">
+            The fitted displacement as a surface with every measured star on it, and a map
+            of where residuals stay correlated across the detector. For diagnosing the fit
+            rather than reading off the result.
+          </p>
+          <div id="analysis-body" style="display:none">
+            <div class="subtabs" id="analysis-tabs">
+              <button data-view="dx" class="on">x-displacement surface</button>
+              <button data-view="dy">y-displacement surface</button>
+              <button data-view="corr">Residual correlation</button>
+            </div>
+            <div id="surface-panel">
+              <canvas class="plot rot" id="surface-canvas" height="430"></canvas>
+              <div class="row" style="margin-top:10px;gap:8px">
+                <span class="faint">Residual exaggeration</span>
+                <select id="resid-gain">
+                  <option value="1">&times;1 (true scale)</option>
+                  <option value="5">&times;5</option>
+                  <option value="20">&times;20</option>
+                  <option value="100">&times;100</option>
+                </select>
+                <div class="spacer"></div>
+                <button class="btn" id="surface-reset">Reset view</button>
+              </div>
+              <div class="faint" style="margin-top:9px">
+                Drag to rotate, scroll to zoom, double-click to reset. Each point is one
+                star, sitting off the surface by its residual. Even peppering means the
+                order is sufficient &mdash; a carpet undulating coherently above and below
+                means it is not. On a good fit the residuals are far smaller than the
+                distortion itself, so raise the exaggeration to see their structure.
+              </div>
+              <div class="faint" id="surface-legend" style="margin-top:6px"></div>
+            </div>
+            <div id="corr-panel" style="display:none">
+              <canvas class="plot" id="corr-canvas" height="430"></canvas>
+              <div class="slider" style="margin-top:11px">
+                <span>Bins per axis</span>
+                <input type="range" id="corr-bins" min="4" max="32" step="1" value="12">
+                <span id="corr-bins-val" style="font-family:var(--mono)">12</span>
+              </div>
+              <div class="faint" style="margin-top:7px;max-width:74ch">
+                Each cell averages, over the stars inside it, the cosine of the angle
+                between a star's residual and its nearest neighbour's. Near zero is
+                uncorrelated noise. A warm patch is a region where residuals point the same
+                way &mdash; a local optical imperfection the global polynomial has not
+                absorbed. The single figure in the score cards is this map averaged.
+              </div>
+              <div class="faint" id="corr-legend" style="margin-top:6px"></div>
+            </div>
+          </div>
+          <div class="tip" id="analysis-tip"></div>
+        </div>
+
         <div class="card" id="details-card" style="display:none;margin-top:16px">
           <h3>Solution</h3>
           <dl class="kv" id="details"></dl>
@@ -430,6 +519,7 @@ const state = {
   lights:[], darks:[], flats:[], outputDir:null, preset:'auto',
   since:0, status:'idle', stages:new Map(), metrics:{}, solve:null, advanced:false,
   tab:'simple', watch:null, watchFolder:null, keepPolling:false,
+  analysis:null, analysisOpen:false, analysisView:'dx', catalogueLimits:{},
 };
 
 /* ------------------------------------------------------------------ helpers */
@@ -495,8 +585,11 @@ function renderStages(){
     el.innerHTML = `<div class="lab"><b></b><span class="faint"></span></div>
                     <div class="${cls}"><i style="width:${s.finished?100:pct}%"></i></div>`;
     el.querySelector('b').textContent = s.label;
+    // a byte count must read as a size: "45088768 / 137952319" is not a progress report
+    const counts = s.unit==='bytes' ? `${fmtSize(s.done)} of ${fmtSize(s.of)} · ${pct}%`
+                                    : `${s.done} / ${s.of}`;
     el.querySelector('span').textContent =
-      s.finished ? 'done' : (s.of ? `${s.done} / ${s.of}` : 'working');
+      s.finished ? 'done' : (s.of ? counts : 'working');
     host.appendChild(el);
   }
 }
@@ -604,6 +697,364 @@ function renderDetails(){
   });
 }
 
+/* ------------------------------------------------------- advanced analysis */
+/* Two views the flat field map cannot give: the fitted surface with the measured stars
+   on it, and where residuals stay spatially correlated. Drawn on a canvas rather than
+   sent as images so they can be rotated and re-binned without re-running anything. */
+
+const view3d = {az:-0.62, el:1.12, zoom:1};
+const DEFAULT_VIEW = {az:-0.62, el:1.12, zoom:1};
+
+/* Rotate by azimuth about the vertical, then tilt; return screen x, y and a depth key.
+   Larger depth is nearer the viewer, so painter's-algorithm order is ascending. */
+function project(x, y, z, az, el){
+  const ca=Math.cos(az), sa=Math.sin(az), ce=Math.cos(el), se=Math.sin(el);
+  const x1 = x*ca - y*sa;
+  const y1 = x*sa + y*ca;
+  return [x1, -(y1*ce - z*se), y1*se + z*ce];
+}
+
+function diverging(t){
+  t = Math.max(-1, Math.min(1, t || 0));
+  const mid=[226,231,242], neg=[90,132,255], pos=[255,105,105];
+  const end = t<0 ? neg : pos, m = Math.abs(t);
+  return `rgb(${Math.round(mid[0]+(end[0]-mid[0])*m)},`
+       + `${Math.round(mid[1]+(end[1]-mid[1])*m)},`
+       + `${Math.round(mid[2]+(end[2]-mid[2])*m)})`;
+}
+
+/* Match the canvas backing store to its CSS size and the display density, so lines are
+   crisp rather than resampled. Returns the logical drawing size. */
+function fitCanvas(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 720, h = parseInt(canvas.getAttribute('height'), 10);
+  canvas.width = Math.round(w*dpr); canvas.height = Math.round(h*dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return {ctx, w, h};
+}
+
+function bilinear(grid, xs, ys, x, y){
+  const nx = xs.length, ny = ys.length;
+  const fx = (x - xs[0]) / (xs[nx-1] - xs[0]) * (nx-1);
+  const fy = (y - ys[0]) / (ys[ny-1] - ys[0]) * (ny-1);
+  const i = Math.max(0, Math.min(nx-2, Math.floor(fx)));
+  const j = Math.max(0, Math.min(ny-2, Math.floor(fy)));
+  const tx = Math.max(0, Math.min(1, fx-i)), ty = Math.max(0, Math.min(1, fy-j));
+  return grid[j][i]*(1-tx)*(1-ty) + grid[j][i+1]*tx*(1-ty)
+       + grid[j+1][i]*(1-tx)*ty + grid[j+1][i+1]*tx*ty;
+}
+
+function drawSurface(){
+  const a = state.analysis;
+  const canvas = $('surface-canvas');
+  if(!a || !canvas.clientWidth) return;
+  const {ctx, w, h} = fitCanvas(canvas);
+  const comp = state.analysisView === 'dy' ? 'dy' : 'dx';
+  const grid = a.surface[comp], xs = a.surface.x, ys = a.surface.y;
+  const st = a.stars, sd = st[comp], sr = comp==='dx' ? st.rx : st.ry;
+
+  // one length scale for x and y keeps the detector's aspect ratio honest
+  const half = Math.max(a.image_size[0], a.image_size[1]) / 2;
+  let zmax = 1e-9;
+  for(const row of grid) for(const v of row) zmax = Math.max(zmax, Math.abs(v));
+  const peakFit = zmax;   // the honest peak, before any exaggeration widens the axis
+  for(const v of sd) zmax = Math.max(zmax, Math.abs(v));
+
+  const gain = parseFloat($('resid-gain').value) || 1;
+  // exaggerating residuals can push points past the surface's own range
+  if(gain > 1){
+    for(let i=0;i<sd.length;i++){
+      const surf = bilinear(grid, xs, ys, st.x[i], st.y[i]);
+      zmax = Math.max(zmax, Math.abs(surf - sr[i]*gain));
+    }
+  }
+
+  const nx = xs.length, ny = ys.length;
+  // the projection spans about +/-1.41 across and +/-1.2 up, so the two axes need
+  // different divisors; using min(w,h) alone wastes most of a tall narrow canvas
+  const scale = Math.min(w/3.05, h/2.55) * view3d.zoom;
+  const cx = w/2, cy = h/2 + h*0.04;
+  const P = (x, y, z) => {
+    const p = project(x/half, y/half, (z/zmax)*0.62, view3d.az, view3d.el);
+    return [cx + p[0]*scale, cy + p[1]*scale, p[2]];
+  };
+
+  // a floor grid under the surface, purely as a depth cue
+  ctx.strokeStyle = '#1c2334'; ctx.lineWidth = 1;
+  const floor = -0.95*zmax;
+  for(let k=0;k<=8;k++){
+    const fx = xs[0] + (xs[nx-1]-xs[0])*k/8, fy = ys[0] + (ys[ny-1]-ys[0])*k/8;
+    let p1 = P(fx, ys[0], floor), p2 = P(fx, ys[ny-1], floor);
+    ctx.beginPath(); ctx.moveTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]); ctx.stroke();
+    p1 = P(xs[0], fy, floor); p2 = P(xs[nx-1], fy, floor);
+    ctx.beginPath(); ctx.moveTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]); ctx.stroke();
+  }
+
+  const quads = [];
+  for(let j=0;j<ny-1;j++){
+    for(let i=0;i<nx-1;i++){
+      const c = [P(xs[i],ys[j],grid[j][i]), P(xs[i+1],ys[j],grid[j][i+1]),
+                 P(xs[i+1],ys[j+1],grid[j+1][i+1]), P(xs[i],ys[j+1],grid[j+1][i])];
+      const zm = (grid[j][i]+grid[j][i+1]+grid[j+1][i]+grid[j+1][i+1])/4;
+      quads.push({c, depth:(c[0][2]+c[1][2]+c[2][2]+c[3][2])/4, z:zm});
+    }
+  }
+  quads.sort((p,q) => p.depth - q.depth);
+  ctx.globalAlpha = 0.72;
+  for(const q of quads){
+    ctx.beginPath();
+    ctx.moveTo(q.c[0][0], q.c[0][1]);
+    for(let k=1;k<4;k++) ctx.lineTo(q.c[k][0], q.c[k][1]);
+    ctx.closePath();
+    ctx.fillStyle = diverging(q.z/zmax); ctx.fill();
+    ctx.strokeStyle = 'rgba(10,14,24,.35)'; ctx.lineWidth = 0.6; ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  const pts = [];
+  for(let i=0;i<st.x.length;i++){
+    const surf = bilinear(grid, xs, ys, st.x[i], st.y[i]);
+    // the residual is what separates the star from the surface, so scale that gap alone
+    const z = gain === 1 ? sd[i] : surf - sr[i]*gain;
+    pts.push({p:P(st.x[i], st.y[i], z), base:P(st.x[i], st.y[i], surf), r:sr[i]});
+  }
+  pts.sort((p,q) => p.p[2] - q.p[2]);
+  for(const s of pts){
+    ctx.strokeStyle = 'rgba(230,233,240,.30)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(s.base[0], s.base[1]);
+    ctx.lineTo(s.p[0], s.p[1]); ctx.stroke();
+    ctx.beginPath(); ctx.arc(s.p[0], s.p[1], 2.4, 0, 6.2832);
+    // a point above the surface sits where the fit under-predicted; colour by which way
+    ctx.fillStyle = s.r < 0 ? '#ffd166' : '#5ad2ff';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(6,9,18,.8)'; ctx.lineWidth = 0.7; ctx.stroke();
+  }
+
+  ctx.fillStyle = '#66708a'; ctx.font = '11px ui-monospace, monospace';
+  ctx.fillText(`${comp === 'dx' ? 'x' : 'y'}-displacement (pixels), `
+             + `${a.order} fit`, 10, 16);
+  ctx.fillText(`peak fitted ${peakFit.toFixed(2)} px`
+             + (gain === 1 ? '' : `  ·  residuals ×${gain}`), 10, 31);
+
+  let ss = 0;
+  for(const v of sr) ss += v*v;
+  const rms = Math.sqrt(ss/Math.max(1, sr.length));
+  const arc = a.platescale ? ` = ${(rms*a.platescale*1000).toFixed(0)} mas` : '';
+  $('surface-legend').textContent =
+    `${st.x.length} stars · scatter about the surface ${rms.toFixed(3)} px${arc} · `
+  + `amber below the surface, blue above`
+  + (gain === 1 ? '' : ` · residuals drawn ${gain}× larger than true`);
+}
+
+/* Each star's residual correlated with its nearest neighbour's -- the per-star quantity
+   the single nn_corr score averages. O(N^2) but N is a few hundred, and caching it means
+   the bin slider costs nothing. */
+function nnCorrelations(st){
+  const n = st.x.length, out = new Array(n).fill(null);
+  for(let i=0;i<n;i++){
+    let best = Infinity, bj = -1;
+    for(let j=0;j<n;j++){
+      if(i===j) continue;
+      const dx = st.x[i]-st.x[j], dy = st.y[i]-st.y[j], r = dx*dx + dy*dy;
+      if(r < best){ best = r; bj = j; }
+    }
+    if(bj < 0) continue;
+    const na = Math.hypot(st.rx[i], st.ry[i]), nb = Math.hypot(st.rx[bj], st.ry[bj]);
+    if(na > 0 && nb > 0)
+      out[i] = (st.rx[i]*st.rx[bj] + st.ry[i]*st.ry[bj]) / (na*nb);
+  }
+  return out;
+}
+
+function binCorrelations(nbins){
+  const a = state.analysis, st = a.stars;
+  if(!a.nn) a.nn = nnCorrelations(st);
+  const W = a.image_size[1], H = a.image_size[0];
+  const cells = [];
+  for(let j=0;j<nbins;j++){
+    cells.push([]);
+    for(let i=0;i<nbins;i++) cells[j].push({sum:0, n:0});
+  }
+  for(let k=0;k<st.x.length;k++){
+    if(a.nn[k] === null) continue;
+    const i = Math.min(nbins-1, Math.max(0, Math.floor((st.x[k] + W/2) / W * nbins)));
+    const j = Math.min(nbins-1, Math.max(0, Math.floor((st.y[k] + H/2) / H * nbins)));
+    cells[j][i].sum += a.nn[k]; cells[j][i].n += 1;
+  }
+  return cells;
+}
+
+function drawCorrelation(){
+  const a = state.analysis;
+  const canvas = $('corr-canvas');
+  if(!a || !canvas.clientWidth) return;
+  const nbins = parseInt($('corr-bins').value, 10);
+  const {ctx, w, h} = fitCanvas(canvas);
+  const cells = binCorrelations(nbins);
+
+  const pad = {l:46, r:78, t:26, b:34};
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  // square cells, so a patch is not stretched into looking like a band
+  const side = Math.min(pw/nbins, ph/nbins);
+  const gw = side*nbins, gh = side*nbins;
+  const ox = pad.l + (pw-gw)/2, oy = pad.t + (ph-gh)/2;
+
+  let filled = 0, total = 0, count = 0;
+  for(let j=0;j<nbins;j++){
+    for(let i=0;i<nbins;i++){
+      const c = cells[j][i];
+      // y grows downward on screen but upward in plate coordinates
+      const x = ox + i*side, y = oy + (nbins-1-j)*side;
+      if(c.n === 0){
+        ctx.fillStyle = '#10141f'; ctx.fillRect(x, y, side, side);
+      }else{
+        const v = c.sum/c.n;
+        ctx.fillStyle = diverging(v); ctx.fillRect(x, y, side, side);
+        filled++; total += v*c.n; count += c.n;
+      }
+      ctx.strokeStyle = 'rgba(11,14,20,.55)'; ctx.lineWidth = 0.5;
+      ctx.strokeRect(x, y, side, side);
+    }
+  }
+
+  ctx.strokeStyle = '#242c3d'; ctx.lineWidth = 1;
+  ctx.strokeRect(ox, oy, gw, gh);
+  ctx.fillStyle = '#66708a'; ctx.font = '11px ui-monospace, monospace';
+  ctx.fillText('x (pixels)', ox + gw/2 - 26, oy + gh + 24);
+  ctx.save();
+  ctx.translate(ox - 30, oy + gh/2 + 26); ctx.rotate(-Math.PI/2);
+  ctx.fillText('y (pixels)', 0, 0);
+  ctx.restore();
+  ctx.fillText('0', ox - 4, oy + gh + 14);
+  ctx.fillText(String(a.image_size[1]), ox + gw - 18, oy + gh + 14);
+
+  const bx = ox + gw + 22, bh = Math.min(gh, 220), by = oy + (gh-bh)/2;
+  for(let k=0;k<bh;k++){
+    ctx.fillStyle = diverging(1 - 2*k/bh);
+    ctx.fillRect(bx, by+k, 13, 1);
+  }
+  ctx.strokeStyle = '#242c3d'; ctx.strokeRect(bx, by, 13, bh);
+  ctx.fillStyle = '#66708a';
+  ctx.fillText('+1', bx + 18, by + 8);
+  ctx.fillText(' 0', bx + 18, by + bh/2 + 4);
+  ctx.fillText('-1', bx + 18, by + bh);
+
+  canvas._grid = {ox, oy, side, nbins, cells};
+  const mean = count ? total/count : 0;
+  const perCell = filled ? count/filled : 0;
+  // a single star's nn-correlation is a cosine, so it ranges over the whole -1..1 scale;
+  // a cell holding two or three of them is mostly noise, and saying so beats letting the
+  // map be read as structure
+  const thin = perCell < 4;
+  const legend = $('corr-legend');
+  legend.textContent =
+    `${filled} of ${nbins*nbins} cells populated · ${perCell.toFixed(1)} stars per cell`
+  + ` · mean correlation ${mean.toFixed(3)}`
+  + ` · ${(a.image_size[1]/nbins).toFixed(0)} × ${(a.image_size[0]/nbins).toFixed(0)}`
+  + ` pixels per cell`
+  + (thin ? ' — too few stars per cell to be meaningful; use coarser bins' : '');
+  legend.style.color = thin ? 'var(--warn)' : '';
+}
+
+function drawAnalysis(){
+  if(!state.analysis) return;
+  const corr = state.analysisView === 'corr';
+  $('surface-panel').style.display = corr ? 'none' : '';
+  $('corr-panel').style.display = corr ? '' : 'none';
+  if(corr) drawCorrelation(); else drawSurface();
+}
+
+function setupAnalysis(){
+  const canvas = $('surface-canvas');
+  let drag = null;
+  canvas.addEventListener('pointerdown', e => {
+    drag = {x:e.clientX, y:e.clientY, az:view3d.az, el:view3d.el};
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if(!drag) return;
+    view3d.az = drag.az + (e.clientX - drag.x)*0.009;
+    // clamped short of vertical: at the poles the azimuth drag stops meaning anything
+    view3d.el = Math.max(0.12, Math.min(1.5, drag.el + (e.clientY - drag.y)*0.007));
+    drawSurface();
+  });
+  const release = e => { if(drag){ drag = null; } };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    view3d.zoom = Math.max(0.5, Math.min(2.6,
+      view3d.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+    drawSurface();
+  }, {passive:false});
+  canvas.addEventListener('dblclick', () => {
+    Object.assign(view3d, DEFAULT_VIEW); drawSurface();
+  });
+
+  const tip = $('analysis-tip'), cc = $('corr-canvas');
+  cc.addEventListener('mousemove', e => {
+    const g = cc._grid;
+    if(!g){ tip.style.display='none'; return; }
+    const rect = cc.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const i = Math.floor((mx - g.ox)/g.side);
+    const j = g.nbins - 1 - Math.floor((my - g.oy)/g.side);
+    if(i < 0 || j < 0 || i >= g.nbins || j >= g.nbins){ tip.style.display='none'; return; }
+    const c = g.cells[j][i];
+    const card = $('analysis-card').getBoundingClientRect();
+    tip.textContent = c.n
+      ? `cell ${i+1},${j+1}\n${c.n} star${c.n===1?'':'s'}\ncorr ${(c.sum/c.n).toFixed(3)}`
+      : `cell ${i+1},${j+1}\nno stars`;
+    tip.style.display = 'block';
+    tip.style.left = (e.clientX - card.left + 14) + 'px';
+    tip.style.top  = (e.clientY - card.top + 12) + 'px';
+  });
+  cc.addEventListener('mouseleave', () => { tip.style.display='none'; });
+
+  $('analysis-toggle').onclick = () => {
+    state.analysisOpen = !state.analysisOpen;
+    $('analysis-body').style.display = state.analysisOpen ? '' : 'none';
+    $('analysis-hint').style.display = state.analysisOpen ? 'none' : '';
+    $('analysis-toggle').textContent = state.analysisOpen ? 'Hide' : 'Show';
+    if(state.analysisOpen) drawAnalysis();
+  };
+  $('analysis-tabs').querySelectorAll('button').forEach(b => {
+    b.onclick = () => {
+      state.analysisView = b.dataset.view;
+      $('analysis-tabs').querySelectorAll('button')
+        .forEach(o => o.classList.toggle('on', o === b));
+      drawAnalysis();
+    };
+  });
+  $('corr-bins').oninput = () => {
+    $('corr-bins-val').textContent = $('corr-bins').value;
+    drawCorrelation();
+  };
+  $('resid-gain').onchange = drawSurface;
+  $('surface-reset').onclick = () => {
+    Object.assign(view3d, DEFAULT_VIEW); drawSurface();
+  };
+  // the canvases are sized from their CSS width, so a resized window needs a redraw
+  window.addEventListener('resize', () => { if(state.analysisOpen) drawAnalysis(); });
+}
+
+/* ------------------------------------------------- catalogue depth warning */
+function checkMagnitude(){
+  const el = $('mag-warn');
+  const name = $('catalogue').value;
+  const limit = state.catalogueLimits[name];
+  const asked = parseFloat($('magmax').value);
+  if(limit === null || limit === undefined || !isFinite(asked) || asked <= limit){
+    el.classList.remove('on'); return;
+  }
+  el.textContent = `${name} only reaches G<${limit}. Stars fainter than that cannot be `
+    + `matched, so asking for magnitude ${asked} gains nothing`
+    + (limit < 13 ? ' — install the gaia_dr3_g12_13 archive to reach G<13.' : '.');
+  el.classList.add('on');
+}
+
 /* -------------------------------------------------------------------- log */
 function appendLog(text, cls){
   const el = $('log');
@@ -618,11 +1069,12 @@ function appendLog(text, cls){
 function handleEvent(e){
   switch(e.type){
     case 'stage_started':
-      state.stages.set(e.stage, {label:e.label||e.stage, done:0, of:e.n_items||0});
+      state.stages.set(e.stage,
+        {label:e.label||e.stage, done:0, of:e.n_items||0, unit:e.unit||null});
       renderStages(); break;
     case 'progress': {
       const s = state.stages.get(e.stage);
-      if(s){ s.done=e.done; s.of=e.of; renderStages(); }
+      if(s){ s.done=e.done; s.of=e.of; if(e.unit) s.unit=e.unit; renderStages(); }
       break; }
     case 'stage_finished': {
       const s = state.stages.get(e.stage);
@@ -659,6 +1111,15 @@ function handleEvent(e){
         $('field').innerHTML =
           `<img alt="distortion field" src="data:image/png;base64,${e.png}">`;
       }
+      break;
+    case 'analysis':
+      state.analysis = e;
+      state.analysis.nn = null;   // computed on first use, then cached
+      $('analysis-card').style.display = '';
+      // the backend picks the bin count from the star count; the slider re-bins live
+      $('corr-bins').value = e.bins;
+      $('corr-bins-val').textContent = e.bins;
+      if(state.analysisOpen) drawAnalysis();
       break;
     case 'watch_seen':
       appendLog(`new file: ${base(e.path)} (waiting for it to finish writing)`); break;
@@ -735,10 +1196,10 @@ function showLive(){
 }
 
 function resetRunView(){
-  state.stages.clear(); state.metrics={}; state.solve=null;
+  state.stages.clear(); state.metrics={}; state.solve=null; state.analysis=null;
   $('scores').innerHTML='';
   $('preview-card').style.display='none'; $('details-card').style.display='none';
-  $('field-card').style.display='none';
+  $('field-card').style.display='none'; $('analysis-card').style.display='none';
   $('open-out').style.display='none';
 }
 
@@ -941,15 +1402,28 @@ function renderCatalogueDownloads(catalogues){
   if(!missing.length) return;
   const title = document.createElement('div');
   title.className = 'faint';
-  title.style.marginBottom = '2px';
-  title.textContent = 'Offline catalogues not yet on this machine';
+  title.style.marginBottom = '4px';
+  // the two archives are disjoint magnitude slices, so "G<13" means installing both --
+  // easy to get wrong, and wrong quietly, so say it here rather than in the docs only
+  title.textContent = missing.length > 1
+    ? 'Offline catalogues not yet on this machine. Both together give G<13, the '
+      + 'recommended depth; the base archive alone gives G<12.'
+    : 'Offline catalogues not yet on this machine';
   host.appendChild(title);
   for(const c of missing){
     const row = document.createElement('div');
     row.className = 'dl';
     row.innerHTML = `<div class="grow"><div class="nm"></div><div class="sub"></div></div>`;
-    row.querySelector('.nm').textContent = c.name;
-    row.querySelector('.sub').textContent = c.size
+    const nm = row.querySelector('.nm');
+    nm.textContent = c.name;
+    if(c.recommended){
+      nm.appendChild(document.createTextNode(' '));
+      const tag = document.createElement('span');
+      tag.className = 'badge';
+      tag.textContent = 'recommended';
+      nm.appendChild(tag);
+    }
+    row.querySelector('.sub').textContent = c.size + ' · ' + c.description
       + (c.downloadable ? '' : ' — no download source configured');
     const btn = document.createElement('button');
     btn.className = 'btn' + (c.downloadable ? ' primary' : '');
@@ -979,19 +1453,33 @@ document.addEventListener('keydown', e => {
   try{
     const hello = await api('hello');
     renderPresets(hello.presets);
+    state.catalogueLimits = hello.catalogue_limits || {};
     const sel = $('catalogue');
+    const depth = name => {
+      const l = state.catalogueLimits[name];
+      return (l === null || l === undefined) ? '' : ` — G<${l}`;
+    };
     hello.known_catalogues.forEach(name => {
       const o = document.createElement('option');
-      o.value = name; o.textContent = name;
+      o.value = name;
+      o.textContent = name + depth(name)
+        + (name === hello.recommended_catalogue ? '  ★ recommended' : '');
       if(name === hello.default_catalogue) o.selected = true;
       sel.appendChild(o);
     });
     hello.catalogues.filter(c => c.installed).forEach(c => {
       const o = document.createElement('option');
-      o.value = c.name; o.textContent = c.name + ' (offline)';
+      o.value = c.name;
+      // an extension archive on its own contains nothing brighter than its lower bound,
+      // which is a genuine footgun: say so in the option rather than let it be picked blind
+      o.textContent = c.name + ' (offline' + depth(c.name) + ')'
+        + (c.role === 'extension' ? ' — extension only, no bright stars' : '');
       if(c.name === hello.default_catalogue) o.selected = true;
       sel.appendChild(o);
     });
+    sel.onchange = checkMagnitude;
+    $('magmax').oninput = checkMagnitude;
+    checkMagnitude();
     const roots = $('roots');
     hello.roots.forEach(r => {
       const b = document.createElement('button');
@@ -1006,6 +1494,7 @@ document.addEventListener('keydown', e => {
       $('w-quiet').value  = hello.watch_defaults.quiet_seconds;
     }
   }catch(err){ banner('could not reach the backend: '+err.message); }
+  setupAnalysis();
   renderFiles();
   poll();
 })();

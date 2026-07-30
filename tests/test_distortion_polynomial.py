@@ -169,3 +169,124 @@ def test_open_distortion_files_averages_coefficients(tmp_path, options):
     coeff_x, coeff_y, platescale, _ = dp._open_distortion_files(options)
     assert coeff_x['x'] == pytest.approx(3.0)
     assert platescale == pytest.approx(2.0)
+
+
+# --------------------------------------------------- advanced analysis payload
+
+def _payload(options, n_stars=40, seed=5, bins=8):
+    """A payload built from a known cubic distortion, with a known residual added."""
+    options['distortionOrder'] = 'cubic'
+    options['residual_bins'] = bins
+    img_shape = (400, 600)
+    rng = np.random.default_rng(seed)
+    plate = np.c_[rng.uniform(-200, 200, n_stars), rng.uniform(-300, 300, n_stars)]
+    corrections = np.c_[plate[:, 0] * 1e-3, plate[:, 1] * 2e-3]
+    residuals = np.c_[rng.normal(0, 0.05, n_stars), rng.normal(0, 0.05, n_stars)]
+    n_coeff = len(dp.get_coeff_names(options))
+    coeff_x = np.zeros(n_coeff)
+    coeff_y = np.zeros(n_coeff)
+    coeff_x[1] = 0.5     # a linear term in the basis, so the surface is not flat
+    coeff_y[2] = -0.3
+    payload = dp.analysis_payload(plate, corrections, residuals, coeff_x, coeff_y,
+                                  img_shape, options, platescale_arcsec=1.5)
+    return payload, plate, corrections, residuals
+
+
+def test_analysis_payload_is_json_serialisable(options):
+    payload, _, _, _ = _payload(options)
+    json.dumps(payload)          # must not raise: it travels to the frontend as JSON
+
+
+def test_analysis_payload_reports_measured_displacement_not_the_fit(options):
+    """A star's plotted height must be fit + residual, so it sits off the surface by
+    exactly its residual -- that offset is the whole point of the view."""
+    payload, plate, corrections, residuals = _payload(options)
+    measured_x = np.array(payload['stars']['dx'])
+    expected = corrections[:, 1] - residuals[:, 1]
+    assert measured_x == pytest.approx(expected, abs=1e-3)
+
+
+def test_analysis_payload_keeps_residuals_separately(options):
+    payload, _, _, residuals = _payload(options)
+    assert np.array(payload['stars']['rx']) == pytest.approx(residuals[:, 1], abs=1e-3)
+    assert np.array(payload['stars']['ry']) == pytest.approx(residuals[:, 0], abs=1e-3)
+
+
+def test_analysis_payload_surface_grid_is_rectangular(options):
+    payload, _, _, _ = _payload(options)
+    surface = payload['surface']
+    ny, nx = len(surface['y']), len(surface['x'])
+    assert len(surface['dx']) == ny and len(surface['dy']) == ny
+    assert all(len(row) == nx for row in surface['dx'])
+    assert all(len(row) == nx for row in surface['dy'])
+
+
+def test_analysis_payload_surface_spans_the_image(options):
+    payload, _, _, _ = _payload(options)
+    assert payload['image_size'] == [400, 600]
+    # pixels from the centre, matching distortion_field and the star coordinates
+    assert min(payload['surface']['x']) == pytest.approx(-300)
+    assert max(payload['surface']['x']) == pytest.approx(300)
+    assert min(payload['surface']['y']) == pytest.approx(-200)
+
+
+def test_analysis_payload_carries_the_bin_count_and_order(options):
+    payload, _, _, _ = _payload(options)
+    assert payload['bins'] == 8
+    assert payload['order'] == 'cubic'
+    assert payload['platescale'] == pytest.approx(1.5)
+
+
+def test_analysis_payload_star_positions_are_x_then_y(options):
+    """plate is stored (y, x); the payload must expose them the right way round."""
+    payload, plate, _, _ = _payload(options)
+    assert np.array(payload['stars']['x']) == pytest.approx(plate[:, 1], abs=1e-3)
+    assert np.array(payload['stars']['y']) == pytest.approx(plate[:, 0], abs=1e-3)
+
+
+# ------------------------------------------------- residual-map bin selection
+
+@pytest.mark.parametrize('n_stars,expected', [
+    (430, 7),      # a typical field: ~8.8 stars per cell
+    (2000, 16),
+    (4608, 24),    # the ceiling, reached at 24*24*8 stars
+    (100000, 24),  # and held there
+])
+def test_bins_are_chosen_from_the_star_count(n_stars, expected):
+    assert dp.suggest_residual_bins(n_stars) == expected
+
+
+def test_bins_never_go_below_the_floor():
+    """Even a handful of stars must produce a grid rather than a single cell."""
+    for n in (0, 1, 5, 20, 60):
+        assert dp.suggest_residual_bins(n) == 4
+
+
+def test_bins_never_exceed_the_ceiling():
+    assert dp.suggest_residual_bins(10**7) == 24
+
+
+def test_bin_count_keeps_cells_populated():
+    """The whole point: enough stars per cell that a cell mean is not noise."""
+    for n in (50, 200, 430, 1000, 5000):
+        bins = dp.suggest_residual_bins(n)
+        per_cell = n / bins**2
+        assert per_cell >= 3, f'{n} stars over {bins}x{bins} gives {per_cell:.1f} per cell'
+
+
+def test_an_explicit_bin_count_overrides_the_choice(options):
+    assert dp.suggest_residual_bins(430, configured=20) == 20
+    # ...but still cannot ask for something absurd
+    assert dp.suggest_residual_bins(430, configured=500) == 32
+    assert dp.suggest_residual_bins(430, configured=1) == 4
+
+
+def test_zero_means_automatic(options):
+    assert dp.suggest_residual_bins(430, configured=0) == 7
+
+
+def test_payload_chooses_bins_from_its_own_star_count(options):
+    payload, _, _, _ = _payload(options, n_stars=430, bins=0)
+    assert payload['bins'] == dp.suggest_residual_bins(430) == 7
+    sparse, _, _, _ = _payload(options, n_stars=40, bins=0)
+    assert sparse['bins'] == 4

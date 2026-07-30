@@ -126,6 +126,38 @@ class TextProgress(ProgressReporter):
         self.stream.flush()
 
 
+class EventProgress(ProgressReporter):
+    """Reports only onto the ambient event bus, for work driven from the app window.
+
+    ``ProgressReporter.loop`` already emits events, but a download is not a loop over
+    items -- it is fed byte counts from the transfer itself -- so it needs a reporter whose
+    start/update/finish emit directly.
+
+    ``unit='bytes'`` asks the frontend to format the counts as sizes: a 138 MB download
+    otherwise reads as "45088768 / 137952319".
+    """
+
+    def __init__(self, stage='download', label=None, unit=None):
+        self.stage = stage
+        self.label = label
+        self.unit = unit
+        self.total = 0
+
+    def start(self, total, message):
+        self.total = total
+        if not self.label:
+            self.label = message
+        events.emit(events.STAGE_STARTED, stage=self.stage, label=self.label,
+                    n_items=total, unit=self.unit)
+
+    def update(self, completed):
+        events.emit(events.PROGRESS, stage=self.stage, label=self.label,
+                    done=completed, of=self.total, unit=self.unit)
+
+    def finish(self):
+        events.emit(events.STAGE_FINISHED, stage=self.stage, ok=True)
+
+
 class GuiProgress(ProgressReporter):
     """A FreeSimpleGUI progress-meter window, one per loop."""
 

@@ -11,11 +11,12 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 388 passing (`pytest` = 367 fast + 21 behind `--runslow`) |
+| Tests | 500 passing (`pytest` = 479 fast + 21 behind `--runslow`) |
 | Lint | pyflakes clean apart from three intentional import probes/shims |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
-| Catalogues | Gaia G<12 and 12<G<13 built locally; Hipparcos + labels bundled |
-| Interfaces | `mee2024 ui` (new app), `mee2024 gui` (classic, unchanged), CLI |
+| Catalogues | Gaia G<12 and 12<G<13 published as GitHub release assets, fetched on first use; Hipparcos + labels bundled |
+| Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
+| Version | v1.0.1; Windows exe built from `MEE2024.spec` |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -45,6 +46,68 @@ Stage 2 (`guess_date` seeded with 2020-01-01, blind):
 | zwo1 | septic | 100.9 mas | 1564 | 2023-09-20 | −39 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-07-30 — v1.0.1: catalogues fetch themselves, and two diagnostic views
+
+### Catalogues arrive without being asked for
+
+Selecting an offline catalogue used to fail at stage 2 if its archive was absent — minutes
+after pressing Run, with the stacking already done. `download.prepare_catalogue()` now runs
+*before stage 1* and fetches what is missing, from both the app and the CLI. Set
+`auto_download_catalogue: false` to refuse instead (a 138 MB download on a metered
+connection is a reasonable thing to decline); the refusal names `--fetch`.
+
+Download progress was reported in raw bytes, so a 138 MB transfer read as
+`45088768 / 137952319`. Progress events now carry `unit='bytes'` and the frontend renders
+`45 MB of 138 MB · 33%`.
+
+Two things found while doing this:
+
+- **`_default_catalogue()` capped the depth it had.** It returned the first *installed
+  archive name*, so with both archives present a run used `gaia_dr3_g12` — G<12 — while
+  the 12<G<13 extension sat on disk unused. It now returns `gaia_offline`, which reads
+  every archive present.
+- **`size_bytes` for the deep archive was wrong** (188,985,889 against an actual
+  188,640,212), so `--check-remote` failed against a correctly uploaded file. The sha256
+  was right, and downloads verify against that and the server's own Content-Length, so
+  fetching was never broken — only the preflight.
+
+### Asking too deep is now said out loud
+
+A magnitude limit past the catalogue's depth was silently truncated, which reads as a poor
+field rather than a catalogue that does not go that far. It now warns at the lookup itself
+(so no caller can bypass it), before the run as a preflight, and live in the UI as you type
+— and it names the remedy. The two archives are disjoint magnitude slices, so the UI says
+where G<13 actually comes from: both installed, badged **recommended**, with the extension
+labelled as carrying no bright stars on its own.
+
+### Advanced analysis: surfaces and a residual-correlation map
+
+Hidden behind a toggle, since the flat field map answers the usual question:
+
+- **Rotatable displacement surfaces** with every measured star drawn on them, replacing the
+  three matplotlib 3-D windows the old code opened. A star sits off the surface by exactly
+  its residual, so too low an order shows as coherent undulation rather than even
+  peppering. On a good fit residuals are ~100× smaller than the distortion, so ×5–×100
+  exaggeration is offered and labelled.
+- **Residual-correlation map**: the detector in cells, each averaging how far residuals
+  inside it agree with their nearest neighbour's — the per-star quantity the single
+  `nn_corr` score averages. A warm patch localises an optical imperfection instead of
+  smearing it into one number.
+
+Both are drawn on a canvas from one `analysis` event (columnar, ~30 kB) rather than sent as
+images, so rotating and re-binning need no re-run.
+
+**Bin count is derived, not guessed.** A star's nn-correlation is a cosine spanning −1..1,
+so a cell holding two or three of them is noise that reads as structure. `bins ≈
+√(N_stars/8)`, bounded to 4–24: a 430-star field gets 7 bins at 8.8 stars per cell, and the
+legend turns amber below 4 per cell. Verified on a synthetic field with a coherent patch
+injected into one corner — the map reports **0.737** inside it against **0.024** elsewhere.
+
+Also fixed: below 820 px the controls column left the results pane a few pixels wide,
+collapsing every plot to nothing. The layout now stacks.
 
 ---
 
@@ -426,14 +489,19 @@ every historical result, so it is left as a deliberate choice.
 
 ## Next
 
-1. **starcat step 2** — `mee2024/starcat/`: `StarTable`, provider protocol, adapters. Not
-   wired up.
-2. **step 3** — `TychoOffline`; migrate `platesolve_triangle` off raw arrays.
-3. **step 4** — `GaiaOnline` returns `StarTable`; migrate stage 2. Remove the G>3 floor.
-4. **step 5** — `GaiaOffline` + builder + Zenodo download.
-5. **step 6** — Gaia+Tycho merge and the catalogue-check report.
-6. **step 7** — label layer.
-7. Then milestones D (plate-solve robustness), B (auto-calibration score), E (centroid rig).
+Milestones A and C are done; the UI is through P1 plus the analysis views above.
+
+1. **Milestone D — plate-solve robustness.** The density fix landed; still open are anchor
+   sampling instead of a strict brightest-*f* prefix, a coarse second pattern DB for fields
+   wider than ~3.4°, platescale/pointing hints, and reusing the stage-1 solution instead of
+   re-solving. Designed in `docs/PLATESOLVER_DESIGN.md`.
+2. **Milestone B — auto-calibration and a quality score.** The score cards and the nn_corr
+   grading exist; `mee2024/quality.py` and `mee2024 autocal` do not.
+3. **Milestone E — centroid backend rig.** Not started. The half-pixel convention note
+   above is the first thing it should pin down.
+4. **Zenodo** for a citable DOI, replacing the GitHub release URLs — two lines per
+   catalogue in `RELEASES`, and the checksums do not change.
+5. **Mac/Linux builds** — deferred deliberately.
 
 ### Unresolved questions
 

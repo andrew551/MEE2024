@@ -13,8 +13,22 @@ matching what ``MEE2024util.get_bbox`` produces. ``epoch`` is a Julian year.
 
 import numpy as np
 
+from mee2024 import events
 from mee2024.starcat.table import (ORIGIN_GAIA, ORIGIN_HIPPARCOS, ORIGIN_TYCHO,
                                    StarTable, concat)
+
+
+def _warn_truncated(catalogue, requested, limit):
+    """Say -- on the console and on the event bus -- that a request was cut short.
+
+    The bus carries it to the app window; the print keeps the CLI and the classic GUI
+    informed. Emitted here, at the lookup itself, so no caller can bypass it.
+    """
+    from mee2024.starcat.download import magnitude_warning
+    text = magnitude_warning(catalogue, requested, limit)
+    if text:
+        events.log(text, level='warning')
+        print('note: ' + text)
 
 # Tycho V -> approximate Gaia G. Measured median offset over the zwo3 field; the proper
 # transformation needs a B-V colour, which the bundled catalogue does not carry.
@@ -178,7 +192,7 @@ WHERE {ra_clause} AND dec BETWEEN {dec_lo} AND {dec_hi} AND {mag_clause}"""
 
     def lookup(self, ra_range, dec_range, max_magnitude=12.0, epoch=2024.0):
         if self.magnitude_limit is not None and max_magnitude > self.magnitude_limit:
-            print(f'note: max_magnitude reduced to {self.magnitude_limit} for safety')
+            _warn_truncated(self.name, max_magnitude, self.magnitude_limit)
             max_magnitude = self.magnitude_limit
         return self._to_table(self._query(ra_range, dec_range, max_magnitude), epoch)
 
@@ -302,8 +316,7 @@ class GaiaOfflineProvider(CatalogueProvider):
     def lookup(self, ra_range, dec_range, max_magnitude=12.0, epoch=2024.0):
         limit = self.magnitude_limit
         if limit is not None and max_magnitude > limit:
-            print(f'note: offline catalogue reaches only G<{limit}; '
-                  f'max_magnitude reduced from {max_magnitude}')
+            _warn_truncated(self.describe(), max_magnitude, limit)
             max_magnitude = limit
         parts = [c.lookup(ra_range, dec_range, max_magnitude, epoch=None)
                  for c in self.catalogues]

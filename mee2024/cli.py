@@ -116,6 +116,17 @@ def _use_headless_backend(options):
         matplotlib.use('Agg')
 
 
+def _prepare_catalogue(args, options):
+    """Fetch a missing offline catalogue and warn about depth, before stage 2 runs."""
+    from mee2024.starcat import download
+
+    for warning in download.prepare_catalogue(
+            options.get('catalogue') or 'gaia', options=options,
+            allow_download=options.get('auto_download_catalogue', True),
+            on_note=print, progress_for=lambda name: make_progress(args)):
+        print(f'warning: {warning}')
+
+
 # --------------------------------------------------------------------------- commands
 
 def cmd_stack(args):
@@ -138,6 +149,7 @@ def cmd_stack(args):
 def cmd_distortion(args):
     options = resolve_options(args)
     _use_headless_backend(options)
+    _prepare_catalogue(args, options)
     from mee2024 import database_cache, distortion_fitter
     try:
         with event_bus(args):
@@ -162,6 +174,8 @@ def cmd_run(args):
     """Stage 1 then stage 2, and stage 3 too if --eclipse was given."""
     options = resolve_options(args)
     _use_headless_backend(options)
+    # before stage 1, so a missing catalogue is not discovered after minutes of stacking
+    _prepare_catalogue(args, options)
     from mee2024 import database_cache, distortion_fitter, stacker_implementation
     try:
         lights = [str(p) for p in args.lights]

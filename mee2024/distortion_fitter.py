@@ -392,6 +392,13 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
             plt.show()
         plt.close(field_fig)
 
+    # the surfaces and the residual-correlation map the app draws on demand. Emitted
+    # regardless of the field-plot setting: it costs one basis evaluation and no figure,
+    # and a frontend that ignores the event pays nothing.
+    events.emit(events.ANALYSIS, **distortion_polynomial.analysis_payload(
+        plate2, plate2_corrected - plate2, px_errors, coeff_x, coeff_y, image_size,
+        options, platescale_arcsec=np.degrees(result[0]) * 3600))
+
     plate2_unfiltered_corrected = distortion_polynomial.apply_corrections(result, plate2_unfiltered, coeff_x, coeff_y, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_unfiltered_corrected, image_size)
     mag_errors = np.linalg.norm(transformed_final - stardata_unfiltered.get_vectors(), axis=1)

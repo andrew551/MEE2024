@@ -322,6 +322,69 @@ def distortion_field(coeff_x, coeff_y, img_shape, options, n=22):
     return X, Y, DX, DY
 
 
+def suggest_residual_bins(n_stars, configured=0, lo=4, hi=24, per_cell=8):
+    """Bins per axis for the residual-correlation map, chosen from the star count.
+
+    A single star's nearest-neighbour correlation is a cosine spanning -1..1, so a cell
+    holding two or three of them is mostly noise and a map of such cells reads as
+    structure that is not there. Aiming at ``per_cell`` stars keeps a warm patch
+    meaningful: a typical 430-star field lands on 7 bins, and 4600 stars earns the
+    24-bin ceiling.
+
+    ``configured`` (``residual_bins`` in the options) overrides the choice when set, for
+    anyone who wants a particular resolution regardless.
+    """
+    if configured and configured > 0:
+        return int(max(lo, min(32, configured)))
+    if n_stars <= 0:
+        return lo
+    return int(max(lo, min(hi, round((n_stars / per_cell) ** 0.5))))
+
+
+def analysis_payload(plate, corrections, residuals, coeff_x, coeff_y, img_shape, options,
+                     platescale_arcsec=None, n=22):
+    """The data behind the app's advanced analysis views, as plain JSON-able lists.
+
+    Two things the flat field map cannot show:
+
+    * the fitted displacement as a *surface* with each star's measured displacement
+      plotted against it. A star sits off the surface by exactly its residual, so an
+      order that is too low shows up as the scatter undulating coherently above and
+      below rather than peppering it evenly -- the old three-panel 3-D view.
+    * where on the detector the residuals are spatially correlated, which localises an
+      optical imperfection instead of averaging it into a single number.
+
+    Positions are pixels from the image centre, matching ``distortion_field``. Columns
+    rather than a list of records, which roughly halves the JSON. Residuals are given
+    separately from the measured displacement so the frontend need not subtract them
+    back out.
+    """
+    X, Y, DX, DY = distortion_field(coeff_x, coeff_y, img_shape, options, n=n)
+    # the polynomial was fitted to (ideal - measured), which is the correction it applies
+    # less whatever it failed to absorb; recovering it this way avoids re-evaluating the
+    # basis and cannot drift out of step with the fit that actually ran
+    measured = np.asarray(corrections) - np.asarray(residuals)
+
+    def col(a):
+        return [round(float(v), 4) for v in np.asarray(a).ravel()]
+
+    return {
+        'image_size': [int(img_shape[0]), int(img_shape[1])],
+        'platescale': float(platescale_arcsec) if platescale_arcsec else None,
+        'order': options['distortionOrder'],
+        'bins': suggest_residual_bins(len(plate), options.get('residual_bins', 0)),
+        'stars': {
+            'x': col(plate[:, 1]), 'y': col(plate[:, 0]),
+            'dx': col(measured[:, 1]), 'dy': col(measured[:, 0]),
+            'rx': col(residuals[:, 1]), 'ry': col(residuals[:, 0]),
+        },
+        'surface': {
+            'x': col(X[0, :]), 'y': col(Y[:, 0]),
+            'dx': [col(row) for row in DX], 'dy': [col(row) for row in DY],
+        },
+    }
+
+
 def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arcsec=None,
                             save_to=None):
     """Draw the distortion field: arrows plus a magnitude map. Returns the figure.

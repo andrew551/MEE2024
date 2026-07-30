@@ -6,9 +6,9 @@ The intended user experience: pick an offline catalogue in the GUI or with
 against the checksums in its own manifest, and is thereafter used with no network at all.
 
 The registry points at GitHub release assets, with the SHA-256 of each archive baked in.
-Until those assets are uploaded the URLs return 404, which is reported as an actionable
-message telling the user to build locally instead. A Zenodo DOI replaces the GitHub URL
-at publication; ``catalogue_sources`` in the config overrides either without a code change.
+If an asset is missing the URL returns 404, which is reported as an actionable message
+telling the user to build locally instead. A Zenodo DOI replaces the GitHub URL at
+publication; ``catalogue_sources`` in the config overrides either without a code change.
 """
 
 import json
@@ -29,7 +29,7 @@ class CatalogueRelease:
     """
 
     def __init__(self, name, description, url=None, sha256=None, size_bytes=None,
-                 doi=None, magnitude_limit=None, n_stars=None):
+                 doi=None, magnitude_limit=None, n_stars=None, role='base'):
         self.name = name
         self.description = description
         self.url = url
@@ -38,6 +38,12 @@ class CatalogueRelease:
         self.doi = doi
         self.magnitude_limit = magnitude_limit
         self.n_stars = n_stars
+        #: 'base' is usable on its own; 'extension' only adds depth on top of a base
+        self.role = role
+
+    @property
+    def recommended(self):
+        return self.name in RECOMMENDED_SETUP
 
     @property
     def is_published(self):
@@ -109,17 +115,113 @@ RELEASES = {
         doi=None,
         url=_github_asset('gaia_dr3_g12_13.zip'),
         sha256='28607c07a9f60c89f09ba653eac06f890ff89631d28252e9af7af63be1adb71b',
+        role='extension',
     ),
 }
 
 DEFAULT_RELEASE = 'gaia_dr3_g12'
 
+#: The depth we recommend: both archives installed, so the offline provider reaches G<13.
+#: Named as a pair rather than a single "gaia13" archive because the two are disjoint
+#: magnitude slices -- see the note above RELEASES. Installing only the extension gives a
+#: catalogue containing *nothing brighter than G=12*, which is why `role` exists.
+RECOMMENDED_SETUP = ('gaia_dr3_g12', 'gaia_dr3_g12_13')
+
+#: Catalogue names that read whatever archives happen to be installed, rather than one
+#: named release. Selecting one of these is what should trigger a first-use download.
+OFFLINE_CATALOGUES = ('gaia_offline', 'merged_offline')
+
+
+def releases_needed(catalogue, options=None):
+    """Which archives must be downloaded before ``catalogue`` can be used.
+
+    Returns [] when nothing is required -- an online catalogue, a bundled one, or an
+    offline one whose archives are already present.
+    """
+    if catalogue in OFFLINE_CATALOGUES:
+        if installed_catalogues():
+            return []
+        return [DEFAULT_RELEASE]
+    if catalogue in RELEASES:
+        return [] if get_release(catalogue, options=options).is_installed() else [catalogue]
+    return []
+
+
+def prepare_catalogue(catalogue, options=None, progress_for=None, allow_download=True,
+                      on_note=None):
+    """Make ``catalogue`` usable before a long run starts, and report what is wrong.
+
+    Two failures are worth catching up front. An offline catalogue that was never
+    downloaded otherwise fails at stage 2, minutes in and with the stacking already
+    done; and a magnitude limit deeper than the catalogue reaches silently returns fewer
+    stars than asked for, which reads as a poor field rather than a catalogue that does
+    not go that deep.
+
+    ``progress_for(name)`` supplies a progress reporter per archive, and ``on_note(text)``
+    receives running commentary -- both injected so this stays free of any opinion about
+    how the caller displays things. Returns the list of warnings raised.
+    """
+    options = options or {}
+    note = on_note or (lambda text: None)
+    needed = releases_needed(catalogue, options=options)
+    if needed and not allow_download:
+        raise RuntimeError(
+            f'{catalogue} needs the {needed[0]} archive, which is not installed, and '
+            f'automatic downloading is switched off. Install it with '
+            f'`mee2024 catalogue --fetch {needed[0]}`.')
+    for name in needed:
+        release = get_release(name, options=options)
+        note(f'{catalogue} needs the {name} archive ({release.human_size()}); '
+             f'downloading it now')
+        ensure_available(name, options=options,
+                         progress=progress_for(name) if progress_for else None)
+        note(f'{name} installed')
+
+    warnings = []
+    warning = magnitude_warning(catalogue, options.get('max_star_mag_dist'),
+                                effective_magnitude_limit(catalogue, options=options))
+    if warning:
+        warnings.append(warning)
+    return warnings
+
+
+def magnitude_warning(catalogue, requested, limit):
+    """The warning for a run asking for stars deeper than the catalogue reaches, or None.
+
+    Asking for magnitude 14 from a G<13 archive is not an error -- the lookup simply
+    truncates -- but silently returning fewer stars looks like a poor field rather than a
+    catalogue that does not go that deep, so it is worth saying out loud.
+    """
+    if limit is None or requested is None or requested <= limit:
+        return None
+    advice = (f'Install the {" and ".join(RECOMMENDED_SETUP)} archives to reach G<13.'
+              if limit < 13 else 'Use the online "gaia" catalogue to go deeper.')
+    return (f'{catalogue} only contains stars to G<{limit:g}, but stars to magnitude '
+            f'{requested:g} were requested: nothing fainter than G={limit:g} can be '
+            f'matched. {advice}')
+
+
+def effective_magnitude_limit(catalogue, options=None):
+    """How deep ``catalogue`` actually reaches, or None if it is effectively unlimited.
+
+    Used to warn before a run that asks for stars the catalogue cannot contain. Reports
+    the depth of what is *installed*, not what could be installed, since that is what the
+    run will really see.
+    """
+    if catalogue in OFFLINE_CATALOGUES:
+        limits = [r.magnitude_limit for r in installed_catalogues() if r.magnitude_limit]
+        return max(limits) if limits else None
+    if catalogue in RELEASES:
+        return get_release(catalogue, options=options).magnitude_limit
+    return None
+
 
 def get_release(name=DEFAULT_RELEASE, options=None):
     """A release, with any URL and checksum from the user's config applied.
 
-    Nothing is published yet, so the registry above carries no URLs. Rather than require a
-    code edit to try a host, ``catalogue_sources`` in the config supplies them:
+    The registry ships working URLs, but a user may want a different host -- a mirror, a
+    local file server, or Zenodo ahead of a software release. Rather than require a code
+    edit, ``catalogue_sources`` in the config overrides them:
 
         {"gaia_dr3_g12": {"url": "https://...", "sha256": "..."}}
 

@@ -69,6 +69,20 @@ they arrive, so you get pointing and quality feedback while the telescope is sti
 field. A frame is only opened once it has stopped changing, so a file still being written
 is never read half-finished.
 
+Under **Advanced analysis** — hidden until you open it, since the field map above answers
+the usual question — are two diagnostic views:
+
+- the fitted displacement as a **rotatable surface** with every measured star drawn on it.
+  A star sits off the surface by exactly its residual, so a distortion order that is too
+  low shows as the scatter undulating coherently above and below rather than peppering it
+  evenly. Residuals can be exaggerated ×5 to ×100 to see their structure on a good fit.
+- a **residual-correlation map**: the detector divided into cells, each showing how far
+  residuals inside it point the same way as their nearest neighbour's. Near zero is
+  uncorrelated noise; a warm patch is a local optical imperfection the global polynomial
+  has not absorbed. The single "residual structure" score card is this map averaged. The
+  bin count is chosen from the star count so each cell holds enough stars to mean
+  something, and can be changed live.
+
 ```
 mee2024 ui              # explicitly, if you prefer
 mee2024 ui --browser    # same interface, in your default browser
@@ -97,8 +111,25 @@ mee2024 build-triangle-db                                          # regenerate 
 
 ## Offline star catalogues
 
-`mee2024 catalogue` lists what is installed and where. Catalogues are built locally with
-`tools/build_gaia_offline.py` (all-sky Gaia G<12 is ~3.1 M stars, 29 queries, 10-22 min).
+`mee2024 catalogue` lists what is installed and where. Choosing an offline catalogue
+downloads what it needs on first use, so there is nothing to set up by hand:
+
+```bash
+mee2024 catalogue --fetch gaia_dr3_g12       # ...or just select it and press Run
+mee2024 catalogue --check-remote             # are the published archives reachable?
+```
+
+The two published archives are **disjoint magnitude slices**, not a base and a superset:
+`gaia_dr3_g12` covers G < 12 (138 MB) and `gaia_dr3_g12_13` covers 12 < G < 13 (189 MB).
+Installing **both** is the recommended setup and is what gives G < 13 coverage; the
+extension on its own contains no star brighter than G = 12. The `gaia_offline` catalogue
+reads whichever are present, so adding the extension later deepens it automatically.
+
+Asking for stars fainter than the installed catalogue reaches is reported rather than
+silently truncated — a mag-14 request against a G<13 archive warns and names the fix.
+
+Catalogues can also be built locally with `tools/build_gaia_offline.py` (all-sky Gaia
+G<12 is ~3.1 M stars, 29 queries, 10-22 min).
 
 To move one to another machine without re-downloading from Gaia:
 

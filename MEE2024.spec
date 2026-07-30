@@ -7,8 +7,9 @@ package -- the code uses absolute `from mee2024 import ...` imports throughout:
 
     python -m PyInstaller MEE2024.spec --noconfirm
 
-Produces dist/MEE_2024_v1.0.0.exe on Windows. Double-clicking it opens the classic GUI,
-exactly as before; `MEE_2024_v1.0.0.exe ui` opens the new app window, and every other CLI
+Produces dist/MEE_2024_v<version>.exe on Windows, where the version is read from the
+package rather than written here, so the two cannot drift apart. Double-clicking it opens
+the new app window; `MEE_2024_v<version>.exe gui` opens the classic one, and every CLI
 subcommand works too.
 
 Bundling notes, each of which was needed to make the build actually run:
@@ -32,6 +33,11 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 package = os.path.join(os.getcwd(), 'mee2024')
 if not os.path.isdir(package):
     raise SystemExit('run this spec from the repository root, not from mee2024/')
+
+sys.path.insert(0, os.getcwd())
+from mee2024.MEE2024util import _version           # noqa: E402  (needs the path above)
+
+exe_name = f'MEE_2024_{_version()}'
 
 datas = []
 datas += collect_data_files('astroquery', includes=['CITATION'])
@@ -91,7 +97,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='MEE_2024_v1.0.0',
+    name=exe_name,
     onefile=True,
     # console=True so that `MEE_2024.exe --help`, the CLI subcommands and any error
     # traceback remain visible. The UI opens its own window on top of it.
@@ -101,6 +107,6 @@ exe = EXE(
 if sys.platform == 'darwin':
     app = BUNDLE(
         exe,
-        name='MEE_2024_v1.0.0.app',
+        name=f'{exe_name}.app',
         bundle_identifier='org.mee2024.mee2024',
     )

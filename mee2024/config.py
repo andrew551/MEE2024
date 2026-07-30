@@ -89,9 +89,15 @@ DEFAULT_OPTIONS = {
     'watch_quiet_seconds': 60.0,
     'watch_poll_seconds': 2.0,
     # where to download prebuilt catalogues from, as {name: {url, sha256, size_bytes}}.
-    # Empty until an archive is published; set with `mee2024 catalogue --set-source`,
-    # so moving from an interim host to Zenodo is a config change, not a code change.
+    # Overrides the published URLs; set with `mee2024 catalogue --set-source`, so moving
+    # from GitHub releases to Zenodo is a config change, not a code change.
     'catalogue_sources': {},
+    # fetch a missing offline catalogue when a run needs one, rather than failing. Set
+    # False on a metered connection: the base archive is a 138 MB download.
+    'auto_download_catalogue': True,
+    # bins per axis for the spatially resolved residual-correlation map.
+    # 0 chooses from the star count, aiming at ~8 stars per cell; set a number to force it
+    'residual_bins': 0,
     # which interface a no-argument launch (or a double-clicked .exe) opens:
     # 'app' for the new window, 'classic' for the original FreeSimpleGUI one
     'default_interface': 'app',

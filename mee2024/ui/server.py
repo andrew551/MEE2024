@@ -46,6 +46,8 @@ class Api:
             'catalogues': self._catalogues(),
             'default_catalogue': self._default_catalogue(),
             'known_catalogues': providers.known_catalogues(),
+            'catalogue_limits': self._catalogue_limits(),
+            'recommended_catalogue': self._recommended_catalogue(),
             'roots': self.roots(),
             'watch_defaults': {
                 'settle_seconds': defaults['watch_settle_seconds'],
@@ -66,8 +68,29 @@ class Api:
             out.append({'name': release.name, 'description': release.description,
                         'installed': release.is_installed(),
                         'size': release.human_size(),
-                        'downloadable': release.is_published})
+                        'downloadable': release.is_published,
+                        'magnitude_limit': release.magnitude_limit,
+                        'role': release.role,
+                        'recommended': release.recommended})
         return out
+
+    def _catalogue_limits(self):
+        """How deep each selectable catalogue reaches, so the UI can warn as you type.
+
+        None means "no practical limit" -- the online archive. Only the *installed* depth
+        is reported for the offline catalogues, since that is what a run would see.
+        """
+        from mee2024.config import get_default_options
+        from mee2024.MEE2024util import read_ini
+        from mee2024.starcat import download, providers
+        options = get_default_options()
+        read_ini(options)
+        limits = {}
+        for name in providers.known_catalogues():
+            limits[name] = download.effective_magnitude_limit(name, options=options)
+        for name in download.RELEASES:
+            limits[name] = download.get_release(name, options=options).magnitude_limit
+        return limits
 
     def fetch_catalogue(self, name):
         """Download a prebuilt catalogue. Runs in a thread so the UI stays responsive."""
@@ -89,31 +112,14 @@ class Api:
                 f'or build it locally with tools/build_gaia_offline.py.')
 
         def work():
-            from mee2024.progress import ProgressReporter
-
-            class BusProgress(ProgressReporter):
-                """Turns download progress into events the frontend already renders."""
-
-                def __init__(self):
-                    self.total = 0
-
-                def start(self, total, message):
-                    self.total = total
-                    events.emit(events.STAGE_STARTED, stage='download',
-                                label=message, n_items=total)
-
-                def update(self, completed):
-                    events.emit(events.PROGRESS, stage='download',
-                                label=f'Downloading {name}', done=completed,
-                                of=self.total)
-
-                def finish(self):
-                    events.emit(events.STAGE_FINISHED, stage='download', ok=True)
+            from mee2024.progress import EventProgress
 
             with events.using(self.runner.bus):
                 try:
+                    progress = EventProgress(stage=f'download:{name}',
+                                             label=f'Downloading {name}', unit='bytes')
                     directory = download.ensure_available(
-                        name, progress=BusProgress(), options=options)
+                        name, progress=progress, options=options)
                     events.log(f'{name} installed at {directory}')
                 except Exception as exc:
                     events.emit(events.ERROR, text=f'{type(exc).__name__}: {exc}')
@@ -138,12 +144,27 @@ class Api:
         return {'ok': self.runner.flush_watch()}
 
     def _default_catalogue(self):
-        """Prefer an installed offline catalogue; fall back to the online archive."""
+        """Prefer the offline catalogue if anything is installed; else the online archive.
+
+        Deliberately 'gaia_offline' rather than a specific archive name: that provider
+        reads *every* installed archive, so with both the base and the deep extension
+        present it reaches G<13. Naming one archive would silently cap the run at that
+        archive's own depth.
+        """
         from mee2024.starcat import download
-        for release in download.RELEASES.values():
-            if release.is_installed():
-                return release.name
+        if download.installed_catalogues():
+            return 'gaia_offline'
         return 'gaia'
+
+    def _recommended_catalogue(self):
+        """Which catalogue to badge as recommended in the picker.
+
+        'gaia_offline' reads every installed archive, so with the recommended pair present
+        it is a G<13 catalogue that needs no network and gives reproducible results. It
+        stays the recommendation before they are installed, since choosing it is what
+        triggers the download.
+        """
+        return 'gaia_offline'
 
     def roots(self):
         """Sensible starting points for the file picker."""

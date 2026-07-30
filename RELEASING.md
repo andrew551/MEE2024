@@ -5,7 +5,7 @@ Two separate releases, deliberately kept apart:
 | release | tag | contains | changes |
 |---|---|---|---|
 | **Star catalogues** | `catalogues-v1` | two `.zip` archives, 327 MB total | rarely |
-| **Software** | `v1.0.0` | `MEE_2024_v1.0.0.exe`, 187 MB | every version |
+| **Software** | `v1.0.1` | `MEE_2024_v1.0.1.exe`, 187 MB | every version |
 
 They are separate because the catalogues change far less often than the code. Pinning them
 together would mean re-uploading 327 MB for every patch release, and would break the
@@ -129,27 +129,30 @@ python -m PyInstaller MEE2024.spec --noconfirm
 ```
 
 Run it **from the repository root** — the code uses absolute `from mee2024 import ...`
-imports, so the root has to be on the path. Produces `dist/MEE_2024_v1.0.0.exe`, about
+imports, so the root has to be on the path. Produces `dist/MEE_2024_v1.0.1.exe`, about
 187 MB, self-contained, no Python needed on the target machine.
+
+The filename comes from `_version()` in `mee2024/MEE2024util.py`, so bumping the version
+there (and in `setup.cfg`) is all that is needed — the spec follows.
 
 Built and tested with Python 3.9. The full test suite passes on 3.9 and 3.14.
 
 ## Check before shipping
 
 ```bash
-dist/MEE_2024_v1.0.0.exe --version
-dist/MEE_2024_v1.0.0.exe catalogue
-dist/MEE_2024_v1.0.0.exe ui --browser
+dist/MEE_2024_v1.0.1.exe --version
+dist/MEE_2024_v1.0.1.exe catalogue --check-remote
+dist/MEE_2024_v1.0.1.exe ui --browser
 ```
 
-Then double-click it: the **new app window** should open. That is the default from v1.0.0.
-`MEE_2024_v1.0.0.exe gui` still opens the classic interface, and
+Then double-click it: the **new app window** should open. That is the default since
+v1.0.0. `MEE_2024_v1.0.1.exe gui` still opens the classic interface, and
 `mee2024 config --set default_interface=classic` makes the classic one the default again.
 
 ## Publish
 
 ```bash
-gh release create v1.0.0 "dist/MEE_2024_v1.0.0.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.0.0" --notes "Windows executable, no Python installation required. Double-click to open the new interface, or run it from a terminal for the command line. The classic interface is still available with: MEE_2024_v1.0.0.exe gui. Star catalogues are downloaded separately on first use."
+gh release create v1.0.1 "dist/MEE_2024_v1.0.1.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.0.1" --notes "Windows executable, no Python installation required. Double-click to open the app window, or run it from a terminal for the command line. The classic interface is still available with: MEE_2024_v1.0.1.exe gui. Star catalogues are downloaded automatically on first use. New in this release: offline catalogues are fetched automatically when a run needs one, with the download shown in MB; a warning when the requested star magnitude is deeper than the selected catalogue reaches; and an Advanced analysis panel with rotatable distortion surfaces and a spatially resolved residual-correlation map."
 ```
 
 The executable deliberately does **not** contain the 327 MB of star catalogues. It fetches
