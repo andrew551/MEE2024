@@ -5,14 +5,15 @@ The intended user experience: pick an offline catalogue in the GUI or with
 ``--catalogue gaia_offline``, and if it is not present it downloads once, verifies itself
 against the checksums in its own manifest, and is thereafter used with no network at all.
 
-**No archive has been published yet**, so the registry below carries placeholder Zenodo
-entries. Everything except the actual URL and checksum is in place: resolution, download
-with progress, extraction, verification and the on-disk location. Filling in a real
-record is a one-line edit per catalogue.
+The registry points at GitHub release assets, with the SHA-256 of each archive baked in.
+Until those assets are uploaded the URLs return 404, which is reported as an actionable
+message telling the user to build locally instead. A Zenodo DOI replaces the GitHub URL
+at publication; ``catalogue_sources`` in the config overrides either without a code change.
 """
 
 import json
 import shutil
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -73,27 +74,41 @@ class CatalogueRelease:
 # read both and concatenate.
 # ---------------------------------------------------------------------------
 
+# The two archives are **disjoint magnitude slices**, not a base and a superset:
+# gaia_dr3_g12 covers G < 12 and gaia_dr3_g12_13 covers 12 < G < 13. GaiaOfflineProvider
+# concatenates whichever are installed, so "G < 13 coverage" means installing both. That
+# split is the point: a calibration field needs only the 138 MB base, while a deep eclipse
+# field adds the second archive.
+GITHUB_REPO = 'andrew551/MEE2024'
+#: the release tag holding the catalogue assets, kept separate from software releases
+CATALOGUE_TAG = 'catalogues-v1'
+
+
+def _github_asset(filename):
+    return (f'https://github.com/{GITHUB_REPO}/releases/download/'
+            f'{CATALOGUE_TAG}/{filename}')
+
+
 RELEASES = {
     'gaia_dr3_g12': CatalogueRelease(
         name='gaia_dr3_g12',
         description='Gaia DR3, G < 12, with double-star neighbour flags',
         magnitude_limit=12.0,
-        n_stars=2_900_000,      # estimated; corrected when the archive is built
-        size_bytes=139_000_000,
-        # --- placeholder: fill in once deposited on Zenodo ---
-        doi=None,               # e.g. '10.5281/zenodo.XXXXXXX'
-        url=None,               # e.g. 'https://zenodo.org/records/XXXXXXX/files/gaia_dr3_g12.zip'
-        sha256=None,
+        n_stars=3_087_821,
+        size_bytes=137_952_319,
+        doi=None,               # a Zenodo DOI replaces the GitHub URL at publication
+        url=_github_asset('gaia_dr3_g12.zip'),
+        sha256='f4a579e369c41b6d7099bac6b20d58c69f6b750092cd62f4085c77c670fbc5cb',
     ),
     'gaia_dr3_g12_13': CatalogueRelease(
         name='gaia_dr3_g12_13',
         description='Gaia DR3, 12 < G < 13 (optional deep extension for eclipse fields)',
         magnitude_limit=13.0,
-        n_stars=4_470_000,
-        size_bytes=215_000_000,
+        n_stars=4_281_806,
+        size_bytes=188_985_889,
         doi=None,
-        url=None,
-        sha256=None,
+        url=_github_asset('gaia_dr3_g12_13.zip'),
+        sha256='28607c07a9f60c89f09ba653eac06f890ff89631d28252e9af7af63be1adb71b',
     ),
 }
 
@@ -158,7 +173,21 @@ def _download(url, destination, expected_sha256=None, progress=None):
         _google_drive_direct_url(url),
         headers={'User-Agent': 'mee2024', 'Accept': '*/*'})
 
-    with urllib.request.urlopen(request) as response:
+    try:
+        response_cm = urllib.request.urlopen(request)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise RuntimeError(
+                f'{url}\nreturned 404. The catalogue archive has not been uploaded to '
+                f'that release yet.\nBuild it locally instead:\n'
+                f'    python tools/build_gaia_offline.py --name '
+                f'{destination.stem}\n'
+                f'or point somewhere else with `mee2024 catalogue --set-source`.') from exc
+        raise RuntimeError(f'{url}\nreturned HTTP {exc.code} {exc.reason}') from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f'could not reach {url}: {exc.reason}') from exc
+
+    with response_cm as response:
         content_type = (response.headers.get('Content-Type') or '').lower()
         total = int(response.headers.get('Content-Length') or 0)
         if progress is not None:

@@ -4,6 +4,7 @@ Exercised against a synthetic catalogue and against the real captured Gaia fixtu
 the format is proven end to end before a 139 MB archive is ever built.
 """
 
+import functools
 import json
 
 import numpy as np
@@ -381,3 +382,104 @@ def test_offline_provider_stacks_a_base_and_a_deep_archive(tmp_path):
 def test_offline_provider_requires_a_directory():
     with pytest.raises(ValueError, match='at least one'):
         prov.GaiaOfflineProvider([])
+
+
+# ------------------------------------------------------- download and install
+
+def test_release_urls_and_checksums_are_configured():
+    """The registry must carry a real URL and hash, or auto-download cannot work."""
+    from mee2024.starcat import download
+    for name, release in download.RELEASES.items():
+        assert release.is_published, f'{name} has no URL'
+        assert release.url.startswith('https://'), f'{name}: {release.url}'
+        assert release.sha256 and len(release.sha256) == 64, f'{name} has no sha256'
+        assert release.n_stars > 1_000_000
+        assert release.size_bytes > 1_000_000
+
+
+def test_the_two_archives_are_disjoint_magnitude_slices():
+    """G<12 and 12<G<13 are complementary, not a base and a superset.
+
+    The provider concatenates whichever are installed, so installing both gives G<13.
+    """
+    from mee2024.starcat import download
+    base = download.RELEASES['gaia_dr3_g12']
+    deep = download.RELEASES['gaia_dr3_g12_13']
+    assert base.magnitude_limit == 12.0
+    assert deep.magnitude_limit == 13.0
+    assert '12 < G < 13' in deep.description
+
+
+def test_download_rejects_an_html_error_page(tmp_path, monkeypatch):
+    """Drive and similar hosts serve interstitial or quota pages as HTTP 200 HTML.
+
+    Saving that as a .zip fails much later with a baffling error, so refuse it up front.
+    """
+    import io
+    from mee2024.starcat import download
+
+    class FakeResponse(io.BytesIO):
+        headers = {'Content-Type': 'text/html', 'Content-Length': '100'}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(download.urllib.request, 'urlopen',
+                        lambda *a, **k: FakeResponse(b'<!DOCTYPE html><html>quota</html>'))
+    with pytest.raises(ValueError, match='returned a web page'):
+        download._download('https://example.test/x.zip', tmp_path / 'x.zip')
+    assert not (tmp_path / 'x.zip.part').exists(), 'the partial file must be removed'
+
+
+def test_download_verifies_the_checksum_and_installs(tmp_path, monkeypatch):
+    """End to end over a real local HTTP server: fetch, verify, unpack, use."""
+    import http.server
+    import threading
+    from mee2024.starcat import download
+
+    served = tmp_path / 'served'
+    served.mkdir()
+    store.write_catalogue(tmp_path / 'built', synthetic_table(80), name='served',
+                          magnitude_limit=12.0)
+    archive = store.pack(tmp_path / 'built', served / 'served.zip')
+    digest = store.sha256(archive)
+
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler,
+                                directory=str(served))
+    httpd = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f'http://127.0.0.1:{httpd.server_address[1]}/served.zip'
+        target = tmp_path / 'fetched.zip'
+        download._download(url, target, expected_sha256=digest)
+        assert target.exists()
+
+        # a wrong checksum must be rejected and leave nothing behind
+        other = tmp_path / 'bad.zip'
+        with pytest.raises(ValueError, match='checksum mismatch'):
+            download._download(url, other, expected_sha256='0' * 64)
+        assert not other.exists()
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    installed = store.unpack(target, tmp_path / 'installed', verify_checksums=True)
+    assert len(prov.GaiaOfflineProvider(installed).lookup((0, 360), (-90, 90))) == 80
+
+
+def test_a_missing_asset_is_reported_as_actionable(tmp_path, monkeypatch):
+    """Until the release assets exist the URLs 404; that must not be a traceback."""
+    import urllib.error
+    from mee2024.starcat import download
+
+    def fake_urlopen(*args, **kwargs):
+        raise urllib.error.HTTPError('u', 404, 'Not Found', {}, None)
+
+    monkeypatch.setattr(download.urllib.request, 'urlopen', fake_urlopen)
+    with pytest.raises(RuntimeError, match='has not been uploaded'):
+        download._download('https://example.test/gaia_dr3_g12.zip',
+                           tmp_path / 'gaia_dr3_g12.zip')

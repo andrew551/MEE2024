@@ -221,3 +221,50 @@ handed**, so a 3520x4656 frame becomes a full-size float64 RGBA intermediate. It
 strided copy mapped back onto the original pixel grid with `extent=`, so the star overlay
 still works in original coordinates: **524 MB → 33 MB**, visually identical. This also
 affected the CLI, on any sufficiently large frame with tight memory.
+
+---
+
+## 8. Packaging: the Windows executable
+
+`MEE2024.spec` now lives at the **repository root** and is run from there, because the code
+uses absolute `from mee2024 import ...` imports and so needs the repo root on the path:
+
+```bash
+python -m PyInstaller MEE2024.spec --noconfirm
+```
+
+Produces `dist/MEE_2024_v1.0.0.exe`, **187 MB**, one file, no Python install needed.
+Double-clicking it opens the classic GUI as before; `MEE_2024_v1.0.0.exe ui` opens the new
+app window, and every CLI subcommand works.
+
+Built and verified with **Python 3.9** — the interpreter that already carried the science
+dependencies, and the more proven PyInstaller target than 3.14. The full test suite passes
+on 3.9 as well as 3.14.
+
+Verified end to end through the frozen exe: `distortion` on the real zwo3 data against the
+offline catalogue reproduced **109.6 mas and recovered 2023-10-28**, matching the source
+build exactly; `ui --browser` serves the frontend with the byline, the Watch tab and the
+distortion-field card, `api/hello` reports both catalogues, and an unauthenticated request
+is refused with 403.
+
+Three things that had to be right, each of which broke the build first time:
+
+1. **Two different bundle destinations.** `MEE2024util.resource_path()` joins
+   `sys._MEIPASS` directly, so anything it looks up must land at the archive **root**
+   (`resources/...`). But `ui/server.py` finds the frontend relative to its own
+   `__file__`, which under PyInstaller is `_MEIPASS/mee2024/ui/`, so `frontend.html` must
+   land **there**. Putting everything under `mee2024/` failed with
+   `FileNotFoundError: _MEI.../resources/compressed_tycho2024epoch.npz`.
+2. **`resources/*` does not recurse**, so the Hipparcos catalogue and label index are
+   listed file by file — the same trap already fixed in `setup.cfg` for the wheel.
+3. **stdout is buffered in a frozen build** when redirected or run without a console, so
+   `ui` printed its URL nowhere. The URL is the only way to reach the interface, so those
+   prints now pass `flush=True`.
+
+Startup costs about 10 s, because a one-file build unpacks 187 MB to a temporary directory
+on every launch. A `--onedir` build starts almost instantly at the cost of shipping a
+folder rather than a single file; worth switching if the delay annoys people.
+
+macOS and Linux are left for later, but the spec already has the `BUNDLE` branch for a
+`.app`, and nothing in the code is Windows-specific except `os.startfile` in the reveal
+helper, which already has `open`/`xdg-open` branches.

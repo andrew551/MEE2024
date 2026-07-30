@@ -39,7 +39,9 @@ def launch(prefer_browser=False, host='127.0.0.1', port=0, block=True):
     block: when True, return only once the window (or the user's Ctrl-C) closes.
     """
     server = UiServer(api=Api(), host=host, port=port).start()
-    print(f'MEE2024 UI serving at {server.url}')
+    # flush: a frozen (PyInstaller) build buffers stdout when it is redirected or
+    # has no console, and this URL is the only way to reach the UI
+    print(f'MEE2024 UI serving at {server.url}', flush=True)
 
     if not prefer_browser and have_webview():
         _run_native(server)
@@ -48,7 +50,7 @@ def launch(prefer_browser=False, host='127.0.0.1', port=0, block=True):
 
     webbrowser.open(server.url)
     if block:
-        print('Close this window or press Ctrl-C to quit.')
+        print('Close this window or press Ctrl-C to quit.', flush=True)
         try:
             threading.Event().wait()
         except KeyboardInterrupt:
@@ -79,7 +81,7 @@ def _run_native(server):
     try:
         webview.start(gui=gui)
     except Exception as exc:
-        print(f'native window failed ({exc}); falling back to the browser')
+        print(f'native window failed ({exc}); falling back to the browser', flush=True)
         webbrowser.open(server.url)
         try:
             threading.Event().wait()
