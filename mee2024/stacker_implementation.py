@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import time
 from mee2024.MEE2024util import output_path, _version, setup_logger
+from mee2024 import events
 from mee2024.progress import NullProgress
 import datetime
 import pandas as pd
@@ -448,8 +449,10 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     output_dir = Path(output_path(output_name, options))
     logpath = output_dir / f'LOG{starttime}.txt'
     data_dir = Path(output_dir) / 'data'
-    os.mkdir(output_dir)
-    os.mkdir(data_dir)
+    # makedirs, not mkdir: the chosen output folder may not exist yet, and failing
+    # several directory levels deep gives the user a baffling error
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(data_dir, exist_ok=True)
     print(f'logpath {logpath}')
     logger = setup_logger('logger'+starttime, logpath)
     logger.info('start time: ' + str(datetime.datetime.now()) + '\n')
@@ -502,6 +505,8 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
         prev = shift2
         rms_errors.append(fun2)
         deltas.append(np.array([centroids[0][j] - centroids[i][matches1[j]] for j in matches1 if j < options['n']]))
+        events.emit(events.FRAME_ALIGNED, frame=i, shift=[float(shift2[0]), float(shift2[1])],
+                    rms=float(fun2), n_matched=len(matches1))
         used_stars_stacking.update(matches1.keys())
         print(matches1)
     print(rms_errors)
@@ -589,6 +594,9 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     df_detection.to_csv(data_dir / ('STACKED_CENTROIDS_DATA'+'.csv'))
     
     logger.info(f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
+    events.emit(events.CENTROIDS_FOUND, stage='stack', n=int(centroids_stacked.shape[0]),
+                image_shape=[int(imgs_0.shape[0]), int(imgs_0.shape[1])])
+    events.png_event('stack_preview', image=stacked)
     # plate solve
     flag_found_IDs = False
     df_identification = None
@@ -653,6 +661,11 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
         results_dict.update({'sigma threshold detection':options['centroid_gaussian_thresh'], 'min_area':options['min_area'], 'sigma_subtract':options['sigma_subtract']})
     with open(data_dir / 'results.txt', 'w', encoding="utf-8") as fp:
             json.dump(results_dict, fp, sort_keys=False, indent=4)
+    events.emit(events.METRICS, stage='stack', n_centroids=int(centroids_stacked.shape[0]),
+                n_frames=len(files), platesolved=bool(flag_found_IDs),
+                ra=solution['ra'], dec=solution['dec'], roll=solution['roll'],
+                platescale=solution['platescale/arcsec'],
+                stack_rms_px=[None if r is None else float(r) for r in rms_errors])
     
     print('making archive', output_dir, Path(output_dir).parent)
     shutil.make_archive(data_dir, 'zip', Path(data_dir))

@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEE2024</title>
+<style>
+:root{
+  --bg:#0b0e14; --panel:#131824; --panel-2:#1a2030; --line:#242c3d;
+  --ink:#e6e9f0; --ink-dim:#9aa4b8; --ink-faint:#66708a;
+  --accent:#6f8dff; --accent-2:#a78bfa;
+  --ok:#3ddc97; --warn:#f7b955; --bad:#ff6b6b;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:14px;line-height:1.5;overflow:hidden;
+  background-image:radial-gradient(1200px 600px at 80% -10%, #18203a 0%, transparent 60%);
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+h1,h2,h3{margin:0;font-weight:600}
+
+/* ---------------------------------------------------------------- shell */
+.app{display:grid;grid-template-rows:auto 1fr;height:100vh}
+header{
+  display:flex;align-items:center;gap:14px;padding:12px 20px;
+  border-bottom:1px solid var(--line);background:rgba(19,24,36,.7);
+  backdrop-filter:blur(8px);
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo svg{width:26px;height:26px}
+.logo b{font-size:16px;letter-spacing:.3px}
+.version{color:var(--ink-faint);font-size:12px;font-family:var(--mono)}
+.spacer{flex:1}
+.tabs{display:flex;gap:2px;background:var(--panel-2);padding:3px;border-radius:9px}
+.tabs button{
+  border:0;background:transparent;color:var(--ink-dim);padding:6px 14px;
+  border-radius:7px;transition:.15s;
+}
+.tabs button.on{background:var(--accent);color:#0b0e14;font-weight:600}
+.tabs button:not(.on):hover{color:var(--ink)}
+
+main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
+.col{overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.col.left{border-right:1px solid var(--line);background:rgba(19,24,36,.35)}
+
+/* ---------------------------------------------------------------- cards */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card>h3{font-size:12px;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--ink-faint);margin-bottom:12px}
+.row{display:flex;align-items:center;gap:10px}
+.muted{color:var(--ink-dim)}
+.faint{color:var(--ink-faint);font-size:12px}
+
+.btn{
+  border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+  padding:9px 14px;border-radius:9px;transition:.15s;
+}
+.btn:hover:not(:disabled){border-color:var(--accent);background:#202940}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{
+  background:linear-gradient(180deg,var(--accent),#5877f0);border-color:transparent;
+  color:#080c18;font-weight:650;
+}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.danger{border-color:#5a2a35;color:var(--bad)}
+.btn.wide{width:100%;justify-content:center;display:flex;padding:12px}
+
+/* ------------------------------------------------------------ file list */
+.filebox{
+  border:1px dashed var(--line);border-radius:10px;padding:10px;
+  max-height:170px;overflow-y:auto;background:var(--bg);
+}
+.filebox:empty::after{content:"No frames chosen yet.";color:var(--ink-faint);font-size:12px}
+.fileitem{display:flex;gap:8px;align-items:center;padding:3px 4px;
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-dim)}
+.fileitem span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fileitem b{color:var(--ink);font-weight:500}
+.pill{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:20px;
+  padding:2px 9px;font-size:11px;color:var(--ink-dim);font-family:var(--mono)
+}
+
+/* --------------------------------------------------------------- presets */
+.presets{display:flex;flex-direction:column;gap:8px}
+.preset{
+  display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--line);background:var(--bg);transition:.15s;text-align:left;
+  color:var(--ink);width:100%;
+}
+.preset:hover{border-color:#31405f}
+.preset.on{border-color:var(--accent);background:#161d33}
+.preset .dot{
+  width:14px;height:14px;border-radius:50%;border:2px solid var(--ink-faint);
+  margin-top:3px;flex:0 0 auto;transition:.15s
+}
+.preset.on .dot{border-color:var(--accent);background:var(--accent);
+  box-shadow:inset 0 0 0 2.5px var(--panel)}
+.preset div{min-width:0}
+.preset strong{display:block;font-weight:600}
+
+/* -------------------------------------------------------------- progress */
+.stage{margin-bottom:12px}
+.stage:last-child{margin-bottom:0}
+.stage .lab{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
+.stage .lab b{font-weight:500}
+.bar{height:7px;border-radius:4px;background:var(--panel-2);overflow:hidden}
+.bar i{
+  display:block;height:100%;border-radius:4px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  transition:width .25s ease;
+}
+.bar.done i{background:linear-gradient(90deg,var(--ok),#2fb87f)}
+.bar.indet i{width:30%;animation:slide 1.4s ease-in-out infinite}
+@keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
+
+/* ---------------------------------------------------------------- scores */
+.scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.score{
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;
+  position:relative;overflow:hidden;
+}
+.score .k{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--ink-faint)}
+.score .v{font-size:26px;font-weight:650;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.score .u{font-size:12px;color:var(--ink-dim);font-weight:400;margin-left:3px}
+.score .c{font-size:11.5px;color:var(--ink-faint);line-height:1.35}
+.score.g-ok{border-color:#1f5c45}.score.g-ok .v{color:var(--ok)}
+.score.g-warn{border-color:#5c4a1f}.score.g-warn .v{color:var(--warn)}
+.score.g-bad{border-color:#5c2830}.score.g-bad .v{color:var(--bad)}
+.score .spark{position:absolute;right:10px;top:12px;opacity:.85}
+
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13px}
+.kv dt{color:var(--ink-faint)}
+.kv dd{margin:0;font-family:var(--mono);font-size:12.5px}
+
+/* ------------------------------------------------------------------- log */
+.log{
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:10px;
+  max-height:210px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;
+}
+.log .t{color:var(--ink-faint)}
+.log .e{color:var(--bad)}
+.log .w{color:var(--warn)}
+
+.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;color:var(--ink-faint);text-align:center;padding:60px 20px;
+}
+.empty svg{width:64px;height:64px;opacity:.35}
+
+/* ---------------------------------------------------------------- picker */
+.modal{
+  position:fixed;inset:0;background:rgba(4,6,12,.72);display:none;
+  align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(3px)
+}
+.modal.on{display:flex}
+.dialog{
+  width:min(760px,92vw);max-height:82vh;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;
+  box-shadow:0 24px 60px rgba(0,0,0,.5)
+}
+.dialog header{border-bottom:1px solid var(--line);background:transparent}
+.crumbs{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);
+  padding:8px 16px;border-bottom:1px solid var(--line);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.listing{overflow-y:auto;flex:1;padding:6px}
+.entry{
+  display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;
+  cursor:pointer;font-size:13px
+}
+.entry:hover{background:var(--panel-2)}
+.entry.sel{background:#1d2740;outline:1px solid var(--accent)}
+.entry svg{width:15px;height:15px;flex:0 0 auto;color:var(--ink-faint)}
+.entry .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.entry .sz{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+.dialog footer{
+  display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line)
+}
+.roots{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line)}
+.roots button{
+  border:1px solid var(--line);background:var(--bg);color:var(--ink-dim);
+  border-radius:7px;padding:3px 9px;font-size:11.5px;font-family:var(--mono)
+}
+.roots button:hover{color:var(--ink);border-color:var(--accent)}
+
+.banner{
+  border-radius:10px;padding:10px 13px;font-size:13px;display:none;
+  border:1px solid #5c2830;background:#2a1620;color:#ffc9c9
+}
+.banner.on{display:block}
+.preview img{width:100%;border-radius:10px;display:block;border:1px solid var(--line)}
+.adv{display:grid;grid-template-columns:1fr auto;gap:9px 12px;align-items:center;font-size:13px}
+.adv input,.adv select{
+  background:var(--bg);border:1px solid var(--line);color:var(--ink);
+  border-radius:8px;padding:6px 9px;font-family:var(--mono);font-size:12px;width:130px
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="12" cy="12" r="3.2" fill="#6f8dff" stroke="none"/>
+        <ellipse cx="12" cy="12" rx="10" ry="4.2" stroke="#a78bfa"/>
+        <ellipse cx="12" cy="12" rx="10" ry="4.2" stroke="#6f8dff" transform="rotate(60 12 12)"/>
+      </svg>
+      <b>MEE2024</b>
+      <span class="version">__MEE_VERSION__</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="tabs">
+      <button id="tab-simple" class="on">Simple</button>
+      <button id="tab-advanced">Advanced</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="col left">
+      <div class="banner" id="banner"></div>
+
+      <div class="card">
+        <h3>1 &middot; Light frames</h3>
+        <div class="filebox" id="lights"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="pick-lights">Choose frames&hellip;</button>
+          <button class="btn" id="clear-lights">Clear</button>
+          <div class="spacer"></div>
+          <span class="pill" id="lights-count">0</span>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="pick-darks" style="flex:1">Darks&hellip;</button>
+          <button class="btn" id="pick-flats" style="flex:1">Flats&hellip;</button>
+        </div>
+        <div class="faint" id="calib-note" style="margin-top:7px"></div>
+      </div>
+
+      <div class="card">
+        <h3>2 &middot; Output folder</h3>
+        <div class="row">
+          <span class="faint" id="outdir" style="flex:1;font-family:var(--mono);
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            (alongside the input frames)</span>
+          <button class="btn" id="pick-out">Change&hellip;</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>3 &middot; How to process</h3>
+        <div class="presets" id="presets"></div>
+      </div>
+
+      <div class="card" id="advanced-card" style="display:none">
+        <h3>Advanced</h3>
+        <div class="adv">
+          <label for="catalogue">Star catalogue</label>
+          <select id="catalogue"></select>
+          <label for="order">Distortion order</label>
+          <select id="order">
+            <option>linear</option><option>cubic</option>
+            <option selected>quintic</option><option>septic</option>
+          </select>
+          <label for="obsdate">Observation date</label>
+          <input id="obsdate" placeholder="guess it" size="10">
+          <label for="tol">Fit tolerance (&Prime;)</label>
+          <input id="tol" value="1.0">
+          <label for="magmax">Max star magnitude</label>
+          <input id="magmax" value="12">
+        </div>
+        <div class="faint" style="margin-top:9px">
+          Leave the date blank to recover it from proper motions &mdash; it also serves as
+          a check on the FITS header.
+        </div>
+      </div>
+
+      <button class="btn primary wide" id="run">Run analysis</button>
+      <button class="btn danger wide" id="cancel" style="display:none">Stop</button>
+    </div>
+
+    <div class="col right" id="right">
+      <div class="empty" id="welcome">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/>
+          <circle cx="8" cy="8" r="1" fill="currentColor"/>
+          <circle cx="16" cy="9" r="1" fill="currentColor"/>
+          <circle cx="14" cy="16" r="1" fill="currentColor"/>
+        </svg>
+        <div>
+          <h2 style="color:var(--ink-dim);font-size:16px">Ready</h2>
+          <p class="faint" style="max-width:44ch;margin:6px 0 0">
+            Choose your light frames on the left and press Run. The frames are stacked,
+            star centroids measured, the field plate-solved against Gaia, and the optical
+            distortion fitted.
+          </p>
+        </div>
+      </div>
+
+      <div id="live" style="display:none">
+        <div class="card">
+          <h3>Progress</h3>
+          <div id="stages"></div>
+        </div>
+        <div class="scores" id="scores" style="margin-top:16px"></div>
+        <div class="card preview" id="preview-card" style="display:none;margin-top:16px">
+          <h3>Stacked image</h3>
+          <div id="preview"></div>
+        </div>
+        <div class="card" id="details-card" style="display:none;margin-top:16px">
+          <h3>Solution</h3>
+          <dl class="kv" id="details"></dl>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>Activity</h3>
+          <div class="log" id="log"></div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="open-out" style="display:none">Open output folder</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="dialog">
+    <header>
+      <b id="pick-title">Choose files</b>
+      <div class="spacer"></div>
+      <button class="btn" id="pick-close">Close</button>
+    </header>
+    <div class="roots" id="roots"></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="listing" id="listing"></div>
+    <footer>
+      <span class="faint" id="pick-status"></span>
+      <div class="spacer"></div>
+      <button class="btn" id="pick-all">Select all</button>
+      <button class="btn primary" id="pick-ok">Use selection</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+const TOKEN = "__MEE_TOKEN__";
+const $ = id => document.getElementById(id);
+
+async function api(path, body){
+  const opts = {headers:{'X-MEE-Token':TOKEN,'Content-Type':'application/json'}};
+  if(body !== undefined){ opts.method='POST'; opts.body=JSON.stringify(body); }
+  const r = await fetch('/api/'+path, opts);
+  const data = await r.json();
+  // only the HTTP status signals an API failure -- a payload may legitimately carry an
+  // 'error' field of its own (a failed run reports one, and must not break polling)
+  if(!r.ok) throw new Error(data.error || ('HTTP '+r.status));
+  return data;
+}
+
+const state = {
+  lights:[], darks:[], flats:[], outputDir:null, preset:'auto',
+  since:0, status:'idle', stages:new Map(), metrics:{}, solve:null, advanced:false,
+};
+
+/* ------------------------------------------------------------------ helpers */
+const fmtSize = n => n>1e9 ? (n/1e9).toFixed(1)+' GB'
+                  : n>1e6 ? (n/1e6).toFixed(0)+' MB'
+                  : (n/1e3).toFixed(0)+' kB';
+const base = p => p.replace(/\\/g,'/').split('/').pop();
+
+function banner(msg){
+  const b = $('banner');
+  b.textContent = msg || '';
+  b.classList.toggle('on', !!msg);
+}
+
+/* ------------------------------------------------------------- file listing */
+function renderFiles(){
+  const box = $('lights');
+  box.innerHTML = '';
+  state.lights.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'fileitem';
+    d.innerHTML = '<b>&#9679;</b><span></span>';
+    d.querySelector('span').textContent = base(p);
+    box.appendChild(d);
+  });
+  $('lights-count').textContent = state.lights.length;
+  const bits = [];
+  if(state.darks.length) bits.push(state.darks.length+' dark'+(state.darks.length>1?'s':''));
+  if(state.flats.length) bits.push(state.flats.length+' flat'+(state.flats.length>1?'s':''));
+  $('calib-note').textContent = bits.length ? bits.join(', ')+' selected' : '';
+  $('run').disabled = state.lights.length===0 || state.status==='running';
+}
+
+/* ---------------------------------------------------------------- presets */
+function renderPresets(presets){
+  const host = $('presets');
+  host.innerHTML = '';
+  Object.entries(presets).forEach(([key, info]) => {
+    const b = document.createElement('button');
+    b.className = 'preset' + (key===state.preset ? ' on' : '');
+    b.innerHTML = '<div class="dot"></div><div><strong></strong>'
+                + '<span class="faint"></span></div>';
+    b.querySelector('strong').textContent = info.label;
+    b.querySelector('span').textContent = info.note;
+    b.onclick = () => { state.preset = key; renderPresets(presets); };
+    host.appendChild(b);
+  });
+}
+
+/* --------------------------------------------------------------- progress */
+function renderStages(){
+  const host = $('stages');
+  host.innerHTML = '';
+  if(state.stages.size===0){
+    host.innerHTML = '<div class="faint">Starting&hellip;</div>';
+    return;
+  }
+  for(const s of state.stages.values()){
+    const pct = s.of ? Math.round(100*s.done/s.of) : 0;
+    const el = document.createElement('div');
+    el.className = 'stage';
+    const cls = 'bar' + (s.finished ? ' done' : (s.of ? '' : ' indet'));
+    el.innerHTML = `<div class="lab"><b></b><span class="faint"></span></div>
+                    <div class="${cls}"><i style="width:${s.finished?100:pct}%"></i></div>`;
+    el.querySelector('b').textContent = s.label;
+    el.querySelector('span').textContent =
+      s.finished ? 'done' : (s.of ? `${s.done} / ${s.of}` : 'working');
+    host.appendChild(el);
+  }
+}
+
+/* ----------------------------------------------------------------- scores */
+function grade(value, good, warn, invert){
+  if(value===null || value===undefined || Number.isNaN(value)) return '';
+  const bad = invert ? value < warn : value > warn;
+  const ok  = invert ? value > good : value < good;
+  return ok ? 'g-ok' : (bad ? 'g-bad' : 'g-warn');
+}
+
+function scoreCard(k, v, unit, caption, cls, spark){
+  const el = document.createElement('div');
+  el.className = 'score ' + (cls||'');
+  el.innerHTML = `<div class="k"></div>
+    <div class="v"><span class="num"></span><span class="u"></span></div>
+    <div class="c"></div>` + (spark||'');
+  el.querySelector('.k').textContent = k;
+  el.querySelector('.num').textContent = v;
+  el.querySelector('.u').textContent = unit||'';
+  el.querySelector('.c').textContent = caption||'';
+  return el;
+}
+
+function skyDot(ra, dec){
+  // a small equatorial locator: RA around, Dec up
+  const w=54,h=30, x=(ra/360)*w, y=h/2 - (dec/90)*(h/2);
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <rect x="0" y="0" width="${w}" height="${h}" rx="4" fill="#0b0e14" stroke="#242c3d"/>
+    <line x1="0" y1="${h/2}" x2="${w}" y2="${h/2}" stroke="#242c3d"/>
+    <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="#6f8dff"/>
+  </svg>`;
+}
+
+function renderScores(){
+  const host = $('scores');
+  host.innerHTML = '';
+  const m = state.metrics, solve = state.solve;
+
+  if(solve){
+    const ok = solve.success;
+    host.appendChild(scoreCard('Plate solve', ok ? 'Solved' : 'Failed', '',
+      ok ? `${solve.n_matched} stars matched to the catalogue`
+         : 'no confident match found', ok?'g-ok':'g-bad',
+      ok ? skyDot(solve.ra, solve.dec) : ''));
+  }
+  if(m.stack && m.stack.n_centroids !== undefined){
+    host.appendChild(scoreCard('Centroids', m.stack.n_centroids.toLocaleString(), '',
+      `measured on a stack of ${m.stack.n_frames} frames`));
+  }
+  const d = m.distortion;
+  if(d){
+    const rms = d.rms_mas;
+    host.appendChild(scoreCard('Residual', rms.toFixed(1), 'mas',
+      `per star, after fitting a ${d.distortion_order} distortion`,
+      grade(rms, 150, 300)));
+    host.appendChild(scoreCard('Stars used', d.n_stars.toLocaleString(), '',
+      'catalogue matches inside the fit tolerance'));
+    host.appendChild(scoreCard('Residual structure', d.nn_corr.toFixed(3), '',
+      d.nn_corr < 0.2 ? 'residuals look uncorrelated — the model fits'
+      : d.nn_corr < 0.35 ? 'some unmodelled distortion remains'
+      : 'strongly correlated — try a higher distortion order',
+      grade(d.nn_corr, 0.2, 0.35)));
+    if(d.date_guessed){
+      host.appendChild(scoreCard('Date recovered', d.observation_date, '',
+        'from proper motions alone, blind to the header'));
+    }
+    host.appendChild(scoreCard('Plate scale', d.platescale.toFixed(4), '″/px',
+      'from the fitted solution'));
+  }
+}
+
+function renderDetails(){
+  const solve = state.solve, d = state.metrics.distortion;
+  if(!solve && !d){ $('details-card').style.display='none'; return; }
+  $('details-card').style.display='';
+  const rows = [];
+  const s = d || solve || {};
+  if(s.ra !== undefined && s.ra !== null) rows.push(['Right ascension', s.ra.toFixed(5)+'°']);
+  if(s.dec !== undefined && s.dec !== null) rows.push(['Declination', s.dec.toFixed(5)+'°']);
+  if(solve && solve.roll !== null && solve.roll !== undefined)
+    rows.push(['Roll', solve.roll.toFixed(4)+'°']);
+  if(s.platescale) rows.push(['Plate scale', s.platescale.toFixed(5)+' ″/pixel']);
+  if(d && d.platescale_rel_uncertainty >= 0)
+    rows.push(['Plate scale uncertainty', (d.platescale_rel_uncertainty*100).toFixed(3)+' %']);
+  if(solve && solve.mirror) rows.push(['Mirrored field', 'yes']);
+  const host = $('details');
+  host.innerHTML = '';
+  rows.forEach(([k,v]) => {
+    const dt=document.createElement('dt'), dd=document.createElement('dd');
+    dt.textContent=k; dd.textContent=v; host.append(dt,dd);
+  });
+}
+
+/* -------------------------------------------------------------------- log */
+function appendLog(text, cls){
+  const el = $('log');
+  const line = document.createElement('div');
+  if(cls) line.className = cls;
+  line.textContent = text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ----------------------------------------------------------------- events */
+function handleEvent(e){
+  switch(e.type){
+    case 'stage_started':
+      state.stages.set(e.stage, {label:e.label||e.stage, done:0, of:e.n_items||0});
+      renderStages(); break;
+    case 'progress': {
+      const s = state.stages.get(e.stage);
+      if(s){ s.done=e.done; s.of=e.of; renderStages(); }
+      break; }
+    case 'stage_finished': {
+      const s = state.stages.get(e.stage);
+      if(s){ s.finished=true; renderStages(); }
+      break; }
+    case 'frame_aligned':
+      appendLog(`frame ${e.frame}: shift (${e.shift[0].toFixed(1)}, `
+              + `${e.shift[1].toFixed(1)}) px, rms ${e.rms.toFixed(3)} px, `
+              + `${e.n_matched} stars`);
+      break;
+    case 'centroids_found':
+      appendLog(`${e.n} centroids on the stacked image`);
+      break;
+    case 'solve_candidate':
+      appendLog(`candidate: ${e.n_triangles} triangles, ${e.n_matched} stars matched `
+              + `(need ${e.threshold}) — ${e.accepted?'accepted':'rejected'}`,
+              e.accepted ? null : 'w');
+      break;
+    case 'solve_result':
+      state.solve = e;
+      appendLog(e.success ? `plate solved: RA ${e.ra.toFixed(4)}° `
+                          + `Dec ${e.dec.toFixed(4)}°`
+                          : 'plate solve failed', e.success?null:'e');
+      renderScores(); renderDetails(); break;
+    case 'metrics':
+      state.metrics[e.stage] = e;
+      renderScores(); renderDetails(); break;
+    case 'image':
+      if(e.name === 'stack_preview'){
+        $('preview-card').style.display='';
+        $('preview').innerHTML = `<img alt="stacked image" src="data:image/png;base64,${e.png}">`;
+      }
+      break;
+    case 'log':
+      appendLog(e.text, e.level==='warning' ? 'w' : null); break;
+    case 'error':
+      appendLog(e.text, 'e'); banner(e.text); break;
+  }
+}
+
+/* -------------------------------------------------------------- run + poll */
+let poller = null;
+
+async function poll(){
+  try{
+    const s = await api('state?since='+state.since);
+    if(s.seq) state.since = s.seq;
+    s.events.forEach(handleEvent);
+    if(s.status !== state.status){
+      state.status = s.status;
+      onStatusChange(s);
+    }
+  }catch(err){ /* the window may be closing */ }
+}
+
+function onStatusChange(s){
+  const running = s.status==='running';
+  $('run').style.display = running ? 'none' : '';
+  $('cancel').style.display = running ? '' : 'none';
+  $('run').disabled = running || state.lights.length===0;
+  if(!running){
+    clearInterval(poller); poller=null;
+    poll();  // one last sweep for trailing events
+    if(s.status==='failed' && s.run_error) banner(s.run_error);
+    if(s.status==='done'){
+      appendLog('✓ finished');
+      if(s.outputs && (s.outputs.distortion_zip || s.outputs.centroid_zip)){
+        $('open-out').style.display='';
+        $('open-out').onclick = () =>
+          api('reveal', {path: s.outputs.distortion_zip || s.outputs.centroid_zip})
+            .catch(e => banner(e.message));
+      }
+    }
+  }
+}
+
+async function run(){
+  banner('');
+  state.since=0; state.stages.clear(); state.metrics={}; state.solve=null;
+  $('welcome').style.display='none';
+  $('live').style.display='';
+  $('log').innerHTML=''; $('scores').innerHTML='';
+  $('preview-card').style.display='none'; $('details-card').style.display='none';
+  $('open-out').style.display='none';
+
+  const spec = {
+    lights: state.lights, darks: state.darks, flats: state.flats,
+    output_dir: state.outputDir, preset: state.preset,
+  };
+  if(state.advanced){
+    spec.catalogue = $('catalogue').value || null;
+    const obs = $('obsdate').value.trim();
+    if(obs) spec.observation_date = obs;
+    spec.options = {
+      distortionOrder: $('order').value,
+      distortion_fit_tol: parseFloat($('tol').value) || 1.0,
+      max_star_mag_dist: parseFloat($('magmax').value) || 12.0,
+    };
+  }
+  try{
+    await api('run', spec);
+    state.status='running'; onStatusChange({status:'running'});
+    poller = setInterval(poll, 350);
+  }catch(err){ banner(err.message); }
+}
+
+/* ------------------------------------------------------------ file picker */
+const picker = {target:null, dirsOnly:false, cwd:null, chosen:new Set(), files:[]};
+
+async function openPicker(target, dirsOnly){
+  picker.target = target; picker.dirsOnly = dirsOnly;
+  picker.chosen = new Set();
+  $('pick-title').textContent = dirsOnly ? 'Choose a folder'
+    : (target==='lights' ? 'Choose light frames'
+       : target==='darks' ? 'Choose dark frames' : 'Choose flat frames');
+  $('pick-all').style.display = dirsOnly ? 'none' : '';
+  $('modal').classList.add('on');
+  const start = picker.cwd || (state.lights.length ? state.lights[0] : null);
+  await navigate(start ? start.replace(/[\\/][^\\/]*$/,'') : null);
+}
+
+async function navigate(path){
+  let data;
+  try{ data = await api('browse'+(path?('?path='+encodeURIComponent(path)):'')); }
+  catch(err){ $('pick-status').textContent = err.message; return; }
+  picker.cwd = data.path; picker.files = data.files;
+  $('crumbs').textContent = data.path;
+  const host = $('listing');
+  host.innerHTML = '';
+
+  if(data.parent){
+    host.appendChild(entryRow('↑ up one level', () => navigate(data.parent), 'dir'));
+  }
+  data.directories.forEach(d =>
+    host.appendChild(entryRow(d.name, () => navigate(d.path), 'dir')));
+  if(!picker.dirsOnly){
+    data.files.forEach(f => {
+      const row = entryRow(f.name, null, 'file', fmtSize(f.size));
+      row.onclick = () => {
+        if(picker.chosen.has(f.path)) picker.chosen.delete(f.path);
+        else picker.chosen.add(f.path);
+        row.classList.toggle('sel', picker.chosen.has(f.path));
+        updatePickStatus();
+      };
+      host.appendChild(row);
+    });
+  }
+  updatePickStatus();
+}
+
+function entryRow(name, onclick, kind, extra){
+  const el = document.createElement('div');
+  el.className = 'entry';
+  const icon = kind==='dir'
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h6l2 2h10v10H3z"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h8l4 4v14H6z"/></svg>';
+  el.innerHTML = icon + '<span class="nm"></span><span class="sz"></span>';
+  el.querySelector('.nm').textContent = name;
+  el.querySelector('.sz').textContent = extra || '';
+  if(onclick) el.onclick = onclick;
+  return el;
+}
+
+function updatePickStatus(){
+  $('pick-status').textContent = picker.dirsOnly
+    ? picker.cwd
+    : (picker.chosen.size ? picker.chosen.size + ' file(s) selected'
+                          : (picker.files.length + ' image file(s) here'));
+}
+
+function closePicker(){ $('modal').classList.remove('on'); }
+
+function confirmPicker(){
+  if(picker.dirsOnly){
+    state.outputDir = picker.cwd;
+    $('outdir').textContent = picker.cwd;
+  }else{
+    const chosen = [...picker.chosen].sort();
+    if(chosen.length) state[picker.target] = chosen;
+    renderFiles();
+  }
+  closePicker();
+}
+
+/* -------------------------------------------------------------------- init */
+$('pick-lights').onclick = () => openPicker('lights', false);
+$('pick-darks').onclick  = () => openPicker('darks', false);
+$('pick-flats').onclick  = () => openPicker('flats', false);
+$('pick-out').onclick    = () => openPicker(null, true);
+$('clear-lights').onclick = () => { state.lights=[]; renderFiles(); };
+$('pick-close').onclick = closePicker;
+$('pick-ok').onclick = confirmPicker;
+$('pick-all').onclick = () => {
+  picker.files.forEach(f => picker.chosen.add(f.path));
+  document.querySelectorAll('#listing .entry').forEach(el => {
+    if(el.querySelector('.sz').textContent) el.classList.add('sel');
+  });
+  updatePickStatus();
+};
+$('modal').onclick = e => { if(e.target === $('modal')) closePicker(); };
+$('run').onclick = run;
+$('cancel').onclick = () => api('cancel', {}).catch(e => banner(e.message));
+
+function setTab(advanced){
+  state.advanced = advanced;
+  $('tab-simple').classList.toggle('on', !advanced);
+  $('tab-advanced').classList.toggle('on', advanced);
+  $('advanced-card').style.display = advanced ? '' : 'none';
+}
+$('tab-simple').onclick = () => setTab(false);
+$('tab-advanced').onclick = () => setTab(true);
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') closePicker();
+});
+
+(async function init(){
+  try{
+    const hello = await api('hello');
+    renderPresets(hello.presets);
+    const sel = $('catalogue');
+    hello.known_catalogues.forEach(name => {
+      const o = document.createElement('option');
+      o.value = name; o.textContent = name;
+      if(name === hello.default_catalogue) o.selected = true;
+      sel.appendChild(o);
+    });
+    hello.catalogues.filter(c => c.installed).forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.name; o.textContent = c.name + ' (offline)';
+      if(c.name === hello.default_catalogue) o.selected = true;
+      sel.appendChild(o);
+    });
+    const roots = $('roots');
+    hello.roots.forEach(r => {
+      const b = document.createElement('button');
+      b.textContent = r.label;
+      b.onclick = () => navigate(r.path);
+      roots.appendChild(b);
+    });
+  }catch(err){ banner('could not reach the backend: '+err.message); }
+  renderFiles();
+  poll();
+})();
+</script>
+</body>
+</html>

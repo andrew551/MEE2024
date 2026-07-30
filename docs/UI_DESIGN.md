@@ -91,13 +91,55 @@ plumbing, not new science.
 
 ## 5. Phasing
 
-| phase | deliverable | size |
+| phase | deliverable | status |
 |---|---|---|
-| P0 | event bus + `--events-jsonl`; CLI/legacy GUI consume it | small — do with milestone B |
-| P1 | pywebview shell: Simple mode, progress, score cards, results browser | the core build |
-| P2 | Advanced mode (full options), packaging (PyInstaller for Win/macOS) | moderate |
-| P3 | Live mode (watchdog folder watcher + incremental pipeline) | moderate |
-| P4 | animations & polish | open-ended, incremental |
+| P0 | event bus + `--events-jsonl`; CLI/legacy GUI consume it | **done** |
+| P1 | app shell: Simple mode, progress, score cards | **done (initial version)** |
+| P2 | Advanced mode polish, subprocess isolation, packaging | next |
+| P3 | Live mode (folder watcher + incremental pipeline) | not started |
+| P4 | animations & polish | not started |
 
-Prerequisites from the existing roadmap: milestone B (quality score) feeds the score
-cards; the `LabelIndex` feeds the annotations; nothing blocks P0/P1 today.
+## 6. What the initial version does, and what it taught us
+
+Built: `mee2024/events.py` (P0) and `mee2024/ui/` (P1) — `runner.py` (pipeline in a worker
+thread, cooperative cancellation), `server.py` (token-guarded localhost HTTP + API),
+`frontend.html` (one self-contained file), `app.py` (pywebview, browser fallback), and
+`mee2024 ui`. 57 tests, none of which open a window.
+
+Verified against real data: a stage-2 run through the UI reproduced the CLI numbers
+exactly — 109.6 mas, 434 stars, `nn_corr` 0.166, date recovered 2023-10-28 — and rendered
+six graded score cards with plain-language captions.
+
+Three things the live test found that unit tests had not:
+
+1. **`do_stack` used `os.mkdir`**, which cannot create a missing parent, so choosing a
+   not-yet-existing output folder failed several layers deep with a bare `WinError 3`.
+   This affected the CLI's `-o` equally. Now `os.makedirs`, plus the runner creates and
+   validates the folder up front.
+2. **The frontend treated any payload `error` key as a transport failure**, and the state
+   payload used `error` for the run's own error — so polling broke at exactly the moment a
+   run failed, which is when the user most needs feedback. The field is now `run_error`,
+   and `api()` keys off the HTTP status alone.
+3. **`png_event` converted a whole frame to float64 before downsampling** — 125 MiB for a
+   3520×4656 stack, and more again for an RGBA copy. It now strides *then* casts, emits
+   8-bit greyscale, and carries a stdlib PNG encoder so IMAGE events survive without
+   Pillow.
+
+### The open architectural question for P2
+
+The pipeline runs in a **worker thread inside the server process**, which means the
+server's cached triangle database (~1 GB resident once the KD-tree is built) coexists with
+the pipeline's transient full-frame arrays. On a memory-pressured machine that is enough to
+fail: a stage-1 run died in `get_centroids_blur` needing another 125 MiB, and later in
+`compute_platescale` needing 89 MiB for 1.3 M triangle candidates. The CLI escapes this
+because every run is a fresh process that exits.
+
+**Recommendation: move the run into a subprocess for P2**, forwarding events over a pipe.
+It reclaims all memory between runs, isolates the server from a pipeline crash, and makes
+cancellation immediate rather than cooperative. The `EventBus` already serialises to JSON,
+so the pipe is the natural transport and the frontend needs no change.
+
+A cheaper complementary win: `get_centroids_blur` allocates several full-frame **float64**
+arrays from **uint16** input. float32 would halve peak memory there with no meaningful loss
+of centroid precision — worth measuring against the milestone-E benchmark rather than
+assuming.

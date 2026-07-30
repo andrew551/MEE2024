@@ -11,14 +11,15 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 331 passing (`pytest` = 310 fast + 21 behind `--runslow`) |
-| Lint | pyflakes clean apart from two intentional PyInstaller import shims |
-| Pipeline | stages 1–3 all runnable headlessly from the CLI |
+| Tests | 388 passing (`pytest` = 367 fast + 21 behind `--runslow`) |
+| Lint | pyflakes clean apart from three intentional import probes/shims |
+| Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Catalogues | Gaia G<12 and 12<G<13 built locally; Hipparcos + labels bundled |
+| Interfaces | `mee2024 ui` (new app), `mee2024 gui` (classic, unchanged), CLI |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
-`docs/UI_DESIGN.md` (new UI strategy).
+`docs/UI_DESIGN.md` (UI strategy, what is built, and the P2 question).
 
 ### Measured baseline — do not regress these
 
@@ -44,6 +45,54 @@ Stage 2 (`guess_date` seeded with 2020-01-01, blind):
 | zwo1 | septic | 100.9 mas | 1564 | 2023-09-20 | −39 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-07-30 — new UI: event bus (P0) and app shell (P1)
+
+**P0 — `mee2024/events.py`.** Typed pipeline events on an ambient `ContextVar` bus, so
+emitting needs no argument threaded through five layers. Sinks: `ListSink` (the UI and
+tests), `JsonlSink`, `TextSink`, `CallbackSink`. A broken sink cannot take a run down.
+`ProgressReporter.loop` now emits stage/progress events, so **every** reporter — and any
+frontend watching — stays in step with no subclass doing extra work. Emissions added for
+frame alignment, centroid counts, solve candidates and results, stage metrics, and a
+stacked-image preview. New CLI flags `--events-jsonl PATH` and `--events-text` make any run
+machine-readable, which milestones B and E want regardless of the UI.
+
+**P1 — `mee2024/ui/`.** `runner.py` runs the pipeline in a worker thread with cooperative
+cancellation and three presets (auto / quick look / deep); `server.py` serves a
+token-guarded API on an ephemeral localhost port; `frontend.html` is one self-contained
+file (no CDN, works offline, dark themed); `app.py` opens a native window via pywebview
+with a browser fallback. One transport serves both, so there is a single frontend.
+`mee2024 ui` launches it; `mee2024 gui` still launches the classic interface untouched.
+
+**Verified against real data.** A stage-2 run driven through the UI reproduced the CLI
+numbers exactly — 109.6 mas, 434 stars, `nn_corr` 0.166, date recovered 2023-10-28 — and
+rendered six graded score cards with plain-language captions. 57 new tests, none of which
+open a window.
+
+**Three bugs the live test found that unit tests had not:**
+
+- **`do_stack` used `os.mkdir`**, which cannot create a missing parent — choosing a
+  not-yet-existing output folder failed several layers deep with a bare `WinError 3`. This
+  hit the CLI's `-o` equally. Now `makedirs`, and the runner validates the folder up front.
+- **The frontend treated any payload `error` key as a transport failure**, while the state
+  payload used `error` for the run's own error — so polling broke at exactly the moment a
+  run failed. Renamed to `run_error`; `api()` now keys off the HTTP status alone.
+- **My own `png_event` converted a whole frame to float64 before downsampling** (125 MiB
+  for a 3520×4656 stack, more again for RGBA). It now strides *then* casts, emits 8-bit
+  greyscale, and carries a stdlib PNG encoder so IMAGE events work without Pillow.
+
+**Architectural finding for P2.** Running the pipeline in a thread inside a long-lived
+server means the cached triangle database (~1 GB resident with its KD-tree) coexists with
+the pipeline's transient full-frame arrays. On a memory-pressured machine that is enough to
+fail — a stage-1 run died needing another 125 MiB in `get_centroids_blur`, and later 89 MiB
+for 1.3 M triangle candidates. The CLI escapes it because each run is a fresh process.
+**Recommendation: move the run into a subprocess**, forwarding events over a pipe; the bus
+already serialises to JSON, so the frontend needs no change, and cancellation becomes
+immediate instead of cooperative. Cheaper complementary win: `get_centroids_blur` allocates
+full-frame float64 arrays from uint16 input — float32 would halve peak memory there, worth
+measuring against the milestone-E benchmark rather than assuming.
 
 ---
 

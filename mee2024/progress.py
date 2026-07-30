@@ -11,11 +11,20 @@ never pulls in tkinter.
 import multiprocessing
 import sys
 
+from mee2024 import events
+
+
+def _stage_name(message):
+    """A short stable key for a loop, derived from its human-readable message."""
+    return message.strip().rstrip('.').lower().replace(' ', '_')[:40] or 'loop'
+
 
 class ProgressReporter:
     """Runs a loop over ``items`` and reports how far through it is.
 
-    Subclasses override ``start`` / ``update`` / ``finish``; the loop bodies are shared.
+    Subclasses override ``start`` / ``update`` / ``finish`` for display. The loop bodies
+    are shared, and they also emit events on the ambient bus, so every reporter -- and a
+    frontend watching the bus -- stays in step without any subclass doing extra work.
     """
 
     def start(self, total, message):
@@ -30,15 +39,22 @@ class ProgressReporter:
     def loop(self, items, fxn, message='Progress', **kwargs):
         """Apply ``fxn(item, **kwargs)`` to each item in order, reporting progress."""
         items = list(items)
+        stage = _stage_name(message)
         self.start(len(items), message)
+        events.emit(events.STAGE_STARTED, stage=stage, label=message, n_items=len(items))
+        ok = False
         try:
             ret = []
             for i, item in enumerate(items):
                 ret.append(fxn(item, **kwargs))
                 self.update(i + 1)
+                events.emit(events.PROGRESS, stage=stage, label=message,
+                            done=i + 1, of=len(items))
+            ok = True
             return ret
         finally:
             self.finish()
+            events.emit(events.STAGE_FINISHED, stage=stage, ok=ok)
 
     def parallel_loop(self, items, fxn, message='Progress', nthreads=4, **kwargs):
         """As ``loop``, but across ``nthreads`` processes. Input order is preserved.

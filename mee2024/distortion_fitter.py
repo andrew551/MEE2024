@@ -16,6 +16,7 @@ from mee2024.MEE2024util import output_path, date_string_to_float, _version
 import json
 from pathlib import Path
 from mee2024 import database_cache
+from mee2024 import events
 import datetime
 from mee2024 import distortion_polynomial
 from mee2024 import gaia_search
@@ -168,8 +169,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     output_name = f'DISTORTION_OUTPUT{starttime}__'+basename
     output_dir = Path(output_path(output_name, options))
     data_dir = output_dir / 'distortion'
-    os.mkdir(output_dir)
-    os.mkdir(data_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(data_dir, exist_ok=True)
     
     plate_solve_result = platesolve_triangle.platesolve(np.c_[other_stars_df['py'], other_stars_df['px']], image_size, dict(options, **{'flag_display':False}))
     if not plate_solve_result['success']: # failed platesolve
@@ -315,6 +316,16 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     
     with open(data_dir / 'distortion_results.txt', 'w', encoding="utf-8") as fp:
         json.dump(output_results, fp, sort_keys=False, indent=4)
+
+    events.emit(events.METRICS, stage='distortion',
+                rms_mas=float(np.degrees(np.mean(mag_errors**2)**0.5)*3600*1000),
+                n_stars=int(plate2.shape[0]), nn_corr=float(nn_corr),
+                platescale=float(np.degrees(result[0])*3600),
+                platescale_rel_uncertainty=float(platescale_stderror),
+                distortion_order=options['distortionOrder'],
+                date_guessed=bool(options['guess_date']),
+                observation_date=output_results['observation_date'],
+                ra=float(np.degrees(result[1])), dec=float(np.degrees(result[2])))
 
     marker_colors = ['red' if is_missing_pm else 'orange' if is_double else '#1f77b4' for (is_missing_pm, is_double)
                      in zip(flag_missing_pm[keep_j], flag_is_double[keep_j])] 

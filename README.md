@@ -57,10 +57,27 @@ mee2024
 
 - Run with python: python mee2024/main.py
 
+## The app window
+
+```
+mee2024 ui
+```
+
+Opens a native window (using the platform's own web view) with a simplified workflow:
+choose your light frames, pick a processing preset, press Run. Progress, a stacked-image
+preview, and graded score cards appear in the window — no plot pop-ups. `--browser` uses
+your default browser instead, serving the same interface from the same local server.
+
+The classic interface is still there and unchanged:
+
+```
+mee2024 gui
+```
+
 ## Command line
 
-Running `mee2024` with no arguments opens the GUI, as before. With arguments it runs
-headlessly, which is what the test suite and any batch processing use:
+Running `mee2024` with no arguments opens the classic GUI, as before. With arguments it
+runs headlessly, which is what the test suite and any batch processing use:
 
 ```
 mee2024 stack       LIGHTS... [--dark ...] [--flat ...] [-o DIR]   # stage 1

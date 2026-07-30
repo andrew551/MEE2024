@@ -15,6 +15,7 @@ Options are resolved in this order, later winning:
 """
 
 import argparse
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -87,6 +88,27 @@ def make_progress(args):
     return NullProgress() if getattr(args, 'quiet', False) else TextProgress()
 
 
+@contextlib.contextmanager
+def event_bus(args):
+    """An ambient event bus for the run, wired to whatever the flags asked for."""
+    from mee2024 import events
+
+    sinks = []
+    if getattr(args, 'events_jsonl', None):
+        sinks.append(events.JsonlSink(args.events_jsonl))
+    if getattr(args, 'events_text', False):
+        sinks.append(events.TextSink())
+    if not sinks:
+        yield None
+        return
+    bus = events.EventBus(sinks)
+    try:
+        with events.using(bus):
+            yield bus
+    finally:
+        bus.close()
+
+
 def _use_headless_backend(options):
     """Select a non-interactive matplotlib backend when nothing will be shown."""
     if not (options['flag_display'] or options['flag_display2'] or options['flag_display3']):
@@ -104,8 +126,9 @@ def cmd_stack(args):
         lights = [str(p) for p in args.lights]
         darks = [str(p) for p in (args.dark or [])]
         flats = [str(p) for p in (args.flat or [])]
-        zip_path = stacker_implementation.do_stack(lights, darks, flats, options,
-                                                   progress=make_progress(args))
+        with event_bus(args):
+            zip_path = stacker_implementation.do_stack(lights, darks, flats, options,
+                                                       progress=make_progress(args))
     finally:
         database_cache.shutdown_triangles()
     print(f'stage 1 output: {zip_path}')
@@ -117,7 +140,8 @@ def cmd_distortion(args):
     _use_headless_backend(options)
     from mee2024 import database_cache, distortion_fitter
     try:
-        zip_path = distortion_fitter.match_and_fit_distortion(str(args.data), options, None)
+        with event_bus(args):
+            zip_path = distortion_fitter.match_and_fit_distortion(str(args.data), options, None)
     finally:
         database_cache.shutdown_triangles()
     print(f'stage 2 output: {zip_path}')
@@ -128,7 +152,8 @@ def cmd_eclipse(args):
     options = resolve_options(args)
     _use_headless_backend(options)
     from mee2024 import eclipse_analysis
-    eclipse_analysis.eclipse_analysis(str(args.distortion), options)
+    with event_bus(args):
+        eclipse_analysis.eclipse_analysis(str(args.distortion), options)
     print('stage 3 complete')
     return 0
 
@@ -143,11 +168,12 @@ def cmd_run(args):
         darks = [str(p) for p in (args.dark or [])]
         flats = [str(p) for p in (args.flat or [])]
         progress = make_progress(args)
-        centroid_zip = stacker_implementation.do_stack(lights, darks, flats, options,
-                                                       progress=progress)
-        print(f'stage 1 output: {centroid_zip}')
-        distortion_zip = distortion_fitter.match_and_fit_distortion(str(centroid_zip), options, None)
-        print(f'stage 2 output: {distortion_zip}')
+        with event_bus(args):
+            centroid_zip = stacker_implementation.do_stack(lights, darks, flats, options,
+                                                           progress=progress)
+            print(f'stage 1 output: {centroid_zip}')
+            distortion_zip = distortion_fitter.match_and_fit_distortion(str(centroid_zip), options, None)
+            print(f'stage 2 output: {distortion_zip}')
     finally:
         database_cache.shutdown_triangles()
     if args.eclipse:
@@ -174,8 +200,16 @@ def cmd_config(args):
 
 
 def cmd_gui(args):
+    """The classic FreeSimpleGUI interface, kept as the legacy mode."""
     from mee2024 import main as main_module
     main_module.run_gui()
+    return 0
+
+
+def cmd_ui(args):
+    """The app window: a native web view when available, otherwise the browser."""
+    from mee2024.ui import app
+    app.launch(prefer_browser=args.browser, port=args.port)
     return 0
 
 
@@ -239,6 +273,10 @@ def _add_pipeline_common(parser):
     parser.add_argument('--no-display', action='store_true',
                         help='never open a plot window; run fully headless')
     parser.add_argument('--quiet', action='store_true', help='suppress the progress bar')
+    parser.add_argument('--events-jsonl', type=Path, default=None, metavar='PATH',
+                        help='write a machine-readable JSONL record of the run')
+    parser.add_argument('--events-text', action='store_true',
+                        help='print pipeline events to stderr as they happen')
 
 
 def build_parser():
@@ -249,7 +287,14 @@ def build_parser():
     parser.add_argument('--version', action='version', version=MEE2024util._version())
     sub = parser.add_subparsers(dest='command', required=True)
 
-    p = sub.add_parser('gui', help='open the graphical interface')
+    p = sub.add_parser('ui', help='open the app window (new interface)')
+    p.add_argument('--browser', action='store_true',
+                   help='use the default browser instead of a native window')
+    p.add_argument('--port', type=int, default=0,
+                   help='serve on a fixed port instead of an ephemeral one')
+    p.set_defaults(func=cmd_ui)
+
+    p = sub.add_parser('gui', help='open the classic interface (legacy)')
     p.set_defaults(func=cmd_gui)
 
     p = sub.add_parser('stack', help='stage 1: stack frames, find centroids, platesolve')

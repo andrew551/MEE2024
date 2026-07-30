@@ -13,6 +13,7 @@ import time
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from mee2024 import database_cache
+from mee2024 import events
 from mee2024.MEE2024util import resource_path, get_bbox, get_triangle_db_path
 from sklearn.neighbors import NearestNeighbors
 import math
@@ -297,6 +298,7 @@ def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_mat
     # if we are friendly, could mirror (x, y) and try again if failed
     result['mirror'] = False
     if result['success'] or not try_mirror_also:
+        _emit_solve_result(result)
         return result
     print('platesolve failed ... trying mirror image of field')
     centroids = np.copy(centroids)
@@ -306,7 +308,16 @@ def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_mat
     if result['success']:
         result['mirror'] = True
         result['matched_centroids'][:, [0, 1]] = result['matched_centroids'][:, [1, 0]]
+    _emit_solve_result(result)
     return result
+
+
+def _emit_solve_result(result):
+    events.emit(events.SOLVE_RESULT, success=bool(result['success']),
+                ra=result['ra'], dec=result['dec'], roll=result['roll'],
+                platescale=result['platescale/arcsec'], mirror=bool(result.get('mirror')),
+                n_matched=0 if result['matched_stars'] is None
+                else int(len(result['matched_stars'])))
 def _platesolve_helper(centroids, image_size, options, output_dir=None):
     dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
     N_stars_catalog = dbs.star_table.shape[0]
@@ -387,6 +398,11 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                 thresh = estimate_acceptance_threshold(min(n_obs, MAX_MATCH), N_stars_catalog, max_error, g, addon=3,
                                                        local_density=local_density)
                 
+                events.emit(events.SOLVE_CANDIDATE, n_triangles=len(non_redundant),
+                            n_matched=int(stardata.shape[0]), threshold=int(thresh),
+                            accepted=bool(stardata.shape[0] >= thresh),
+                            ra=float(acc_ra), dec=float(acc_dec),
+                            platescale=float(3600*np.degrees(scale[el])))
                 if stardata.shape[0] >= thresh:
                     n_matches += 1
                     print(f"MATCH ACCEPTED (nstars matched = {stardata.shape[0]}, thresh = {thresh})")
