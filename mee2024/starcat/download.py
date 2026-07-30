@@ -100,33 +100,103 @@ RELEASES = {
 DEFAULT_RELEASE = 'gaia_dr3_g12'
 
 
-def get_release(name=DEFAULT_RELEASE):
+def get_release(name=DEFAULT_RELEASE, options=None):
+    """A release, with any URL and checksum from the user's config applied.
+
+    Nothing is published yet, so the registry above carries no URLs. Rather than require a
+    code edit to try a host, ``catalogue_sources`` in the config supplies them:
+
+        {"gaia_dr3_g12": {"url": "https://...", "sha256": "..."}}
+
+    Set it with:  mee2024 catalogue --set-source NAME --url URL [--sha256 HASH]
+
+    That makes switching host -- an interim GitHub release now, Zenodo at publication --
+    a config change rather than a release of the software.
+    """
     if name not in RELEASES:
         raise KeyError(f'unknown catalogue release {name!r}; '
                        f'known: {sorted(RELEASES)}')
-    return RELEASES[name]
+    release = RELEASES[name]
+    source = (options or {}).get('catalogue_sources', {}).get(name) if options else None
+    if source:
+        release.url = source.get('url') or release.url
+        release.sha256 = source.get('sha256') or release.sha256
+        if source.get('size_bytes'):
+            release.size_bytes = source['size_bytes']
+    return release
+
+
+def _google_drive_direct_url(url):
+    """Rewrite a Google Drive share link into a direct-download URL, or return it as is.
+
+    Drive is a poor host for this and is not recommended (see the note in this module),
+    but if a link is given anyway, at least aim it at the download endpoint rather than
+    the HTML preview page.
+    """
+    import re
+    match = re.search(r'/file/d/([A-Za-z0-9_-]+)', url) or \
+        re.search(r'[?&]id=([A-Za-z0-9_-]+)', url)
+    if 'drive.google.com' in url and match:
+        return f'https://drive.usercontent.google.com/download?id={match.group(1)}&export=download&confirm=t'
+    return url
+
+
+def _looks_like_html(head):
+    start = head[:400].lstrip().lower()
+    return start.startswith(b'<!doctype html') or start.startswith(b'<html')
 
 
 def _download(url, destination, expected_sha256=None, progress=None):
+    """Fetch a URL to a file, verifying it before it is put in place.
+
+    Downloads to a .part file and only renames on success, so an interrupted or corrupt
+    transfer never leaves something that looks like a usable archive.
+    """
     destination = Path(destination)
     partial = destination.with_suffix(destination.suffix + '.part')
-    with urllib.request.urlopen(url) as response:
+    request = urllib.request.Request(
+        _google_drive_direct_url(url),
+        headers={'User-Agent': 'mee2024', 'Accept': '*/*'})
+
+    with urllib.request.urlopen(request) as response:
+        content_type = (response.headers.get('Content-Type') or '').lower()
         total = int(response.headers.get('Content-Length') or 0)
         if progress is not None:
             progress.start(total or 1, f'Downloading {destination.name}')
         done = 0
+        first_block = True
         with open(partial, 'wb') as out:
             while True:
                 block = response.read(1 << 20)
                 if not block:
                     break
+                if first_block:
+                    first_block = False
+                    # A file host that returns an interstitial, a quota error or a login
+                    # page answers 200 with HTML. Saving that as a .zip produces a
+                    # baffling failure much later, so refuse it here.
+                    if _looks_like_html(block) or 'text/html' in content_type:
+                        out.close()
+                        partial.unlink(missing_ok=True)
+                        if progress is not None:
+                            progress.finish()
+                        raise ValueError(
+                            f'{url} returned a web page, not a file. Hosts such as '
+                            'Google Drive serve a confirmation or quota page for large '
+                            'public files. Use a direct-download host (a GitHub release '
+                            'asset or Zenodo), or build the catalogue locally.')
                 out.write(block)
                 done += len(block)
                 if progress is not None:
                     progress.update(min(done, total or done))
         if progress is not None:
             progress.finish()
-    if expected_sha256 is not None:
+
+    if total and partial.stat().st_size != total:
+        partial.unlink(missing_ok=True)
+        raise ValueError(f'download truncated: expected {total} bytes, '
+                         f'got {partial.stat().st_size}')
+    if expected_sha256:
         actual = store.sha256(partial)
         if actual != expected_sha256:
             partial.unlink(missing_ok=True)
@@ -136,20 +206,22 @@ def _download(url, destination, expected_sha256=None, progress=None):
     return destination
 
 
-def ensure_available(name=DEFAULT_RELEASE, progress=None, allow_download=True):
+def ensure_available(name=DEFAULT_RELEASE, progress=None, allow_download=True,
+                     options=None):
     """Return the local directory for a catalogue, downloading it if necessary."""
-    release = get_release(name)
+    release = get_release(name, options=options)
     directory = release.directory()
     if release.is_installed():
         return directory
 
     if not release.is_published:
         raise RuntimeError(
-            f'catalogue {name!r} has not been published yet, so it cannot be '
-            f'downloaded automatically.\n'
-            f'Build it locally with:\n'
+            f'no download URL is configured for {name!r}.\n'
+            f'Either point it at a host:\n'
+            f'    mee2024 catalogue --set-source {name} --url URL --sha256 HASH\n'
+            f'or build it locally:\n'
             f'    python tools/build_gaia_offline.py --name {name}\n'
-            f'and it will be written to {directory}')
+            f'either way it ends up in {directory}')
     if not allow_download:
         raise RuntimeError(f'catalogue {name!r} is not installed at {directory} '
                            'and downloading is disabled')

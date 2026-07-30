@@ -139,6 +139,24 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
 
     return stardata0, stardata, plate2, alt, az, mask_select
 
+def _date_guess_error(guessed, from_header):
+    """Signed days between a blind date guess and the FITS header date, or None.
+
+    This is the pipeline's cheapest self-check: the guess uses only proper motions and
+    knows nothing about the header, so a large disagreement means something upstream is
+    wrong -- a bad plate solve, a wrong catalogue epoch, mismatched stars, or a distortion
+    model absorbing the proper-motion signal.
+    """
+    if not guessed or not from_header:
+        return None
+    try:
+        a = datetime.date.fromisoformat(str(guessed)[:10])
+        b = datetime.date.fromisoformat(str(from_header)[:10])
+    except ValueError:
+        return None
+    return (a - b).days
+
+
 def _lookup_neighbours(dbs, stardata, cutoff_arcsec, max_mag):
     """Nearby catalogue sources, for double-star flagging.
 
@@ -273,6 +291,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        '#stars used':plate2.shape[0],
                        'observation_date':options['observation_date'] if not options['guess_date'] else dateguess,
                        'date_guessed?': options['guess_date'],
+                       'observation_date_header': data.get('observation_date_header'),
+                       'date_guess_error_days': _date_guess_error(
+                           dateguess if options['guess_date'] else None,
+                           data.get('observation_date_header')),
                        'star max magnitude':options['max_star_mag_dist'],
                        'error tolerance (as)':options['distortion_fit_tol'],
                        'platescale (arcseconds/pixel)': np.degrees(result[0])*3600,
@@ -325,6 +347,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                 distortion_order=options['distortionOrder'],
                 date_guessed=bool(options['guess_date']),
                 observation_date=output_results['observation_date'],
+                observation_date_header=output_results['observation_date_header'],
+                date_guess_error_days=output_results['date_guess_error_days'],
                 ra=float(np.degrees(result[1])), dec=float(np.degrees(result[2])))
 
     marker_colors = ['red' if is_missing_pm else 'orange' if is_double else '#1f77b4' for (is_missing_pm, is_double)
@@ -358,6 +382,15 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         plt.show()
     plt.close()
 
+    if options.get('distortion_field_plot', True):
+        field_fig = distortion_polynomial.render_distortion_field(
+            coeff_x, coeff_y, image_size, options,
+            platescale_arcsec=np.degrees(result[0]) * 3600,
+            save_to=output_dir / 'Distortion_field.png')
+        events.png_event('distortion_field', figure=field_fig)
+        if options['flag_display2']:
+            plt.show()
+        plt.close(field_fig)
 
     plate2_unfiltered_corrected = distortion_polynomial.apply_corrections(result, plate2_unfiltered, coeff_x, coeff_y, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_unfiltered_corrected, image_size)

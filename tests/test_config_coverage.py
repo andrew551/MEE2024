@@ -26,12 +26,12 @@ UNREAD_BUT_KEPT = {
     'workDir', 'workDir2', '-DARK-', '-FLAT-',  # GUI remembers these between runs
 }
 
+#: subscripted access, which is what raises KeyError if a default is missing
 KEY_PATTERN = re.compile(r"""options\[\s*['"]([A-Za-z_][\w\-]*)['"]\s*\]""")
-DICT_UPDATE_PATTERN = re.compile(r"""\{\s*['"]([A-Za-z_][\w\-]*)['"]\s*:""")
 
 
 def _python_sources():
-    return sorted(p for p in PACKAGE.glob('*.py'))
+    return sorted(PACKAGE.glob('*.py')) + sorted(PACKAGE.glob('*/*.py'))
 
 
 def options_keys_read_by_the_code():
@@ -51,8 +51,24 @@ def test_every_option_read_by_the_code_has_a_default():
         f'{missing}')
 
 
+def option_names_mentioned_anywhere():
+    """Option names appearing as a string literal anywhere in the package.
+
+    Deliberately looser than the subscript scan: an option may legitimately be read as
+    ``options.get('x')``, ``defaults['x']`` or through a config dict, and the question here
+    is only "is this name used at all", not "could it raise KeyError".
+    """
+    mentioned = set()
+    for path in _python_sources():
+        text = path.read_text(encoding='utf-8')
+        for key in DEFAULT_OPTIONS:
+            if f"'{key}'" in text or f'"{key}"' in text:
+                mentioned.add(key)
+    return mentioned
+
+
 def test_every_default_option_is_actually_used():
-    read = set(options_keys_read_by_the_code())
+    read = set(options_keys_read_by_the_code()) | option_names_mentioned_anywhere()
     unused = sorted(set(DEFAULT_OPTIONS) - read - UNREAD_BUT_KEPT)
     assert not unused, (
         f'these defaults are never read -- remove them or wire them up: {unused}')

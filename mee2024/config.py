@@ -76,6 +76,22 @@ DEFAULT_OPTIONS = {
     'crop_circle_thresh': 1.0,
     'remove_double_tab2': False,
     'eclipse_method': 'Method 1 & 2',
+    # draw the fitted distortion field (arrows + magnitude map) and emit it as an event
+    'distortion_field_plot': True,
+    # --- watch mode: process frames as they land in a folder -------------------
+    'watch_folder': '',
+    # a frame is only read once its last modification is this many seconds old, so a
+    # file still being written by the capture software is never opened half-complete
+    'watch_settle_seconds': 10.0,
+    # run once this many settled frames have accumulated
+    'watch_batch_size': 5,
+    # ...or sooner, if nothing new has arrived for this long and at least 2 frames are held
+    'watch_quiet_seconds': 60.0,
+    'watch_poll_seconds': 2.0,
+    # where to download prebuilt catalogues from, as {name: {url, sha256, size_bytes}}.
+    # Empty until an archive is published; set with `mee2024 catalogue --set-source`,
+    # so moving from an interim host to Zenodo is a config change, not a code change.
+    'catalogue_sources': {},
 }
 
 

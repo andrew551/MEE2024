@@ -34,6 +34,9 @@ header{
 .logo svg{width:26px;height:26px}
 .logo b{font-size:16px;letter-spacing:.3px}
 .version{color:var(--ink-faint);font-size:12px;font-family:var(--mono)}
+.byline{color:var(--ink-faint);font-size:12px;padding-left:10px;
+  border-left:1px solid var(--line)}
+@media (max-width:900px){.byline{display:none}}
 .spacer{flex:1}
 .tabs{display:flex;gap:2px;background:var(--panel-2);padding:3px;border-radius:9px}
 .tabs button{
@@ -194,6 +197,22 @@ main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
 .banner.on{display:block}
 .preview img{width:100%;border-radius:10px;display:block;border:1px solid var(--line)}
 .adv{display:grid;grid-template-columns:1fr auto;gap:9px 12px;align-items:center;font-size:13px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;
+  color:var(--ink-dim)}
+.check input{accent-color:var(--accent);width:15px;height:15px}
+.dl{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:8px;
+  border:1px solid var(--line);background:#0e1220;margin-top:7px;font-size:12.5px}
+.dl .grow{flex:1;min-width:0}
+.dl .nm{color:var(--ink);font-weight:600}
+.dl .sub{color:var(--ink-faint);font-size:11.5px}
+.dl button{flex:none}
+.wrun{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 0;
+  border-bottom:1px solid var(--line)}
+.wrun:last-child{border-bottom:none}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--ink-faint)}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+.dot.go{background:var(--accent);animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 .adv input,.adv select{
   background:var(--bg);border:1px solid var(--line);color:var(--ink);
   border-radius:8px;padding:6px 9px;font-family:var(--mono);font-size:12px;width:130px
@@ -211,11 +230,13 @@ main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
       </svg>
       <b>MEE2024</b>
       <span class="version">__MEE_VERSION__</span>
+      <span class="byline">Modern Eddington Experiment &middot; __MEE_AUTHORS__</span>
     </div>
     <div class="spacer"></div>
     <div class="tabs">
       <button id="tab-simple" class="on">Simple</button>
       <button id="tab-advanced">Advanced</button>
+      <button id="tab-watch">Watch</button>
     </div>
   </header>
 
@@ -271,10 +292,48 @@ main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
           <label for="magmax">Max star magnitude</label>
           <input id="magmax" value="12">
         </div>
+        <label class="check" style="margin-top:10px">
+          <input type="checkbox" id="fieldplot" checked>
+          <span>Show the distortion field</span>
+        </label>
         <div class="faint" style="margin-top:9px">
           Leave the date blank to recover it from proper motions &mdash; it also serves as
           a check on the FITS header.
         </div>
+        <div id="cat-downloads" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card" id="watch-card" style="display:none">
+        <h3>Watch a folder</h3>
+        <p class="faint" style="margin:0 0 10px">
+          Frames are processed as they arrive, so you get pointing and quality feedback
+          while the telescope is still on the field.
+        </p>
+        <div class="row">
+          <span class="faint" id="watchdir" style="flex:1;font-family:var(--mono);
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            (no folder chosen)</span>
+          <button class="btn" id="pick-watch">Choose&hellip;</button>
+        </div>
+        <div class="adv" style="margin-top:12px">
+          <label for="w-settle">Settle time (s)</label>
+          <input id="w-settle" value="10">
+          <label for="w-batch">Frames per run</label>
+          <input id="w-batch" value="5">
+          <label for="w-quiet">Run early after (s)</label>
+          <input id="w-quiet" value="60">
+        </div>
+        <div class="faint" style="margin-top:9px">
+          A frame is only opened once it has been unmodified for the settle time, so a
+          file still being written is never read half-finished.
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="watch-start" style="flex:1">Start watching</button>
+          <button class="btn danger" id="watch-stop" style="flex:1;display:none">Stop</button>
+        </div>
+        <button class="btn wide" id="watch-flush" style="margin-top:8px;display:none">
+          Process held frames now</button>
+        <div id="watch-status" style="margin-top:12px"></div>
       </div>
 
       <button class="btn primary wide" id="run">Run analysis</button>
@@ -308,6 +367,14 @@ main{display:grid;grid-template-columns:minmax(340px,400px) 1fr;overflow:hidden}
         <div class="card preview" id="preview-card" style="display:none;margin-top:16px">
           <h3>Stacked image</h3>
           <div id="preview"></div>
+        </div>
+        <div class="card preview" id="field-card" style="display:none;margin-top:16px">
+          <h3>Distortion field</h3>
+          <p class="faint" style="margin:0 0 10px">
+            How far the optics displace a star from where an ideal projection would put
+            it. Arrows show direction and size; the map shows magnitude.
+          </p>
+          <div id="field"></div>
         </div>
         <div class="card" id="details-card" style="display:none;margin-top:16px">
           <h3>Solution</h3>
@@ -362,6 +429,7 @@ async function api(path, body){
 const state = {
   lights:[], darks:[], flats:[], outputDir:null, preset:'auto',
   since:0, status:'idle', stages:new Map(), metrics:{}, solve:null, advanced:false,
+  tab:'simple', watch:null, watchFolder:null, keepPolling:false,
 };
 
 /* ------------------------------------------------------------------ helpers */
@@ -494,8 +562,20 @@ function renderScores(){
       : 'strongly correlated — try a higher distortion order',
       grade(d.nn_corr, 0.2, 0.35)));
     if(d.date_guessed){
-      host.appendChild(scoreCard('Date recovered', d.observation_date, '',
-        'from proper motions alone, blind to the header'));
+      const err = d.date_guess_error_days;
+      let caption = 'from proper motions alone, blind to the header';
+      let cls = '';
+      if(err !== null && err !== undefined){
+        const days = Math.abs(err);
+        caption = `${days} day${days===1?'':'s'} from the header date `
+                + `(${d.observation_date_header}) — an independent check on the solve`;
+        // the honest expectation is 2-4 weeks; months apart means something upstream
+        // is wrong rather than merely imprecise
+        cls = grade(days, 21, 60);
+      }else if(d.observation_date_header === null){
+        caption = 'from proper motions alone (no date in the FITS header to compare)';
+      }
+      host.appendChild(scoreCard('Date recovered', d.observation_date, '', caption, cls));
     }
     host.appendChild(scoreCard('Plate scale', d.platescale.toFixed(4), '″/px',
       'from the fitted solution'));
@@ -574,8 +654,19 @@ function handleEvent(e){
       if(e.name === 'stack_preview'){
         $('preview-card').style.display='';
         $('preview').innerHTML = `<img alt="stacked image" src="data:image/png;base64,${e.png}">`;
+      }else if(e.name === 'distortion_field'){
+        $('field-card').style.display='';
+        $('field').innerHTML =
+          `<img alt="distortion field" src="data:image/png;base64,${e.png}">`;
       }
       break;
+    case 'watch_seen':
+      appendLog(`new file: ${base(e.path)} (waiting for it to finish writing)`); break;
+    case 'watch_ready':
+      appendLog(`ready: ${base(e.path)} — ${e.n_pending} frame(s) held`); break;
+    case 'watch_batch':
+      resetRunView();
+      appendLog(`processing ${e.n} frame(s)`, 'w'); break;
     case 'log':
       appendLog(e.text, e.level==='warning' ? 'w' : null); break;
     case 'error':
@@ -591,6 +682,13 @@ async function poll(){
     const s = await api('state?since='+state.since);
     if(s.seq) state.since = s.seq;
     s.events.forEach(handleEvent);
+    if(JSON.stringify(s.watch) !== JSON.stringify(state.watch)){
+      state.watch = s.watch;
+      renderWatch();
+    }
+    // once a watch stops and nothing is running, let the poller wind down
+    if(state.keepPolling && s.status !== 'running' && !(s.watch && s.watch.running))
+      state.keepPolling = false;
     if(s.status !== state.status){
       state.status = s.status;
       onStatusChange(s);
@@ -600,11 +698,12 @@ async function poll(){
 
 function onStatusChange(s){
   const running = s.status==='running';
-  $('run').style.display = running ? 'none' : '';
+  $('run').style.display = (running || state.tab==='watch') ? 'none' : '';
   $('cancel').style.display = running ? '' : 'none';
   $('run').disabled = running || state.lights.length===0;
   if(!running){
-    clearInterval(poller); poller=null;
+    // keep polling while a folder watch or a download is live: more work is coming
+    if(!state.keepPolling) stopPolling();
     poll();  // one last sweep for trailing events
     if(s.status==='failed' && s.run_error) banner(s.run_error);
     if(s.status==='done'){
@@ -619,33 +718,59 @@ function onStatusChange(s){
   }
 }
 
-async function run(){
+function startPolling(){
+  if(!poller) poller = setInterval(poll, 350);
+}
+function stopPolling(){
+  clearInterval(poller); poller = null;
+}
+
+/* Everything the right-hand pane needs reset before new work appears. */
+function showLive(){
   banner('');
-  state.since=0; state.stages.clear(); state.metrics={}; state.solve=null;
   $('welcome').style.display='none';
   $('live').style.display='';
-  $('log').innerHTML=''; $('scores').innerHTML='';
-  $('preview-card').style.display='none'; $('details-card').style.display='none';
-  $('open-out').style.display='none';
+  state.keepPolling = true;
+  startPolling();
+}
 
+function resetRunView(){
+  state.stages.clear(); state.metrics={}; state.solve=null;
+  $('scores').innerHTML='';
+  $('preview-card').style.display='none'; $('details-card').style.display='none';
+  $('field-card').style.display='none';
+  $('open-out').style.display='none';
+}
+
+/* The run specification, shared by the one-shot Run button and by watch mode. */
+function buildSpec(){
   const spec = {
     lights: state.lights, darks: state.darks, flats: state.flats,
     output_dir: state.outputDir, preset: state.preset,
   };
-  if(state.advanced){
+  const options = {};
+  if(state.advanced || state.tab==='watch'){
     spec.catalogue = $('catalogue').value || null;
     const obs = $('obsdate').value.trim();
     if(obs) spec.observation_date = obs;
-    spec.options = {
-      distortionOrder: $('order').value,
-      distortion_fit_tol: parseFloat($('tol').value) || 1.0,
-      max_star_mag_dist: parseFloat($('magmax').value) || 12.0,
-    };
+    options.distortionOrder = $('order').value;
+    options.distortion_fit_tol = parseFloat($('tol').value) || 1.0;
+    options.max_star_mag_dist = parseFloat($('magmax').value) || 12.0;
+    options.distortion_field_plot = $('fieldplot').checked;
   }
+  if(Object.keys(options).length) spec.options = options;
+  return spec;
+}
+
+async function run(){
+  // a one-shot run starts a fresh history; a watch batch deliberately keeps the log
+  state.since = 0;
+  $('log').innerHTML = '';
+  resetRunView();
+  showLive();
   try{
-    await api('run', spec);
+    await api('run', buildSpec());
     state.status='running'; onStatusChange({status:'running'});
-    poller = setInterval(poll, 350);
   }catch(err){ banner(err.message); }
 }
 
@@ -717,8 +842,13 @@ function closePicker(){ $('modal').classList.remove('on'); }
 
 function confirmPicker(){
   if(picker.dirsOnly){
-    state.outputDir = picker.cwd;
-    $('outdir').textContent = picker.cwd;
+    if(picker.target === 'watch'){
+      state.watchFolder = picker.cwd;
+      $('watchdir').textContent = picker.cwd;
+    }else{
+      state.outputDir = picker.cwd;
+      $('outdir').textContent = picker.cwd;
+    }
   }else{
     const chosen = [...picker.chosen].sort();
     if(chosen.length) state[picker.target] = chosen;
@@ -746,14 +876,100 @@ $('modal').onclick = e => { if(e.target === $('modal')) closePicker(); };
 $('run').onclick = run;
 $('cancel').onclick = () => api('cancel', {}).catch(e => banner(e.message));
 
-function setTab(advanced){
-  state.advanced = advanced;
-  $('tab-simple').classList.toggle('on', !advanced);
-  $('tab-advanced').classList.toggle('on', advanced);
-  $('advanced-card').style.display = advanced ? '' : 'none';
+function setTab(name){
+  state.tab = name;
+  state.advanced = (name === 'advanced');
+  for(const t of ['simple','advanced','watch'])
+    $('tab-'+t).classList.toggle('on', t === name);
+  $('advanced-card').style.display = name === 'advanced' ? '' : 'none';
+  $('watch-card').style.display = name === 'watch' ? '' : 'none';
+  // in watch mode the folder drives the run, so the one-shot Run button would only
+  // confuse: the watcher decides when frames are complete
+  $('run').style.display = name === 'watch' ? 'none' : '';
 }
-$('tab-simple').onclick = () => setTab(false);
-$('tab-advanced').onclick = () => setTab(true);
+$('tab-simple').onclick = () => setTab('simple');
+$('tab-advanced').onclick = () => setTab('advanced');
+$('tab-watch').onclick = () => setTab('watch');
+
+/* ------------------------------------------------------------- watch mode */
+function watchSpec(){
+  const spec = buildSpec();
+  delete spec.lights;
+  spec.folder = state.watchFolder;
+  spec.settle_seconds = parseFloat($('w-settle').value) || 10;
+  spec.batch_size = parseInt($('w-batch').value) || 5;
+  spec.quiet_seconds = parseFloat($('w-quiet').value) || 60;
+  return spec;
+}
+
+function renderWatch(){
+  const w = state.watch;
+  const host = $('watch-status');
+  const on = !!(w && w.running);
+  $('watch-start').style.display = on ? 'none' : '';
+  $('watch-stop').style.display = on ? '' : 'none';
+  $('watch-flush').style.display = on && w.n_pending > 0 ? '' : 'none';
+  if(!w){ host.innerHTML = ''; return; }
+  const bits = [];
+  bits.push(`<div class="faint" style="margin-bottom:6px">`
+    + `${w.n_pending} frame(s) held &middot; ${w.n_processed} seen &middot; `
+    + `${w.batches_run} run(s)</div>`);
+  for(const h of (w.history||[]).slice(-6).reverse()){
+    const cls = h.status === 'done' ? 'ok' : h.status === 'running' ? 'go'
+              : h.status === 'idle' ? '' : 'bad';
+    bits.push(`<div class="wrun"><span class="dot ${cls}"></span>`
+      + `<span class="grow">${h.n} frame(s)</span>`
+      + `<span class="faint">${h.status}</span></div>`);
+  }
+  host.innerHTML = bits.join('');
+}
+
+$('pick-watch').onclick = () => openPicker('watch', true);
+$('watch-start').onclick = async () => {
+  if(!state.watchFolder){ banner('choose a folder to watch first'); return; }
+  try{ await api('watch/start', watchSpec()); showLive(); }
+  catch(e){ banner(e.message); }
+};
+$('watch-stop').onclick = () => api('watch/stop', {}).catch(e => banner(e.message));
+$('watch-flush').onclick = () => api('watch/flush', {}).catch(e => banner(e.message));
+
+/* ------------------------------------------------- catalogue downloads */
+function renderCatalogueDownloads(catalogues){
+  const host = $('cat-downloads');
+  host.innerHTML = '';
+  const missing = catalogues.filter(c => !c.installed);
+  if(!missing.length) return;
+  const title = document.createElement('div');
+  title.className = 'faint';
+  title.style.marginBottom = '2px';
+  title.textContent = 'Offline catalogues not yet on this machine';
+  host.appendChild(title);
+  for(const c of missing){
+    const row = document.createElement('div');
+    row.className = 'dl';
+    row.innerHTML = `<div class="grow"><div class="nm"></div><div class="sub"></div></div>`;
+    row.querySelector('.nm').textContent = c.name;
+    row.querySelector('.sub').textContent = c.size
+      + (c.downloadable ? '' : ' — no download source configured');
+    const btn = document.createElement('button');
+    btn.className = 'btn' + (c.downloadable ? ' primary' : '');
+    btn.title = c.downloadable ? 'Download and install'
+      : 'Set a URL with: mee2024 catalogue --set-source ' + c.name + ' --url ...';
+    btn.innerHTML = DOWNLOAD_ICON;
+    btn.disabled = !c.downloadable;
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try{ await api('catalogue/fetch', {name: c.name}); showLive(); }
+      catch(e){ banner(e.message); btn.disabled = false; }
+    };
+    row.appendChild(btn);
+    host.appendChild(row);
+  }
+}
+
+const DOWNLOAD_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round">
+  <path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></svg>`;
 
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape') closePicker();
@@ -783,6 +999,12 @@ document.addEventListener('keydown', e => {
       b.onclick = () => navigate(r.path);
       roots.appendChild(b);
     });
+    renderCatalogueDownloads(hello.catalogues);
+    if(hello.watch_defaults){
+      $('w-settle').value = hello.watch_defaults.settle_seconds;
+      $('w-batch').value  = hello.watch_defaults.batch_size;
+      $('w-quiet').value  = hello.watch_defaults.quiet_seconds;
+    }
   }catch(err){ banner('could not reach the backend: '+err.message); }
   renderFiles();
   poll();

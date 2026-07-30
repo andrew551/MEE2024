@@ -17,7 +17,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from mee2024.MEE2024util import _version
+from mee2024 import events
+from mee2024.MEE2024util import AUTHORS, _version
 from mee2024.ui.runner import PipelineRunner
 
 FRONTEND = Path(__file__).parent / 'frontend.html'
@@ -30,28 +31,111 @@ class Api:
 
     def __init__(self, runner=None):
         self.runner = runner or PipelineRunner()
+        self._fetching = None
 
     # ------------------------------------------------------------------ meta
 
     def hello(self):
+        from mee2024.config import get_default_options
         from mee2024.starcat import providers
+        defaults = get_default_options()
         return {
             'version': _version(),
+            'authors': AUTHORS,
             'presets': self.runner.PRESETS,
             'catalogues': self._catalogues(),
             'default_catalogue': self._default_catalogue(),
             'known_catalogues': providers.known_catalogues(),
             'roots': self.roots(),
+            'watch_defaults': {
+                'settle_seconds': defaults['watch_settle_seconds'],
+                'batch_size': defaults['watch_batch_size'],
+                'quiet_seconds': defaults['watch_quiet_seconds'],
+            },
         }
 
     def _catalogues(self):
+        from mee2024.config import get_default_options
+        from mee2024.MEE2024util import read_ini
         from mee2024.starcat import download
+        options = get_default_options()
+        read_ini(options)
         out = []
-        for release in download.RELEASES.values():
+        for name in download.RELEASES:
+            release = download.get_release(name, options=options)
             out.append({'name': release.name, 'description': release.description,
                         'installed': release.is_installed(),
-                        'size': release.human_size()})
+                        'size': release.human_size(),
+                        'downloadable': release.is_published})
         return out
+
+    def fetch_catalogue(self, name):
+        """Download a prebuilt catalogue. Runs in a thread so the UI stays responsive."""
+        from mee2024.config import get_default_options
+        from mee2024.MEE2024util import read_ini
+        from mee2024.starcat import download
+
+        if self._fetching:
+            raise ValueError('a download is already in progress')
+        options = get_default_options()
+        read_ini(options)
+        release = download.get_release(name, options=options)
+        if release.is_installed():
+            return {'ok': True, 'already': True}
+        if not release.is_published:
+            raise ValueError(
+                f'no download URL is configured for {name}. Set one with '
+                f'"mee2024 catalogue --set-source {name} --url URL --sha256 HASH", '
+                f'or build it locally with tools/build_gaia_offline.py.')
+
+        def work():
+            from mee2024.progress import ProgressReporter
+
+            class BusProgress(ProgressReporter):
+                """Turns download progress into events the frontend already renders."""
+
+                def __init__(self):
+                    self.total = 0
+
+                def start(self, total, message):
+                    self.total = total
+                    events.emit(events.STAGE_STARTED, stage='download',
+                                label=message, n_items=total)
+
+                def update(self, completed):
+                    events.emit(events.PROGRESS, stage='download',
+                                label=f'Downloading {name}', done=completed,
+                                of=self.total)
+
+                def finish(self):
+                    events.emit(events.STAGE_FINISHED, stage='download', ok=True)
+
+            with events.using(self.runner.bus):
+                try:
+                    directory = download.ensure_available(
+                        name, progress=BusProgress(), options=options)
+                    events.log(f'{name} installed at {directory}')
+                except Exception as exc:
+                    events.emit(events.ERROR, text=f'{type(exc).__name__}: {exc}')
+                    events.log(f'download failed: {exc}', level='error')
+                finally:
+                    self._fetching = None
+
+        self._fetching = threading.Thread(target=work, daemon=True)
+        self._fetching.start()
+        return {'ok': True, 'started': True}
+
+    # ------------------------------------------------------------ watch mode
+
+    def watch_start(self, spec):
+        self.runner.start_watch(spec)
+        return {'ok': True}
+
+    def watch_stop(self):
+        return {'ok': self.runner.stop_watch()}
+
+    def watch_flush(self):
+        return {'ok': self.runner.flush_watch()}
 
     def _default_catalogue(self):
         """Prefer an installed offline catalogue; fall back to the online archive."""
@@ -185,6 +269,13 @@ class _Handler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
 
         if parsed.path in ('/', '/index.html'):
+            # The served page carries the session token so its own API calls can
+            # authenticate. That makes the page itself a credential, so it must not be
+            # handed out unauthenticated: any other local process could otherwise simply
+            # GET / and read the token out of the HTML.
+            if not self._authorised(query):
+                self._send_json({'error': 'bad or missing token'}, 403)
+                return
             self._serve_frontend()
             return
         if not parsed.path.startswith('/api/'):
@@ -226,6 +317,14 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_json(self.api.cancel())
             elif parsed.path == '/api/reveal':
                 self._send_json(self.api.reveal(payload.get('path')))
+            elif parsed.path == '/api/watch/start':
+                self._send_json(self.api.watch_start(payload))
+            elif parsed.path == '/api/watch/stop':
+                self._send_json(self.api.watch_stop())
+            elif parsed.path == '/api/watch/flush':
+                self._send_json(self.api.watch_flush())
+            elif parsed.path == '/api/catalogue/fetch':
+                self._send_json(self.api.fetch_catalogue(payload.get('name')))
             else:
                 self._send_json({'error': 'not found'}, 404)
         except Exception as exc:
@@ -239,6 +338,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
         html = html.replace('__MEE_TOKEN__', self.token)
         html = html.replace('__MEE_VERSION__', _version())
+        html = html.replace('__MEE_AUTHORS__', AUTHORS)
         body = html.encode('utf-8')
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')

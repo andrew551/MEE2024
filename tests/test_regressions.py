@@ -137,3 +137,59 @@ def test_open_distortion_files_with_no_references_is_quiet(options):
     assert coeff_x == {} and coeff_y == {}
     assert np.isnan(platescale)
     assert uncertainty == -1
+
+
+def test_stack_preview_plot_downsamples_before_the_colormap():
+    """imshow applies its colormap at the resolution of the array it is handed.
+
+    On a 3520x4656 stack that is a 499 MiB float64 RGBA intermediate, which fails outright
+    on a memory-pressured machine -- observed as a MemoryError during a watch-mode run.
+    The plot must therefore stride the image and use `extent` to keep the star overlay in
+    original pixel coordinates.
+    """
+    source = inspect.getsource(si.do_stack)
+    assert 'display_step' in source, 'the stack preview no longer downsamples'
+    assert 'extent=' in source, 'downsampling without extent would misplace the overlay'
+    assert 'plt.imshow(stacked,' not in source, 'full-resolution imshow is back'
+
+
+def test_extent_keeps_overlay_coordinates_after_striding():
+    """The mechanism itself: a strided image plus extent spans the original grid."""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    height, width = 400, 600
+    image = np.zeros((height, width))
+    step = 4
+    figure, axes = plt.subplots()
+    try:
+        axes.imshow(image[::step, ::step], extent=(0, width, height, 0))
+        assert axes.get_xlim() == (0, width)
+        assert axes.get_ylim() == (height, 0)
+    finally:
+        plt.close(figure)
+
+
+def test_observation_date_is_recorded_for_the_guess_check():
+    """Stage 1 must record the header date, or stage 2 cannot score its blind guess."""
+    source = inspect.getsource(si.do_stack)
+    assert 'observation_date_header' in source
+    assert 'read_observation_date' in source
+
+
+def test_config_migration_is_version_targeted():
+    """A future version bump must not silently reset settings the user chose.
+
+    Before v1.0.0 the migration reset rough_match_threshhold on *every* version change.
+    """
+    from mee2024.MEE2024util import migrate_config
+
+    old = {'__version__': 'v0.6.0', 'rough_match_threshhold': 200.0}
+    notes = migrate_config(old)
+    assert old['rough_match_threshhold'] == 36
+    assert notes and 'units bug' in notes[0]
+
+    current = {'__version__': 'v1.0.0', 'rough_match_threshhold': 120.0}
+    assert migrate_config(current) == []
+    assert current['rough_match_threshhold'] == 120.0, 'must not touch a current config'

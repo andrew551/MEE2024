@@ -50,6 +50,24 @@ def open_image(file):
 def open_images(files):
     return [open_image(file) for file in files]
 
+
+def read_observation_date(file):
+    """The DATE-OBS calendar date from a FITS header, as 'YYYY-MM-DD', or None.
+
+    Recorded alongside the stage-1 results so that stage 2 can report how close a blind
+    date guess came. Non-FITS inputs and headers without a date simply return None.
+    """
+    try:
+        with fits.open(file) as hdul:
+            header = hdul['PRIMARY'].header if 'PRIMARY' in hdul else hdul[0].header
+        for key in ('DATE-OBS', 'DATE_OBS', 'DATE'):
+            value = header.get(key)
+            if value:
+                return str(value).strip().replace('/', '-')[:10]
+    except Exception:
+        pass
+    return None
+
 def roll_fillzero(src, shift):
     rolled = np.roll(src, shift=shift, axis=(0,1))
     i, j = shift
@@ -622,7 +640,16 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     fig, ax = plt.subplots(figsize=(10, 10))
 
     ax.set_title(f'Largest {min(options["d"], len(centroids_stacked))} of {len(centroids_stacked)} stars found on stacked image')
-    plt.imshow(stacked, cmap='gray_r', vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95))
+    # Draw a strided copy, mapped back onto the full pixel grid with `extent`, so the
+    # scatter and annotations below still work in original pixel coordinates.
+    # imshow applies the colormap at the resolution of the array it is given: on a
+    # 3520x4656 frame that is a 499 MiB float64 RGBA intermediate, which is enough to
+    # fail outright on a memory-pressured machine. A strided copy is visually identical
+    # at any sane figure size and costs step^2 less.
+    display_step = max(1, int(np.ceil(max(stacked.shape) / 1400)))
+    plt.imshow(stacked[::display_step, ::display_step], cmap='gray_r',
+               vmin=np.percentile(stacked, 50), vmax=np.percentile(stacked, 95),
+               extent=(0, stacked.shape[1], stacked.shape[0], 0))
     shift = 0 if options['centroid_gaussian_subtract'] else 0.5
     plt.scatter(centroids_stacked[:options["d"], 1]-shift, centroids_stacked[:options["d"], 0]-shift, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
@@ -649,6 +676,9 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
                          '#frames stacked':len(files),
                          'source_files' : str(files),
                          'starttime':starttime,
+                         # from the first frame's FITS header; lets stage 2 score a blind
+                         # date guess against the truth. None for inputs without a header.
+                         'observation_date_header': read_observation_date(files[0]),
                          'remove saturated blob?':options['delete_saturated_blob'],
                          'blob saturation level':options['blob_saturation_level'],
                          'blob_radius_extra':options['blob_radius_extra'],

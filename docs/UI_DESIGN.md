@@ -94,10 +94,10 @@ plumbing, not new science.
 | phase | deliverable | status |
 |---|---|---|
 | P0 | event bus + `--events-jsonl`; CLI/legacy GUI consume it | **done** |
-| P1 | app shell: Simple mode, progress, score cards | **done (initial version)** |
-| P2 | Advanced mode polish, subprocess isolation, packaging | next |
-| P3 | Live mode (folder watcher + incremental pipeline) | not started |
-| P4 | animations & polish | not started |
+| P1 | app shell: Simple mode, progress, score cards | **done** |
+| P2 | Advanced: distortion field, date-guess accuracy, catalogue downloads | **done** |
+| P3 | Watch mode (folder watcher, settle rule, batching) | **done** |
+| P4 | animations, subprocess isolation, packaging | next |
 
 ## 6. What the initial version does, and what it taught us
 
@@ -143,3 +143,81 @@ A cheaper complementary win: `get_centroids_blur` allocates several full-frame *
 arrays from **uint16** input. float32 would halve peak memory there with no meaningful loss
 of centroid precision — worth measuring against the milestone-E benchmark rather than
 assuming.
+
+---
+
+## 7. v1.0.0 additions
+
+**Version and attribution.** `v1.0.0` throughout, authored by *Andrew Smith and Douglas
+Smith*, shown in the window header and recorded in `setup.cfg`. The version bump also
+carries a config migration: `migrate_config` is now **keyed on the version that wrote the
+file**, so each fix runs once. Previously the `rough_match_threshhold` reset fired on
+*every* version change, which would have silently discarded a deliberate setting at each
+future release. It still fires once here, correctly — a value tuned against the `/33600`
+units bug (200 was observed) is ~9x too large now that the bug is fixed.
+
+**Distortion field** (Advanced, on by default). `render_distortion_field` draws the fitted
+polynomial as arrows plus a magnitude map with contours, in arcseconds when the plate scale
+is known. Saved as `Distortion_field.png` and emitted as an `image` event. This replaces
+the three rotatable 3-D matplotlib windows the old code opened, which showed the same
+information but could not be read at a glance or saved usefully.
+
+**Date-guess accuracy.** Stage 1 now records `observation_date_header` from the first
+frame's FITS `DATE-OBS`; stage 2 compares its blind guess against it and reports
+`date_guess_error_days`. The UI grades it: within 21 days is green, beyond 60 red — because
+the honest statistical capability is 2–4 weeks (see `progress.md`), so months apart means
+something upstream is wrong rather than merely imprecise. Verified end to end: **−1 day**
+on the zwo3 field. Note that centroid archives produced before v1.0.0 have no header date,
+so the metric shows only for freshly stacked data.
+
+**Watch mode** (`mee2024/ui/watcher.py`). A folder is polled; a frame is only opened once
+(a) its last modification is at least `settle_seconds` old **and** (b) its size has not
+changed since the previous poll. The size check matters: a writer slow enough that mtime
+looks stale between two writes would defeat a pure mtime rule, and a truncated FITS either
+fails or — worse — succeeds. Settled frames batch up until `batch_size` is reached, or
+`quiet_seconds` passes with at least two held; a single frame is never dispatched alone
+because it cannot be stacked. Frames present when the watch starts are adopted as
+already-processed, so starting a watch does not reprocess the whole night. Polling rather
+than OS notifications: no dependency, identical on all three platforms, and reliable on the
+network shares capture software often writes to.
+
+Verified with real frames: three dropped into a folder → settled → stacked → **plate solved
+with 96 stars matched** at the correct pointing.
+
+**Catalogue downloads.** Un-installed catalogues appear in Advanced with a download button.
+Progress is reported through the same `stage_started`/`progress` events the pipeline uses,
+so the existing progress bar renders it with no special case.
+
+### Hosting: why not Google Drive
+
+Drive is a poor fit for programmatic download and the code now says so explicitly rather
+than failing obscurely:
+
+* files over ~100 MB return a **virus-scan interstitial HTML page** instead of the file, so
+  a naive download saves HTML as a `.zip` and fails much later with a baffling error;
+* popular public files hit **"quota exceeded"**, which is also served as HTML with HTTP 200;
+* the confirm-token mechanism has changed repeatedly, so scripts that handle it break;
+* using Drive as a software CDN is against the spirit of its terms.
+
+`_download` therefore inspects the first block and **refuses anything that looks like
+HTML**, naming the likely cause. It also rewrites a Drive share link to the direct-download
+endpoint as a best effort, verifies `Content-Length` and the SHA-256, and only renames the
+`.part` file on success.
+
+**Recommendation: a GitHub release asset as the interim host.** Free, 2 GB per asset, stable
+direct URLs, no interstitial, no quota surprises, and the repository already exists — the
+same effort as Drive and strictly better. Zenodo at publication for the citable DOI.
+
+Either way the URL is **not hardcoded**: `catalogue_sources` in the config supplies it, set
+with `mee2024 catalogue --set-source NAME --url URL --sha256 HASH`. Switching host is a
+config change, not a release.
+
+### A memory bug the watch-mode test found
+
+The first watch run failed with `MemoryError: unable to allocate 499 MiB for shape
+(3516, 4650, 4) float64`. The cause was pre-existing, not new: `plt.imshow(stacked, ...)`
+in the stage-1 preview plot applies its colormap **at the resolution of the array it is
+handed**, so a 3520x4656 frame becomes a full-size float64 RGBA intermediate. It now draws a
+strided copy mapped back onto the original pixel grid with `extent=`, so the star overlay
+still works in original coordinates: **524 MB → 33 MB**, visually identical. This also
+affected the CLI, on any sufficiently large frame with tight memory.

@@ -233,6 +233,25 @@ def cmd_catalogue(args):
         print(f'    mee2024 catalogue --install {archive.name}')
         return 0
 
+    if args.set_source:
+        if not args.url:
+            print('--set-source needs --url', file=sys.stderr)
+            return 1
+        options = get_default_options()
+        MEE2024util.read_ini(options, path=args.config)
+        sources = dict(options.get('catalogue_sources') or {})
+        entry = {'url': args.url}
+        if args.sha256:
+            entry['sha256'] = args.sha256
+        sources[args.set_source] = entry
+        options['catalogue_sources'] = sources
+        MEE2024util.write_ini(options, path=args.config)
+        print(f'{args.set_source} will be downloaded from {args.url}')
+        if not args.sha256:
+            print('note: no --sha256 given, so the download cannot be verified. '
+                  'Get one with `mee2024 catalogue --pack NAME` on the source machine.')
+        return 0
+
     if args.install:
         source = Path(args.install)
         if not source.exists():
@@ -277,7 +296,13 @@ def cmd_catalogue(args):
         return 0
 
     if args.fetch:
-        directory = download.ensure_available(args.fetch, progress=make_progress(args))
+        options = get_default_options()
+        MEE2024util.read_ini(options, path=args.config)
+        if args.url:      # a one-off URL, without saving it to the config
+            options.setdefault('catalogue_sources', {})[args.fetch] = {
+                'url': args.url, 'sha256': args.sha256}
+        directory = download.ensure_available(args.fetch, progress=make_progress(args),
+                                             options=options)
         print(f'{args.fetch} ready at {directory}')
         return 0
 
@@ -402,6 +427,10 @@ def build_parser():
                    help='zip an installed catalogue for copying to another machine')
     p.add_argument('--install', metavar='ARCHIVE',
                    help='install a catalogue from a zip made by --pack')
+    p.add_argument('--set-source', metavar='NAME',
+                   help='record where a catalogue can be downloaded from')
+    p.add_argument('--url', help='download URL, for --set-source or a one-off --fetch')
+    p.add_argument('--sha256', help='expected checksum of the downloaded archive')
     p.add_argument('--out', metavar='FILE', help='where --pack writes its archive')
     p.add_argument('--name', metavar='NAME',
                    help='catalogue name for --install (default: the archive filename)')

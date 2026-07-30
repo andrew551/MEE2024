@@ -60,12 +60,18 @@ class PipelineRunner:
         self.error = None
         self.outputs = {}
         self.spec = {}
+        self.watcher = None
+        self.watch_spec = {}
+        self.watch_history = []
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ state
 
     def snapshot(self, since=0):
         with self._lock:
+            watch = None
+            if self.watcher is not None:
+                watch = dict(self.watcher.snapshot(), history=list(self.watch_history))
             return {
                 'status': self.status,
                 # deliberately not called 'error': the frontend reserves that key for
@@ -73,6 +79,7 @@ class PipelineRunner:
                 'run_error': self.error,
                 'outputs': {k: str(v) for k, v in self.outputs.items()},
                 'spec': self.spec,
+                'watch': watch,
                 'events': self.sink.since(since),
                 'seq': self.sink.events[-1]['seq'] if self.sink.events else 0,
             }
@@ -204,3 +211,79 @@ class PipelineRunner:
     def _finish(self, status):
         with self._lock:
             self.status = status
+
+    # ------------------------------------------------------------- watch mode
+
+    def start_watch(self, spec):
+        """Watch a folder and run each settled batch of frames automatically."""
+        from mee2024.config import get_default_options
+        from mee2024.ui.watcher import FolderWatcher
+
+        if self.watcher is not None and self.watcher.running:
+            raise RuntimeError('already watching a folder')
+        folder = spec.get('folder')
+        if not folder:
+            raise ValueError('choose a folder to watch')
+        if not Path(folder).is_dir():
+            raise ValueError(f'not a folder: {folder}')
+
+        defaults = get_default_options()
+        settle = float(spec.get('settle_seconds', defaults['watch_settle_seconds']))
+        batch = int(spec.get('batch_size', defaults['watch_batch_size']))
+        quiet = float(spec.get('quiet_seconds', defaults['watch_quiet_seconds']))
+        poll = float(spec.get('poll_seconds', defaults['watch_poll_seconds']))
+
+        with self._lock:
+            self.watch_spec = dict(spec)
+            self.watch_history = []
+        self.watcher = FolderWatcher(
+            folder, self._on_watch_batch, settle_seconds=settle, batch_size=batch,
+            quiet_seconds=quiet, poll_seconds=poll,
+            process_existing=bool(spec.get('process_existing')))
+        # the watcher thread does not inherit the ambient bus, so give it one
+        with events.using(self.bus):
+            self.watcher.start()
+        return True
+
+    def stop_watch(self):
+        if self.watcher is None:
+            return False
+        with events.using(self.bus):
+            self.watcher.stop()
+        return True
+
+    def flush_watch(self):
+        """Process whatever frames are held, without waiting for a full batch."""
+        if self.watcher is None:
+            return False
+        with events.using(self.bus):
+            return self.watcher.flush() is not None
+
+    def _on_watch_batch(self, paths):
+        """Called from the watcher thread when a batch of frames has settled."""
+        if self.is_running:
+            # a run is still going; put the frames back so they are not silently lost
+            with self.watcher._lock:
+                self.watcher.pending = list(paths) + self.watcher.pending
+                self.watcher.processed.difference_update(paths)
+            events.log(f'{len(paths)} frame(s) held: previous run still in progress',
+                       level='warning')
+            return
+        spec = dict(self.watch_spec)
+        spec['lights'] = [str(p) for p in paths]
+        spec.pop('folder', None)
+        with self._lock:
+            self.watch_history.append({'n': len(paths), 'status': 'running'})
+        try:
+            self.start(spec)
+        except Exception as exc:
+            events.log(f'could not start batch: {exc}', level='warning')
+            return
+        # wait for it here, in the watcher thread, so batches never overlap
+        if self.thread is not None:
+            self.thread.join()
+        with self._lock:
+            if self.watch_history:
+                self.watch_history[-1]['status'] = self.status
+                self.watch_history[-1]['outputs'] = {k: str(v)
+                                                     for k, v in self.outputs.items()}

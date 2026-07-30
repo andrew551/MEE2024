@@ -297,12 +297,25 @@ def test_snapshot_since_only_returns_new_events():
 # --------------------------------------------------------------------- HTTP
 
 def test_frontend_is_served_with_the_token_substituted(server):
-    with urllib.request.urlopen(f'http://127.0.0.1:{server.port}/', timeout=5) as r:
+    url = f'http://127.0.0.1:{server.port}/?token={server.token}'
+    with urllib.request.urlopen(url, timeout=5) as r:
         html = r.read().decode('utf-8')
     assert r.status == 200
     assert '__MEE_TOKEN__' not in html, 'token placeholder was not substituted'
     assert server.token in html
     assert '<title>MEE2024</title>' in html
+    assert '__MEE_AUTHORS__' not in html
+    assert 'Andrew Smith and Douglas Smith' in html
+
+
+def test_the_frontend_itself_needs_the_token(server):
+    """The page embeds the session token, so serving it unauthenticated would leak it
+    to any other local process that can reach the port."""
+    for url in (f'http://127.0.0.1:{server.port}/',
+                f'http://127.0.0.1:{server.port}/?token=wrong'):
+        with pytest.raises(urllib.error.HTTPError) as excinfo:
+            urllib.request.urlopen(url, timeout=5)
+        assert excinfo.value.code == 403
 
 
 def test_api_requires_the_token(server):
@@ -388,3 +401,91 @@ def test_frontend_handles_every_event_type():
     html = FRONTEND.read_text(encoding='utf-8')
     for event_type in events.ALL_TYPES:
         assert f"case '{event_type}'" in html, f'frontend ignores {event_type}'
+
+
+# ------------------------------------------------------- watch mode over the API
+
+def test_hello_reports_authors_and_watch_defaults(api):
+    hello = api.hello()
+    assert hello['authors'] == 'Andrew Smith and Douglas Smith'
+    assert hello['version'] == 'v1.0.0'
+    defaults = hello['watch_defaults']
+    assert defaults['settle_seconds'] == 10.0
+    assert defaults['batch_size'] >= 1
+
+
+def test_watch_start_requires_a_real_folder(api):
+    with pytest.raises(ValueError, match='choose a folder'):
+        api.watch_start({})
+    with pytest.raises(ValueError, match='not a folder'):
+        api.watch_start({'folder': 'no/such/place'})
+
+
+def test_watch_start_stop_and_state(api, tmp_path):
+    api.watch_start({'folder': str(tmp_path), 'settle_seconds': 0.01,
+                     'batch_size': 9, 'poll_seconds': 0.01})
+    watch = api.state()['watch']
+    assert watch['running'] is True
+    assert watch['folder'] == str(tmp_path)
+    assert watch['batch_size'] == 9
+    assert api.watch_stop() == {'ok': True}
+    assert api.state()['watch']['running'] is False
+
+
+def test_watch_refuses_two_watches_at_once(api, tmp_path):
+    api.watch_start({'folder': str(tmp_path), 'poll_seconds': 0.01})
+    try:
+        with pytest.raises(RuntimeError, match='already watching'):
+            api.watch_start({'folder': str(tmp_path)})
+    finally:
+        api.watch_stop()
+
+
+def test_watch_flush_is_harmless_with_nothing_pending(api, tmp_path):
+    assert api.watch_flush() == {'ok': False}
+    api.watch_start({'folder': str(tmp_path), 'poll_seconds': 0.01})
+    try:
+        assert api.watch_flush() == {'ok': False}
+    finally:
+        api.watch_stop()
+
+
+def test_state_has_no_watch_block_before_watching(api):
+    assert api.state()['watch'] is None
+
+
+def test_watch_endpoints_are_routed_over_http(server, tmp_path):
+    status, payload = post(server, '/api/watch/start',
+                           {'folder': str(tmp_path), 'poll_seconds': 0.01})
+    assert status == 200 and payload['ok'] is True
+    try:
+        status, state = get(server, '/api/state?since=0')
+        assert state['watch']['running'] is True
+    finally:
+        post(server, '/api/watch/stop', {})
+
+
+# --------------------------------------------------------- catalogue download
+
+def test_catalogues_report_whether_they_can_be_downloaded(api):
+    for entry in api.hello()['catalogues']:
+        assert 'downloadable' in entry
+        assert 'installed' in entry
+
+
+def test_fetch_without_a_configured_url_explains_what_to_do(api, monkeypatch):
+    from mee2024.starcat import download
+
+    release = download.RELEASES['gaia_dr3_g12']
+    monkeypatch.setattr(release, 'url', None)
+    monkeypatch.setattr(release, 'is_installed', lambda: False)
+    with pytest.raises(ValueError, match='--set-source'):
+        api.fetch_catalogue('gaia_dr3_g12')
+
+
+def test_fetch_of_an_installed_catalogue_is_a_no_op(api, monkeypatch):
+    from mee2024.starcat import download
+
+    release = download.RELEASES['gaia_dr3_g12']
+    monkeypatch.setattr(release, 'is_installed', lambda: True)
+    assert api.fetch_catalogue('gaia_dr3_g12') == {'ok': True, 'already': True}

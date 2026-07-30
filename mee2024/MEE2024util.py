@@ -14,7 +14,21 @@ from pathlib import Path
 from platformdirs import user_data_dir, user_config_dir
 
 def _version():
-    return 'v0.6.0'
+    return 'v1.0.0'
+
+
+AUTHORS = 'Andrew Smith and Douglas Smith'
+
+
+def _version_tuple(text):
+    """('v1.0.0') -> (1, 0, 0). Unparseable input sorts as the oldest possible version."""
+    parts = []
+    for piece in str(text).lstrip('vV').split('.'):
+        digits = ''.join(c for c in piece if c.isdigit())
+        parts.append(int(digits) if digits else 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
 
 '''
 if options['output_dir'] is empty, then output there
@@ -69,16 +83,39 @@ def get_config_path():
 open config.txt and read parameters
 return parameters from file, or default if file not found or invalid
 '''
+def migrate_config(loaded):
+    """Apply one-off fixes to a config written by an older version.
+
+    Keyed on the version that wrote the file, so each fix runs once and a future release
+    does not silently reset settings the user meant to keep. Returns human-readable notes
+    describing anything that was changed.
+    """
+    written_by = _version_tuple(loaded.get('__version__', 'v0.0.0'))
+    notes = []
+
+    if written_by < (1, 0, 0):
+        # Until v1.0.0 the rough-match tolerance was divided by 33600 instead of 3600, so
+        # the effective tolerance was 9.33x tighter than the value shown. Any setting
+        # tuned against that bug is far too large now that it is fixed.
+        previous = loaded.get('rough_match_threshhold')
+        if previous is not None and abs(float(previous) - 36) > 1e-9:
+            notes.append(f'rough_match_threshhold reset from {previous} to 36 arcsec: '
+                         'it was tuned against a units bug fixed in v1.0.0')
+        loaded['rough_match_threshhold'] = 36
+
+    loaded['__version__'] = _version()
+    return notes
+
+
 def read_ini(options, path=None):
     # check for config.txt file for working directory
     print('loading config file...')
     try:
         with open(path or get_config_path(), 'r', encoding="utf-8") as fp:
             loaded = json.load(fp)
-            if not '__version__' in loaded or not loaded['__version__'] == _version(): # update ini
-                loaded['__version__'] = _version()
-                loaded['rough_match_threshhold'] = 36 # reset threshhold (since it was changed from degrees to arcsec)
-            options.update(loaded) # if config has missing entries keep default   
+            for note in migrate_config(loaded):
+                print('config migration: ' + note)
+            options.update(loaded) # if config has missing entries keep default
     except FileNotFoundError:
         print('note: no config file found - using default parameters')
     except Exception:

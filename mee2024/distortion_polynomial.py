@@ -302,6 +302,71 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options, weights=1):
     return q_corrected, plate_corrected, coeff_x, coeff_y, platescale_stdrelerror
 
 
+def distortion_field(coeff_x, coeff_y, img_shape, options, n=22):
+    """Sample the fitted distortion on a grid over the image.
+
+    Returns (X, Y, DX, DY) in pixels, where (DX, DY) is the correction ``apply_corrections``
+    would add at each point -- i.e. how far the optics displaced a star from where an ideal
+    gnomonic projection would put it.
+    """
+    w = (max(img_shape) / 2)
+    m = 1
+    ys = np.linspace(-img_shape[0] / 2, img_shape[0] / 2, n)
+    xs = np.linspace(-img_shape[1] / 2, img_shape[1] / 2, n)
+    X, Y = np.meshgrid(xs, ys)
+    basis = get_basis(Y.flatten(), X.flatten(), w, m, options)
+    # coeff[0] is the constant term, which _get_corrected_q already folded into the
+    # pointing, so it is deliberately excluded here
+    DX = np.einsum('ji,i->j', basis, np.asarray(coeff_x[1:])).reshape(X.shape)
+    DY = np.einsum('ji,i->j', basis, np.asarray(coeff_y[1:])).reshape(Y.shape)
+    return X, Y, DX, DY
+
+
+def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arcsec=None,
+                            save_to=None):
+    """Draw the distortion field: arrows plus a magnitude map. Returns the figure.
+
+    Replaces the three rotatable 3-D matplotlib windows the old code opened, which showed
+    the same information but could not be read at a glance or saved usefully.
+    """
+    X, Y, DX, DY = distortion_field(coeff_x, coeff_y, img_shape, options)
+    magnitude = np.hypot(DX, DY)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12.5, 5.4))
+    unit = 'pixels'
+    scale = 1.0
+    if platescale_arcsec:
+        scale = platescale_arcsec
+        unit = 'arcsec'
+
+    ax = axes[0]
+    ax.quiver(X, Y, DX, DY, magnitude * scale, cmap='viridis', angles='xy',
+              pivot='middle', width=0.004)
+    ax.set_title(f'Distortion displacement ({options["distortionOrder"]} fit)')
+    ax.set_xlabel('x (pixels from centre)')
+    ax.set_ylabel('y (pixels from centre)')
+    ax.set_aspect('equal')
+    ax.grid(alpha=0.25)
+
+    ax = axes[1]
+    mesh = ax.pcolormesh(X, Y, magnitude * scale, cmap='magma', shading='auto')
+    contours = ax.contour(X, Y, magnitude * scale, colors='white', linewidths=0.7,
+                          alpha=0.75)
+    ax.clabel(contours, inline=True, fontsize=7, fmt='%.2f')
+    fig.colorbar(mesh, ax=ax, label=f'displacement ({unit})')
+    ax.set_title('Distortion magnitude')
+    ax.set_xlabel('x (pixels from centre)')
+    ax.set_aspect('equal')
+
+    peak = float(np.max(magnitude) * scale)
+    fig.suptitle(f'peak displacement {peak:.2f} {unit}'
+                 + ('' if platescale_arcsec else ' (pixels)'), fontsize=10)
+    fig.tight_layout()
+    if save_to is not None:
+        fig.savefig(save_to, dpi=200, bbox_inches='tight')
+    return fig
+
+
 def show_coef_boxplot(loaded):
     coeff_x = defaultdict(list)
     coeff_y = defaultdict(list)
