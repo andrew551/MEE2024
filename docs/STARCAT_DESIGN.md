@@ -190,10 +190,60 @@ A **directory of uncompressed `.npy` files opened with `mmap_mode='r'`**, not a 
 - **Distribution:** the directory zipped. Downloaded once, unpacked to `user_data_dir`,
   every file hash-verified against the manifest. Same location pattern as the existing
   `get_triangle_db_path()`; add `get_catalogue_dir(name)`.
-- **Builder** (`tools/build_gaia_offline.py`, not shipped in the wheel): paginated ADQL
-  in declination stripes, resumable, one cache file per stripe. Second pass computes
-  `nn_sep`/`nn_mag` against a deeper (G<17) query per stripe so double-star flagging works
-  fully offline.
+- **Builder** (`tools/build_gaia_offline.py`, not shipped in the wheel): ADQL in
+  declination stripes, resumable — each chunk is cached as an `.npy` keyed on its stripe
+  band, so an interrupted build resumes exactly where it stopped.
+
+### Measured build cost, and why the chunking looks the way it does
+
+**Gaia async query latency dominates: ~18–28 s per query regardless of how little it
+returns.** A mag-5 all-sky build (2168 stars, 18 queries) took 318 s — essentially all
+latency. Two consequences shaped the design:
+
+- **Prefer few large stripes.** The default declination step is **10°**, not 1°. A 1°
+  step would mean 180 stripes and turn a 15-minute build into a multi-hour one for no
+  benefit. Stripes denser than `ROWS_PER_QUERY` (200 000) are split in RA automatically.
+- **Count with a single `GROUP BY` query**, not one per stripe. Counting stripe by stripe
+  would have doubled the total query count.
+
+Real sizing for the all-sky G<12 build, from the counting query:
+
+| | |
+|---|---|
+| stars with G < 12 | **3,087,821** |
+| populated 10° declination stripes | 18 |
+| densest stripe | 252,730 rows |
+| queries required | **29** |
+| wall time | **10–22 min** |
+| on-disk size | **148 MB** |
+
+This is much cheaper than the "hours" originally assumed.
+
+### Recommended build sequence
+
+Three scales, each validating more than the last:
+
+1. **Plumbing** — `--max-mag 5`, all sky. ~2000 stars, minutes. Proves query, chunk,
+   assemble, neighbour flags, write, verify.
+2. **Real pipeline test** — `--max-mag 12 --region ...` around known fields. Full depth
+   over a small sky area; one query, ~30 s. This is the artefact that lets stage 2 run
+   genuinely offline against real data.
+3. **The artefact** — all sky, `--max-mag 12`.
+
+### Double-star flagging: a real difference offline
+
+`nn_sep`/`nn_mag` are computed among the catalogue's own members with a KD-tree, which is
+free. A companion **fainter than the catalogue limit is therefore not flagged**, whereas
+the online path queried to G<17 (`double_star_mag`). In the example fields this changes
+nothing, because `remove_double_tab2` defaults to false and the flag is only recorded —
+but it is a genuine reduction in sensitivity, and the manifest records the depth the flags
+actually cover. A `--neighbour-depth` option exists for a deeper (much slower) pass.
+
+Photometric reasoning for how deep is worth going: a companion at Δm shifts the centroid
+by roughly `10^(-0.4Δm)` of the separation. At 10″ separation a G=14 companion beside a
+G=10 star shifts it ~250 mas — significant. A G=17 companion shifts it ~16 mas —
+negligible against our 100 mas. So neighbours to about `limit + 4` mag capture what
+matters; a flat G<17 was more than needed.
 
 ## 4a. Bright-star label layer
 

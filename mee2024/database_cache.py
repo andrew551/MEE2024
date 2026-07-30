@@ -102,12 +102,45 @@ def _get_triangles():
 
 def open_catalogue(path, debug_folder=None, **kwargs):
     if path not in _cache.catalogue_cache:
-        if path == 'gaia':
-            _cache.catalogue_cache[path] = gaia_search.dbs_gaia(**kwargs)
-        elif path == get_triangle_db_path():
+        if path == get_triangle_db_path():
             _cache.catalogue_cache[path] = _get_triangles()
+        elif path == 'gaia':
+            # the historical online path; starcat's equivalent is 'gaia_starcat'
+            _cache.catalogue_cache[path] = gaia_search.dbs_gaia(**kwargs)
+        elif _is_starcat_name(path):
+            from mee2024.starcat import providers
+            _cache.catalogue_cache[path] = providers.build(str(path), **kwargs)
+        elif (directory := _installed_catalogue_dir(path)) is not None:
+            from mee2024.starcat import providers
+            _cache.catalogue_cache[path] = providers.GaiaOfflineProvider(directory)
         else:
             _cache.catalogue_cache[path] = database_lookup2.database_searcher(
                 path, debug_folder=debug_folder, star_max_magnitude=12)
 
     return _cache.catalogue_cache[path]
+
+
+def _is_starcat_name(path):
+    """Is this the name of a provider in the starcat registry?"""
+    if not isinstance(path, str):
+        return False
+    from mee2024.starcat import providers
+    return path in providers.known_catalogues()
+
+
+def _installed_catalogue_dir(path):
+    """The directory of an offline catalogue present on disk, or None.
+
+    Accepts both a registered release name and the name of a locally built catalogue,
+    so a catalogue produced by tools/build_gaia_offline.py is usable immediately.
+    """
+    if not isinstance(path, str):
+        return None
+    from mee2024.MEE2024util import get_catalogue_root
+    from mee2024.starcat import store
+    directory = get_catalogue_root() / path
+    try:
+        store.read_manifest(directory)
+        return directory
+    except (FileNotFoundError, ValueError, OSError):
+        return None

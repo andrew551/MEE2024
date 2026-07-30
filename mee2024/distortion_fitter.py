@@ -138,6 +138,17 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
 
     return stardata0, stardata, plate2, alt, az, mask_select
 
+def _lookup_neighbours(dbs, stardata, cutoff_arcsec, max_mag):
+    """Nearby catalogue sources, for double-star flagging.
+
+    A starcat provider answers this itself -- the offline one from precomputed columns,
+    the online one with a query. Anything else falls back to the Gaia archive.
+    """
+    if hasattr(dbs, 'lookup_neighbours'):
+        return dbs.lookup_neighbours(stardata, cutoff_arcsec, max_mag)
+    return gaia_search.lookup_nearby(stardata, cutoff_arcsec, max_mag)
+
+
 def match_and_fit_distortion(path_data, options, debug_folder=None):
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     
@@ -196,8 +207,8 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     print('pre-outlier removed rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
 
     # compute flag:
-    flag_is_double = np.zeros(stardata.ids.shape[0], int)
-    neigh_all = gaia_search.lookup_nearby(stardata, options['double_star_cutoff'], options['double_star_mag'])
+    neigh_all = _lookup_neighbours(dbs, stardata, options['double_star_cutoff'],
+                                   options['double_star_mag'])
     neigh = NearestNeighbors(n_neighbors=2)
     neigh_all_data_extra2 = np.r_[neigh_all.get_ra_dec(), np.array([[-99999,-99999], [-99999, -99999]])] # ensure at least 2 "pseudo-neighbours"
     

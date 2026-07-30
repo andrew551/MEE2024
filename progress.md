@@ -42,6 +42,53 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-07-30 — offline catalogue builder, and it reproduces the online results exactly
+
+**The offline path is now testable end to end.** `tools/build_gaia_offline.py` builds a
+catalogue; `mee2024 --catalogue <name> distortion ...` uses it with no network.
+
+Stage 2 through a real offline catalogue directory, against the online numbers:
+
+| field | order | online | offline |
+|---|---|---|---|
+| zwo3 | quintic | 109.6 mas, 434 stars, 2023-10-28, nn_corr 0.166 | **identical** |
+| zwo1 | quintic | 111.9 mas, 1564 stars, 2023-09-06, nn_corr 0.353 | **identical** |
+
+Not "within tolerance" — the same numbers.
+
+**Gaia query latency dominates the build: ~18–28 s per query regardless of size.** A
+mag-5 all-sky build (2168 stars, 18 queries) took 318 s, essentially all latency. So the
+declination step defaults to **10°, not 1°** — a 1° step would mean 180 stripes and turn a
+15-minute build into hours for nothing. Row counting is one `GROUP BY` query rather than
+one per stripe, halving the query count. Builds are resumable: each chunk is cached as an
+`.npy` keyed on its stripe band.
+
+Real sizing for all-sky G<12, measured rather than guessed: **3,087,821 stars, 29 queries,
+10–22 min, 148 MB**. The design doc's original "hours" estimate was wrong.
+
+Build sequence that worked, each step validating more than the last:
+
+1. `--max-mag 5` all sky — 2168 stars. Proves query/chunk/assemble/flag/write/verify.
+2. `--max-mag 12 --region ...` around the known fields — 4585 stars in one 28 s query.
+   This is what made the offline stage-2 test above possible.
+3. all sky `--max-mag 12` — the real artefact.
+
+Wiring: `database_cache.open_catalogue` now resolves starcat provider names and locally
+built catalogue directories, so a catalogue built by the tool is usable by name
+immediately. `distortion_fitter` routes double-star lookup through the provider rather
+than calling `gaia_search.lookup_nearby` directly.
+
+**One real behavioural difference offline:** `nn_sep`/`nn_mag` are computed among the
+catalogue's own members, so a companion fainter than the catalogue limit is not flagged,
+whereas the online path queried to G<17. It changes nothing here because
+`remove_double_tab2` defaults to false and the flag is only recorded, but it is a genuine
+reduction in sensitivity and the manifest records the depth covered. Photometrically, a
+companion at Δm shifts a centroid by ~`10^(-0.4Δm)` of the separation, so G=14 beside G=10
+at 10″ matters (~250 mas) and G=17 does not (~16 mas) — neighbours to about `limit + 4`
+capture what counts, and the flat G<17 was more than needed.
+
+---
+
 ## 2026-07-30 — star catalogue: step 2, the `starcat` package
 
 Added `mee2024/starcat/`. Nothing is wired into the pipeline yet, so the measured baseline
