@@ -11,9 +11,12 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 290 passing (`pytest` = 276 fast + 14 behind `--runslow`) |
+| Tests | 317 passing (`pytest` = 301 fast + 16 behind `--runslow`) |
 | Lint | pyflakes clean apart from two intentional PyInstaller import shims |
 | Pipeline | stages 1–3 all runnable headlessly from the CLI |
+| Catalogues | Gaia G<12 and 12<G<13 built locally; Hipparcos + labels bundled |
+
+See `docs/CATALOGUE_INVENTORY.md` for the full catalogue inventory and unification plan.
 
 ### Measured baseline — do not regress these
 
@@ -39,6 +42,54 @@ Stage 2 (`guess_date` seeded with 2020-01-01, blind):
 | zwo1 | septic | 100.9 mas | 1564 | 2023-09-20 | −39 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-07-30 — Hipparcos closes the bright-star gap; deep extension built
+
+**Deep extension built:** `gaia_dr3_g12_13`, 4,281,806 stars (12<G<13), 10 min, 213 MB.
+Stacked with the base archive that is **7,369,627 stars to G<13**, matching the archive
+count exactly. The eclipse-field case is now decisive — a 10°×10° field at G<13 returns an
+identical 45,573 stars in **0.03 s offline against 6.9 s online (206×)**.
+
+**Hipparcos-2 added as the bright fill and the label source.** One 6 MB download serves
+both, and both are small enough to bundle in the wheel:
+
+- `mee2024/resources/hipparcos2/` — 117,955 stars, 5.9 MB, epoch 1991.25 with proper motion
+- `mee2024/resources/star_labels/` — 117,955 HIP entries, 99,525 Gaia crossmatches, 50
+  proper names, 2.1 MB
+
+All four stars Gaia lacks now resolve correctly and are flagged precision-grade:
+
+| star | V | via | label |
+|---|---|---|---|
+| Sirius | −1.46 | hipparcos | `Sirius` |
+| Vega | +0.03 | hipparcos | `Vega` |
+| Arcturus | −0.05 | hipparcos | `Arcturus` |
+| Canopus | −0.74 | hipparcos | `Canopus` |
+
+**The Hp→G transformation was fitted, not cited.** A quadratic in B−V trained on the 96,767
+stars with both Hp and a measured Gaia G: **robust σ = 0.038 mag** (plain rms 0.269, the
+tail being variables and binaries Gaia resolved but Hipparcos did not). A cubic overfits
+the blue end. `band='G_est_from_Hp'` records the provenance so nothing treats it as
+photometry.
+
+**Measured: Tycho is nearly redundant as a bright fill.** Over 14 random 5°×5° boxes
+(350 sq deg, 19,129 Gaia stars) — Hipparcos adds **5** stars, Tycho adds **1 more** after
+it, Tycho alone would add 5. They overlap almost entirely. Tycho stays for plate solving
+(the triangle database needs 700k stars, which only Tycho provides) but its fill role is
+marginal.
+
+**The merge is verified safe:** on both example fields it adds *zero* stars and reproduces
+the pure-Gaia result exactly (109.6 mas / 434 / nn_corr 0.172). It only acts where Gaia is
+genuinely incomplete — in a field containing Sirius it adds exactly one star.
+
+**Guard added:** `StarTable.is_precision_grade()` plus enforcement in `distortion_fitter`,
+so a Tycho star can reach the plate solver but never the distortion fit. This is what the
+per-star `origin` column was for.
+
+Labels are a **sorted-key index with `np.searchsorted`**, not a hash table — smaller,
+memory-mappable, and one call resolves a whole field.
 
 ---
 

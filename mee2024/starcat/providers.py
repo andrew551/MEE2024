@@ -13,7 +13,8 @@ matching what ``MEE2024util.get_bbox`` produces. ``epoch`` is a Julian year.
 
 import numpy as np
 
-from mee2024.starcat.table import ORIGIN_GAIA, ORIGIN_TYCHO, StarTable, concat
+from mee2024.starcat.table import (ORIGIN_GAIA, ORIGIN_HIPPARCOS, ORIGIN_TYCHO,
+                                   StarTable, concat)
 
 # Tycho V -> approximate Gaia G. Measured median offset over the zwo3 field; the proper
 # transformation needs a B-V colour, which the bundled catalogue does not carry.
@@ -202,6 +203,55 @@ WHERE {ra_clause} AND dec BETWEEN {dec_lo} AND {dec_hi} AND {mag_clause}"""
         return self._to_table(Gaia.launch_job_async(query).get_results(), table.epoch)
 
 
+# ----------------------------------------------------------------- Hipparcos
+
+class HipparcosProvider(CatalogueProvider):
+    """Hipparcos-2, the bright-star fill.
+
+    Gaia DR3 has no entry at all for the brightest stars -- they saturate the instrument.
+    18,430 Hipparcos-2 stars have no Gaia counterpart, 2,629 of them brighter than Hp=7,
+    and the bundled Tycho catalogue does not cover them either (Tycho-2 moves ~120 very
+    bright stars into a separate Supplement 1 file). Hipparcos has all of them, with
+    astrometry good enough for the precision fit.
+
+    Identifiers are HIP numbers, not Gaia source_ids. Magnitudes are Gaia G estimated from
+    Hp and B-V, with a robust scatter of 0.038 mag, so the band is reported as
+    'G_est_from_Hp'.
+    """
+
+    name = 'hipparcos'
+    is_offline = True
+    #: Hipparcos is essentially complete only to about here
+    COMPLETENESS_LIMIT = 9.0
+
+    def __init__(self, directory=None):
+        from mee2024.MEE2024util import resource_path
+        from mee2024.starcat.store import OfflineCatalogue
+        self.catalogue = OfflineCatalogue(directory or resource_path('resources/hipparcos2'))
+
+    @classmethod
+    def try_bundled(cls):
+        """The bundled catalogue, or None if it was not shipped. Never raises."""
+        try:
+            return cls()
+        except (FileNotFoundError, ValueError, OSError):
+            return None
+
+    @property
+    def magnitude_limit(self):
+        return self.catalogue.magnitude_limit
+
+    def describe(self):
+        return (f'{self.name} (offline, {self.catalogue.n_stars} stars, '
+                f'complete to about G={self.COMPLETENESS_LIMIT})')
+
+    def lookup(self, ra_range, dec_range, max_magnitude=12.0, epoch=2024.0):
+        table = self.catalogue.lookup(ra_range, dec_range, max_magnitude, epoch=epoch)
+        # the stored origin column is written by the builder, but be explicit
+        table.origin = np.full(len(table), ORIGIN_HIPPARCOS, dtype=np.uint8)
+        return table
+
+
 # --------------------------------------------------------------- Gaia offline
 
 class GaiaOfflineProvider(CatalogueProvider):
@@ -281,48 +331,76 @@ class GaiaOfflineProvider(CatalogueProvider):
 # --------------------------------------------------------------------- merged
 
 class MergedProvider(CatalogueProvider):
-    """Gaia, with Tycho filling in only the bright stars Gaia lacks.
+    """Gaia, with progressively lower-priority catalogues filling the bright end.
 
-    Tycho entries are kept only where no Gaia source lies within ``match_radius_arcsec``
-    and the star is brighter than ``bright_fill_limit``. They carry ORIGIN_TYCHO so the
-    distortion fit can exclude them -- which it must, because Tycho positions are an
-    order of magnitude worse than the precision we are chasing.
+    Gaia DR3 simply has no entry for the brightest stars, so a fill is not optional if a
+    field might contain one. Fill sources are tried in order, and a star is added only
+    where no already-accepted star lies within ``match_radius_arcsec``:
+
+        1. Hipparcos-2 -- has every naked-eye star, astrometry good enough for the
+           precision fit, so it is preferred.
+        2. Tycho-2 -- fills V~7-9 where Hipparcos thins out. Its positions reach ~2.5
+           arcsec by V=11, so it is admissible for plate solving only, and carries
+           ORIGIN_TYCHO for the fit to exclude.
+
+    Each fill source has its own magnitude ceiling: beyond it the source does more harm
+    than good.
     """
 
     name = 'merged'
 
-    def __init__(self, primary=None, secondary=None, bright_fill_limit=BRIGHT_FILL_LIMIT,
-                 match_radius_arcsec=2.0):
+    def __init__(self, primary=None, fills=None, secondary=None,
+                 bright_fill_limit=BRIGHT_FILL_LIMIT, match_radius_arcsec=2.0):
+        """primary: the precision catalogue. fills: [(provider, magnitude ceiling), ...]
+        tried in order.
+
+        Passing ``secondary`` selects that single provider as the only fill; passing
+        neither builds the default chain (Hipparcos, then Tycho).
+        """
         self.primary = primary or GaiaOnlineProvider()
-        self.secondary = secondary or TychoProvider()
-        self.bright_fill_limit = bright_fill_limit
+        if fills is None:
+            if secondary is not None:
+                fills = [(secondary, bright_fill_limit)]
+            else:
+                fills = []
+                hipparcos = HipparcosProvider.try_bundled()
+                if hipparcos is not None:
+                    fills.append((hipparcos, HipparcosProvider.COMPLETENESS_LIMIT))
+                fills.append((TychoProvider(), bright_fill_limit))
+        self.fills = list(fills)
         self.match_radius_arcsec = match_radius_arcsec
 
     @property
     def is_offline(self):
-        return self.primary.is_offline and self.secondary.is_offline
+        return self.primary.is_offline and all(f.is_offline for f, _ in self.fills)
 
     @property
     def magnitude_limit(self):
         return self.primary.magnitude_limit
 
+    def describe(self):
+        fills = ', '.join(f'{f.name}<{limit}' for f, limit in self.fills)
+        return (f'{self.name} ({"offline" if self.is_offline else "online"}): '
+                f'{self.primary.name} + [{fills}]')
+
     def lookup(self, ra_range, dec_range, max_magnitude=12.0, epoch=2024.0):
-        main = self.primary.lookup(ra_range, dec_range, max_magnitude, epoch)
-        fill_limit = min(self.bright_fill_limit, max_magnitude)
-        extra = self.secondary.lookup(ra_range, dec_range, fill_limit, epoch)
-        extra = extra.select(extra.mag < fill_limit)
-        if len(extra) == 0:
-            return main
-        if len(main) == 0:
-            return extra
-        keep = _unmatched(extra, main, self.match_radius_arcsec)
-        extra = extra.select(keep)
-        if len(extra) == 0:
-            return main
-        # concat requires a common epoch and band; Tycho has no PM so its epoch is fixed
-        extra.epoch = main.epoch
-        extra.band = main.band
-        return concat([main, extra])
+        result = self.primary.lookup(ra_range, dec_range, max_magnitude, epoch)
+        for provider, ceiling in self.fills:
+            limit = min(ceiling, max_magnitude)
+            extra = provider.lookup(ra_range, dec_range, limit, epoch)
+            extra = extra.select(extra.mag < limit)
+            if len(extra) == 0:
+                continue
+            if len(result):
+                extra = extra.select(_unmatched(extra, result, self.match_radius_arcsec))
+                if len(extra) == 0:
+                    continue
+            # magnitudes from different sources are all approximate G; label the mixture
+            extra.epoch = result.epoch if len(result) else extra.epoch
+            extra.band = result.band if len(result) else extra.band
+            result = concat([result, extra]) if len(result) else extra
+            result.band = 'G_mixed'
+        return result
 
     def lookup_neighbours(self, table, radius_arcsec, max_magnitude):
         return self.primary.lookup_neighbours(table, radius_arcsec, max_magnitude)
@@ -361,8 +439,9 @@ def known_catalogues():
 
 register('gaia', lambda gaia_limit=13.0, **_: GaiaOnlineProvider(gaia_limit=gaia_limit))
 register('tycho', lambda **_: TychoProvider())
+register('hipparcos', lambda **_: HipparcosProvider())
 register('gaia_offline', lambda **_: GaiaOfflineProvider.from_installed())
 register('merged', lambda gaia_limit=13.0, **_: MergedProvider(
     primary=GaiaOnlineProvider(gaia_limit=gaia_limit)))
 register('merged_offline', lambda **_: MergedProvider(
-    primary=GaiaOfflineProvider.from_installed(), secondary=TychoProvider()))
+    primary=GaiaOfflineProvider.from_installed()))

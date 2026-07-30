@@ -225,6 +225,16 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     else:
         keep_j = errors_arcseconds < options['distortion_fit_tol']
 
+    # Never let a low-precision catalogue into the fit. A merged catalogue may include
+    # Tycho stars to fill the bright end for plate solving, but Tycho positions reach
+    # ~2.5 arcsec by V=11 -- an order of magnitude worse than the deflection we measure.
+    if hasattr(stardata, 'is_precision_grade'):
+        precision_grade = stardata.is_precision_grade()
+        n_excluded = int(np.sum(~precision_grade))
+        if n_excluded:
+            print(f'{n_excluded} star(s) excluded from the fit: catalogue not precision-grade')
+        keep_j = np.logical_and(keep_j, precision_grade)
+
     plate2_unfiltered = plate2
     stardata_unfiltered = copy(stardata)
     plate2 = plate2[keep_j, :]

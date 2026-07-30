@@ -1,0 +1,70 @@
+{
+  "format": "mee2024-starcat",
+  "format_version": 1,
+  "name": "hipparcos2",
+  "catalogue": "Hipparcos-2",
+  "band": "G_est_from_Hp",
+  "epoch": 1991.25,
+  "magnitude_limit": 14.562187194824219,
+  "n_stars": 117955,
+  "dec_band_degrees": 1.0,
+  "provenance": "{\"source\": \"public.hipparcos_newreduction (van Leeuwen 2007) via the Gaia archive\", \"position_epoch\": 1991.25, \"magnitude\": \"Gaia G estimated from Hp and B-V; see hp_to_g\", \"hp_to_g\": {\"n_training\": 96767, \"order\": 2, \"coeffs_highest_first\": [-0.13468775461053623, -0.29866553642582117, -1.2515942974075387e-05], \"rms_mag\": 0.2691691960431563, \"robust_sigma_mag\": 0.03836172682845621}, \"stars_with_gaia_dr3_counterpart\": 99525, \"stars_without_gaia_counterpart\": 18430}",
+  "built": "2026-07-30",
+  "columns": {
+    "ra": {
+      "file": "ra.npy",
+      "dtype": "float64",
+      "sha256": "7edc21015efa600dfaa2ffec907e93dec9cac5c9d84d4998ea478775d0738024"
+    },
+    "dec": {
+      "file": "dec.npy",
+      "dtype": "float64",
+      "sha256": "16a53e45b739cf8b6037be010e0c4bcaaf7ed84a79efb274d3299f177b770f56"
+    },
+    "mag": {
+      "file": "mag.npy",
+      "dtype": "float32",
+      "sha256": "9e85dabeac793a597f281b9fcfb01a75c0c20c86e252020e1947dd99bf157d0b"
+    },
+    "ids": {
+      "file": "source_id.npy",
+      "dtype": "int64",
+      "sha256": "a6ebd2d8aa5614994a53bcc328e46174d019bcae7a55d5e1e6697d6fa8560d03"
+    },
+    "pmra": {
+      "file": "pmra.npy",
+      "dtype": "float32",
+      "sha256": "6444ddb64b57fdd050905a7e00a5a41f7d75c57dfe01c359b32d3fb4b3733a86"
+    },
+    "pmdec": {
+      "file": "pmdec.npy",
+      "dtype": "float32",
+      "sha256": "241c79b6ba5d3422a26d718dd57c8e3dcb89f5fa7e4dd8c357c6716aa5d4d0b8"
+    },
+    "parallax": {
+      "file": "parallax.npy",
+      "dtype": "float32",
+      "sha256": "775f04d8555be8a8869d5bd3241d7993ecb5a2eeb8a54f32ac48afc2cef7b268"
+    },
+    "radial_velocity": {
+      "file": "radial_velocity.npy",
+      "dtype": "float32",
+      "sha256": "cd2ba438c11c3f45dbb696a9581d0c74af88254da38a6d386606e644d4328c59"
+    },
+    "nn_sep": {
+      "file": "nn_sep.npy",
+      "dtype": "float32",
+      "sha256": "2b4e626a78984889ec4203a506cd87bd89a14b5ceadf9c2f8b1d64e43309debd"
+    },
+    "nn_mag": {
+      "file": "nn_mag.npy",
+      "dtype": "float32",
+      "sha256": "db0689f3c78bda0075081f3d2d81d2804ebee04ac4ed51cb8422492525e12599"
+    },
+    "dec_index": {
+      "file": "dec_index.npy",
+      "dtype": "int64",
+      "sha256": "dc32be02a1f939643c1b3f1783ed60a0f4d1c469c8d930c03be9ff9e80591590"
+    }
+  }
+}

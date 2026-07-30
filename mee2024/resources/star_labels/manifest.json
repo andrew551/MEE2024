@@ -1,0 +1,13 @@
+{
+  "format": "mee2024-star-labels",
+  "format_version": 1,
+  "n_gaia_crossmatches": 99525,
+  "n_hip": 117955,
+  "n_named": 50,
+  "sources": [
+    "gaiadr3.hipparcos2_best_neighbour",
+    "public.hipparcos_newreduction",
+    "IAU Catalog of Star Names (bundled subset)"
+  ],
+  "built": "2026-07-30"
+}

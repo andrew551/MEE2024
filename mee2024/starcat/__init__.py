@@ -10,16 +10,20 @@ See docs/STARCAT_DESIGN.md for the design and the measurements behind it.
 
 from mee2024.starcat.table import (
     ORIGIN_GAIA,
+    ORIGIN_HIPPARCOS,
     ORIGIN_TYCHO,
     ORIGIN_NAMES,
+    PRECISION_ORIGINS,
     StarTable,
     concat,
 )
 
 __all__ = [
     'ORIGIN_GAIA',
+    'ORIGIN_HIPPARCOS',
     'ORIGIN_TYCHO',
     'ORIGIN_NAMES',
+    'PRECISION_ORIGINS',
     'StarTable',
     'concat',
 ]

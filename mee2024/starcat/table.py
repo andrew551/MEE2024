@@ -26,12 +26,18 @@ import numpy as np
 
 ORIGIN_GAIA = np.uint8(0)
 ORIGIN_TYCHO = np.uint8(1)
+ORIGIN_HIPPARCOS = np.uint8(2)
 
-ORIGIN_NAMES = {int(ORIGIN_GAIA): 'gaia', int(ORIGIN_TYCHO): 'tycho'}
+ORIGIN_NAMES = {int(ORIGIN_GAIA): 'gaia', int(ORIGIN_TYCHO): 'tycho',
+                int(ORIGIN_HIPPARCOS): 'hipparcos'}
 
-# Bands a magnitude column may be expressed in. 'G_est_from_V' marks a Tycho V magnitude
-# transformed to an approximate Gaia G, so nothing mistakes it for a measured G.
-BANDS = ('G', 'V', 'G_est_from_V')
+#: origins whose astrometry is good enough for the precision fit. Tycho positions degrade
+#: to ~2.5 arcsec by V=11 and are admissible for plate solving only.
+PRECISION_ORIGINS = (ORIGIN_GAIA, ORIGIN_HIPPARCOS)
+
+# Bands a magnitude column may be expressed in. The 'G_est_from_*' names mark a magnitude
+# transformed into an approximate Gaia G, so nothing mistakes it for a measured G.
+BANDS = ('G', 'V', 'Hp', 'G_est_from_V', 'G_est_from_Hp', 'G_mixed')
 
 _COLUMNS = {
     'ra': np.float64, 'dec': np.float64,
@@ -152,6 +158,14 @@ class StarTable:
 
     def is_gaia(self):
         return self.origin == ORIGIN_GAIA
+
+    def is_precision_grade(self):
+        """Per star: is this position accurate enough for the distortion fit?
+
+        Excludes Tycho, whose positions reach ~2.5 arcsec by V=11 -- an order of
+        magnitude worse than the deflection we are measuring.
+        """
+        return np.isin(self.origin, np.array(PRECISION_ORIGINS, dtype=np.uint8))
 
     def is_double(self, cutoff_arcsec):
         """Per star: is there a catalogue neighbour within cutoff_arcsec?
