@@ -8,9 +8,7 @@ import numpy as np
 from mee2024 import transforms
 import matplotlib.pyplot as plt
 import scipy
-import datetime
 from mee2024.MEE2024util import date_string_to_float, date_from_float
-from scipy.special import legendre
 import copy
 import json
 from collections import defaultdict
@@ -19,22 +17,18 @@ import statsmodels.api as sm
 
 mapping = {'constant':0, 'linear':1, 'quadratic':2, 'cubic':3, 'quartic': 4, 'quintic':5, 'sextic': 6, 'septic':7}
 
-def get_basis(y, x, w, m, options, use_special=False):
+'''
+Polynomial basis in the centred plate coordinates (y, x), normalised by w so that
+coefficients are in pixels at the image edge. Returns an (nstars, nterms) array; the
+constant term is added separately by sm.add_constant in the fit.
+'''
+def get_basis(y, x, w, m, options):
     basis = []
     order = mapping[options['distortionOrder']]
-    if options['basis_type'] == 'polynomial' or not use_special:
-        for i in range(1, order+1): # up to nth order binomials
-            for j in range(i+1):
-                basis.append(y ** j * x ** (i-j) / w**i)
-        return np.array(basis).T
-    elif options['basis_type'] == 'legendre':
-        legendre_polies = [legendre(i) for i in range(order+1)]
-        for i in range(1, order+1): # up to nth order legendre binomials
-            for j in range(i+1):
-                basis.append(legendre_polies[j](y) * legendre_polies[i-j](x) / w**i)
-        return np.array(basis).T
-    else:
-        raise Exception("invalid basis_type")
+    for i in range(1, order+1): # up to nth order binomials
+        for j in range(i+1):
+            basis.append(y ** j * x ** (i-j) / w**i)
+    return np.array(basis).T
 
 def get_coeff_names(options):
     names = ['1']
@@ -166,10 +160,10 @@ plate: (x, y) coordinates of stars
 target: corresponding(x', y', z') of star true positions according to catalogue
 new Oct'24: option for weighted centroids 
 '''
-def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, use_special=False, weights=1):
+def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=1):
     detransformed = transforms.detransform_vectors(q, target)
     errors = detransformed - plate
-    basis = get_basis(plate[:, 0], plate[:, 1], w, m, options, use_special)
+    basis = get_basis(plate[:, 0], plate[:, 1], w, m, options)
 
     '''
     new: if requested, use "fixed" higher order contributions
@@ -201,9 +195,6 @@ def _cubic_helper(q, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, use
         fixed_correction[:, 1] += fixed_correction_x / m
         fixed_correction[:, 0] += fixed_correction_y / m
 
-    if weights == 1:
-        weights = np.ones(plate.shape[0]) # TODO: unused remove!
-    
     ols_result_x = sm.OLS(errors_fixed[:, 1]*m, sm.add_constant(basis_free)).fit()
     ols_result_y = sm.OLS(errors_fixed[:, 0]*m, sm.add_constant(basis_free)).fit()
     
@@ -251,8 +242,8 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     basis_free = basis[:, :n_free]
     
     Z_x = reg_x.predict(sm.add_constant(basis_free)).reshape(X.shape)
-    surf = ax.plot_surface(X, Y, Z_x, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
-                           linewidth=0, antialiased=False, alpha=0.4)
+    ax.plot_surface(X, Y, Z_x, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
+                    linewidth=0, antialiased=False, alpha=0.4)
 
 
     ax2 = fig.add_subplot(1, 3, 2, projection='3d')    
@@ -263,8 +254,8 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     ax2.set_zlabel('y-error (pixls)')
     ax2.set_title("y-error fit")
     Z_y = reg_y.predict(sm.add_constant(basis_free)).reshape(X.shape)
-    surf = ax2.plot_surface(X, Y, Z_y, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
-                           linewidth=0, antialiased=False, alpha=0.4)
+    ax2.plot_surface(X, Y, Z_y, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
+                     linewidth=0, antialiased=False, alpha=0.4)
 
     ax3 = fig.add_subplot(1, 3, 3, projection='3d')    
     ax3.scatter(plate[:,1], plate[:, 0], np.linalg.norm(errors, axis=1), marker='+')
@@ -274,8 +265,8 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
     ax3.set_zlabel('norm(error)')
     ax3.set_title("norm(error) fit")
     Z_n = (Z_x**2+Z_y**2)**0.5
-    surf = ax3.plot_surface(X, Y, Z_n, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
-                           linewidth=0, antialiased=False, alpha=0.4)
+    ax3.plot_surface(X, Y, Z_n, rstride=1, cstride=1, cmap=plt.cm.coolwarm,
+                     linewidth=0, antialiased=False, alpha=0.4)
     
     if options['flag_display2']:
         plt.show()
@@ -296,27 +287,12 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options, weights=1):
         q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, dict(options, **{'distortion_fixed_coefficients':'linear'}))[0]
         q_corrected = tuple([np.radians(fix_platescale/3600)]+list(q_corrected[1:4]))
         plate_corrected = apply_corrections(q_corrected, plate, list(fix_coeff_x.values()), list(fix_coeff_y.values()), img_shape, options)
-        detransformed = transforms.detransform_vectors(q_corrected, target)
-        errors = detransformed - plate_corrected
-        mean_error = np.mean(errors, axis=0)
-        #if not options['no_plot']:
-        #    print('mean error:', mean_error)
         return q_corrected, plate_corrected, list(fix_coeff_x.values()), list(fix_coeff_y.values()), combined_platescale_uncertainty
-    
+
     q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights)[0]
     q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights)[0]
     q_corrected, plate_corrected, coeff_x, coeff_y, basis, errors, reg_x, reg_y, platescale_stdrelerror = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, options, weights=weights) # apply for third time to really shrink the unwanted coefficients
 
-    
-    '''
-    now if needed, apply the special basis functions
-    if not options['basis_type'] == 'polynomial':
-        print("now using special basis")
-        q_corrected, plate_corrected, reg_x, reg_y, basis, errors = _cubic_helper(q_corrected, plate, target, w, m, options, use_special=True) # apply for third time to really shrink the unwanted coefficients
-    '''
-
-    #print('residuals_x\n', reg_x.predict(basis) / m - errors[:, 1])
-    #print('residuals_y\n', reg_y.predict(basis) / m - errors[:, 0])
     if not ('no_plot' in options and options['no_plot']):
         print(reg_x.params)
         print(reg_y.params)
@@ -353,29 +329,14 @@ def show_coef_boxplot(loaded):
     ax[1].set_xticklabels(['$'+k.replace('*', '')+'$' for k in coeff_y], fontsize=14)
     ax[1].set_ylabel('distortion coefficient (pixels)', fontsize=14)
     ax[1].set_ylim(-15, 15)
-    num_boxes = len(coeff_x)
-    pos = np.arange(num_boxes) + 1
-    upper_labels = [f'{np.mean(coeff_x[k]):.2f}' for k in coeff_x]
-    weights = ['bold', 'semibold']
-    for tick, label in zip(range(num_boxes), ax[0].get_xticklabels()):
-        k = tick % 2
-        ax[0].text(pos[tick], .95, upper_labels[tick],
-                 transform=ax[0].get_xaxis_transform(),
-                 horizontalalignment='center', size='small')
-                 #weight=weights[k], color=box_colors[k])
+    for axis, coeffs in ((ax[0], coeff_x), (ax[1], coeff_y)):
+        pos = np.arange(len(coeffs)) + 1
+        upper_labels = [f'{np.mean(coeffs[k]):.2f}' for k in coeffs]
+        for tick in range(len(coeffs)):
+            axis.text(pos[tick], .95, upper_labels[tick],
+                      transform=axis.get_xaxis_transform(),
+                      horizontalalignment='center', size='small')
 
-    num_boxes = len(coeff_y)
-    pos = np.arange(num_boxes) + 1
-    upper_labels = [f'{np.mean(coeff_y[k]):.2f}' for k in coeff_y]
-    weights = ['bold', 'semibold']
-    for tick, label in zip(range(num_boxes), ax[1].get_xticklabels()):
-        k = tick % 2
-        ax[1].text(pos[tick], .95, upper_labels[tick],
-                 transform=ax[1].get_xaxis_transform(),
-                 horizontalalignment='center', size='small')
-                 #weight=weights[k], color=box_colors[k])
-
-    
     plt.show()
         
 
@@ -424,5 +385,8 @@ def _open_distortion_files(options):
     else:
         print("WARNING: no platescale uncertainty could be made")
         combined_platescale_uncertainty = -1
-    return coeff_x, coeff_y, np.mean(platescales), combined_platescale_uncertainty
+    # no reference files at all is the normal case: the caller only uses the mean
+    # platescale when higher-order coefficients are actually being held fixed
+    mean_platescale = np.mean(platescales) if platescales else float('nan')
+    return coeff_x, coeff_y, mean_platescale, combined_platescale_uncertainty
     

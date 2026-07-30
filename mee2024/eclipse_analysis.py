@@ -10,14 +10,13 @@ import zipfile
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 from mee2024.refraction_correction import _find_rotation_matrix
-from mee2024.transforms import to_polar
 import scipy
 from pathlib import Path
 import datetime
 from mee2024.MEE2024util import output_path, _version
 
 import astropy
-from astropy.coordinates import EarthLocation,SkyCoord, Distance, get_body, AltAz
+from astropy.coordinates import EarthLocation, get_body, AltAz
 from astropy.time import Time
 from astropy import units as u
 
@@ -26,7 +25,6 @@ from astropy import units as u
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 import statsmodels.api as sm
-from sklearn.linear_model import LinearRegression
 
 def confidence_ellipse(cov, mu, ax, n_std=3.0, facecolor='none', **kwargs):
     """
@@ -258,12 +256,7 @@ def eclipse_analysis(path_data, options):
     radial_distances_obs = np.arcsin(np.linalg.norm(obs_rot - reference_v, axis=1) / 2) * 2
 
     deflection_obs = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
-
-
-
-    
-    r_0 = np.arcsin(np.linalg.norm(stars_obs_v - reference_v, axis=1) / 2) * 2
-    deflection_obs_0 = np.degrees(radial_distances_obs - radial_distances_catalog)*3600
+    deflection_obs_0 = deflection_obs
 
     platescale0 = data['platescale (arcseconds/pixel)']
 
@@ -298,7 +291,6 @@ def eclipse_analysis(path_data, options):
         plt.xlabel("radial position (solar radii)", fontsize=16)
         plt.xticks(np.arange(2, 12, 1.0), fontsize=14)
         plt.yticks(fontsize=14)
-        ax.tick_params(axis='both', which='major', labelsize=12)
         plt.annotate(f"L = {mu[0]:.3f}\n radial rmse = {resid:.3f} arcsec", (3, 1.5), fontsize=16)
         plt.title('Deflections for ' + field_describe + ' ' + labelx, fontsize=16)
         xx = np.linspace(np.min(rad_dist)-0.5, np.max(rad_dist))
@@ -369,13 +361,13 @@ def eclipse_analysis(path_data, options):
         mu2, cov2, resid2 = analysis_mode_2(rad_dist, deflection_obs_0, platescale0, sun_apparent_angular_radius)
         plot_confidence_ellipse(cov2, mu2, edgecolor='fuchsia', labelx=' (method 2)')
     plt.savefig(output_path(f'ECLIPSE_confidence_ellipse{starttime}.png', options), dpi=400)
-    plt.show()
+    if options['flag_display3']:
+        plt.show()
+    plt.close()
     if options['eclipse_method'] in ('Method 1', 'Method 1 & 2'):
         show_deflection_scatter(cov1, mu1, resid1, deflection_obs_0, labelx=' (method 1)')
     if options['eclipse_method'] in ('Method 2', 'Method 1 & 2'):
         show_deflection_scatter(cov2, mu2, resid2, deflection_obs_0, labelx=' (method 2)')
-        
-    plt.show()
 
     output_name = f'ECLIPSE_OUTPUT{starttime}.txt'
     output_file = Path(output_path(output_name, options))
@@ -387,23 +379,17 @@ def eclipse_analysis(path_data, options):
         if options['limit_radial_sun_radii']:
             f.write(f"cutoff sun radii: {options['limit_radial_sun_radii_value']}\n")
         else:
-            f.write(f"cutoff sun radii: None")
+            f.write("cutoff sun radii: None\n")
         f.write(f"remove double stars: {options['remove_double_stars_eclipse']}\n")
         f.write(f"number of stars used: {df.shape[0]}\n")
         f.write(string)
         if options['eclipse_method'] in ('Method 1', 'Method 1 & 2'):
             f.write(f"Method 1 results: L={mu1[0]:.3f}±{cov1[0,0]**0.5:.3f}, platescale={mu1[1]:.6f}±{cov1[1,1]**0.5:.6f} arcsec, L uncertainty: {(cov1[0,0]**0.5/mu1[0]*100):.1f}%\n\n")
         if options['eclipse_method'] in ('Method 2', 'Method 1 & 2'):
-            f.write(f"Method 1 results: L={mu2[0]:.3f}±{cov2[0,0]**0.5:.3f}, platescale={mu2[1]:.6f}±{cov2[1,1]**0.5:.6f} arcsec, L uncertainty: {(cov2[0,0]**0.5/mu2[0]*100):.1f}%\n\n")
+            f.write(f"Method 2 results: L={mu2[0]:.3f}±{cov2[0,0]**0.5:.3f}, platescale={mu2[1]:.6f}±{cov2[1,1]**0.5:.6f} arcsec, L uncertainty: {(cov2[0,0]**0.5/mu2[0]*100):.1f}%\n\n")
   
         #f.write(f"\na/R^b fit: a = {result2.x[0]:.3f}, b = {result2.x[1]:.3f}, rms = {result2.fun:.3f} arcsec\n\n")
         f.write("radial distances: " + str(rad_dist) + "\n\n")
         f.write("deflection (arcsec): " + str(deflection_obs)+"\n")
-    
-if __name__ == '__main__':
-    #pass
-    #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323214311__data (2)20240317002546/distortion.zip', {}) # no cheat
-    #eclipse_analysis('D:/eclipsetest/DISTORTION_OUTPUT20240323224137__data (2)20240317002546/distortion.zip', {}) # yes cheat
-    #eclipse_analysis('D:/Don 2017 eclipse data/DISTORTION_OUTPUT20240324141609__data_eclipse20240317002546/distortion.zip', {'output_dir':'D:/output4', 'flag_display3':True})
-    eclipse_analysis('D:/feb7test/Don2017_clean2/scratch/distortion_data20250215023641__centroid_data2025021417222420250214172224.zip', {'output_dir':'D:/output4', 'flag_display3':True, 'eclipse_limiting_mag':11, 'remove_double_stars_eclipse':True, 'object_centre_moon':False, 'limit_radial_sun_radii':False, 'eclipse_method':'Method 1 & 2'})
 
+# Command-line entry points for this module live in mee2024/cli.py

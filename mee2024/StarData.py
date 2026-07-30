@@ -1,10 +1,9 @@
-import pandas as pd
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord, Distance
 from astropy.time import Time
-from mee2024.MEE2024util import date_string_to_float
- 
+
+
 '''
 remove NaNs
 set anything smaller than 1e-3 arcseconds (1 mas) to a constant
@@ -20,11 +19,11 @@ def regularize_pm(pm):
     x = np.copy(pm)
     x[np.isnan(x)] = 0
     return x
+
 '''
 todo: generalise initialiser to be compatible also with:
 (1) tycho compressed
 (2) gaia downloaded
-
 '''
 # wrapper for gaia star data
 class StarData:
@@ -44,14 +43,14 @@ class StarData:
             self.pm[:, 0] = r['pmra']
             self.pm[:, 1] = r['pmdec']
             self.parallax = regularize_parallax(r['parallax'])
-            self.c = c = SkyCoord(ra=r['ra'],
+            self.c = SkyCoord(ra=r['ra'],
                  dec=r['dec'],
                  distance=Distance(parallax= self.parallax * u.mas),
                  pm_ra_cosdec=regularize_pm(self.pm[:, 0]) * u.mas / u.yr,
                  pm_dec=regularize_pm(self.pm[:, 1]) * u.mas / u.yr,
                  obstime=self.epoch)
         else:
-            self.c = c = SkyCoord(ra=r['ra'],
+            self.c = SkyCoord(ra=r['ra'],
                  dec=r['dec'],
                  obstime=self.epoch)
         
@@ -112,25 +111,11 @@ class StarData:
 
     def get_epoch_float(self):
         # TODO: make less dodgy
-        return float(str(self.epoch))#date_string_to_float(self.epoch.TimeISO())
-
-    '''
-    # TODO: fix me or delete me?
-    def update_data(self, newdata):
-        my_ids = self.get_ids()
-        other_ids = dict(zip(newdata.get_ids(), np.arange(newdata.data.shape[0])))
-        # replace data with newdata for each corresponding id
-        # assume each id is present in newdata
-        self.epoch = newdata.epoch
-        for i in range(my_ids.shape[0]):
-            j = other_ids[my_ids[i]]
-            self.data[i, :] = newdata.data[j, :]
-        self._update_vectors()
-    '''
+        return float(str(self.epoch))
 
     def __copy__(self):
       newone = type(self)()
-      newone.epch = self.epoch
+      newone.epoch = self.epoch
       newone.mags = self.mags
       newone.vectors = self.vectors
       newone.ids = self.ids

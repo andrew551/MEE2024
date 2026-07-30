@@ -4,24 +4,12 @@ Version 23 March 2024
 """
 
 import numpy as np
-import scipy.ndimage
-import scipy.optimize
-import scipy.stats
-import scipy
+import scipy.special
 from scipy.spatial import KDTree
-from scipy.spatial.distance import pdist, cdist
-from sklearn.preprocessing import normalize
 import itertools
-import zipfile
-import pandas as pd
-from collections import defaultdict
 from mee2024 import transforms
-import itertools
-import json
 import matplotlib.pyplot as plt
-import cProfile
 import time
-from collections import deque
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from mee2024 import database_cache
@@ -32,7 +20,7 @@ import math
 '''
 PARAMETERS (TODO: make controllable by options)
 '''
-f = 7 # how many anchor stars to check
+f = 9 # how many anchor stars to check
 g = 18 # how many neighbour to check
 TOLERANCE = 0.01 # tolerance for triangle matching
 TOL_CENT = np.radians(0.025) # 0.025 degrees in center of frame tolerance
@@ -163,7 +151,6 @@ def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data,
     pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
     n = match_cand // triangles.shape[1]
     rem = match_cand % triangles.shape[1]
-    t1 = triangles.reshape((-1, 2))[match_cand]
     s1 = pattern_data[n, pairs[rem][:, 0]]
     s2 = pattern_data[n, pairs[rem][:, 1]]
     sdat = np.stack([s1, s2])
@@ -343,6 +330,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
 
                 el = non_redundant[0]
                 radec = transforms.to_polar(center_vect[el])
+                
                 print('triangle match:', len(non_redundant), [match_info[_] for _ in non_redundant])
                 #print(counts[i], radec, scale[el], roll[el], match_info[el])
                 #print(matchset)
@@ -356,9 +344,6 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                     plt.gca().invert_yaxis()
                     plt.title(f"{len(non_redundant)} triangles matched\nplate scale={np.degrees(scale[el])*3600:.4f} arcsec/pixel\nra={radec[0][1]:.4f}, dec={radec[0][0]:.4f}")
                     plt.show()
-                plate = (np.degrees(scale[el]), radec[0][1], radec[0][0], np.degrees(roll[el])+90) # this plus 90 is very weird and probably is need because of a coordinate bug
-                #print('scale/degrees, ra, dec, roll', plate)
-                
                 ivects = transforms.icoord_to_vector(np.array([all_star_plate[_] for _ in matchset])*scale[el])
                 catvects = np.array([_ for _ in matchset.values()])
                 #print(ivects)
@@ -371,6 +356,9 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                 acc_roll = np.rad2deg(np.arctan2(rotation_matrix[1, 2],
                                                      rotation_matrix[2, 2])) % 360
                 acc_roll = (acc_roll + 180) % 360 # ???
+
+                #if not 0 < acc_ra < 20:
+                #    continue
                 
                 #print((rotation_matrix.T @ ivects.T).T)
                 platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180) # do weird +180 roll thing as usual
@@ -388,7 +376,7 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
                         best_non_redundant = non_redundant
                         best_result = {'success':True, 'x': np.radians(platescale), 'platescale/arcsec':3600*np.degrees(scale[el]), 'ra':acc_ra, 'dec':acc_dec, 'roll':acc_roll, 'matched_centroids':plate2+np.array([image_size[0]/2, image_size[1]/2]), 'matched_stars':stardata}
                 else:
-                    print(f"note: candidate match rejected (nstars matched = {stardata.shape[0]}, thresh = {thresh})")         
+                    print(f"AA note: candidate match rejected (nstars matched = {stardata.shape[0]}, thresh = {thresh}) ra,dec,scale: {acc_ra:.2f} {acc_dec:.2f}")         
     print(f'npairs = {len(candidate_pairs)}')
     t4 = time.perf_counter(), time.process_time()
     print(f" Real star matching: {t4[0] - t33[0]:.2f} {t33[0] - t3[0]:.2f} {t3[0] - t2[0]:.2f} seconds")
@@ -425,41 +413,4 @@ def _platesolve_helper(centroids, image_size, options, output_dir=None):
         plt.close()
     return best_result
 
-if __name__ == '__main__':
-    database_cache.prepare_triangles()
-    #cProfile.run('main()')
-    options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':1, 'flag_debug':0}
-    #path_data = 'D:/output4/CENTROID_OUTPUT20240229002931/data.zip' # zwo 3 zd 30
-    ##path_data = 'D:/output4/CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
-    path_data = 'D:/output4/CENTROID_OUTPUT20240319001412/data.zip' # ??? 'CENTROID_OUTPUT20240319001412
-    #path_data = 'D:/output4/CENTROID_OUTPUT20240303040025/data.zip' # eclipse (Don) right
-    #path_data = 'D:/output4/CENTROID_OUTPUT20240310015116/data.zip' # eclipse (Berry)
-    #path_data = 'D:/output4/CENTROID_OUTPUT20240310020236/data.zip' # ZWO 1
-    #path_data = 'D:/output4/CENTROID_OUTPUT20240310194735/data.zip' # moontest 1
-    #path_data = 'D:/output4/CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
-    #path_data = 'E:/extra data\data.zip' # another moon test
-    #path_data = 'D:/output4/CENTROID_OUTPUT20240310200107/data.zip' # zwo 3 zd 75
-    archive = zipfile.ZipFile(path_data, 'r')
-    meta_data = json.load(archive.open('data/results.txt'))
-    df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
-    df = df.astype({'px':float, 'py':float}) # fix datatypes
-    centroids = np.c_[df['py'], df['px']] # important: (y, x) representation expected
-
-    result = platesolve(centroids, meta_data['img_shape'], options)
-
-    print(result)
-    ##cProfile.run("platesolve(centroids, meta_data['img_shape'], options)")
-
-    '''
-    path_data = 'D:/output4/CENTROID_OUTPUT20240310195034/data.zip' # moontest 3
-    archive = zipfile.ZipFile(path_data, 'r')
-    meta_data = json.load(archive.open('data/results.txt'))
-    df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
-    df = df.astype({'px':float, 'py':float}) # fix datatypes
-    centroids = np.c_[df['py'], df['px']] # important: (y, x) representation expected
-
-    result = platesolve(centroids, meta_data['img_shape'], options)
-
-    print(result)
-    '''
-    
+# Command-line entry points for this module live in mee2024/cli.py

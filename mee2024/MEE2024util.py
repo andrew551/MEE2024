@@ -64,11 +64,11 @@ def get_config_path():
 open config.txt and read parameters
 return parameters from file, or default if file not found or invalid
 '''
-def read_ini(options):
+def read_ini(options, path=None):
     # check for config.txt file for working directory
     print('loading config file...')
     try:
-        with open(get_config_path(), 'r', encoding="utf-8") as fp:
+        with open(path or get_config_path(), 'r', encoding="utf-8") as fp:
             loaded = json.load(fp)
             if not '__version__' in loaded or not loaded['__version__'] == _version(): # update ini
                 loaded['__version__'] = _version()
@@ -81,14 +81,14 @@ def read_ini(options):
         print('note: error reading config file - using default parameters')
 
 
-def write_ini(options):
+def write_ini(options, path=None):
     try:
         print('saving config file ...')
-        with open(get_config_path(), 'w', encoding="utf-8") as fp:
+        with open(path or get_config_path(), 'w', encoding="utf-8") as fp:
             json.dump(options, fp, sort_keys=True, indent=4)
     except Exception:
         traceback.print_exc()
-        print('ERROR: failed to write config file: ' + get_config_path())
+        print('ERROR: failed to write config file: ' + str(path or get_config_path()))
 
 '''
 convert a iso-format datestring e.g 01/02/2023 to a float (e.g. 2023.08)

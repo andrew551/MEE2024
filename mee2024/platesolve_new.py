@@ -1,16 +1,7 @@
 import numpy as np
-import scipy.ndimage
-import scipy.optimize
-import scipy.stats
-import scipy
 from scipy.spatial import KDTree
-from scipy.spatial.distance import pdist, cdist
-from sklearn.preprocessing import normalize
 import itertools
-import os
-from mee2024.database_lookup2 import database_searcher
 from mee2024.MEE2024util import resource_path, get_triangle_db_path
-from pathlib import Path
 from mee2024 import database_cache
 
 def generate():
@@ -19,8 +10,8 @@ def generate():
 
     # parameters for step 1
     a = 80000
-    b = 120000
-    theta_sep = np.radians(0.65) # 0.65 degrees
+    b = 160000
+    theta_sep = np.radians(0.4) # 0.65 degrees
     theta_double_star = np.radians(0.01) # 36 arcsec
     # parameters for step 2
     c = 0
@@ -61,22 +52,10 @@ def generate():
     
     vectors_kept = vectors[kept, :]
     kept_vectors_ind = np.nonzero(kept)[0] # np.nonzero returns tuples
-    kept_vectors_ind2 = np.nonzero(kept)[0] # np.nonzero returns tuples
 
-    
-    
+
     nkept = vectors_kept.shape[0]
 
-    for i in range(a+b):
-        if (np.abs(np.degrees(dbs.star_table[i, 0]) - 34.5154) < 0.01 and np.abs(np.degrees(dbs.star_table[i, 1]) - 14.4667) < 0.01) \
-        or (np.abs(np.degrees(dbs.star_table[i, 0]) - 35.4465) < 0.01 and np.abs(np.degrees(dbs.star_table[i, 1]) - 15.51918) < 0.01) \
-        or (np.abs(np.degrees(dbs.star_table[i, 0]) - 35.50254) < 0.01 and np.abs(np.degrees(dbs.star_table[i, 1]) - 15.9911) < 0.01) \
-        or (np.abs(np.degrees(dbs.star_table[i, 0]) - 142.989) < 0.01 and np.abs(np.degrees(dbs.star_table[i, 1]) - 9.715665) < 0.01) \
-        or (np.abs(np.degrees(dbs.star_table[i, 0]) - 143.3175) < 0.01 and np.abs(np.degrees(dbs.star_table[i, 1]) - 9.1684) < 0.01) \
-        or (np.abs(np.degrees(dbs.star_table[i, 0]) - 143.7188) < 0.01 and np.abs(np.degrees(dbs.star_table[i, 1]) - 9.6767) < 0.01) \
-        :           
-            print(i, dbs.star_table[i, 5], kept[i])
-            
     '''
     step 2: (2.1) find the #c closest stars (within theta_pat) (among the #d brightest)
             to each anchor star
@@ -88,8 +67,6 @@ def generate():
     '''
     vectors2 = vectors[kept2, :]
     kd_tree2 = KDTree(vectors2)
-    temp_dict1 = dict(enumerate(kept_vectors_ind))
-    temp_dict2 = dict(map(reversed, enumerate(kept_vectors_ind2)))
     cumsum = np.cumsum(np.logical_not(kept2).astype(int))
     pattern_ind = np.ones((nkept, c+e), dtype=int)*-1
     pattern_data = np.zeros((nkept, c+e, 5), dtype=np.float32) # store r and phi of patterns
@@ -99,8 +76,6 @@ def generate():
         #neighbours.remove(i) # don't match self
         ind = kept_vectors_ind[i]
         neighbours.remove(ind - cumsum[ind]) # don't match self
-        if i == 1661:#31633:
-            print(neighbours)
         if len(neighbours) < c+e:
             print(f'note: insufficient neighbours found on index {i}')
             raise Exception('edge case handling unimplemented!')
@@ -151,7 +126,6 @@ def generate():
     triangles_path = get_triangle_db_path()
     triangles_path.parent.mkdir(exist_ok=True)
     np.savez_compressed(triangles_path, anchors = vectors_kept, pattern_ind=pattern_ind, pattern_data=pattern_data, triangles=triangles)
-    print(f"completed generating triangle database -- {triangles.size//2} triangles saved")        
-            
-if __name__ == '__main__':
-    generate()
+    print(f"completed generating triangle database -- {triangles.size//2} triangles saved")
+
+# Command-line entry points for this module live in mee2024/cli.py

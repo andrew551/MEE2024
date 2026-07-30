@@ -3,16 +3,13 @@
 Version 6 May 2024
 """
 
-import math
 import FreeSimpleGUI as sg
-import sys
-import json
 import os
 import traceback
 from PIL import Image, ImageTk
 import io
 import datetime
-from mee2024.MEE2024util import resource_path, _version
+from mee2024.MEE2024util import _version
 from mee2024 import MEE2024util
 from mee2024 import distortion_fitter
 from mee2024 import eclipse_analysis
@@ -35,25 +32,7 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['float_fits'] = ui_values['float_fits']
     options['sensitive_mode_stack'] = ui_values['sensitive_mode_stack']
     options['background_subtraction_mode'] = ui_values['background_subtraction_mode']
-    '''
-    try : 
-        options['m'] = int(ui_values['-m-']) if ui_values['-m-'] else 10
-    except ValueError : 
-        raise Exception('invalid m value')
-    try : 
-        options['n'] = int(ui_values['-n-']) if ui_values['-n-'] else 30
-    except ValueError : 
-        raise Exception('invalid n value!')
-    try : 
-        options['k'] = int(ui_values['-k-']) if ui_values['-k-'] else 10
-    except ValueError : 
-        raise Exception('invalid k value!')
-    try : 
-        options['pxl_tol'] = float(ui_values['-pxl_tol-']) if ui_values['-pxl_tol-'] else 5
-    except ValueError : 
-        raise Exception('invalid pxl_tol value!')
-    '''
-    try : 
+    try :
         options['d'] = int(ui_values['-d-']) if ui_values['-d-'] else 10
     except ValueError : 
         raise Exception('invalid d value!')
@@ -83,10 +62,8 @@ def interpret_UI_values(options, ui_values, no_file = False):
     flat_files=ui_values['-FLAT-'].split(';') if ui_values['-FLAT-'] else []
     options['-DARK-'] = ui_values['-DARK-']
     options['-FLAT-'] = ui_values['-FLAT-']
-    #options['database'] = ui_values['-DB-']
     options['output_dir'] = ui_values['output_dir']
     options['remove_edgy_centroids'] = ui_values['remove_edgy_centroids']
-    #options['do_tetra_platesolve'] = ui_values['do_tetra_platesolve']
     if options['output_dir'] and not os.path.isdir(options['output_dir']):
         raise Exception('ERROR opening output folder :'+options['output_dir'])
     if not no_file:  
@@ -212,8 +189,6 @@ def inputUI(options):
          sg.FilesBrowse('Choose Dark image(s)', key = 'Choose Dark image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=options['workDir'])],
         [sg.Text('Flat(s)', size=(7, 1), key = 'Flat(s)'), sg.InputText(default_text=options['-FLAT-'],size=(75,1),key='-FLAT-'),
          sg.FilesBrowse('Choose Flat image(s)', key = 'Choose Flat image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=options['workDir'])],
-        #[sg.Text('Database', size=(7, 1), key = 'Database'), sg.InputText(default_text=options['database'],size=(75,1),key='-DB-'),
-        # sg.FilesBrowse('Choose Database', key = 'Choose Database', file_types=((".npz", "*.npz"),),initial_folder=options['workDir'])],
     ]
 
     layout_folder_output = [
@@ -227,7 +202,6 @@ def inputUI(options):
     [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics'),
          sg.Checkbox('save_dark_flat', default=options['save_dark_flat'], key='save_dark_flat'),
          sg.Checkbox('float_32_fits', default=options['float_fits'], key='float_fits'),
-     #sg.Checkbox('do Tetra platesolve (legacy)', default=options['do_tetra_platesolve'], key='do_tetra_platesolve'),
      ],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
     [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob',enable_events=True)],
@@ -241,11 +215,6 @@ def inputUI(options):
     [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Text('    background subtraction mode',size=(32,1)), sg.Combo(['Gaussian', 'annular'], default_value=options['background_subtraction_mode'], key='background_subtraction_mode', size=(12, 1))],
     [sg.Checkbox('Remove centroids near edges', default=options['remove_edgy_centroids'], key='remove_edgy_centroids')],
-    #[sg.Text('Advanced Parameters:', font=('Helvetica', 12))],
-    #[sg.Text('    m_stars_fit_stack', key='m_stars_fit_stack', size=(32,1)), sg.Input(default_text=str(options['m']), key = '-m-', size=(8,1))],
-    #[sg.Text('    n_stars_verify_stack',size=(32,1), key='n_stars_verify_stack'), sg.Input(default_text=str(options['n']),size=(8,1),key='-n-',enable_events=True)],
-    #[sg.Text('    pixel_tolerance',size=(32,1), key='pixel_tolerance'), sg.Input(default_text=str(options['pxl_tol']),size=(8,1),key='-pxl_tol-',enable_events=True)],
-    #[sg.Text('    k_stars_plate_solve',size=(32,1), key='k_stars_plate_solve'), sg.Input(default_text=str(options['k']),size=(8,1),key='-k-',enable_events=True)],
     [sg.Push(), sg.Button('OK'), sg.Cancel(), sg.Button("Open output folder", key='Open output folder', enable_events=True)]
     ]
 
@@ -339,13 +308,15 @@ def inputUI(options):
         if event==sg.WIN_CLOSED or event=='Cancel' or event=='Cancel2':
             window.close()
             return None
-        # tab 3 uses same output folder as tab 2
         if event=='Open output folder' or event=='Open output folder2' or event=='Open output folder3':
-            x = values['output_dir'].strip() if event=='Open output folder' else values['output_dir2'].strip() if event == 'Open output folder2' else values['output_dir2'].strip()
+            output_dir_key = {'Open output folder': 'output_dir',
+                              'Open output folder2': 'output_dir2',
+                              'Open output folder3': 'output_dir3'}[event]
+            x = values[output_dir_key].strip()
             if not x:
                 x = options['workDir']
             if x and os.path.isdir(x):
-                path = os.startfile(os.path.realpath(x))
+                os.startfile(os.path.realpath(x))
             else:
                 sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
         if event=='OK2':
@@ -383,7 +354,7 @@ def inputUI(options):
                 # display pop-up file not entered
                 input_okay_flag = False
                 sg.Popup(popup_messages['no_file_error'], keep_on_top=True)
-            if not values['output_dir2'].strip():
+            if not values['output_dir3'].strip():
                 input_okay_flag = False
                 sg.Popup(popup_messages['no_folder_error'], keep_on_top=True)
             if input_okay_flag:

@@ -5,36 +5,26 @@ Version 6 May 2024
 
 from astropy.io import fits
 from pathlib import Path
-import glob
 import numpy as np
-from scipy import signal
 import scipy.ndimage
 import matplotlib.pyplot as plt
-from scipy.ndimage import gaussian_filter
-from matplotlib import cm
-import math
 from scipy.optimize import minimize
-from mee2024 import MEE2024util
 import time
 from mee2024.MEE2024util import output_path, _version, setup_logger
+from mee2024.progress import NullProgress
 import datetime
 import pandas as pd
-import FreeSimpleGUI as sg
 from collections import Counter
 from skimage import measure
 import cv2
 from skimage.morphology import convex_hull_image
 from skimage.transform import downscale_local_mean, resize
-import skimage.data._fetchers # fix py2exe bug
+import skimage.data._fetchers # noqa: F401 -- fix py2exe bug (forces PyInstaller to bundle it)
 import scipy
-from mee2024 import database_cache
 import os
 import shutil
 import json
-import logging
 from mee2024 import platesolve_triangle
-import multiprocessing
-import cProfile
 import warnings
 
 # return fit file image as np array
@@ -45,7 +35,7 @@ def open_image(file):
                 image = hdul['PRIMARY'].data
             else:
                 image = hdul[0].data
-    except Exception as e:
+    except Exception:
         img_bgr = cv2.imread(file)
         # (Optional) Convert BGR to RGB if needed for compatibility with other libraries like Matplotlib
         image = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -183,51 +173,6 @@ and that you have chosen appropriate centroid detection threshholds")
     print(vec1.shape)
     return result.x, matches1, matches2, result2.x, (result2.fun/vec1.shape[0])**0.5
 
-def do_loop_with_progress_bar(items, fxn, message='Progress', **kwargs):
-    layout = [[sg.Text(message)], [sg.ProgressBar(max_value=len(items), orientation='h', size=(20, 20), key='progress')]]
-    window = sg.Window('Progress Meter', layout, finalize=True)
-    progress_bar = window['progress']
-    ret = []
-    progress_bar.update_bar(0)
-    for i in range(len(items)): 
-        ret.append(fxn(items[i], **kwargs))
-        progress_bar.update_bar(i+1)
-    window.close()
-    return ret
-
-def multiprocessing_fxn(q, fxn, item, i, **kwargs):
-    #print(item, kwargs)
-    q.put((i, fxn(item, **kwargs)))
-
-def do_loop_with_progress_bar_multiprocessing(items, fxn, message='Progress', nthreads=4, **kwargs):
-    layout = [[sg.Text(message)], [sg.ProgressBar(max_value=len(items), orientation='h', size=(20, 20), key='progress')]]
-    window = sg.Window('Progress Meter', layout, finalize=True)
-    progress_bar = window['progress']
-    ret = [None for _ in items]
-    progress_bar.update_bar(0)
-    q = multiprocessing.Queue()
-    procs = []
-    for i, item in enumerate(items[:nthreads]):
-        p = multiprocessing.Process(target=multiprocessing_fxn, args = (q, fxn, item, i), kwargs=kwargs)
-        p.start()
-        procs.append(p)
-    n_ret = 0
-    i = nthreads
-    while n_ret < len(items):
-        x = q.get()
-        ret[x[0]] = x[1] # this way order of inputs is preserved
-        n_ret += 1
-        progress_bar.update_bar(n_ret)
-        if i < len(items):
-            p = multiprocessing.Process(target=multiprocessing_fxn, args = (q, fxn, items[i], i), kwargs=kwargs)
-            p.start()
-            procs.append(p)
-            i += 1
-    for p in procs:
-        p.join()
-    window.close()
-    return ret
-
 def filter_bad_centroids(centroids_data, mask2, shape):
     ret = []
     for data in centroids_data:
@@ -249,7 +194,6 @@ def filter_very_edgy_centroids(centroids_data, img, f=5):
 # edge artifacts by looking for an anomaly in the gradients distributions near the centroid
 # also removes all points within 3 pixels of image edge
 def filter_edgy_centroids(centroids_data, img, f=3, d=16, thresh=2, edge_threshold=20):
-    ds = d * np.array([[0,0], [1,0], [-1, 0], [0, 1], [0, -1]])
     ret = []
     for data in centroids_data:
         x0, x1 = int(data[2][0]), int(data[2][1])
@@ -278,18 +222,6 @@ def filter_edgy_centroids(centroids_data, img, f=3, d=16, thresh=2, edge_thresho
             print('deleting edgy centroid: ', x0, x1)
         else:
             ret.append(data)
-        
-        
-        '''    
-        dvals = [np.mean(img[x0-r+d_i[0]:x0+r+d_i[0], x1-r+d_i[1]:x1+r+1+d_i[1]]) for d_i in ds]
-        ratio_x = (dvals[0] - dvals[1]) / (dvals[0] - dvals[2])
-        ratio_y = (dvals[0] - dvals[3]) / (dvals[0] - dvals[4])
-        #print('ratio_xy', ratio_x, ratio_y) 
-        if ratio_x < 0 or ratio_y < 0 or np.abs(np.log(ratio_x)) > thresh or np.abs(np.log(ratio_y)) > thresh:
-            print('deleting edgy centroid: ', x0, x1)
-        else:
-            ret.append(data)
-        '''
     return ret
             
 def simple_get_centroids(image):
@@ -423,29 +355,6 @@ def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, d
                 show_scanlines(data_near, fig, ax)
                 plt.show()
     
-    '''
-    acc_centroids = []
-    sz = 10
-    for i in range(len(centroids)):
-        x0, x1 = int(centroids[i][0]), int(centroids[i][1])
-        data_near = data[x0-sz:x0+sz+1,x1-sz:x1+sz+1]
-        if not data_near.shape == (sz*2+1, sz*2+1) or areas[i] < 10:
-            acc_centroids.append(centroids[i])
-            continue
-        if 1:
-            fig, ax = plt.subplots()
-            plt.imshow(data_near)
-            show_scanlines(data_near, fig, ax)
-            plt.show()
-        correction = photutils.centroids.centroid_2dg(data_near) - (np.array(data_near.shape)-1) / 2
-        print(correction)
-        acc_centroids.append((x0+correction[0], x1+correction[1]))
-    '''
-
-    
-
-    
-
     sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area'] and not np.isnan(c[0])], reverse=True)
     print(f"n centroids initial {len(sorted_c)}")
     # sanity check: mean(3x3 around centroid) > mean(5x5 around centroid) > mean(7x7) > mean(9x9) around centroid in raw img
@@ -500,7 +409,7 @@ def show_scanlines(src_img, fig, ax):
             plot_lines(x, y, ax.get_xlim(), ax.get_ylim())
             fig2.canvas.draw_idle()
             fig3.canvas.draw_idle()
-    cid = fig.canvas.mpl_connect('motion_notify_event', mouse_move)
+    fig.canvas.mpl_connect('motion_notify_event', mouse_move)
 
 def add_img_to_stack(data, output_array=None, count_array=None):
     img, shift = data # unpack tuple
@@ -526,7 +435,14 @@ def open_img_and_add_to_stack(data, output_array=None, count_array=None, options
     reg_img, _, _ = open_img_and_preprocess(file, options, dark, flat)
     add_img_to_stack((reg_img, shift), output_array, count_array)
     
-def do_stack(files, darkfiles, flatfiles, options):
+def do_stack(files, darkfiles, flatfiles, options, progress=None):
+    """Stage 1: stack the light frames and find + platesolve centroids on the result.
+
+    progress: a mee2024.progress.ProgressReporter. Defaults to NullProgress, so the
+    pipeline runs headless unless a caller explicitly asks for progress reporting.
+    """
+    if progress is None:
+        progress = NullProgress()
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     output_name = f'CENTROID_OUTPUT{starttime}'
     output_dir = Path(output_path(output_name, options))
@@ -550,7 +466,7 @@ def do_stack(files, darkfiles, flatfiles, options):
 
     
 
-    imgs_0 = open_image(files[0])#do_loop_with_progress_bar([files[0]], open_image, message='Opening files...')
+    imgs_0 = open_image(files[0])
     _, masks_0, masks2_0 = remove_saturated_blob(imgs_0, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], blob_saturation=options['blob_saturation_level']/100, perform=options['delete_saturated_blob'])
     dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs_0.shape, dtype=imgs_0.dtype)
     flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs_0.shape, dtype=float)
@@ -564,8 +480,7 @@ def do_stack(files, darkfiles, flatfiles, options):
         if flatfiles:
             fits.writeto(output_dir / ('FLAT_STACK'+starttime+'.fit'), flat.astype(np.float32))
     t_start_c = time.time()
-    #cProfile.runctx("do_loop_with_progress_bar(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)", globals(), locals(), sort='cumtime')
-    centroids_data = do_loop_with_progress_bar(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)
+    centroids_data = progress.loop(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)
     print("--- %s seconds for centroid finding---" % (time.time() - t_start_c))
     centroids = [np.array([x[2] for x in y]) for y in centroids_data]
     
@@ -611,7 +526,8 @@ def do_stack(files, darkfiles, flatfiles, options):
     # show residual 2D errors
     plt.clf()
     for i in range(1, len(files)):
-        if shifts[i-1] is None:
+        # rms_errors/deltas hold one entry per *aligned* frame, so frame i is at i-1
+        if deltas[i-1] is None:
             continue
         lbl = '$\\Delta_{0' + str(i) + ',rms} = ' + format(rms_errors[i-1], '.3f') + '$'
         plt.scatter(deltas[i-1][:, 1], deltas[i-1][:, 0], label = lbl)
@@ -645,14 +561,10 @@ def do_stack(files, darkfiles, flatfiles, options):
         plt.show()
     plt.close()
     # now do actual stacking
-    #shifted_images = [reg_imgs[0]] + [np.roll(img, shift.astype(int), axis = (0, 1)) for img, shift in zip(reg_imgs[1:], shifts) if not shift is None]
-    #stacked = np.mean(np.array(shifted_images), axis = 0)
-
     stack_array = np.zeros(imgs_0.shape)
     count_array = np.zeros(imgs_0.shape, dtype=int)
-    #do_loop_with_progress_bar(list(zip(reg_imgs, shifts)), add_img_to_stack, message='Stacking images...', output_array=stack_array, count_array=count_array)
-    do_loop_with_progress_bar(list(zip(files, shifts)), open_img_and_add_to_stack, message='Stacking images...',
-                              output_array=stack_array, count_array=count_array, options = options, dark=dark, flat=flat)
+    progress.loop(list(zip(files, shifts)), open_img_and_add_to_stack, message='Stacking images...',
+                  output_array=stack_array, count_array=count_array, options = options, dark=dark, flat=flat)
     stacked = stack_array / count_array
     
     # rescale stacked to 16 bit integers
@@ -706,21 +618,16 @@ def do_stack(files, darkfiles, flatfiles, options):
     shift = 0 if options['centroid_gaussian_subtract'] else 0.5
     plt.scatter(centroids_stacked[:options["d"], 1]-shift, centroids_stacked[:options["d"], 0]-shift, marker='x') # subtract half pixel to align with image properly
     if flag_found_IDs:
-        
+        # the stage-1 platesolve does not carry catalogue IDs, so annotate with magnitude only
         for ind, (index, row) in enumerate(df_identification.iterrows()):
             if ind >= options["d"]:
                 break
-            plt.gca().annotate((str(int(row['ID']) if isinstance(row['ID'], float) else row['ID']) if 'ID' in row else '') + f'\nMag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
+            plt.gca().annotate(f'Mag={row["magV"]:.1f}', (row['px'], row['py']), color='r')
     plt.savefig(output_dir / ('CentroidsStackGood'+starttime+'.png'), bbox_inches="tight", dpi=600)
     if options['flag_display']:
         show_scanlines(stacked, fig, ax)
-        #plt.legend()
         plt.show(block=True)
     plt.clf()
-    #if flag_found_IDs:
-    #    df_identification.drop('ID', axis=1) # ID is problematic as it is not a numeric datatype ... turns the array into an object which is bad for safety
-    identification_arr = df_identification.to_numpy() if flag_found_IDs else None
-    identification_arr_cols = df_identification.columns.values if flag_found_IDs else None
 
     results_dict = {
                          'MEE2024 version': _version(),
@@ -747,13 +654,12 @@ def do_stack(files, darkfiles, flatfiles, options):
     with open(data_dir / 'results.txt', 'w', encoding="utf-8") as fp:
             json.dump(results_dict, fp, sort_keys=False, indent=4)
     
-    print('making archive', output_dir, Path(output_dir).parent)                                           
-    shutil.make_archive(data_dir,
-                    'zip',
-                    Path(data_dir))
-                    #'data')
+    print('making archive', output_dir, Path(output_dir).parent)
+    shutil.make_archive(data_dir, 'zip', Path(data_dir))
     zipfilepath = Path(data_dir).parent / 'data.zip'
-    shutil.move(zipfilepath, Path(output_dir).parent / f'centroid_data{starttime}.zip')
-    
+    final_zip = Path(output_dir).parent / f'centroid_data{starttime}.zip'
+    shutil.move(zipfilepath, final_zip)
+
     logger.info('end time: ' + str(datetime.datetime.now()) + '\n')
     print('Done!')
+    return final_zip

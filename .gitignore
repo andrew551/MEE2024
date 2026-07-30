@@ -12,3 +12,26 @@ mee2024/TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_dataB.npz
 mee2024/build/
 mee2024/dist/
 TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz
+
+# Raw frames: far too large for git (~120 MB each). Keep them locally only.
+example_data*/
+mee2024/example_data*/
+*.fit
+*.fits
+*.fts
+
+# Pipeline outputs
+CENTROID_OUTPUT*/
+DISTORTION_OUTPUT*/
+centroid_data*.zip
+distortion_data*.zip
+ECLIPSE_OUTPUT*
+
+# Python / tooling
+__pycache__/
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.venv/
+venv/

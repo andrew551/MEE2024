@@ -57,6 +57,40 @@ mee2024
 
 - Run with python: python mee2024/main.py
 
+## Command line
+
+Running `mee2024` with no arguments opens the GUI, as before. With arguments it runs
+headlessly, which is what the test suite and any batch processing use:
+
+```
+mee2024 stack       LIGHTS... [--dark ...] [--flat ...] [-o DIR]   # stage 1
+mee2024 distortion  DATA.zip  [--order quintic]                    # stage 2
+mee2024 eclipse     DISTORTION.zip                                 # stage 3
+mee2024 run         LIGHTS... [--eclipse]                          # stages back to back
+mee2024 config      --show | --set key=value
+mee2024 build-triangle-db                                          # regenerate the platesolve database
+```
+
+Any option can be overridden with `--set key=value` (repeatable), and `--no-display`
+suppresses every plot window so a run can complete unattended. For example:
+
+```bash
+mee2024 stack data/*.fit -o out/ --no-display --set min_area=3 --set sigma_subtract=2.5
+```
+
+`docs/ARCHITECTURE.md` describes the three pipeline stages, the file contracts between
+them, the coordinate conventions, and where the astrometric error budget is spent.
+
+## Tests
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+`pytest --runslow` additionally runs the plate-solve regression corpus, which needs the
+triangle database (built automatically on first use).
+
 ## Tips
 
 A small platesolve database is built into the executable (derived from the Tycho catalogue).

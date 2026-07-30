@@ -2,14 +2,10 @@
 from pathlib import Path
 import csv
 import logging
-import itertools
-from time import perf_counter as precision_timestamp
-from datetime import datetime
+from datetime import datetime, timezone
 from numbers import Number
 import numpy as np
-# external imports
 
-import numpy as np
 
 class database_searcher:
 
@@ -53,7 +49,7 @@ class database_searcher:
         elif isinstance(epoch_proper_motion, Number):
             self._logger.debug('Use proper motion epoch as given')
         elif str(epoch_proper_motion).lower() == 'now':
-            epoch_proper_motion = datetime.utcnow().year
+            epoch_proper_motion = datetime.now(timezone.utc).year
             self._logger.debug('Proper motion epoch set to now: ' + str(epoch_proper_motion))
         else:
             raise ValueError('epoch_proper_motion value %s is forbidden' % epoch_proper_motion)
@@ -185,11 +181,4 @@ class database_searcher:
         mydata[:, 2] = self.star_table[:, 5]
         np.savez_compressed(file, mydata=mydata)
 
-
-if __name__ == '__main__':
-    dbs = database_searcher("D:/tyc_dbase4/tyc_main.dat", debug_folder="D:/debugging", epoch_proper_motion=2024)
-    print(dbs.star_table.shape)
-    startable, starid = dbs.lookup_objects((331, 332), (44, 45))
-    print(startable)
-    print(starid)
-    dbs.save_npz("D:/tyc_dbase4/compressed_tycho2024epoch.npz")
+# Command-line entry points for this module live in mee2024/cli.py

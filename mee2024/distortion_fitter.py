@@ -5,21 +5,17 @@ Version 23 March 2024
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import scipy
 import numpy as np
-from scipy.spatial.transform import Rotation
 from mee2024 import transforms
 from sklearn.neighbors import NearestNeighbors
-import sklearn.metrics._pairwise_distances_reduction._datasets_pair
-import sklearn.metrics._pairwise_distances_reduction._middle_term_computer
-from mee2024 import database_lookup2
+# noqa: F401 -- these two force PyInstaller to bundle sklearn's private extension modules
+import sklearn.metrics._pairwise_distances_reduction._datasets_pair  # noqa: F401
+import sklearn.metrics._pairwise_distances_reduction._middle_term_computer  # noqa: F401
 import os
 from mee2024.MEE2024util import output_path, date_string_to_float, _version
 import json
 from pathlib import Path
 from mee2024 import database_cache
-from sklearn.linear_model import LinearRegression
-import pandas as pd
 import datetime
 from mee2024 import distortion_polynomial
 from mee2024 import gaia_search
@@ -102,7 +98,8 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
     # find matches, but exclude ambiguity
     # TODO fix 1-many matching bug
 
-    match_threshhold = options['rough_match_threshhold'] / 33600 # in degrees -> arcsec
+    # rough_match_threshhold is in arcseconds; candidate_stars/transformed_all are in degrees
+    match_threshhold = options['rough_match_threshhold'] / 3600
     confusion_ratio = 2 # closest match must be 2x closer than second place
 
     keep = np.logical_and(distances[:, 0] < match_threshhold, distances[:, 1] / distances[:, 0] > confusion_ratio) # note: this distance metric is not perfect (doesn't take into account meridian etc.)
@@ -351,59 +348,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                                'flag_is_outlier':flag_is_outlier,})
             
     df_identification.to_csv(data_dir / 'CATALOGUE_MATCHED_ERRORS.csv')
-    shutil.make_archive(data_dir,
-                    'zip',
-                    Path(data_dir))
+    shutil.make_archive(data_dir, 'zip', Path(data_dir))
     zipfilepath = Path(data_dir).parent / 'distortion.zip'
-    shutil.move(zipfilepath, Path(output_dir).parent / f'distortion_data{starttime}__{basename}.zip')
+    final_zip = Path(output_dir).parent / f'distortion_data{starttime}__{basename}.zip'
+    shutil.move(zipfilepath, final_zip)
+    return final_zip
 
-# #unused
-def show_error_coherence(positions, errors, options):
-    if not options['flag_display']:
-        return
-    dist = []
-    corr = []
-
-    nn_rs = []
-    nn_corrs = []
-    
-    for i in range(positions.shape[0]):
-        min_r = 99999
-        min_corr = -13
-        for j in range(positions.shape[0]):
-            if i == j:
-                continue
-            r = np.linalg.norm(positions[i, :] - positions[j, :])
-            corr_ij = np.dot(errors[i, :], errors[j, :]) / np.linalg.norm(errors[i, :]) / np.linalg.norm(errors[j, :])
-            dist.append(r)
-            corr.append(corr_ij)
-            if r < min_r:
-                min_corr = corr_ij
-                min_r = r
-        nn_rs.append(min_r)
-        nn_corrs.append(min_corr)
-
-    print(f'nearest neighbour corr={np.mean(nn_corrs)}, mean distance:{np.mean(nn_rs)}')
-                
-
-    statistic, bin_edges, binnumber = scipy.stats.binned_statistic(dist, corr, bins = 8, range=(0, 1000))
-    
-    plt.plot(bin_edges[1:], statistic)
-    plt.ylabel('error correlation')
-    plt.xlabel('r / pixels')
-    if options['flag_display2']:
-        plt.show()
-    plt.close()
-
-if __name__ == '__main__':
-    #new_data_path = "D:\output\FULL_DATA1707099836.1575732.npz" # zwo 4 zenith2
-    #new_data_path = "D:\output\FULL_DATA1707106711.38932.npz" # E:/020323 moon test 294MM/020323_211852/211850_H-alpha_0000-20.fits
-    #new_data_path = "D:\output\FULL_DATA1707152353.575058.npz" # zwo 3 zd0 0-8
-
-    #new_data_path = "D:\output\FULL_DATA1707152555.3757603.npz" # zwo 3 zd 30 centre
-    #new_data_path = "D:\output\FULL_DATA1707152800.7054024.npz" # zwo 3 zd 45 centre
-    #new_data_path = "D:/output/FULL_DATA1707153601.071847.npz" # Don right calibration
-    #new_data_path = "D:\output\FULL_DATA1707167920.0870245.npz" # E:/ZWO#3 2023-10-28/Zenith-01-3s/MEE2024.00003273.Zenith-Center2.fit
-    new_data_path = 'D:/output4/CENTROID_OUTPUT20240303034855/data.zip' # eclipse (Don)
-    options = {"catalogue":"gaia", "output_dir":"D:/output", 'max_star_mag_dist':12, 'flag_display':False, 'flag_display2':True, 'rough_match_threshhold':36, 'guess_date':False}
-    match_and_fit_distortion(new_data_path, options , "D:/debugging")
+# Command-line entry points for this module live in mee2024/cli.py
