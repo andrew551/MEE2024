@@ -40,3 +40,8 @@ build/
 dist/
 .venv/
 venv/
+/profiling
+kdtree.jbl
+kdtree.pkl
+TripleTrianglePlatesolveDatabase2/TripleTriangle_pattern_data2.npz
+TripleTrianglePlatesolveDatabase3/TripleTriangle_pattern_data3.npz
