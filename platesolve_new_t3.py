@@ -266,8 +266,6 @@ def generate():
         # Compute area using Heron's formula
         s = 0.5 * (r1_final + r2_final + r3_final)
         area = np.sqrt(s * (s - r1_final) * (s - r2_final) * (s - r3_final))
-        print(np.nonzero(np.isnan(area)))
-        print(r1_final[np.nonzero(np.isnan(area))], r2_final[np.nonzero(np.isnan(area))],r3_final[np.nonzero(np.isnan(area))]) 
         # Normalizing denominator (scale-invariant quantity)
         denom = r1_final**2 + r2_final**2 + r3_final**2
         

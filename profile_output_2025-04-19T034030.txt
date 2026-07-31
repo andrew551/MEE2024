@@ -1,0 +1,365 @@
+Timer unit: 1e-07 s
+
+Total time: 0.28719 s
+File: C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py
+Function: match_centroids2 at line 490
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   490                                           @line_profiler.profile # profile the code
+   491                                           def match_centroids2(centroids, platescale_fit, image_size, options, star_max_magnitude=12):
+   492         2         13.0      6.5      0.0      confusion_ratio = 2 # closest match must be 2x closer than second place
+   493         2        820.0    410.0      0.0      dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+   494         2      14292.0   7146.0      0.5      corners = transforms.to_polar(transforms.linear_transform(platescale_fit, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
+   495         2     642651.0 321325.5     22.4      stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=star_max_magnitude)[0]
+   496         2        221.0    110.5      0.0      all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
+   497         2       1948.0    974.0      0.1      all_vectors = transforms.linear_transform(platescale_fit, all_star_plate)
+   498         2        481.0    240.5      0.0      transformed_all = transforms.to_polar(all_vectors)
+   499                                               # match nearest neighbours
+   500         2        149.0     74.5      0.0      candidate_stars = np.zeros((stardata.shape[0], 2))
+   501         2      48717.0  24358.5      1.7      candidate_stars[:, 0] = np.degrees(stardata[:, 1])
+   502         2      35721.0  17860.5      1.2      candidate_stars[:, 1] = np.degrees(stardata[:, 0])
+   503         2         29.0     14.5      0.0      candidate_star_vectors = stardata[:, 2:5]
+   504         2         18.0      9.0      0.0      if options['flag_debug']:
+   505                                                   plt.scatter(transformed_all[:, 1], transformed_all[:, 0])
+   506                                                   plt.scatter(candidate_stars[:, 1], candidate_stars[:, 0])
+   507                                                   for i in range(min(1000,stardata.shape[0])):
+   508                                                       plt.gca().annotate(f'mag={stardata[i, 5]:.2f}', (np.degrees(stardata[i, 0]), np.degrees(stardata[i, 1])), color='black', fontsize=5)
+   509                                                   plt.show()
+   510         2         18.0      9.0      0.0      if candidate_star_vectors.shape[0] < 3:
+   511                                                   # failure case - shouldn't happen unless input is incorrectly specified
+   512                                                   return np.empty((0, 2)), None, np.radians(options['rough_match_threshhold']/3600)
+   513                                           
+   514         2    2102730.0    1e+06     73.2      cand_tree = KDTree(candidate_star_vectors, balanced_tree=False, compact_nodes=False)
+   515         2         17.0      8.5      0.0      matched_ind_cata = []
+   516         2          9.0      4.5      0.0      matched_ind_obs = []
+   517         2          9.0      4.5      0.0      matched_errors = []
+   518        64        305.0      4.8      0.0      for i in range(all_vectors.shape[0]):
+   519        62      12195.0    196.7      0.4          close = cand_tree.query_ball_point(all_vectors[i], np.radians(options['rough_match_threshhold']/3600))
+   520        62        319.0      5.1      0.0          if len(close):
+   521        27       8819.0    326.6      0.3              errors_i = np.linalg.norm(stardata[close, 2:5]-all_vectors[i], axis=1)
+   522        27       1476.0     54.7      0.1              argsorted = np.argsort(errors_i)
+   523        27        115.0      4.3      0.0              if len(close) == 1 or errors_i[argsorted[0]] < errors_i[argsorted[1]] / confusion_ratio:
+   524        27        247.0      9.1      0.0                  matched_ind_cata.append(close[argsorted[0]])
+   525        27         77.0      2.9      0.0                  matched_ind_obs.append(i)
+   526        27        142.0      5.3      0.0                  matched_errors.append(errors_i[argsorted[0]])
+   527                                           
+   528         2        133.0     66.5      0.0      stardata = stardata[matched_ind_cata, :]            
+   529         2         95.0     47.5      0.0      plate2 = all_star_plate[matched_ind_obs, :]
+   530         2         39.0     19.5      0.0      max_error = max(matched_errors) if matched_errors else np.radians(options['rough_match_threshhold']/3600)
+   531         2         95.0     47.5      0.0      return stardata, plate2, max_error, np.array(matched_errors)
+
+Total time: 0.416961 s
+File: C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py
+Function: compute_platescale at line 144
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   144                                           @line_profiler.profile # profile the code
+   145                                           def compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect):
+   146        21       9719.0    462.8      0.2      pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
+   147        21       2042.0     97.2      0.0      n = match_cand // triangles.shape[1]
+   148        21       5904.0    281.1      0.1      rem = match_cand % triangles.shape[1]
+   149        21     108262.0   5155.3      2.6      t1 = triangles.reshape((-1, 2))[match_cand]
+   150        21     140560.0   6693.3      3.4      s1 = pattern_data[n, pairs[rem][:, 0]]
+   151        21     118113.0   5624.4      2.8      s2 = pattern_data[n, pairs[rem][:, 1]]
+   152        21      22215.0   1057.9      0.5      sdat = np.stack([s1, s2])
+   153                                           
+   154        21      67714.0   3224.5      1.6      vec0 = anchors[n]
+   155        21        352.0     16.8      0.0      vec1 = sdat[0, :, 2:5]
+   156        21        185.0      8.8      0.0      vec2 = sdat[1, :, 2:5]
+   157                                               
+   158        21      41559.0   1979.0      1.0      perm = permutation_data[n, rem]
+   159        21       4278.0    203.7      0.1      mask_12 = (perm & 1).astype(bool)
+   160        21       2856.0    136.0      0.1      mask_2f = (perm & 2).astype(bool)[:, np.newaxis]
+   161        21       2574.0    122.6      0.1      mask_3f = (perm & 4).astype(bool)[:, np.newaxis]
+   162                                           
+   163        21      77337.0   3682.7      1.9      vec0[mask_12], vec2[mask_12] = vec2[mask_12], vec0[mask_12]
+   164                                           
+   165        21      49852.0   2373.9      1.2      vec0_final = np.where(mask_2f, vec1, np.where(mask_3f, vec2, vec0))
+   166        21      48131.0   2292.0      1.2      vec1_final = np.where(mask_2f, vec2, np.where(mask_3f, vec0, vec1))
+   167        21      50595.0   2409.3      1.2      vec2_final = np.where(mask_2f, vec0, np.where(mask_3f, vec1, vec2))
+   168                                           
+   169        21      33447.0   1592.7      0.8      target = np.stack([vec0_final, vec1_final, vec2_final], axis=2)
+   170                                           
+   171        21     101187.0   4818.4      2.4      scale = np.linalg.norm(vec0_final - vec1_final, axis = 1) / np.linalg.norm(match_vect[:, 0] - match_vect[:, 1], axis = 1)
+   172        21      37786.0   1799.3      0.9      scaled = match_vect * scale[:, np.newaxis, np.newaxis]
+   173        21     238813.0  11372.0      5.7      as_3vect = transforms.icoord_to_vector(scaled).swapaxes(1, 2)
+   174        21       5511.0    262.4      0.1      inv_matrix = np.zeros(as_3vect.shape, as_3vect.dtype)
+   175        84        571.0      6.8      0.0      for i in range(3):
+   176       252       1154.0      4.6      0.0          for j in range(3):
+   177       756       3784.0      5.0      0.1              ia = [x for x in range(3) if x != i]
+   178       756       3187.0      4.2      0.1              ib = [x for x in range(3) if x != j]
+   179       189      92540.0    489.6      2.2              inv_matrix[:, j, i] = (as_3vect[:, ia[0], ib[0]] * as_3vect[:, ia[1], ib[1]] - as_3vect[:, ia[1], ib[0]] * as_3vect[:, ia[0], ib[1]]) * (-1)**(i+j)
+   180        21     441092.0  21004.4     10.6      inv_matrix /= np.linalg.det(as_3vect).reshape((-1, 1, 1))
+   181        21     892401.0  42495.3     21.4      rmatrix = np.einsum('...ij,...jk -> ...ik', target, inv_matrix)
+   182        21    1506858.0  71755.1     36.1      rmatrix = batch_polar_approximation(rmatrix) # first order iterative correction to rotation matrix
+   183                                               #get quaternion rep of rmatrix
+   184        21      53591.0   2552.0      1.3      rot = scipy_R.from_matrix(rmatrix)
+   185        21       4796.0    228.4      0.1      quat = rot.as_quat()
+   186                                               
+   187        21        644.0     30.7      0.0      return scale, quat, target
+
+Total time: 1.14788 s
+File: C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py
+Function: load_data at line 40
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    40                                           @line_profiler.profile # profile the code
+    41                                           def load_data():
+    42                                               global triangles
+    43                                               global pattern_data
+    44                                               global anchors
+    45                                               global permutation_data
+    46                                               global kd_tree
+    47         1       1024.0   1024.0      0.0      print('start load')
+    48         1      54444.0  54444.0      0.5      dbase = np.load("TripleTrianglePlatesolveDatabase2/TripleTriangle_pattern_data2.npz")
+    49         1        818.0    818.0      0.0      print('loaded')
+    50         1    6742271.0    7e+06     58.7      triangles = dbase['triangles']
+    51         1    1307078.0    1e+06     11.4      pattern_data = dbase['pattern_data']
+    52         1      49642.0  49642.0      0.4      anchors = dbase['anchors']
+    53         1     456821.0 456821.0      4.0      permutation_data = dbase['permutation_data']
+    54         1       1380.0   1380.0      0.0      print(triangles.shape)
+    55         1      24272.0  24272.0      0.2      print(pattern_data.shape)
+    56         1         10.0     10.0      0.0      READ_OLD = True
+    57                                           
+    58         1          7.0      7.0      0.0      if READ_OLD:
+    59         2       1309.0    654.5      0.0          with open("kdtree.pkl", "rb") as kdfile:
+    60         1    2787770.0    3e+06     24.3              kd_tree = pickle.load(kdfile)
+    61         1       2976.0   2976.0      0.0          print("built kd_tree")
+    62                                               else:
+    63                                                   kd_tree = KDTree(triangles.reshape(-1, 3))
+    64                                                   with open("kdtree.pkl", "wb") as kdfile:
+    65                                                       joblib.dump(kd_tree, kdfile)
+    66         1      44907.0  44907.0      0.4      print(permutation_data.shape, permutation_data.dtype, permutation_data[:10])
+    67         1       4071.0   4071.0      0.0      print(triangles.shape)
+
+Total time: 1.79008 s
+File: C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py
+Function: match_image_triangles at line 225
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   225                                           @line_profiler.profile # profile the code
+   226                                           def match_image_triangles(centroids, image_shape):
+   227        21      11206.0    533.6      0.1      pairs = np.array(list(itertools.combinations(range(pattern_data.shape[1]), r=2))) # helper array to convert index i -> pairs (j, k)
+   228        21      15655.0    745.5      0.1      vectors = np.c_[centroids[:, 1], centroids[:, 0]] - np.array([image_shape[1], image_shape[0]]) / 2
+   229        21         81.0      3.9      0.0      reps = []
+   230        21         65.0      3.1      0.0      match_cand = [] # index of triangle matches
+   231        21         94.0      4.5      0.0      match_data = [] # [r, phi] the longer side and polar angle of the matched triangles
+   232        21         74.0      3.5      0.0      match_vect = [] # [v1, v2, v3]
+   233                                                               # v0: coordinate of the center star in 2D-pixel space,
+   234                                                               # v1, v2: vectors from center star to the two neighbouring stars
+   235        21         61.0      2.9      0.0      match_info = []
+   236        21         68.0      3.2      0.0      triangle_info = []
+   237     51201     615711.0     12.0      3.4      dmat = np.array([[((va[0]-vb[0])**2+(va[1]-vb[1])**2)**0.5 for vb in vectors] for va in vectors])
+   238        21        553.0     26.3      0.0      array_vect = np.zeros((2, 3), dtype=np.float64)
+   239       126        662.0      5.3      0.0      for i in range(f):
+   240     16170      81755.0      5.1      0.5          for n, (j, k) in enumerate(itertools.combinations(range(g), 2)):
+   241     16065     154625.0      9.6      0.9              if j == i or k == i or max(i, k) >= vectors.shape[0] or not (i < j < k):
+   242      4935      11404.0      2.3      0.1                  continue
+   243     11130      36182.0      3.3      0.2              triplet = (i, j, k)
+   244     11130    1531509.0    137.6      8.6              rep, perm = get_2Dtriang_rep(vectors[i], vectors[j], vectors[k])
+   245     11130      44996.0      4.0      0.3              triplet = (triplet[perm[0]], triplet[perm[1]], triplet[perm[2]]) # apply permutation to triplet to get "standard order"
+   246     11130    3248277.0    291.8     18.1              cand = kd_tree.query_ball_point(rep, TOLERANCE_TRIANGLE)
+   247     11130     509869.0     45.8      2.8              ind = np.array(cand) // triangles.shape[1]
+   248     44520     207337.0      4.7      1.2              for ii in range(3):
+   249     33390     364910.0     10.9      2.0                  array_vect[:, ii] = vectors[triplet[ii]]
+   250                                                           
+   251     11130      82772.0      7.4      0.5              sidelengths = (dmat[triplet[0], triplet[1]], dmat[triplet[1], triplet[2]], dmat[triplet[2], triplet[0]])
+   252                                           
+   253     11130     163557.0     14.7      0.9              array_vect_copy = array_vect.copy().T
+   254    224257    1109572.0      4.9      6.2              for ind_, cand_ in zip(ind, cand):  
+   255    213127     564900.0      2.7      3.2                  match_cand.append(cand_)
+   256    213127     596440.0      2.8      3.3                  match_data.append(sidelengths)
+   257    213127     556861.0      2.6      3.1                  match_vect.append(array_vect_copy)
+   258    213127     554325.0      2.6      3.1                  match_info.append(triplet)
+   259    213127     794355.0      3.7      4.4                  rem = cand_ % triangles.shape[1]
+   260    213127     981500.0      4.6      5.5                  triangle_info.append(pairs[rem])
+   261     11130      40219.0      3.6      0.2              reps.append(rep)
+   262        21      99768.0   4750.9      0.6      match_cand = np.array(match_cand)
+   263        21     529019.0  25191.4      3.0      match_data = np.array(match_data)
+   264        21     699219.0  33296.1      3.9      match_vect = np.array(match_vect)
+   265        21      32531.0   1549.1      0.2      reps = np.array(reps)
+   266        21         80.0      3.8      0.0      if 0:
+   267                                                   fig = plt.figure()
+   268                                                   ax = fig.add_subplot(projection='3d')
+   269                                                   ax.scatter(reps[:, 0], reps[:, 1], reps[:, 2])
+   270                                                   ax.set_aspect('equal')
+   271                                                   plt.show()
+   272                                               # compute platescales
+   273        21    4259935.0 202854.0     23.8      scale, quat, target = compute_platescale(triangles, pattern_data, anchors, match_cand, match_data, match_vect)
+   274                                           
+   275        21        621.0     29.6      0.0      return scale, quat, target, match_info, triangle_info, vectors
+
+Total time: 3.10978 s
+File: C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py
+Function: match_platescales_helper at line 310
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   310                                           @line_profiler.profile # profile the code
+   311                                           def match_platescales_helper(centroids, image_size, options, output_dir=None, print_flag=True):
+   312                                               '''
+   313                                               input:
+   314                                                   centroids: n by 2 array of centroids positions (in pixel space)
+   315                                                   image_shape: shape of image in pixels
+   316                                                   options: dictionary of other parameters
+   317                                                   try_mirror_also: tolerate a mirrored input by also trying to platesolve the mirrored image
+   318                                               output: dictionary
+   319                                                       "success": True or False
+   320                                                       "platescale", "ra", "dec", "roll": (scale, ra, dec, roll) in arcsec/degrees
+   321                                                       "x": tuple of the above but in RADIANS, and with a 180 degree (pi) flip in roll for some convention consistency (TODO: fix?)
+   322                                                       "matched_centroids": n by 2 array
+   323                                                       "matched_stars": n by 6 array (ra, dec, 3-vect, mag) (but with ra/dec in RADIANS)
+   324                                               '''
+   325        21     775199.0  36914.2      2.5      dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+   326        21     572896.0  27280.8      1.8      N_stars_catalog = dbs.nstars_mag_leq(options['platesolve_match_max_star_magnitude'])#dbs.star_table.shape[0]
+   327                                               
+   328        21       1230.0     58.6      0.0      t00 = time.perf_counter(), time.process_time()
+   329                                               
+   330        21   21612173.0    1e+06     69.5      scale, quat, target_vectors, match_info, triangle_info, vectors = match_image_triangles(centroids, image_size)
+   331        21        141.0      6.7      0.0      if print_flag:
+   332         1       1335.0   1335.0      0.0          print(f'initial triangle matches: {scale.shape[0]}')
+   333         1      13026.0  13026.0      0.0          print(f'{quat.shape=}')
+   334        21        261.0     12.4      0.0      n_obs = centroids.shape[0]
+   335        21       2867.0    136.5      0.0      all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
+   336        21       1148.0     54.7      0.0      t2 = time.perf_counter(), time.process_time()
+   337        21        231.0     11.0      0.0      t3 = t2
+   338                                           
+   339                                               # TODO: include twice vectors slightly below equator
+   340                                               #print(quat[:10])
+   341                                               #print(np.mean(quat, axis=0))
+   342                                           
+   343        21      33559.0   1598.0      0.1      near_equator = np.sum(quat, axis = 1) <= math.sin(TOL_ROLL)
+   344        21       5826.0    277.4      0.0      N_doubled = np.sum(near_equator)
+   345                                               # duplicate near-eqautor points in the KDTree, then account for them smartly as each unique cluster will have at least one non-mirrored point
+   346        21      67988.0   3237.5      0.2      data = np.c_[np.log(scale) / log_TOL_SCALE, quat / TOL_ROLL]
+   347        21      26749.0   1273.8      0.1      data = np.r_[data, data[near_equator]]
+   348        21       2857.0    136.0      0.0      indmap = np.nonzero(near_equator)[0]
+   349        21     450295.0  21442.6      1.4      tree_quat = KDTree(data)
+   350                                           
+   351        21    2244034.0 106858.8      7.2      candidate_quat_pairs = tree_quat.query_pairs(1)
+   352        21        312.0     14.9      0.0      N = scale.shape[0]
+   353     11331     132926.0     11.7      0.4      graph_quat = csr_matrix(([1 for _ in candidate_quat_pairs], ([x[0] for x in candidate_quat_pairs], [x[1] for x in candidate_quat_pairs])), shape=(N+N_doubled, N+N_doubled))
+   354        21      77545.0   3692.6      0.2      n_components_quat, labels_quat = connected_components(csgraph=graph_quat, directed=False, return_labels=True)
+   355        21      52265.0   2488.8      0.2      unique_quat, counts_quat = np.unique(labels_quat, return_counts=True)
+   356                                               
+   357                                               
+   358        21         77.0      3.7      0.0      if print_flag:
+   359         1      12028.0  12028.0      0.0          print("counts_quat:", Counter(counts_quat))
+   360        21     199953.0   9521.6      0.6      nviews_unique = sum(Counter(counts_quat).values())
+   361        21     215166.0  10246.0      0.7      counts = dict(zip(unique_quat, counts_quat))
+   362        21         97.0      4.6      0.0      best=-1
+   363        21        252.0     12.0      0.0      best_result = {'success':False, 'x':None, 'platescale':None, 'matched_centroids':None, 'matched_stars':None, 'platescale/arcsec':None, 'ra':None, 'dec':None, 'roll':None}
+   364        21         56.0      2.7      0.0      n_matches = 0
+   365        21       1135.0     54.0      0.0      t33 = time.perf_counter(), time.process_time()
+   366    213087     729933.0      3.4      2.3      for i in range(n_components_quat):#np.argsort(counts)[::-1]: # try most promising matches first
+   367    213066     841153.0      3.9      2.7          if counts_quat[i] >= 3:
+   368         2        435.0    217.5      0.0              indices = np.nonzero(labels_quat==i)[0]
+   369         2         18.0      9.0      0.0              if indices[0] >= N:
+   370                                                           continue # mirror points only case
+   371                                                       # remove redundant triangles (a, b, c), (b, a, c) etc.
+   372         2         17.0      8.5      0.0              seen = set()
+   373         2          7.0      3.5      0.0              non_redundant = []
+   374        22        139.0      6.3      0.0              for ind in indices:
+   375        20         68.0      3.4      0.0                  if ind >= N:
+   376                                                               ind = indmap[ind-N]
+   377        20        100.0      5.0      0.0                  if match_info[ind] in seen:
+   378                                                               continue
+   379        20        331.0     16.6      0.0                  seen.update(list(itertools.permutations(match_info[ind])))
+   380        20         93.0      4.7      0.0                  non_redundant.append(ind)
+   381         2         15.0      7.5      0.0              if len(non_redundant) >= 3:
+   382         2         11.0      5.5      0.0                  matchset = dict()
+   383        22         75.0      3.4      0.0                  for ind in non_redundant:
+   384        20         68.0      3.4      0.0                      if ind >= N:
+   385                                                                   ind = indmap[ind-N]
+   386        20        308.0     15.4      0.0                      matchset.update(zip(match_info[ind], target_vectors[ind].T))
+   387                                           
+   388         2          8.0      4.0      0.0                  el = non_redundant[0]
+   389         2         14.0      7.0      0.0                  if options['flag_debug']:
+   390                                                               # show platesolve
+   391                                                               plt.scatter(centroids[:, 0], centroids[:, 1])
+   392                                                               for t in non_redundant:
+   393                                                                   tri = match_info[t]
+   394                                                                   v = np.array([centroids[_] for _ in tri]+[centroids[tri[0]]])
+   395                                                                   plt.plot(v[:, 0], v[:, 1], color='red')
+   396                                                               plt.gca().invert_yaxis()
+   397                                                               plt.title(f"{len(non_redundant)} triangles matched\nplate scale={np.degrees(scale[el])*3600:.4f} arcsec/pixel\nra={radec[0][1]:.4f}, dec={radec[0][0]:.4f}")
+   398                                                               plt.show()
+   399                                                           
+   400        14        777.0     55.5      0.0                  ivects = transforms.icoord_to_vector(np.array([all_star_plate[_] for _ in matchset])*scale[el])
+   401        14        145.0     10.4      0.0                  catvects = np.array([_ for _ in matchset.values()])
+   402                                           
+   403         2       2647.0   1323.5      0.0                  rotation_matrix = _find_rotation_matrix(ivects, catvects)
+   404         6        204.0     34.0      0.0                  acc_ra = np.rad2deg(np.arctan2(rotation_matrix[0, 1],
+   405         4         18.0      4.5      0.0                                                     rotation_matrix[0, 0])) % 360
+   406         4         55.0     13.8      0.0                  acc_dec = np.rad2deg(np.arctan2(rotation_matrix[0, 2],
+   407         2        397.0    198.5      0.0                                                      np.linalg.norm(rotation_matrix[1:3, 2])))
+   408         6        200.0     33.3      0.0                  acc_roll = np.rad2deg(np.arctan2(rotation_matrix[1, 2],
+   409         4         14.0      3.5      0.0                                                       rotation_matrix[2, 2])) % 360
+   410         2         29.0     14.5      0.0                  acc_roll = (acc_roll + 180) % 360 # annoying 180 degree thing
+   411         2         51.0     25.5      0.0                  platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll+180)
+   412         2    2934287.0    1e+06      9.4                  stardata, plate2, max_error, errors = match_centroids2(centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options, star_max_magnitude=options['platesolve_match_max_star_magnitude'])
+   413                                                           #print('max_error', max_error)
+   414         2       1004.0    502.0      0.0                  rms_error_match = np.mean(errors) if errors.size else max_error
+   415         2       9602.0   4801.0      0.0                  p_value = calculate_pvalue(min(n_obs, MAX_MATCH), N_stars_catalog, errors, nviews_unique, stardata.shape[0])
+   416         2      17732.0   8866.0      0.1                  print(f"p_value={p_value} {n_obs=} nmatch={stardata.shape[0]} {max_error=}")
+   417         2         32.0     16.0      0.0                  if p_value < options['detection_pvalue']:
+   418         1          5.0      5.0      0.0                      n_matches += 1
+   419         1        663.0    663.0      0.0                      rms = 3600*np.degrees(np.linalg.norm(catvects - (rotation_matrix.T @ ivects.T).T) / catvects.shape[0])
+   420                                                               
+   421         1          4.0      4.0      0.0                      if print_flag:
+   422         1      18177.0  18177.0      0.1                          print(f"MATCH ACCEPTED (nstars matched = {stardata.shape[0]})")
+   423         1       5218.0   5218.0      0.0                          print('accurate ra dec roll', acc_ra, acc_dec, acc_roll, 'rough rms=', rms, 'arcsec')
+   424         1         21.0     21.0      0.0                      if stardata.shape[0] > best:
+   425         1          4.0      4.0      0.0                          best = stardata.shape[0]
+   426         1          3.0      3.0      0.0                          best_non_redundant = non_redundant
+   427         1        362.0    362.0      0.0                          best_result = {'success':True, 'x': np.radians(platescale), 'platescale/arcsec':3600*np.degrees(scale[el]), 'ra':acc_ra, 'dec':acc_dec, 'roll':acc_roll, 'matched_centroids':plate2+np.array([image_size[0]/2, image_size[1]/2]), 'matched_stars':stardata}
+   428                                                           else:
+   429         1          9.0      9.0      0.0                      if print_flag:
+   430                                                                   print(f"note: candidate match rejected (nstars matched = {stardata.shape[0]}, pvalue = {p_value})")         
+   431                                               
+   432        21       1052.0     50.1      0.0      t4 = time.perf_counter(), time.process_time()
+   433        21        320.0     15.2      0.0      tff = time.perf_counter(), time.process_time()
+   434        21        122.0      5.8      0.0      if print_flag:
+   435         1       1309.0   1309.0      0.0          print(f'npairs = {len(candidate_quat_pairs)}')
+   436         1       4195.0   4195.0      0.0          print(f" Real star matching: {t4[0] - t33[0]:.2f} {t33[0] - t3[0]:.2f} {t3[0] - t2[0]:.2f} seconds")
+   437         1      16667.0  16667.0      0.1          print(f" TOTAL TIME: {tff[0] - t00[0]:.2f} seconds")
+   438         1         13.0     13.0      0.0          if n_matches > 1:
+   439                                                       print(f"WARNING: multiple ({n_matches}) platesolves were successful, returning best one")
+   440         1          5.0      5.0      0.0          elif n_matches == 0:
+   441                                                       print("Platesolve FAILED")
+   442         1          4.0      4.0      0.0          elif n_matches == 1:
+   443         1       4289.0   4289.0      0.0              print("Platescale SUCCESS")
+   444        21        205.0      9.8      0.0      if (options['flag_display2'] or not output_dir is None) and n_matches >= 1:
+   445                                                   # show platesolve
+   446                                                   plt.scatter(centroids[:, 1], centroids[:, 0])
+   447                                                   plt.xlim(0, image_size[1])
+   448                                                   plt.ylim(0, image_size[0])
+   449                                                   
+   450                                                   for t in best_non_redundant:
+   451                                                       tri = match_info[t]
+   452                                                       v = np.array([centroids[_] for _ in tri]+[centroids[tri[0]]])
+   453                                                       plt.plot(v[:, 1], v[:, 0], color='red')
+   454                                                   plt.gca().invert_yaxis()
+   455                                                   plt.gca().set_aspect('equal')
+   456                                                   plt.xlabel("pixel X", fontsize=16)
+   457                                                   plt.ylabel("pixel Y", fontsize=16)
+   458                                                   plt.xticks(fontsize=16)
+   459                                                   plt.yticks(fontsize=16)
+   460                                                   plt.title(f"{len(best_non_redundant)} triangles matched\nplatescale={best_result['platescale/arcsec']:.4f} arcsec/pixel\nra={best_result['ra']:.4f}, dec={best_result['dec']:.4f}, roll={best_result['roll']:.4f}", fontsize=16)
+   461                                                   plt.tight_layout()
+   462                                                   if not output_dir is None:
+   463                                                       plt.savefig(output_dir / 'triangle_matches.png', dpi=600)
+   464                                                   if options['flag_display2']:
+   465                                                       plt.show()
+   466                                                   plt.close()
+   467        21       1515.0     72.1      0.0      return best_result
+
+  0.29 seconds - C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py:490 - match_centroids2
+  0.42 seconds - C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py:144 - compute_platescale
+  1.15 seconds - C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py:40 - load_data
+  1.79 seconds - C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py:225 - match_image_triangles
+  3.11 seconds - C:\Users\andre\OneDrive\Documents\GitHub\MEE2024\t3_platesolve_test.py:310 - match_platescales_helper

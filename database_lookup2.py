@@ -166,7 +166,7 @@ class database_searcher:
             num_entries = star_table.shape[0]
             # Trim down catalogue ID to match
             
-            star_catID = self.star_catID[:brightness_range][kept, :]
+            star_catID = self.star_catID[:brightness_range][kept]
             self._logger.info('Limited to RA range ' + str(np.rad2deg(range_ra)) + ', keeping ' \
                 + str(num_entries) + ' stars.')
         if range_dec is not None:
@@ -179,7 +179,7 @@ class database_searcher:
             num_entries = star_table.shape[0]
             # Trim down catalogue ID to match
 
-            star_catID = star_catID[kept, :]
+            star_catID = star_catID[kept]
             self._logger.info('Limited to DEC range ' + str(np.rad2deg(range_dec)) + ', keeping ' \
                 + str(num_entries) + ' stars.')
             

@@ -7,6 +7,8 @@ import time
 import platesolve_new
 from multiprocessing import Process, Queue
 from multiprocessing import Manager
+from MEE2024util import resource_path
+
 class _cache:
 
     database_cache = {}
@@ -57,7 +59,7 @@ def open_catalogue(path, debug_folder=None, **kwaargs):
         if path == 'gaia':
             _cache.catalogue_cache[path] = gaia_search.dbs_gaia(**kwaargs)
         elif path == 'gaia_offline':
-            _cache.catalogue_cache[path] = database_lookup2.database_searcher('gaia_top_stars_HIP_id.npz', debug_folder=debug_folder, star_max_magnitude=12)
+            _cache.catalogue_cache[path] = database_lookup2.database_searcher(resource_path('resources/gaia_top_stars_HIP_id_2.npz'), debug_folder=debug_folder, star_max_magnitude=12)
         elif path == triangles_path:
             print(_cache.prepare_process, _cache.prepare_process.is_alive())
             i = 1          

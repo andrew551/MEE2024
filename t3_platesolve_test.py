@@ -24,7 +24,7 @@ import database_cache
 from sklearn.neighbors import NearestNeighbors
 import tqdm
 import line_profiler
-import joblib
+
 '''
 PARAMETERS (TODO: make controllable by options)
 '''
@@ -47,13 +47,15 @@ def load_data():
     print('start load')
     dbase = np.load("TripleTrianglePlatesolveDatabase3/TripleTriangle_pattern_data3.npz")
     print('loaded')
-    triangles = dbase['triangles']
+    with np.load
+    triangles_shape
+    triangles = dbase['triangles'] # TODO: remove dependance on triangles. Convert to compressed format
     pattern_data = dbase['pattern_data']
     anchors = dbase['anchors']
     permutation_data = dbase['permutation_data']
     print(triangles.shape)
     print(pattern_data.shape)
-    READ_OLD = False
+    READ_OLD = True
 
     if READ_OLD:
         with open("kdtree.pkl", "rb") as kdfile:
@@ -67,6 +69,7 @@ def load_data():
     print(triangles.shape)
 
 load_data()
+print("loading complete")
 
 if 0:
     fig = plt.figure()
@@ -234,7 +237,7 @@ def match_image_triangles(centroids, image_shape):
                     # v1, v2: vectors from center star to the two neighbouring stars
     match_info = []
     triangle_info = []
-    dmat = np.array([[((va[0]-vb[0])**2+(va[1]-vb[1])**2)**0.5 for vb in vectors] for va in vectors])
+    dmat = np.array([[((va[0]-vb[0])**2+(va[1]-vb[1])**2)**0.5 for vb in vectors[:g]] for va in vectors[:g]])
     array_vect = np.zeros((2, 3), dtype=np.float64)
     for i in range(f):
         for n, (j, k) in enumerate(itertools.combinations(range(g), 2)):
@@ -322,7 +325,7 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
             "matched_centroids": n by 2 array
             "matched_stars": n by 6 array (ra, dec, 3-vect, mag) (but with ra/dec in RADIANS)
     '''
-    dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+    dbs = database_cache.open_catalogue('gaia_offline')
     N_stars_catalog = dbs.nstars_mag_leq(options['platesolve_match_max_star_magnitude'])#dbs.star_table.shape[0]
     
     t00 = time.perf_counter(), time.process_time()
@@ -335,10 +338,6 @@ def match_platescales_helper(centroids, image_size, options, output_dir=None, pr
     all_star_plate = centroids - np.array([image_size[0]/2, image_size[1]/2])
     t2 = time.perf_counter(), time.process_time()
     t3 = t2
-
-    # TODO: include twice vectors slightly below equator
-    #print(quat[:10])
-    #print(np.mean(quat, axis=0))
 
     near_equator = np.sum(quat, axis = 1) <= math.sin(TOL_ROLL)
     N_doubled = np.sum(near_equator)
@@ -490,7 +489,7 @@ def calculate_pvalue(n_obs, N_stars_catalog, errors, nviews, nmatched):
 @line_profiler.profile # profile the code
 def match_centroids2(centroids, platescale_fit, image_size, options, star_max_magnitude=12):
     confusion_ratio = 2 # closest match must be 2x closer than second place
-    dbs = database_cache.open_catalogue(resource_path("resources/compressed_tycho2024epoch.npz"))
+    dbs = database_cache.open_catalogue('gaia_offline')
     print(f'{dbs.star_table.shape=}', dbs.star_table[:, 5])
     corners = transforms.to_polar(transforms.linear_transform(platescale_fit, np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
     stardata = dbs.lookup_objects(*get_bbox(corners), star_max_magnitude=star_max_magnitude)[0]
@@ -543,10 +542,10 @@ def _find_rotation_matrix(image_vectors, catalog_vectors):
 
 if __name__ == '__main__':
     #database_cache.prepare_triangles()
-    print("in main")
+    print("in main", flush=True)
     options = {'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':0, 'flag_debug':0, 'platesolve_match_max_star_magnitude':12, 'detection_pvalue':1e-4}
-    path_data = r'D:\feb7test\Don2017_clean2\eclipse_field\centroid_data20250214172224.zip' # eclipse (Don)
-    #path_data = r'D:\feb7test\station1\centroid_data20250320001655.zip' # zenith (Don)
+    #path_data = r'D:\feb7test\Don2017_clean2\eclipse_field\centroid_data20250214172224.zip' # eclipse (Don)
+    path_data = r'D:\feb7test\station1\centroid_data20250320001655.zip' # zenith (Don)
     #path_data = r'D:\Station 1 data\centroid_data20240416232626.zip' # Station 1 2024
     #path_data = r'D:\feb7test\station1\centroid_data20250320225454.zip' # moon (hard)
     #path_data = r'D:\feb7test\station1\centroid_data20250320231043.zip' # moon (hard)
@@ -568,7 +567,7 @@ if __name__ == '__main__':
             simarr = np.random.random((30, 2))
             result = match_platescales(simarr, [1,1], options, print_flag=False)
             #print(result['success'])
-    test()
+    #test()
     #cProfile.run("test()", sort='time')
         #if result['success']:
         #    print(sim)

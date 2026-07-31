@@ -128,7 +128,7 @@ WHERE phot_g_mean_mag BETWEEN -2 AND {max_mag}"
     return results
         
 if __name__ == '__main__':
-    l = select_bright(2025.0, 10.5)
+    l = select_bright(2025.0, 11)
     n = len(l)
     s_id = np.zeros(n, dtype=np.uint64)
     s_id[:] = l['SOURCE_ID']
@@ -138,7 +138,7 @@ if __name__ == '__main__':
     data[:, 2] = l['phot_g_mean_mag']
     print(s_id)
     print(data)
-    np.savez('gaia_top_stars_2.npz', source_id=s_id, radecmag=data)
+    np.savez('gaia_top_stars_3.npz', source_id=s_id, radecmag=data)
     #l = select_in_box(2024, (37.4, 37.5), (0.35, 0.45), 16)
     #l = select_in_box(2016, (38.25, 38.35), (0.85, 0.95), 16)
     #l = select_in_box(2016, (38.5, 38.8), (0.65, 0.75), 16)

@@ -26,7 +26,7 @@ tycho = stardata(data['mydata'])
 
 # load gaia data
 
-data_g = np.load('gaia_top_stars_2.npz')
+data_g = np.load('gaia_top_stars_3.npz')
 gaia = stardata(data_g['radecmag'], flag_degrees=True)
 
 # load HIP data
@@ -101,5 +101,5 @@ for i in range(gaia.num_entries):
         ids[i] = -1
 print(count, f'{hip.num_entries}')
 print(ids.size)
-np.savez_compressed('gaia_top_stars_HIP_id.npz', ids=ids, ra=gaia.star_table[:, 0], dec=gaia.star_table[:, 1], magG=gaia.star_table[:, 5])
+np.savez_compressed('resources/gaia_top_stars_HIP_id_2.npz', ids=ids, ra=gaia.star_table[:, 0], dec=gaia.star_table[:, 1], magG=gaia.star_table[:, 5])
 

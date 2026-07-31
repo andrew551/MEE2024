@@ -11,3 +11,5 @@ TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz
 TripleTrianglePlatesolveDatabase2/TripleTriangle_pattern_data2.npz
 kdtree.pkl
 profiling/*
+kdtree.jbl
+TripleTrianglePlatesolveDatabase3/TripleTriangle_pattern_data3.npz
