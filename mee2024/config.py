@@ -101,6 +101,10 @@ DEFAULT_OPTIONS = {
     # which interface a no-argument launch (or a double-clicked .exe) opens:
     # 'app' for the new window, 'classic' for the original FreeSimpleGUI one
     'default_interface': 'app',
+    # which plate solver runs: 'triangle' is the production solver; 'v2' is the
+    # Gaia/shape-space rebuild (mee2024/platesolve2), kept opt-in until it dominates
+    # the bench (tools/solver_bench.py)
+    'platesolver': 'triangle',
 }
 
 

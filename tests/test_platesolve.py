@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from mee2024 import platesolve_triangle as pst
+from tests.fixture_catalogue import skip_unless_triangle_db
 
 FIELDS_DIR = Path(__file__).parent / 'data' / 'fields'
 
@@ -129,6 +130,7 @@ def test_platesolve_recovers_known_real_fields(field_name, options):
 
     Needs the 127 MB triangle database, so it only runs under --runslow.
     """
+    skip_unless_triangle_db()
     field = load_field(field_name)
     centroids = np.array(field['centroids'])
     expected = field['expected']
@@ -173,6 +175,7 @@ def test_platesolve_solves_synthetic_fields(options, fov, ra, dec):
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from tools.synthetic_field import synthesize_field, solution_matches_truth
 
+    skip_unless_triangle_db()
     catalogue = _offline_catalogue_or_skip()
     centroids, truth = synthesize_field(catalogue, ra, dec, roll_deg=57.0,
                                         fov_width_deg=fov, seed=int(fov * 10))
@@ -190,6 +193,7 @@ def test_platesolve_rejects_junk_fields(options, seed):
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from tools.synthetic_field import junk_field
 
+    skip_unless_triangle_db()
     result = pst.platesolve(junk_field((2000, 3000), n=120, seed=seed), (2000, 3000),
                             options=options)
     assert not result['success'], 'accepted a field of pure noise'

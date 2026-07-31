@@ -285,6 +285,10 @@ output: dictionary
         "matched_stars": n by 6 array (ra, dec, 3-vect, mag) (but with ra/dec in RADIANS)
 '''
 def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_match_threshhold':36, 'flag_display2':False, 'flag_debug':False}, output_dir=None, try_mirror_also=True):
+    if options.get('platesolver', 'triangle') == 'v2':
+        from mee2024 import platesolve2
+        return platesolve2.platesolve(centroids, image_shape, options,
+                                      output_dir=output_dir, try_mirror_also=try_mirror_also)
     centroids = np.array(centroids)
     if not len(centroids.shape)==2 or not centroids.shape[1] == 2:
         raise Exception("ERROR: expected an n by 2 array for centroids")

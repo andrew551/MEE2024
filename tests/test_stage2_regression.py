@@ -17,7 +17,8 @@ import zipfile
 import numpy as np
 import pytest
 
-from tests.fixture_catalogue import build_centroid_zip, install, load_field
+from tests.fixture_catalogue import (build_centroid_zip, install, load_field,
+                                     skip_unless_triangle_db)
 
 TRUE_DATE = '2023-10-29'          # from the FITS DATE-OBS of both example fields
 BLIND_START = '2020-01-01'        # what guess_date is seeded with
@@ -35,6 +36,7 @@ CASES = [
 def run_stage2(monkeypatch, tmp_path, options, field_name, order, guess_date):
     from mee2024 import distortion_fitter
 
+    skip_unless_triangle_db()
     tmp_path.mkdir(parents=True, exist_ok=True)
     install(monkeypatch, field_name, options)
     options['distortionOrder'] = order

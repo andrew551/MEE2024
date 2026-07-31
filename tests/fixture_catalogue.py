@@ -17,6 +17,23 @@ import numpy as np
 DATA = Path(__file__).parent / 'data'
 
 
+def skip_unless_triangle_db():
+    """Skip (never build) when the plate-solving triangle database is absent.
+
+    database_cache generates a missing database inline -- a silent multi-minute Tycho
+    build that must never fire in the middle of a test run. Building it is a deliberate
+    one-off act, so tell the reader exactly how.
+    """
+    import pytest
+
+    from mee2024.MEE2024util import get_triangle_db_path
+    path = get_triangle_db_path()
+    if not path.exists():
+        pytest.skip(f'triangle database missing at {path}; '
+                    f'build it once with `mee2024 build-triangle-db`')
+    return path
+
+
 def load_field(name):
     return json.loads((DATA / 'fields' / f'{name}.json').read_text(encoding='utf-8'))
 

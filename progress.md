@@ -20,6 +20,7 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
+`docs/PLATESOLVER_V2_DESIGN.md` (the solver rebuild: theory and stage plan),
 `docs/UI_DESIGN.md` (UI strategy, what is built, and the P2 question).
 
 ### Measured baseline — do not regress these
@@ -46,6 +47,53 @@ Stage 2 (`guess_date` seeded with 2020-01-01, blind):
 | zwo1 | septic | 100.9 mas | 1564 | 2023-09-20 | −39 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-07-31 — solver v2 designed; stage S0 landed (bench harness + v1 baseline)
+
+**The rebuild is designed and gated.** `docs/PLATESOLVER_V2_DESIGN.md` carries the
+theory and the stage plan: Gaia pattern DB (S1) → Kendall shape invariant with a
+conjugate-query mirror pass (S2) → adaptive tolerance (S3) → quaternion consensus (S4)
+→ progressive anchors + mmap/bucket index (S5) → multi-scale layers + platescale hints
+(S6) → a quad layer only if the S6 bench still shows a blind >8° gap (S7). Each stage
+isolates one variable and must hold: zero wrong solves, junk all rejected, both real
+fields solving.
+
+Decisions from the analysis, in brief: the `dev-platesolve` spike's Kendall shape
+coordinates are verified correct and adopted (rewritten — its tip does not import);
+**quaternions win nothing for the final orientation fit** (Wahba/SVD is equivalent;
+microseconds either way) but are the right *consensus clustering* metric — v1 clusters
+roll unwrapped and its (centre, roll) chart is singular at the poles; the spike's
+double-cover handling is measurably broken (missing `abs()`, un-negated twins) and gets
+the correct canonicalise-plus-boundary-twins treatment; its p-value acceptance test is
+post-hoc (feeds matched radii into its own null) and is set aside in favour of the
+production estimator with the local-density fix; its "dimmer legs" DB rule becomes a
+benchable variant (S2b), not an assumption, judged on the ordering-scatter sweep.
+
+**S0 is landed:**
+
+- `tools/solver_bench.py` — 88 frozen cases (FOV sweep both density regimes,
+  reliability draws, noise/scatter sweeps, sparse fields, poles, roll-wrap, junk, the
+  two real fields), deterministic per-case seeds, `run`/`compare`/`list`, results
+  committed under `docs/bench/`.
+- **v1 baseline** (`docs/bench/s0_baseline.json`, summarised in `docs/bench/BENCH.md`):
+  correct 61/80 solvable, wrong solves **0**, junk **8/8** rejected, real fields 2/2 at
+  7.2 s. Reproduces the measured envelope — and adds one new fact: **pole fields fail
+  0/4** with 100–150 stars available, confirming the predicted roll ill-conditioning in
+  the consensus chart rather than any lack of stars. That is the S4 target, now pinned
+  by a number rather than an argument.
+- `options['platesolver']` ('triangle' default | 'v2') with a four-line dispatch facade
+  in `platesolve_triangle.platesolve`; `mee2024/platesolve2/` exists as a stub that
+  names the design doc. No pipeline call site changed.
+- Slow solver tests now **skip with instructions** when the triangle DB is absent
+  (`skip_unless_triangle_db` in `tests/fixture_catalogue.py`) instead of triggering
+  `database_cache`'s silent multi-minute inline rebuild mid-run.
+
+Found while testing, not caused by this work: `mee2024/resources/star_labels/names.txt`
+is CRLF-corrupted on this checkout (git line-ending conversion shifted the byte offsets
+`hip_name_offset.npy` indexes into), so 6 label tests fail with byte-shifted names.
+Needs a `.gitattributes -text` rule plus a renormalised file; tracked separately.
 
 ---
 
@@ -491,10 +539,10 @@ every historical result, so it is left as a deliberate choice.
 
 Milestones A and C are done; the UI is through P1 plus the analysis views above.
 
-1. **Milestone D — plate-solve robustness.** The density fix landed; still open are anchor
-   sampling instead of a strict brightest-*f* prefix, a coarse second pattern DB for fields
-   wider than ~3.4°, platescale/pointing hints, and reusing the stage-1 solution instead of
-   re-solving. Designed in `docs/PLATESOLVER_DESIGN.md`.
+1. **Milestone D — plate-solve robustness.** Now a staged rebuild with an A/B gate:
+   S0 (bench + baseline) is landed; next is S1, the Gaia pattern DB with the
+   verification catalogue switched to match. Designed in `docs/PLATESOLVER_V2_DESIGN.md`
+   (which supersedes the improvement list in `docs/PLATESOLVER_DESIGN.md` §5).
 2. **Milestone B — auto-calibration and a quality score.** The score cards and the nn_corr
    grading exist; `mee2024/quality.py` and `mee2024 autocal` do not.
 3. **Milestone E — centroid backend rig.** Not started. The half-pixel convention note
