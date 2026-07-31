@@ -1,0 +1,226 @@
+"""The v2 solver, end to end on a miniature pattern database built in-test.
+
+v1 never had a fast end-to-end test because its Tycho database takes minutes to build.
+The v2 builder is parametrised, so a few hundred synthetic stars give a regional
+database in well under a second -- and with it: build -> solve -> verify -> contract,
+all in CI, no network, no --runslow.
+"""
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from mee2024 import events
+from mee2024.platesolve2 import build, geometry, pattern_db
+from mee2024.platesolve2 import platesolve as platesolve_v2
+from mee2024.starcat.table import StarTable
+
+RA0, DEC0 = 180.0, 10.0        # patch centre, degrees
+PATCH_HALF = 3.0               # patch half-width, degrees
+
+MINI_PARAMS = dict(a=50, b=100, d=400, e=18, theta_sep_deg=0.4,
+                   theta_pat_deg=1.7, double_star_arcsec=36.0)
+
+
+def synthetic_star_table(n=400, seed=7):
+    rng = np.random.default_rng(seed)
+    ra = np.radians(RA0 + rng.uniform(-PATCH_HALF, PATCH_HALF, n)
+                    / np.cos(np.radians(DEC0)))
+    dec = np.radians(DEC0 + rng.uniform(-PATCH_HALF, PATCH_HALF, n))
+    mag = rng.uniform(5.0, 11.0, n).astype(np.float32)
+    return StarTable(ra=ra, dec=dec, mag=mag, ids=np.arange(n, dtype=np.int64),
+                     epoch=2024.0)
+
+
+class PatchCatalogue:
+    """A tiny provider over one StarTable: the seam both synthesis and verification use."""
+
+    def __init__(self, table):
+        self.table = table
+
+    def __len__(self):
+        return len(self.table)
+
+    def lookup(self, ra_range, dec_range, max_magnitude=None, epoch=None):
+        ra = np.degrees(self.table.ra)
+        dec = np.degrees(self.table.dec)
+        lo, hi = ra_range
+        keep = ((ra >= lo) & (ra <= hi)) if lo < hi else ((ra >= lo) | (ra <= hi))
+        keep &= (dec >= min(dec_range)) & (dec <= max(dec_range))
+        if max_magnitude is not None:
+            keep &= self.table.mag < max_magnitude
+        return self.table.select(np.nonzero(keep)[0])
+
+
+@pytest.fixture(scope='module')
+def mini_db(tmp_path_factory):
+    stars = synthetic_star_table()
+    out_dir, manifest = build.build_pattern_db(
+        stars, 'test_mini', out_root=tmp_path_factory.mktemp('patterndb'),
+        params=MINI_PARAMS,
+        verify_spec={'provider': 'test', 'mag_limit': 12.0, 'epoch': 2024.0})
+    return pattern_db.PatternDB(out_dir), PatchCatalogue(stars), manifest
+
+
+# ------------------------------------------------------------------- format
+
+def test_mini_db_arrays_are_consistent(mini_db):
+    db, _, manifest = mini_db
+    offsets = np.asarray(db.anchor_tri_offset)
+    assert offsets[0] == 0
+    assert np.all(np.diff(offsets) >= 0)
+    assert offsets[-1] == manifest['n_triangles'] == db.tri_inv.shape[0]
+    assert db.anchors.shape == (manifest['n_anchors'], 3)
+    # unit vectors, canonical invariant ranges
+    assert np.allclose(np.linalg.norm(np.asarray(db.anchors), axis=1), 1, atol=1e-5)
+    tri = np.asarray(db.tri_inv)
+    assert np.all(tri[:, 0] > 0) and np.all(tri[:, 0] <= 1.0 + 1e-6)
+    assert np.all(tri[:, 1] >= 0) and np.all(tri[:, 1] < 2 * np.pi + 1e-6)
+
+
+def test_sparse_sky_builds_with_partial_patterns(tmp_path):
+    """Anchors with fewer than e legs own fewer triangle rows -- the case v1's
+    builder answered with 'edge case handling unimplemented!'."""
+    stars = synthetic_star_table(n=30, seed=11)
+    out_dir, manifest = build.build_pattern_db(
+        stars, 'test_sparse', out_root=tmp_path,
+        params=dict(MINI_PARAMS, a=10, b=10, d=30))
+    db = pattern_db.PatternDB(out_dir)
+    per_anchor = np.diff(np.asarray(db.anchor_tri_offset))
+    full = 18 * 17 // 2
+    assert per_anchor.max() < full          # nobody has 18 legs in a 30-star patch
+    assert manifest['n_triangles'] == per_anchor.sum()
+    # decode still works on the ragged layout
+    if manifest['n_triangles']:
+        anchor, j, k = db.triangle_anchor_and_legs(
+            np.arange(manifest['n_triangles']))
+        assert np.all(j < k)
+        n_legs_of_anchor = np.asarray(db.pattern_ind)[anchor] >= 0
+        assert np.all(k < n_legs_of_anchor.sum(axis=1))
+
+
+def test_manifest_pins_dtypes_on_disk(mini_db):
+    db, _, manifest = mini_db
+    for key, entry in manifest['columns'].items():
+        loaded = np.load(db.directory / entry['file'], mmap_mode='r')
+        assert loaded.dtype == np.dtype(entry['dtype']), key
+
+
+def test_verify_passes_and_detects_corruption(mini_db, tmp_path):
+    db, _, _ = mini_db
+    assert pattern_db.verify(db.directory) == []
+
+
+def test_resolve_names_the_remedy_when_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(pattern_db, 'get_patterndb_root', lambda: tmp_path)
+    with pytest.raises(RuntimeError, match='build-pattern-db'):
+        pattern_db.resolve({'pattern_db': 'nonexistent'})
+    with pytest.raises(RuntimeError, match='build-pattern-db'):
+        pattern_db.resolve({})
+
+
+# ------------------------------------------------------------------ solving
+
+def _field(catalogue, fov=2.0, seed=3, **kw):
+    from tools.synthetic_field import synthesize_field
+    return synthesize_field(catalogue, RA0, DEC0, roll_deg=57.0, fov_width_deg=fov,
+                            shape=(1000, 1500), mag_limit=12.0, epoch=2024.0,
+                            n_detect=60, seed=seed, **kw)
+
+
+def test_v2_solves_a_synthetic_field(mini_db):
+    from tools.synthetic_field import solution_matches_truth
+    db, catalogue, _ = mini_db
+    centroids, truth = _field(catalogue)
+    result = platesolve_v2(centroids, (1000, 1500),
+                           options={'rough_match_threshhold': 36},
+                           catalogue=catalogue, db=db)
+    assert result['success']
+    assert solution_matches_truth(result, truth)
+    assert result['mirror'] is False
+
+
+def test_v2_solves_the_mirrored_field(mini_db):
+    from tools.synthetic_field import solution_matches_truth
+    db, catalogue, _ = mini_db
+    centroids, truth = _field(catalogue)
+    mirrored = centroids[:, [1, 0]]
+    result = platesolve_v2(mirrored, (1500, 1000),
+                           options={'rough_match_threshhold': 36},
+                           catalogue=catalogue, db=db)
+    assert result['success']
+    assert result['mirror'] is True
+    assert solution_matches_truth(result, truth)
+
+
+def test_v2_rejects_junk(mini_db):
+    from tools.synthetic_field import junk_field
+    db, catalogue, _ = mini_db
+    result = platesolve_v2(junk_field((1000, 1500), n=60, seed=1), (1000, 1500),
+                           options={'rough_match_threshhold': 36},
+                           catalogue=catalogue, db=db)
+    assert not result['success']
+
+
+def test_v2_result_contract_and_events(mini_db):
+    """The keys, shapes and events the pipeline and UI rely on, v1-identical."""
+    db, catalogue, _ = mini_db
+    centroids, truth = _field(catalogue)
+    sink = events.ListSink()
+    with events.using(events.EventBus([sink])):
+        result = platesolve_v2(centroids, (1000, 1500),
+                               options={'rough_match_threshhold': 36},
+                               catalogue=catalogue, db=db)
+
+    for key in ('success', 'x', 'ra', 'dec', 'roll', 'platescale/arcsec',
+                'matched_centroids', 'matched_stars', 'mirror', 'diagnostics'):
+        assert key in result, key
+    assert len(result['x']) == 4                      # (scale, ra, dec, roll) radians
+    assert result['matched_stars'].shape[1] == 6      # ra, dec, 3-vector, mag
+    assert result['matched_centroids'].shape[0] == result['matched_stars'].shape[0]
+    # catalogue positions in radians, magnitudes in the last column
+    assert np.all(np.abs(result['matched_stars'][:, 1]) <= np.pi / 2)
+    assert np.all(result['matched_stars'][:, 5] < 12.5)
+    assert result['diagnostics']['n_candidates'] > 0
+
+    solve_results = [e for e in sink.events if e['type'] == events.SOLVE_RESULT]
+    assert len(solve_results) == 1
+    for key in ('success', 'ra', 'dec', 'roll', 'platescale', 'mirror', 'n_matched'):
+        assert key in solve_results[0], key
+    assert any(e['type'] == events.SOLVE_CANDIDATE for e in sink.events)
+
+
+# ----------------------------------------------------------------- geometry
+
+def test_find_rotation_matrix_recovers_a_known_rotation():
+    from scipy.spatial.transform import Rotation
+    rot = Rotation.from_euler('xyz', [0.3, -0.2, 1.1]).as_matrix()
+    rng = np.random.default_rng(2)
+    v = rng.normal(size=(40, 3))
+    v /= np.linalg.norm(v, axis=1, keepdims=True)
+    recovered = geometry.find_rotation_matrix(v, (rot @ v.T).T)
+    assert np.allclose((recovered.T @ v.T).T, (rot @ v.T).T, atol=1e-10)
+
+
+def test_find_rotation_matrix_never_returns_a_reflection():
+    """Mirrored vector sets defeat v1's fit; the det correction keeps it a rotation."""
+    rng = np.random.default_rng(5)
+    v = rng.normal(size=(10, 3))
+    v /= np.linalg.norm(v, axis=1, keepdims=True)
+    reflected = v * np.array([1.0, 1.0, -1.0])
+    fitted = geometry.find_rotation_matrix(v, reflected)
+    assert np.linalg.det(fitted) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_acceptance_threshold_tolerance_parameter():
+    """A tighter shape tolerance means fewer hypotheses, so a lower threshold."""
+    from mee2024.platesolve_triangle import estimate_acceptance_threshold
+    loose = estimate_acceptance_threshold(100, 3_000_000, np.radians(36 / 3600), 18,
+                                          tolerance=0.01)
+    tight = estimate_acceptance_threshold(100, 3_000_000, np.radians(36 / 3600), 18,
+                                          tolerance=0.001)
+    assert tight < loose

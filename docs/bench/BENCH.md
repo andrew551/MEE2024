@@ -28,3 +28,63 @@ mirrored retry doubles the work).
 Failed solvable cases run 13–17 s because failure triggers the full mirrored retry;
 candidate counts on failures reach ~2.6 M summed across both passes (~1.3 M per pass,
 matching the memory incident in `progress.md`).
+
+## S1 — Gaia pattern DB, same algorithm (`s1_gaia.json`)
+
+v2 = the ported algorithm reading `patdb_g12_t17` (112,660 anchors / 17.24 M
+triangles built from `gaia_dr3_g12`), with verification against the same Gaia
+catalogue instead of the bundled Tycho npz. Same structural parameters, same
+invariant, same tolerance — only the catalogue and format changed.
+
+**Gate: PASS.** Wrong solves 0, junk 8/8, real fields 2/2 (parity check: v2 agrees
+with v1's solutions on both real fields to 0.33″ in ra/dec, 0.005° in roll, 1.3×10⁻⁴
+in scale — the roll conventions ported bit-for-bit). Overall correct 61 → 62/80.
+
+What moved, and why:
+
+- **Verification margins are transformed.** On the ordering-scatter family v2 matches
+  81–88 stars where v1 matched 27–50 on identical fields — Gaia's sub-mas positions
+  make nearly every catalogue star matchable at 36″ where Tycho's 2.5″ tail lost many.
+  This is the headroom S3 will spend when it tightens the tolerance.
+- `fov_galplane_fov2` and the 8 px-noise case flipped to solving. Median solve times
+  dropped ~25–45 % per family (verification against the mmap'd catalogue replaces the
+  in-solve Tycho work); DB load 14.8 s → 12.0 s.
+- **One knife-edge regression, root-caused**: `sparse_detect_n10` (10 detections). Both
+  solvers find the identical true pointing; v1 verified 9/10 against threshold 9 and
+  squeaked in, v2 verifies 8/10 against the same 9 — the ~3× denser verification
+  catalogue lets a fainter neighbour disqualify one marginal match via the 2×
+  confusion test. The honest fix is S3's: adapt verification depth to the detection
+  count (a G<12 comparison set adds only confusers, never matches, when just 10 bright
+  stars are detected). Until then the measured sparse floor for v2 is ~12 detections
+  vs v1's ~10, on this seed.
+- The two `scatter 0.6` flips (one fixed, one broke, family total unchanged at 11/12)
+  are churn at the hardest ordering-scatter setting: the DB's brightness ranking is now
+  G-band rather than V-band, so *which* marginal draw survives changes. This is the
+  axis S2b's dimmer-legs decision and S5a's anchor sampling are aimed at.
+- Poles still 0/4, as expected — the consensus chart is untouched until S4.
+
+## v1@54522e1 vs v2@1ec236e (2026-07-31T23:44:47)
+
+corpus v1, 88 shared cases. DB load 14.81 s -> 12.01 s.
+
+| family | correct | wrong | median time (s) |
+|---|---|---|---|
+| fov | 10/20 -> 11/20 | 0 -> 0 | 12.83 -> 6.92 |
+| junk | 8/8 -> 8/8 | 0 -> 0 | 14.46 -> 12.93 |
+| noise | 2/4 -> 3/4 | 0 -> 0 | 16.18 -> 14.18 |
+| pole | 0/4 -> 0/4 | 0 -> 0 | 15.37 -> 13.79 |
+| real | 2/2 -> 2/2 | 0 -> 0 | 7.2 -> 6.45 |
+| reliability | 31/32 -> 31/32 | 0 -> 0 | 7.19 -> 6.42 |
+| rollwrap | 3/3 -> 3/3 | 0 -> 0 | 11.38 -> 10.16 |
+| scatter | 11/12 -> 11/12 | 0 -> 0 | 11.91 -> 7.11 |
+| sparse_detect | 2/3 -> 1/3 | 0 -> 0 | 2.37 -> 2.5 |
+
+overall correct rate 0.7625 -> 0.775; wrong solves 0 -> 0; junk rejected 8/8 -> 8/8
+
+case flips:
+- fixed: fov_galplane_fov2_s0
+- fixed: noise_midlat_fov2.4_noise_px8_s0
+- BROKE: scatter_midlat_fov2.4_mag_order_scatter0.6_s0
+- fixed: scatter_midlat_fov2.4_mag_order_scatter0.6_s1
+- BROKE: sparse_detect_midlat_fov2.4_n_detect10_s0
+

@@ -166,16 +166,31 @@ def _offline_catalogue_or_skip():
         pytest.skip('gaia_dr3_g12 not installed; build it with tools/build_gaia_offline.py')
 
 
+def _solver_ready_or_skip(solver, options):
+    """Point options at the requested solver, skipping if its database is absent."""
+    if solver == 'v2':
+        from mee2024.platesolve2 import pattern_db
+        try:
+            pattern_db.resolve({})
+        except RuntimeError:
+            pytest.skip('no v2 pattern database; build one with '
+                        '`mee2024 build-pattern-db`')
+        options['platesolver'] = 'v2'
+    else:
+        skip_unless_triangle_db()
+
+
 @pytest.mark.slow
+@pytest.mark.parametrize('solver', ['triangle', 'v2'])
 @pytest.mark.parametrize('fov,ra,dec', [(2.0, 210.0, 35.0), (6.0, 103.0, -5.0)])
-def test_platesolve_solves_synthetic_fields(options, fov, ra, dec):
+def test_platesolve_solves_synthetic_fields(options, solver, fov, ra, dec):
     """Ground-truth fields synthesized from the offline Gaia catalogue must solve."""
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from tools.synthetic_field import synthesize_field, solution_matches_truth
 
-    skip_unless_triangle_db()
+    _solver_ready_or_skip(solver, options)
     catalogue = _offline_catalogue_or_skip()
     centroids, truth = synthesize_field(catalogue, ra, dec, roll_deg=57.0,
                                         fov_width_deg=fov, seed=int(fov * 10))
@@ -185,15 +200,16 @@ def test_platesolve_solves_synthetic_fields(options, fov, ra, dec):
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize('solver', ['triangle', 'v2'])
 @pytest.mark.parametrize('seed', [0, 1, 2])
-def test_platesolve_rejects_junk_fields(options, seed):
+def test_platesolve_rejects_junk_fields(options, solver, seed):
     """Uniform random centroids contain no sky; accepting one is a false positive."""
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from tools.synthetic_field import junk_field
 
-    skip_unless_triangle_db()
+    _solver_ready_or_skip(solver, options)
     result = pst.platesolve(junk_field((2000, 3000), n=120, seed=seed), (2000, 3000),
                             options=options)
     assert not result['success'], 'accepted a field of pure noise'

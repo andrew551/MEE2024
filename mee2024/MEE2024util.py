@@ -74,6 +74,13 @@ def get_catalogue_root():
     catalogue_dir.mkdir(parents=True, exist_ok=True)
     return catalogue_dir
 
+
+def get_patterndb_root():
+    """Where the v2 solver's pattern databases live, one directory per variant."""
+    patterndb_dir = get_data_root() / "patterndb"
+    patterndb_dir.mkdir(parents=True, exist_ok=True)
+    return patterndb_dir
+
 def get_config_path():
     cfg_dir = Path(user_config_dir(APP_NAME, APP_AUTHOR))
     cfg_dir.mkdir(parents=True, exist_ok=True)

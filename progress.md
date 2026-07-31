@@ -50,6 +50,43 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-07-31 — S1: the Gaia pattern database, and the port that reads it
+
+**`mee2024/platesolve2/` is real.** Same algorithm as v1 — same invariant, tolerance,
+consensus, estimator — reading a new database built from the offline Gaia catalogue,
+with verification switched to that same catalogue (leaving it on Tycho would have kept
+2.5″ errors inside the acceptance statistics). `patdb_g12_t17`: 112,660 anchors /
+17.24 M triangles / 213 MB, built by `mee2024 build-pattern-db` in ~3 minutes — the
+1.4 M scalar KD queries v1's builder spends minutes on become two batched
+multi-threaded calls. Format: directory-of-npy + manifest (per-file SHA-256, pinned
+dtypes, prefix-sum triangle offsets so sparse-sky anchors simply own fewer rows —
+v1's "edge case handling unimplemented" is gone). The solver reads the pattern width
+from the manifest, ending the silent g=18 builder/solver coupling. A missing database
+raises with the exact build command; the orientation fit gains the Kabsch determinant
+correction v1 omits.
+
+**A/B against the S0 baseline (docs/bench/BENCH.md): gate passed.** Wrong solves 0,
+junk 8/8, real fields 2/2 with v1-parity to 0.33″ / 0.005° roll / 1.3×10⁻⁴ scale.
+Overall 61 → 62/80; `fov_galplane_2°` and the 8 px-noise case flipped to solving;
+median times down 25–45 % per family. The headline number is verification margin:
+**81–88 stars matched where v1 managed 27–50** on identical fields — that margin is
+what S3 spends when it tightens the shape tolerance.
+
+**One knife-edge regression, root-caused and deliberately accepted.** With 10
+detections both solvers find the same true pointing, but v2 verifies 8/10 against
+threshold 9 where v1 scraped 9/10 — the ~3× denser Gaia comparison set lets a faint
+neighbour disqualify one marginal match via the 2× confusion ratio. Fix assigned to
+S3: verification depth should track detection count (faint catalogue stars can only
+disqualify, never help, when only bright stars were detected). Two ordering-scatter
+draws also churned (one fixed, one broke — G-band vs V-band ranking); that axis
+belongs to S2b/S5a.
+
+12 new fast tests give v2 what v1 never had: a build → solve → verify → contract
+end-to-end test in CI, on a miniature in-test database. The slow synthetic/junk tests
+now parametrise over both solvers.
+
+---
+
 ## 2026-07-31 — solver v2 designed; stage S0 landed (bench harness + v1 baseline)
 
 **The rebuild is designed and gated.** `docs/PLATESOLVER_V2_DESIGN.md` carries the
@@ -540,9 +577,11 @@ every historical result, so it is left as a deliberate choice.
 Milestones A and C are done; the UI is through P1 plus the analysis views above.
 
 1. **Milestone D — plate-solve robustness.** Now a staged rebuild with an A/B gate:
-   S0 (bench + baseline) is landed; next is S1, the Gaia pattern DB with the
-   verification catalogue switched to match. Designed in `docs/PLATESOLVER_V2_DESIGN.md`
-   (which supersedes the improvement list in `docs/PLATESOLVER_DESIGN.md` §5).
+   S0 (bench + baseline) and S1 (Gaia pattern DB + verification switch) are landed;
+   next is S2, the Kendall shape invariant with the conjugate-query mirror pass.
+   Designed in `docs/PLATESOLVER_V2_DESIGN.md` (which supersedes the improvement list
+   in `docs/PLATESOLVER_DESIGN.md` §5). S3 note from the S1 bench: verification depth
+   should adapt to the detection count.
 2. **Milestone B — auto-calibration and a quality score.** The score cards and the nn_corr
    grading exist; `mee2024/quality.py` and `mee2024 autocal` do not.
 3. **Milestone E — centroid backend rig.** Not started. The half-pixel convention note

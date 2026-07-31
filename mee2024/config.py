@@ -105,6 +105,8 @@ DEFAULT_OPTIONS = {
     # Gaia/shape-space rebuild (mee2024/platesolve2), kept opt-in until it dominates
     # the bench (tools/solver_bench.py)
     'platesolver': 'triangle',
+    # which pattern database the v2 solver reads; '' auto-selects the best installed
+    'pattern_db': '',
 }
 
 

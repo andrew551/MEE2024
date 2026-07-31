@@ -1,19 +1,66 @@
 """
-Plate solver v2: Gaia pattern database + Kendall shape-space triangle matching.
+Plate solver v2: Gaia pattern database + (from S2) Kendall shape-space matching.
 
 Selected with ``options['platesolver'] = 'v2'``; the production solver
 (`mee2024.platesolve_triangle`) stays the default until v2 dominates the A/B bench
 (``tools/solver_bench.py``). Design and stage plan: ``docs/PLATESOLVER_V2_DESIGN.md``.
 
-``platesolve()`` here honours the exact contract of
-``platesolve_triangle.platesolve`` -- same signature, same return-dict keys, same
-``SOLVE_CANDIDATE``/``SOLVE_RESULT`` events -- so the pipeline call sites never change.
+``platesolve()`` honours the exact contract of ``platesolve_triangle.platesolve`` --
+same signature, same return-dict keys, same ``SOLVE_CANDIDATE``/``SOLVE_RESULT``
+events -- so the pipeline call sites never change. The one additive key is
+``diagnostics`` (candidate counts, thresholds, timing) for the bench.
 """
+
+import numpy as np
+
+from mee2024 import events
 
 
 def platesolve(centroids, image_shape, options=None, output_dir=None,
-               try_mirror_also=True):
-    raise NotImplementedError(
-        "the v2 plate solver is not built yet (stage S1 of "
-        "docs/PLATESOLVER_V2_DESIGN.md). Set platesolver='triangle' to use the "
-        "production solver.")
+               try_mirror_also=True, catalogue=None, db=None):
+    """Lost-in-space solve of an (n, 2) brightest-first (y, x) centroid array.
+
+    ``catalogue`` and ``db`` exist for tests and the bench: by default the pattern
+    database is resolved from ``options['pattern_db']`` and the verification
+    catalogue from that database's manifest.
+    """
+    from mee2024.platesolve2 import pattern_db, solve, verify
+
+    options = options if options is not None else {}
+    centroids = np.array(centroids)
+    if not len(centroids.shape) == 2 or not centroids.shape[1] == 2:
+        raise Exception("ERROR: expected an n by 2 array for centroids")
+
+    if db is None:
+        db = pattern_db.resolve(options)
+    if catalogue is None:
+        catalogue = verify.open_verify_catalogue(db.manifest.get('verify') or {})
+
+    result = solve.solve_helper(db, catalogue, centroids, image_shape, options,
+                                output_dir=output_dir)
+    result['mirror'] = False
+    if result['success'] or not try_mirror_also:
+        _emit_solve_result(result)
+        return result
+
+    print('platesolve failed ... trying mirror image of field')
+    mirrored = np.copy(centroids)
+    mirrored[:, [0, 1]] = mirrored[:, [1, 0]]
+    result = solve.solve_helper(db, catalogue, mirrored,
+                                (image_shape[1], image_shape[0]), options,
+                                output_dir=output_dir)
+    result['mirror'] = False
+    if result['success']:
+        result['mirror'] = True
+        result['matched_centroids'][:, [0, 1]] = result['matched_centroids'][:, [1, 0]]
+    _emit_solve_result(result)
+    return result
+
+
+def _emit_solve_result(result):
+    events.emit(events.SOLVE_RESULT, success=bool(result['success']),
+                ra=result['ra'], dec=result['dec'], roll=result['roll'],
+                platescale=result['platescale/arcsec'],
+                mirror=bool(result.get('mirror')),
+                n_matched=0 if result['matched_stars'] is None
+                else int(len(result['matched_stars'])))

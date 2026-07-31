@@ -1,0 +1,118 @@
+"""
+Candidate-solution verification for the v2 solver.
+
+A faithful port of v1's ``match_centroids`` (mutual nearest neighbour with a 2x
+confusion margin, local catalogue density for the acceptance threshold) with one
+deliberate change: the comparison catalogue is **the one named in the pattern
+database's manifest** -- the same Gaia archive the patterns were built from -- rather
+than the bundled Tycho npz that v1 opens on its own. Verifying a Gaia-built solve
+against Tycho would leave Tycho's ~2.5 arcsec propagated errors inside the acceptance
+statistics, which is exactly what the rebuild removes.
+"""
+
+import math
+
+import numpy as np
+from sklearn.neighbors import NearestNeighbors
+
+from mee2024 import transforms
+from mee2024.MEE2024util import get_bbox
+from mee2024.platesolve_triangle import estimate_acceptance_threshold  # noqa: F401  (re-exported for solve.py)
+
+
+#: one provider per release set for the process lifetime (mmap handles are cheap but
+#: manifest reads and object setup are not free at one-per-candidate rates)
+_CATALOGUE_CACHE = {}
+
+
+def open_verify_catalogue(verify_spec):
+    """The provider named by a pattern DB manifest. Tests inject their own instead."""
+    from mee2024.starcat import providers
+    if verify_spec.get('provider') != 'gaia_offline':
+        raise ValueError(f"unknown verification provider in manifest: "
+                         f"{verify_spec.get('provider')!r}")
+    key = tuple(verify_spec.get('releases') or [])
+    if key not in _CATALOGUE_CACHE:
+        _CATALOGUE_CACHE[key] = providers.GaiaOfflineProvider.from_installed(
+            list(key) or None)
+    return _CATALOGUE_CACHE[key]
+
+
+def catalogue_size(catalogue, mag_limit):
+    """How many stars the verification catalogue holds to the given depth.
+
+    Feeds the acceptance estimator's hypothesis count. For the offline archives every
+    stored star is within the limit, so the manifest count is exact; any other object
+    just needs to answer len().
+    """
+    if hasattr(catalogue, 'catalogues'):
+        return int(sum(len(c) for c in catalogue.catalogues))
+    return int(len(catalogue))
+
+
+def _bbox_solid_angle(ra_range, dec_range):
+    """Solid angle of a (possibly RA-wrapping) bounding box, in steradians."""
+    dra = (ra_range[1] - ra_range[0]) % 360 or 360
+    sin_hi = math.sin(math.radians(max(dec_range)))
+    sin_lo = math.sin(math.radians(min(dec_range)))
+    return math.radians(dra) * (sin_hi - sin_lo)
+
+
+def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
+                    mag_limit, epoch):
+    """Mutually match observed centroids against catalogue stars for one candidate.
+
+    Returns (stardata, matched_plate, max_error, local_density) with ``stardata`` in
+    v1's (n, 6) layout: [ra_rad, dec_rad, vx, vy, vz, mag].
+    """
+    corners = transforms.to_polar(transforms.linear_transform(
+        platescale_fit,
+        np.array([[0, 0],
+                  [image_size[0] - 1., image_size[1] - 1.],
+                  [0, image_size[1] - 1.],
+                  [image_size[0] - 1., 0]])
+        - np.array([image_size[0] / 2, image_size[1] / 2])))
+    bbox = get_bbox(corners)
+    table = catalogue.lookup(bbox[0], bbox[1], mag_limit, epoch=epoch)
+    stardata = np.zeros((len(table), 6))
+    if len(table):
+        stardata[:, 0] = table.ra
+        stardata[:, 1] = table.dec
+        stardata[:, 2:5] = table.get_vectors()
+        stardata[:, 5] = table.get_mags()
+    # local catalogue density: the false-match rate scales with it, and the galactic
+    # plane runs 3-10x the all-sky mean, so the acceptance threshold must know it
+    local_density = stardata.shape[0] / max(_bbox_solid_angle(*bbox), 1e-12)
+
+    match_threshhold = np.radians(options['rough_match_threshhold'] / 3600)
+    if stardata.shape[0] < 2:
+        # nothing (or one star) to match against: no verification is possible
+        return stardata[:0], np.zeros((0, 2)), match_threshhold, local_density
+
+    all_star_plate = centroids - np.array([image_size[0] / 2, image_size[1] / 2])
+    all_vectors = transforms.linear_transform(platescale_fit, all_star_plate)
+
+    candidate_star_vectors = stardata[:, 2:5]
+    # nearest two catalogue stars to each observed star (3-vector metric)
+    neigh = NearestNeighbors(n_neighbors=2)
+    neigh.fit(candidate_star_vectors)
+    distances, indices = neigh.kneighbors(all_vectors)
+    # nearest observed star to each catalogue star, for the reflexivity check
+    neigh_bar = NearestNeighbors(n_neighbors=1)
+    neigh_bar.fit(all_vectors)
+    distances_bar, indices_bar = neigh_bar.kneighbors(candidate_star_vectors)
+
+    confusion_ratio = 2  # closest match must be 2x closer than second place
+    keep = np.logical_and(distances[:, 0] < match_threshhold,
+                          distances[:, 1] / distances[:, 0] > confusion_ratio)
+    # is the nearest-neighbour relation reflexive? [eliminates 1-to-many matching]
+    keep = np.logical_and(
+        keep, indices_bar[indices[:, 0]].flatten() == np.arange(indices.shape[0]))
+    keep_i = np.nonzero(keep)
+
+    stardata = stardata[indices[keep_i, 0].flatten(), :]
+    plate2 = all_star_plate[keep_i, :][0]
+    matched_vectors = all_vectors[keep_i, :][0]
+    errors = np.linalg.norm(stardata[:, 2:5] - matched_vectors, axis=1)
+    max_error = np.max(errors) if errors.size else match_threshhold
+    return stardata, plate2, max_error, local_density

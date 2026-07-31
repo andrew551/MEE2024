@@ -46,7 +46,7 @@ so pass local_density (stars per steradian in the candidate footprint) whenever 
 star count is available.
 '''
 def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, addon=3,
-                                  local_density=None):
+                                  local_density=None, tolerance=None):
     if local_density is not None:
         p = local_density * math.pi * threshold_match**2 # chance a random point lands within threshold of a star
     else:
@@ -55,8 +55,10 @@ def estimate_acceptance_threshold(n_obs, N_stars_catalog, threshold_match, g, ad
 
     poisson_lambda = p*(n_obs-3) # for a single random match, the number of matches can be approximated by a Poisson distribution
     # the minus three is because three of the observed stars are used to platesolve a match
-    
-    N = math.comb(N_stars_catalog, 3) * math.comb(g, 3) * TOLERANCE**2
+
+    if tolerance is None:
+        tolerance = TOLERANCE  # this module's own shape tolerance; v2 passes its own
+    N = math.comb(N_stars_catalog, 3) * math.comb(g, 3) * tolerance**2
     # number of "attempts" at sampling the Poisson distribution we have by matching a triangle of
     # observed stars to a triangle of catalogue stars
     # note that this is quite a vast overestimate - since almost all triangles will not

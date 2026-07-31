@@ -367,6 +367,25 @@ def cmd_build_triangle_db(args):
     return 0
 
 
+def cmd_build_pattern_db(args):
+    """Build a v2 pattern database from the installed offline Gaia catalogue."""
+    from mee2024.platesolve2 import build
+    from mee2024.progress import NullProgress, TextProgress
+
+    params = {}
+    if args.theta_pat is not None:
+        params['theta_pat_deg'] = args.theta_pat
+    if args.depth is not None:
+        params['d'] = args.depth
+    progress = NullProgress() if args.quiet else TextProgress()
+    out_dir, manifest = build.build_from_catalogue(
+        name=args.name, catalogue_names=tuple(args.catalogue), params=params,
+        progress=progress)
+    print(f"pattern database {manifest['name']} written to {out_dir}: "
+          f"{manifest['n_anchors']} anchors, {manifest['n_triangles']} triangles")
+    return 0
+
+
 # ---------------------------------------------------------------------------- parser
 
 def _add_common(parser):
@@ -476,6 +495,19 @@ def build_parser():
                        help='regenerate the plate-solving triangle database')
     _add_common(p)
     p.set_defaults(func=cmd_build_triangle_db)
+
+    p = sub.add_parser('build-pattern-db',
+                       help='build a v2 pattern database from the offline catalogue')
+    p.add_argument('--name', default='patdb_g12_t17',
+                   help='variant name (default: patdb_g12_t17)')
+    p.add_argument('--catalogue', nargs='+', default=['gaia_dr3_g12'],
+                   help='installed offline catalogue(s) to build from')
+    p.add_argument('--theta-pat', type=float, default=None, metavar='DEG',
+                   help='pattern disc radius in degrees (default 1.7)')
+    p.add_argument('--depth', type=int, default=None, metavar='N',
+                   help='star-list depth (default 700000)')
+    p.add_argument('--quiet', action='store_true', help='suppress the progress bar')
+    p.set_defaults(func=cmd_build_pattern_db)
 
     return parser
 

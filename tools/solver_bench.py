@@ -284,6 +284,9 @@ def cmd_run(args):
         from mee2024 import platesolve_triangle
         with contextlib.redirect_stdout(io.StringIO()):
             platesolve_triangle.load()
+    else:
+        from mee2024.platesolve2 import pattern_db
+        pattern_db.resolve(options).kd_tree  # noqa: B018  -- forces the index build
     db_load = round(time.perf_counter() - t0, 2)
     print(f'database load: {db_load} s')
 
