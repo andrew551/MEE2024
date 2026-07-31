@@ -194,6 +194,155 @@ def test_v2_result_contract_and_events(mini_db):
     assert any(e['type'] == events.SOLVE_CANDIDATE for e in sink.events)
 
 
+# ------------------------------------------------------------ kendall (S2)
+
+@pytest.fixture(scope='module')
+def mini_db_kendall(tmp_path_factory):
+    stars = synthetic_star_table()
+    out_dir, manifest = build.build_pattern_db(
+        stars, 'test_mini_kendall', out_root=tmp_path_factory.mktemp('patterndb'),
+        params=dict(MINI_PARAMS, invariant='kendall', tolerance=0.004),
+        verify_spec={'provider': 'test', 'mag_limit': 12.0, 'epoch': 2024.0})
+    return pattern_db.PatternDB(out_dir), PatchCatalogue(stars), manifest
+
+
+def test_kendall_db_reps_are_unit_norm_with_valid_perms(mini_db_kendall):
+    db, _, manifest = mini_db_kendall
+    assert manifest['invariant'] == 'kendall'
+    xy = np.asarray(db.tri_inv, dtype=np.float64)
+    z_sq = 1.0 - xy[:, 0] ** 2 - xy[:, 1] ** 2
+    assert np.all(z_sq > -1e-5)                      # on or inside the unit circle
+    assert np.all(np.asarray(db.tri_perm) < 6)       # codes 6/7 are impossible
+
+
+def test_kendall_solves_and_mirror_needs_no_requery(mini_db_kendall):
+    from tools.synthetic_field import solution_matches_truth
+    db, catalogue, _ = mini_db_kendall
+    centroids, truth = _field(catalogue)
+
+    result = platesolve_v2(centroids, (1000, 1500),
+                           options={'rough_match_threshhold': 36},
+                           catalogue=catalogue, db=db)
+    assert result['success'] and solution_matches_truth(result, truth)
+    assert result['mirror'] is False
+
+    mirrored = centroids[:, [1, 0]]
+    result_m = platesolve_v2(mirrored, (1500, 1000),
+                             options={'rough_match_threshhold': 36},
+                             catalogue=catalogue, db=db)
+    assert result_m['success'] and result_m['mirror'] is True
+    assert solution_matches_truth(result_m, truth)
+    # the pointing must agree between the two solves
+    assert result_m['ra'] == pytest.approx(result['ra'], abs=1e-3)
+    assert result_m['dec'] == pytest.approx(result['dec'], abs=1e-3)
+
+
+def test_kendall_rejects_junk(mini_db_kendall):
+    from tools.synthetic_field import junk_field
+    db, catalogue, _ = mini_db_kendall
+    result = platesolve_v2(junk_field((1000, 1500), n=60, seed=1), (1000, 1500),
+                           options={'rough_match_threshhold': 36},
+                           catalogue=catalogue, db=db)
+    assert not result['success']
+
+
+def test_kendall_agrees_with_ratio_dphi_solution(mini_db, mini_db_kendall):
+    """Same field, same anchors -- the two invariants must find the same sky."""
+    db1, catalogue, _ = mini_db
+    db2, _, _ = mini_db_kendall
+    centroids, truth = _field(catalogue)
+    r1 = platesolve_v2(centroids, (1000, 1500),
+                       options={'rough_match_threshhold': 36},
+                       catalogue=catalogue, db=db1)
+    r2 = platesolve_v2(centroids, (1000, 1500),
+                       options={'rough_match_threshhold': 36},
+                       catalogue=catalogue, db=db2)
+    assert r1['success'] and r2['success']
+    assert r2['ra'] == pytest.approx(r1['ra'], abs=1e-2)
+    assert r2['dec'] == pytest.approx(r1['dec'], abs=1e-2)
+    assert r2['platescale/arcsec'] == pytest.approx(r1['platescale/arcsec'],
+                                                    rel=1e-3)
+
+
+# ------------------------------------------------------- kendall geometry unit
+
+def _random_triangles_2d(n, rng):
+    return rng.normal(size=(n, 3, 2)) * 100
+
+
+def test_kendall_rep_is_invariant_to_labelling_rotation_and_scale():
+    rng = np.random.default_rng(0)
+    pts = _random_triangles_2d(50, rng)
+    xyz, _ = geometry.kendall_rep_2d(pts[:, 0], pts[:, 1], pts[:, 2])
+    # any relabelling of the same vertices gives the same canonical point
+    for perm in ((1, 2, 0), (2, 1, 0), (0, 2, 1)):
+        xyz_p, _ = geometry.kendall_rep_2d(pts[:, perm[0]], pts[:, perm[1]],
+                                           pts[:, perm[2]])
+        assert np.allclose(xyz_p, xyz, atol=1e-9), perm
+    # rigid rotation plus uniform scale changes nothing
+    theta = 0.83
+    rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+    scaled = 3.7 * pts @ rot.T + np.array([12.0, -4.0])
+    xyz_r, _ = geometry.kendall_rep_2d(scaled[:, 0], scaled[:, 1], scaled[:, 2])
+    assert np.allclose(xyz_r, xyz, atol=1e-9)
+
+
+def test_kendall_rep_is_unit_norm():
+    rng = np.random.default_rng(1)
+    pts = _random_triangles_2d(200, rng)
+    xyz, code = geometry.kendall_rep_2d(pts[:, 0], pts[:, 1], pts[:, 2])
+    assert np.allclose(np.linalg.norm(xyz, axis=1), 1.0, atol=1e-9)
+    assert np.all(xyz[:, 2] >= 0)
+    assert np.all(code < 6)
+
+
+def test_mirrored_triangle_lands_on_the_mirror_point():
+    rng = np.random.default_rng(2)
+    pts = _random_triangles_2d(100, rng)
+    xyz, _ = geometry.kendall_rep_2d(pts[:, 0], pts[:, 1], pts[:, 2])
+    flipped = pts[:, :, [1, 0]]     # transpose the pixel plane = mirror the field
+    xyz_m, _ = geometry.kendall_rep_2d(flipped[:, 0], flipped[:, 1], flipped[:, 2])
+    assert np.allclose(xyz_m, geometry.mirror_rep(xyz), atol=1e-9)
+
+
+@pytest.mark.parametrize('seed', range(6))
+def test_perm_code_recovers_vertex_correspondence(seed):
+    """Canonical position m of the image must be canonical position m of the DB.
+
+    The image is produced exactly the way the pipeline produces one: a gnomonic
+    projection via ``transforms.detransform_vectors`` followed by the solver's
+    (y, x) -> (x, y) column swap. The opposite chirality conventions of
+    ``kendall_rep_2d`` and ``kendall_rep_3d`` absorb the handedness flip between
+    the two frames, so reps and permutation orders must agree exactly.
+    """
+    from mee2024 import transforms
+
+    rng = np.random.default_rng(seed)
+    centre = rng.normal(size=3)
+    centre /= np.linalg.norm(centre)
+    verts3d = centre + rng.normal(scale=0.01, size=(3, 3))
+    verts3d /= np.linalg.norm(verts3d, axis=1, keepdims=True)
+
+    ra = np.arctan2(centre[1], centre[0]) % (2 * np.pi)
+    dec = np.arcsin(centre[2])
+    x_params = (1e-5, ra, dec, rng.uniform(0, 2 * np.pi))   # scale, ra, dec, roll
+    plate_yx = transforms.detransform_vectors(x_params, verts3d)
+    pixels = plate_yx[:, ::-1]                              # the solver's (x, y)
+
+    xyz_db, code_db = geometry.kendall_rep_3d(verts3d[None, 0], verts3d[None, 1],
+                                              verts3d[None, 2])
+    xyz_im, code_im = geometry.kendall_rep_2d(pixels[None, 0], pixels[None, 1],
+                                              pixels[None, 2])
+    # the reps agree up to projection curvature, O((field radius)^2) ~ 1e-4 here --
+    # the irreducible term in the S3 tolerance model, not an implementation error
+    assert np.allclose(xyz_db, xyz_im, atol=3e-4)
+
+    order_db = geometry.PERM_TABLE[code_db[0]]
+    order_im = geometry.PERM_TABLE[code_im[0]]
+    # pairing canonical positions must pair the *same physical vertices*
+    assert list(order_db) == list(order_im)
+
+
 # ----------------------------------------------------------------- geometry
 
 def test_find_rotation_matrix_recovers_a_known_rotation():

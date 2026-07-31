@@ -127,16 +127,20 @@ def extract_patterns(vectors, kept, kept2, e, theta_pat, progress):
     return pattern_ind, pattern_data, n_legs
 
 
+def _triangle_layout(n_legs, e):
+    pairs = np.array(list(itertools.combinations(range(e), 2)), dtype=np.int64)
+    counts = np.where(n_legs >= e, pairs.shape[0], n_legs * (n_legs - 1) // 2)
+    offsets = np.zeros(len(n_legs) + 1, dtype=np.int64)
+    np.cumsum(counts, out=offsets[1:])
+    return pairs, offsets
+
+
 def compute_triangles(pattern_data, n_legs, e, progress):
     """v1's (ratio, dphi) invariant for every leg pair of every anchor.
 
     Returns (anchor_tri_offset, tri_legs, tri_inv).
     """
-    pairs = np.array(list(itertools.combinations(range(e), 2)), dtype=np.int64)
-    counts = np.where(n_legs >= e, pairs.shape[0], n_legs * (n_legs - 1) // 2)
-    offsets = np.zeros(len(n_legs) + 1, dtype=np.int64)
-    np.cumsum(counts, out=offsets[1:])
-
+    pairs, offsets = _triangle_layout(n_legs, e)
     tri_legs = np.zeros((int(offsets[-1]), 2), dtype=np.uint8)
     tri_inv = np.zeros((int(offsets[-1]), 2), dtype=np.float32)
 
@@ -162,6 +166,52 @@ def compute_triangles(pattern_data, n_legs, e, progress):
             progress.update(i)
     progress.finish()
     return offsets, tri_legs, tri_inv
+
+
+def compute_triangles_kendall(anchors, pattern_data, n_legs, e, progress):
+    """The Kendall shape invariant for every leg pair of every anchor, chunked.
+
+    Returns (anchor_tri_offset, tri_legs, tri_inv (x, y), tri_perm).
+    """
+    from mee2024.platesolve2 import geometry
+
+    pairs, offsets = _triangle_layout(n_legs, e)
+    tri_legs = np.zeros((int(offsets[-1]), 2), dtype=np.uint8)
+    tri_inv = np.zeros((int(offsets[-1]), 2), dtype=np.float32)
+    tri_perm = np.zeros(int(offsets[-1]), dtype=np.uint8)
+
+    progress.start(len(n_legs), 'triangles')
+    for start in range(0, len(n_legs), ANCHOR_CHUNK):
+        stop = min(start + ANCHOR_CHUNK, len(n_legs))
+        # gather (v1, v2, v3) for every triangle of every anchor in the chunk
+        chunk_rows, chunk_j, chunk_k = [], [], []
+        for i in range(start, stop):
+            k = int(n_legs[i])
+            if k < 2:
+                continue
+            valid = pairs[pairs[:, 1] < k]
+            chunk_rows.append(np.full(len(valid), i, dtype=np.int64))
+            chunk_j.append(valid[:, 0])
+            chunk_k.append(valid[:, 1])
+        if not chunk_rows:
+            progress.update(stop)
+            continue
+        rows = np.concatenate(chunk_rows)
+        jj = np.concatenate(chunk_j)
+        kk = np.concatenate(chunk_k)
+        v1 = anchors[rows].astype(np.float64)
+        v2 = pattern_data[rows, jj, 2:5].astype(np.float64)
+        v3 = pattern_data[rows, kk, 2:5].astype(np.float64)
+        xyz, code = geometry.kendall_rep_3d(v1, v2, v3)
+
+        out = slice(int(offsets[start]), int(offsets[stop]))
+        tri_legs[out, 0] = jj
+        tri_legs[out, 1] = kk
+        tri_inv[out] = xyz[:, :2]
+        tri_perm[out] = code
+        progress.update(stop)
+    progress.finish()
+    return offsets, tri_legs, tri_inv, tri_perm
 
 
 def build_pattern_db(stars, name, out_root=None, params=None, verify_spec=None,
@@ -196,18 +246,22 @@ def build_pattern_db(stars, name, out_root=None, params=None, verify_spec=None,
     valid = pattern_ind >= 0
     pattern_ind[valid] = order[:d][pattern_ind[valid]].astype(np.int32)
 
-    offsets, tri_legs, tri_inv = compute_triangles(pattern_data, n_legs, e, progress)
-
+    invariant = p.get('invariant', pattern_db.INVARIANT_RATIO_DPHI)
     arrays = {
         'anchors': vectors[kept],
-        'anchor_tri_offset': offsets,
         'pattern_ind': pattern_ind,
         'pattern_data': pattern_data,
-        'tri_legs': tri_legs,
-        'tri_inv': tri_inv,
     }
-    stored = dict(p, invariant=pattern_db.INVARIANT_RATIO_DPHI,
-                  a=a, b=b, d=d, dedupe_rule='none')
+    if invariant == pattern_db.INVARIANT_KENDALL:
+        offsets, tri_legs, tri_inv, tri_perm = compute_triangles_kendall(
+            arrays['anchors'], pattern_data, n_legs, e, progress)
+        arrays['tri_perm'] = tri_perm
+    else:
+        offsets, tri_legs, tri_inv = compute_triangles(pattern_data, n_legs, e,
+                                                       progress)
+    arrays.update(anchor_tri_offset=offsets, tri_legs=tri_legs, tri_inv=tri_inv)
+
+    stored = dict(p, invariant=invariant, a=a, b=b, d=d, dedupe_rule='none')
     out_dir = (Path(out_root) if out_root else get_patterndb_root()) / name
     manifest = pattern_db.write_pattern_db(
         out_dir, arrays, stored,

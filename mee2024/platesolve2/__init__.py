@@ -36,6 +36,14 @@ def platesolve(centroids, image_shape, options=None, output_dir=None,
     if catalogue is None:
         catalogue = verify.open_verify_catalogue(db.manifest.get('verify') or {})
 
+    if db.invariant == pattern_db.INVARIANT_KENDALL:
+        # mirror coverage is part of the single query pass (docs, S2)
+        result = solve.solve_kendall(db, catalogue, centroids, image_shape, options,
+                                     output_dir=output_dir,
+                                     try_mirror_also=try_mirror_also)
+        _emit_solve_result(result)
+        return result
+
     result = solve.solve_helper(db, catalogue, centroids, image_shape, options,
                                 output_dir=output_dir)
     result['mirror'] = False

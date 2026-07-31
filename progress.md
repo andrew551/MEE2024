@@ -50,6 +50,48 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-08-01 — S2: triangles move onto the Kendall shape sphere
+
+**The invariant is now geometry, not bookkeeping.** `patdb_g12_t17k` stores each
+triangle as its point on the Kendall shape sphere — where isotropic centroid noise is
+isotropic shape noise — plus a 3-bit permutation code that pairs image and catalogue
+vertices positionally, with the pixel↔sky handedness flip absorbed by opposite
+chirality conventions (verified against pipeline-projected fields to the curvature
+limit). A mirrored field is one reflected query point, so the transpose-and-re-solve
+retry is gone from the v2 path: extraction and query are shared, and the mirror pool
+is clustered only if the normal one fails.
+
+**Bench vs S1 (docs/bench/BENCH.md): gate passed, 62 → 64/80.** Reliability **32/32**
+and scatter **12/12** — the marginal ordering draws the distorted (ratio, dphi)
+metric lost are exactly what the uniform metric keeps. `fov_galplane_12°` solves: the
+first movement past the documented ~10° ceiling. Solve medians −20–25 %; failures
+13.0 → 10.2 s. Junk 8/8, wrong solves 0, real fields 2/2 at 5.2–5.4 s.
+
+**Two findings the staged protocol was built to surface:**
+
+- *Calibration, measured rather than assumed*: over 1609 true triangle pairs across
+  23 synthetic fields, true-pair shape distances have median ~0.001 and per-field q99
+  of 0.002–0.007, scaling with FOV and noise exactly as the design doc's error budget
+  predicts. The dev spike's tolerance of 0.001 was correct *for clean stacked
+  fields*; this corpus's 3 px edge distortion sets an equal-stringency radius of
+  0.005 — so the big candidate cut (10–50×) is S3's adaptive-tolerance win, not
+  S2's. What S2 delivers instead is statistical uniformity, single-pass mirror, and
+  the two reliability families going clean.
+- *Vertex symmetry meets storage redundancy*: the same physical star triple lives
+  under 2–3 anchors in the DB, and the shape rep — unlike (ratio, dphi) — is the same
+  from every one of them, so every match arrives in duplicate with an identical
+  implied solution: 36,544 raw consensus clusters where S1 had 160. The consensus
+  loop now gates on distinct image triples (pure numpy); warm kendall solves went
+  11.3 s → 5.2 s, overtaking S1's 6.2 s. Recorded for S5: the dedupe could move into
+  the database itself, which is the dimmer-legs question (S2b) seen from the other
+  side.
+
+One boundary churn, accepted and assigned: the 8 px-noise case returns to failing
+(true-pair distances exceed the calibrated radius; S1's coarse metric kept it by
+luck). It is outside v1's documented envelope and awaits S3's noise-adaptive radius.
+
+---
+
 ## 2026-07-31 — S1: the Gaia pattern database, and the port that reads it
 
 **`mee2024/platesolve2/` is real.** Same algorithm as v1 — same invariant, tolerance,
@@ -577,11 +619,13 @@ every historical result, so it is left as a deliberate choice.
 Milestones A and C are done; the UI is through P1 plus the analysis views above.
 
 1. **Milestone D — plate-solve robustness.** Now a staged rebuild with an A/B gate:
-   S0 (bench + baseline) and S1 (Gaia pattern DB + verification switch) are landed;
-   next is S2, the Kendall shape invariant with the conjugate-query mirror pass.
-   Designed in `docs/PLATESOLVER_V2_DESIGN.md` (which supersedes the improvement list
-   in `docs/PLATESOLVER_DESIGN.md` §5). S3 note from the S1 bench: verification depth
-   should adapt to the detection count.
+   S0 (bench + baseline), S1 (Gaia pattern DB + verification switch) and S2 (Kendall
+   invariant + single-pass mirror; 64/80, reliability and scatter families clean) are
+   landed. Next: S3, the tolerance model — per-image noise-adaptive radius, FOV
+   curvature term, DB floor — which also owes three fixes the bench assigned it:
+   verification depth adapted to detection count (sparse-10), the 8 px-noise radius,
+   and spending the S1 verification margin. Then S4 (quaternion consensus; poles are
+   still 0/4 by design). Designed in `docs/PLATESOLVER_V2_DESIGN.md`.
 2. **Milestone B — auto-calibration and a quality score.** The score cards and the nn_corr
    grading exist; `mee2024/quality.py` and `mee2024 autocal` do not.
 3. **Milestone E — centroid backend rig.** Not started. The half-pixel convention note

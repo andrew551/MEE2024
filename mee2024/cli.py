@@ -377,6 +377,10 @@ def cmd_build_pattern_db(args):
         params['theta_pat_deg'] = args.theta_pat
     if args.depth is not None:
         params['d'] = args.depth
+    if args.invariant is not None:
+        params['invariant'] = args.invariant
+    if args.tolerance is not None:
+        params['tolerance'] = args.tolerance
     progress = NullProgress() if args.quiet else TextProgress()
     out_dir, manifest = build.build_from_catalogue(
         name=args.name, catalogue_names=tuple(args.catalogue), params=params,
@@ -506,6 +510,11 @@ def build_parser():
                    help='pattern disc radius in degrees (default 1.7)')
     p.add_argument('--depth', type=int, default=None, metavar='N',
                    help='star-list depth (default 700000)')
+    p.add_argument('--invariant', choices=['ratio_dphi', 'kendall'], default=None,
+                   help='triangle invariant (default ratio_dphi)')
+    p.add_argument('--tolerance', type=float, default=None,
+                   help='calibrated invariant-space match radius, recorded in the '
+                        'manifest for the solver to use')
     p.add_argument('--quiet', action='store_true', help='suppress the progress bar')
     p.set_defaults(func=cmd_build_pattern_db)
 

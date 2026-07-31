@@ -38,10 +38,14 @@ from mee2024.starcat.store import sha256
 FORMAT = 'mee2024-patterndb'
 FORMAT_VERSION = 1
 
-INVARIANT_RATIO_DPHI = 'ratio_dphi'
+INVARIANT_RATIO_DPHI = 'ratio_dphi'    # v1's pair: tri_inv = (ratio, dphi)
+INVARIANT_KENDALL = 'kendall'          # tri_inv = shape-sphere (x, y); z derived;
+                                       # tri_perm = 3-bit vertex permutation code
 
 #: (manifest key, filename, dtype) -- dtypes are pinned so a DB built on one
-#: platform loads identically on another (np.int_ is int32 on Windows, int64 on Linux)
+#: platform loads identically on another (np.int_ is int32 on Windows, int64 on Linux).
+#: Keys absent from the arrays dict are simply not written (tri_perm exists only for
+#: the kendall invariant).
 COLUMNS = (
     ('anchors', 'anchors.npy', np.float32),
     ('anchor_tri_offset', 'anchor_tri_offset.npy', np.int64),
@@ -49,12 +53,15 @@ COLUMNS = (
     ('pattern_data', 'pattern_data.npy', np.float32),
     ('tri_legs', 'tri_legs.npy', np.uint8),
     ('tri_inv', 'tri_inv.npy', np.float32),
+    ('tri_perm', 'tri_perm.npy', np.uint8),
 )
 
 MANIFEST_FILE = 'manifest.json'
 
-#: the variant a run uses when options['pattern_db'] is empty and it is installed
-DEFAULT_NAME = 'patdb_g12_t17'
+#: the variant a run uses when options['pattern_db'] is empty and it is installed.
+#: The kendall variant won the S2 bench (docs/bench/BENCH.md); patdb_g12_t17 remains
+#: the named rollback.
+DEFAULT_NAME = 'patdb_g12_t17k'
 
 
 def write_pattern_db(directory, arrays, params, source, verify_spec, provenance=''):
@@ -64,6 +71,8 @@ def write_pattern_db(directory, arrays, params, source, verify_spec, provenance=
 
     columns = {}
     for key, filename, dtype in COLUMNS:
+        if key not in arrays:
+            continue
         path = directory / filename
         np.save(path, np.ascontiguousarray(arrays[key], dtype=dtype))
         columns[key] = {'file': filename, 'dtype': np.dtype(dtype).name,
@@ -196,6 +205,7 @@ class PatternDB:
     pattern_data = property(lambda self: self._open('pattern_data'))
     tri_legs = property(lambda self: self._open('tri_legs'))
     tri_inv = property(lambda self: self._open('tri_inv'))
+    tri_perm = property(lambda self: self._open('tri_perm'))
 
     @property
     def name(self):
@@ -211,15 +221,26 @@ class PatternDB:
         return int(self.manifest['params']['e'])
 
     @property
+    def tolerance(self):
+        """The invariant-space match radius this database was calibrated for."""
+        default = 0.01 if self.invariant == INVARIANT_RATIO_DPHI else 0.004
+        return float(self.manifest['params'].get('tolerance') or default)
+
+    @property
     def kd_tree(self):
         if self._kd_tree is None:
             from scipy.spatial import KDTree
-            if self.invariant != INVARIANT_RATIO_DPHI:
+            if self.invariant == INVARIANT_RATIO_DPHI:
+                # dphi is periodic; ratio is not (the huge first boxsize disables
+                # wrap on that axis) -- v1's exact construction
+                self._kd_tree = KDTree(np.asarray(self.tri_inv),
+                                       boxsize=[9999999, np.pi * 2])
+            elif self.invariant == INVARIANT_KENDALL:
+                xy = np.asarray(self.tri_inv, dtype=np.float64)
+                z = np.sqrt(np.maximum(1.0 - xy[:, 0] ** 2 - xy[:, 1] ** 2, 0.0))
+                self._kd_tree = KDTree(np.c_[xy, z])
+            else:
                 raise ValueError(f'unknown invariant {self.invariant!r}')
-            # dphi is periodic; ratio is not (the huge first boxsize disables wrap
-            # on that axis) -- v1's exact construction
-            self._kd_tree = KDTree(np.asarray(self.tri_inv),
-                                   boxsize=[9999999, np.pi * 2])
         return self._kd_tree
 
     def triangle_anchor_and_legs(self, triangle_indices):

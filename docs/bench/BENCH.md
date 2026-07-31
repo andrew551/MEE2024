@@ -88,3 +88,66 @@ case flips:
 - fixed: scatter_midlat_fov2.4_mag_order_scatter0.6_s1
 - BROKE: sparse_detect_midlat_fov2.4_n_detect10_s0
 
+## S2 — Kendall shape invariant + single-pass mirror (`s2_kendall.json`)
+
+v2 reading `patdb_g12_t17k` (same anchors/legs as t17; invariant = Kendall shape
+sphere with 3-bit permutation codes; calibrated tolerance 0.005). Mirror coverage is
+now part of one query pass: extraction is shared and the mirror pool is only queried
+and clustered when the normal pool fails. `patdb_g12_t17k` is the auto-selected
+default from this stage; `patdb_g12_t17` remains the named rollback.
+
+**Gate: PASS.** Wrong solves 0, junk 8/8, real fields 2/2. Overall 62 → **64/80**;
+**reliability 32/32** (the 8° ordering draw fixed) and **scatter 12/12** (the S1
+casualty recovered) — the shape metric keeps marginal draws that the distorted
+(ratio, dphi) metric lost. `fov_galplane_12°` now solves: the first movement past
+the documented 10° ceiling, from shape-exact matching alone.
+
+Measured mechanics:
+
+- Solved-case candidates 1.27 M → 758 k (0.6×); solve medians down 20–25 % across
+  families; failure median 13.0 → 10.2 s (extraction+query shared with the mirror
+  pool). Not the naive halving: at tolerance 0.005 consensus still dominates
+  failures — the deep cuts belong to S3.
+- **Calibration honesty** (scratch run on 1609 true pairs over 23 fields): true-pair
+  Kendall distances run median ~0.001, q99 0.002–0.007 per clean field, growing with
+  FOV and noise exactly as the §1.1 error budget predicts. The dev spike's 0.001 was
+  right for clean stacked fields; this corpus's 3 px distortion floor sets 0.005.
+  Consequence: the candidate reduction at *equal stringency* is modest; the 10–50×
+  cut arrives with S3's per-image adaptive tolerance.
+- **A structural find**: the Kendall rep is vertex-symmetric, so the same physical
+  star triple stored under 2–3 anchors matches one image triangle repeatedly with
+  identical solutions — 36,544 raw ≥4-clusters vs S1's 160 on the same field. The
+  consensus now gates on *distinct image triples*, vectorised; warm kendall solves
+  went from 11.3 s (slower than S1) to 5.2 s (faster). An S5 option is recorded: the
+  dedupe could move into the DB (store each triple once), which is S2b's dimmer-legs
+  question from the other direction.
+- One boundary churn: the 8 px-noise case (fixed by S1) fails again — 8 px of
+  centroid noise pushes true-pair shape distances beyond the calibrated 0.005, while
+  S1's coarser metric happened to keep it. It sits beyond v1's documented envelope
+  (~4–5 px) and beyond the calibration set; S3's noise-adaptive radius is the
+  designed fix. Sparse-10 (S3) and poles 0/4 (S4) unchanged, as assigned.
+
+## v2@1ec236e vs v2@292d79e (2026-08-01T00:53:58)
+
+corpus v1, 88 shared cases. DB load 12.01 s -> 13.21 s.
+
+| family | correct | wrong | median time (s) |
+|---|---|---|---|
+| fov | 11/20 -> 12/20 | 0 -> 0 | 6.92 -> 5.48 |
+| junk | 8/8 -> 8/8 | 0 -> 0 | 12.93 -> 10.17 |
+| noise | 3/4 -> 2/4 | 0 -> 0 | 14.18 -> 10.14 |
+| pole | 0/4 -> 0/4 | 0 -> 0 | 13.79 -> 10.65 |
+| real | 2/2 -> 2/2 | 0 -> 0 | 6.45 -> 5.37 |
+| reliability | 31/32 -> 32/32 | 0 -> 0 | 6.42 -> 4.97 |
+| rollwrap | 3/3 -> 3/3 | 0 -> 0 | 10.16 -> 5.51 |
+| scatter | 11/12 -> 12/12 | 0 -> 0 | 7.11 -> 5.28 |
+| sparse_detect | 1/3 -> 1/3 | 0 -> 0 | 2.5 -> 2.04 |
+
+overall correct rate 0.775 -> 0.8; wrong solves 0 -> 0; junk rejected 8/8 -> 8/8
+
+case flips:
+- fixed: fov_galplane_fov12_s0
+- fixed: reliability_midlat_fov8_s3
+- BROKE: noise_midlat_fov2.4_noise_px8_s0
+- fixed: scatter_midlat_fov2.4_mag_order_scatter0.6_s0
+
