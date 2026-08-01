@@ -226,6 +226,34 @@ archive costs patience rather than restarts, which is what makes the wide range 
 **Recommendation: an overnight run, started when the archive is quiet, not a foreground
 task.**
 
+### Measured: the query shape is not the problem
+
+The obvious suspicion was that the probe asked badly — 1° stripes where the builder uses
+10°, a `dec BETWEEN` filter on a non-clustering column, astroquery's default VOTable XML,
+and the full-width `gaia_source` row. Four variants at matched row count (~35 k at G<15),
+run back to back so they saw similar archive load:
+
+| strategy | rows/s |
+|---|---|
+| A `dec` range, `gaia_source`, VOTable — what the builder does | 45 |
+| B `dec` range, `gaia_source`, CSV | 43 |
+| C `dec` range, **`gaia_source_lite`** | 50 |
+| D **`source_id` (HEALPix level-4) range**, `gaia_source` | 49 |
+
+**A 15% spread — nothing.** `source_id` is Gaia's clustering key (it encodes the level-12
+HEALPix index in its top bits, `source_id = hpx12·2³⁵ + n`), so a pixel range should be a
+contiguous scan rather than a filtered one; it is not measurably faster. Neither is halving
+the row width, nor skipping XML parsing. The four ran over ~45 minutes, so drifting archive
+load is confounded with the variant — but that confound cannot hide a 45× effect, and there
+is no effect to hide.
+
+Combining with the earlier 222 k-row probe gives **~200 s fixed per job plus ~59 rows/s
+marginal**: linear in rows, so chunking differently only moves the fixed term, which is
+already small. The variable that actually swings the answer by 50× is the archive's own
+throughput on the day. **No builder change is justified** (`tools/build_gaia_offline.py`
+stays as it is); the remaining levers are when you run it, an authenticated session (ESA
+gives logged-in users higher priority), and possibly a different TAP endpoint.
+
 ---
 
 ## 2026-08-01 — v1.2.0: one catalogue, two choices, offline by default
