@@ -53,6 +53,61 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-08-01 — four UI bugs, a pointing check, and an executable that was 2.7 GB
+
+**Closing the browser tab left the process running.** A closed tab tells a server
+nothing, and browser mode simply waited on an Event forever. The page now sends a
+`sendBeacon` goodbye on `pagehide`, and the server also runs an idle watchdog — the
+frontend polls while it is open, so silence means nobody is watching. A run or an
+active watch keeps the session alive regardless; `mee2024 ui --keep-alive` restores
+the old behaviour for serving a browser elsewhere.
+
+**The 3-D surface and correlation map grew on every scroll and drag.** `fitCanvas`
+read the drawing height back out of `canvas.getAttribute('height')` — but assigning
+`canvas.height` *is* that attribute, so `height = h × dpr` fed itself once per
+redraw, inflating by 25 % a tick on a 1.25× display. The intended size is remembered
+once and the CSS box pinned, so the backing store cannot move the layout either.
+
+**The config file was never written by the app at all.** Only the CLI and the classic
+GUI ever wrote it, so the app window forgot the last-used folder, catalogue and preset
+on every launch. A run now saves them and `hello()` offers them back. On location:
+`%LOCALAPPDATA%\MEE2024\MEE2024\MEE_config.txt` (`mee2024 config --show-path`) is
+correct and stays — Program Files is read-only without administrator rights and cannot
+hold per-user settings. The absence was the bug, not the address.
+
+**Cubic is the distortion default everywhere** (the config default always was; the UI
+select and the `auto` preset said quintic).
+
+**Stage 1 now scores the solve against the mount.** Capture software records its own
+`RA`/`DEC` (or `OBJCTRA`/`OBJCTDEC`), which is an independent check on the whole
+chain: under 0.5° reads as good alignment, a few degrees as workable, tens of degrees
+as something wrong upstream. Measured 0.05° on the new ZWO dataset.
+
+**Native file dialogs are wired up at last.** The `native_dialog` hook has existed
+unused since P1; `/api/pick` now uses it in the native window and reports
+unavailability in browser mode, where the built-in picker remains the fallback. A
+cancelled dialog stays distinguishable from having no dialog.
+
+**Pattern databases are built on first use, not downloaded.** They are derived from
+the star catalogue, so publishing them would mean shipping hundreds of megabytes a
+machine can compute in seconds. Measured: 69 MB and **19 s** from the compact
+catalogue (both real fields and 6 of 7 spot cases, and 0.1–0.3 s per solve — the
+sparser query balls are much faster), against 230 MB and ~3 min for the full one.
+`ensure_pattern_db()` picks the right build and reports progress like any stage.
+
+**The executable was 2.7 GB.** PyInstaller followed optional `torch` references in
+scikit-image and scikit-learn and bundled the whole CUDA stack — `cublasLt64_12.dll`
+alone is 473 MB — so the release artefact's size depended on what the build machine
+happened to have installed. Worse, **`excludes` does not prevent it**: excluding a
+package prunes its Python modules, but binaries a hook already contributed survive,
+and `excludes=['torch']` still shipped 1.25 GB of CUDA libraries. The spec now filters
+the TOC tables after `Analysis`, which is the only place a size guarantee can be made.
+Verified which heavy packages are genuinely used before filtering: cv2 (stage 1) and
+statsmodels (the distortion and eclipse fits) stay; torch, cupy, jax and numba are
+imported nowhere.
+
+---
+
 ## 2026-08-01 — the duplicate-catalogue bug: a good field that matched nothing
 
 **Reported symptom**: stage 1 solved a real 3008² field (RA 280.60, Dec 50.83, 1.56°,

@@ -1,177 +1,194 @@
 # Publishing releases
 
-Two separate releases, deliberately kept apart:
+Three kinds of artefact, and only two are ever uploaded:
 
-| release | tag | contains | changes |
-|---|---|---|---|
-| **Star catalogues** | `catalogues-v1` | two `.zip` archives, 327 MB total | rarely |
-| **Software** | `v1.0.1` | `MEE_2024_v1.0.1.exe`, 187 MB | every version |
+| artefact | where it comes from | released? |
+|---|---|---|
+| **Star catalogue** `gaia_dr3_g13` | built once from the Gaia archive | yes, tag `catalogues-v1` |
+| **The program** `MEE_2024_v<version>.exe` | `python -m PyInstaller MEE2024.spec` | yes, tag `v<version>` |
+| **Plate-solving pattern databases** | derived on the user's own machine | **no — see Part 3** |
 
-They are separate because the catalogues change far less often than the code. Pinning them
-together would mean re-uploading 327 MB for every patch release, and would break the
-download URLs already compiled into older builds.
+Catalogues and software are separate releases because the catalogues change far less often
+than the code: pinning them together would mean re-uploading hundreds of megabytes for
+every patch, and would break the download URLs compiled into older builds.
 
 ---
 
-# Part 1 — the star catalogues
+# Part 1 — the star catalogue
 
-The application **already knows these URLs**. `mee2024/starcat/download.py` expects exactly:
+The application already knows this URL, and `mee2024/starcat/download.py` must agree with
+it exactly or the download silently 404s:
 
 ```
-https://github.com/andrew551/MEE2024/releases/download/catalogues-v1/gaia_dr3_g12.zip
-https://github.com/andrew551/MEE2024/releases/download/catalogues-v1/gaia_dr3_g12_13.zip
+https://github.com/andrew551/MEE2024/releases/download/catalogues-v1/gaia_dr3_g13.zip
 ```
 
-so three things must match exactly, or the download silently 404s:
+Three things must match: the repository is **`andrew551/MEE2024`** and **public**, the tag
+is **`catalogues-v1`**, and the asset is **`gaia_dr3_g13.zip`**.
 
-1. the repository is **`andrew551/MEE2024`** and is **public**
-2. the tag is **`catalogues-v1`** — not `catalogues_v1`, not `v1-catalogues`
-3. the asset filenames are **`gaia_dr3_g12.zip`** and **`gaia_dr3_g12_13.zip`**
-
-## What to upload
-
-Both files are already built and waiting in `dist/upload/`:
-
-| file | size (bytes) | sha256 |
-|---|---|---|
-| `gaia_dr3_g12.zip` | 137,952,319 | `f4a579e369c41b6d7099bac6b20d58c69f6b750092cd62f4085c77c670fbc5cb` |
-| `gaia_dr3_g12_13.zip` | 188,640,212 | `28607c07a9f60c89f09ba653eac06f890ff89631d28252e9af7af63be1adb71b` |
-
-Those hashes are compiled into the application, which refuses any download that does not
-match. **Do not rename, re-zip or re-compress the files** — that changes the hash and every
-download will then fail verification. Upload them exactly as they are.
-
-If you ever do need to rebuild them, re-pack and then update the two `sha256` values in
-`RELEASES` in `mee2024/starcat/download.py`:
+## Step 1 — pack the archive and record its identity
 
 ```bash
-mee2024 catalogue --pack gaia_dr3_g12       # prints the new sha256
-mee2024 catalogue --pack gaia_dr3_g12_13
+mee2024 catalogue --pack gaia_dr3_g13
 ```
 
-## Option A — the command line (recommended, least room for error)
+This writes `gaia_dr3_g13.zip` and prints its size and SHA-256. Put both into the
+`gaia_dr3_g13` entry of `RELEASES` in `mee2024/starcat/download.py`, replacing the `None`
+placeholders:
 
-Needs the GitHub CLI: <https://cli.github.com/>. One-off sign-in: `gh auth login`.
+```python
+    'gaia_dr3_g13': CatalogueRelease(
+        ...
+        size_bytes=<the size it printed>,
+        url=_github_asset('gaia_dr3_g13.zip'),
+        sha256='<the hash it printed>',
+    ),
+```
+
+The application refuses any download whose hash does not match, so **do not rename, re-zip
+or re-compress the file afterwards** — upload exactly what `--pack` produced.
+
+## Step 2 — upload
+
+Needs the GitHub CLI (<https://cli.github.com/>, one-off `gh auth login`). The
+`catalogues-v1` release already holds the two superseded archives, so this adds to it
+rather than replacing it, and older builds keep working:
 
 ```bash
-cd C:/Users/Andrew/Documents/mee26/MEE2024
+gh release upload catalogues-v1 gaia_dr3_g13.zip --repo andrew551/MEE2024
 ```
+
+If the tag does not exist yet, create it in one step instead:
 
 ```bash
-gh release create catalogues-v1 "dist/upload/gaia_dr3_g12.zip" "dist/upload/gaia_dr3_g12_13.zip" --repo andrew551/MEE2024 --title "Star catalogues v1" --notes "Offline Gaia DR3 star catalogues for MEE2024. gaia_dr3_g12.zip is G<12, 3,087,821 stars. gaia_dr3_g12_13.zip is 12<G<13, 4,281,806 stars, an optional extension for deep eclipse fields. Install with: mee2024 catalogue --fetch gaia_dr3_g12. Derived from ESA/Gaia/DPAC data."
+gh release create catalogues-v1 gaia_dr3_g13.zip --repo andrew551/MEE2024 --title "Star catalogues" --notes "Offline Gaia DR3 catalogue for MEE2024: G < 13, 7,369,627 stars, with double-star neighbour flags computed across the whole archive. Install with: mee2024 catalogue --fetch gaia_dr3_g13. Derived from ESA/Gaia/DPAC data."
 ```
 
-The upload takes a few minutes for 327 MB. It prints the release URL when finished.
+**Never pass `--draft`.** A draft release is invisible to anonymous downloads, so the app
+gets a 404 while the release looks fine in your browser. To stage privately, use `--draft`
+and then `gh release edit catalogues-v1 --draft=false` when ready.
 
-> **Do not pass `--draft`.** A draft release is invisible to anonymous downloads, so the
-> app would get a 404 even though the release looks fine in your browser. If you want to
-> stage it privately first, use `--draft` and then publish with
-> `gh release edit catalogues-v1 --draft=false` when ready.
-
-## Option B — the GitHub website
-
-1. Go to **<https://github.com/andrew551/MEE2024/releases>** and click **Draft a new
-   release**.
-2. **Choose a tag** → type `catalogues-v1` → click **"+ Create new tag: catalogues-v1 on
-   publish"**. Leave the target as `main`.
-3. Release title: `Star catalogues v1`.
-4. Description: anything you like; the text from Option A is a reasonable starting point.
-5. Drag **both** files from `dist/upload/` into the *"Attach binaries..."* box. Wait for
-   both to reach 100% — a 327 MB upload is not quick, and clicking Publish early attaches
-   nothing.
-6. Leave **"Set as a pre-release" unticked**.
-7. Click **Publish release** — *not* "Save draft".
-
-## Verify it worked
-
-This is the important step, and it needs no download:
+## Step 3 — verify, without downloading a third of a gigabyte
 
 ```bash
 mee2024 catalogue --check-remote
 ```
 
-Expected:
+`[OK  ] gaia_dr3_g13 ... reachable, <size> MB` is the goal. `[skip]` means no URL is
+configured yet (step 1 was missed). `FAIL ... 404` means the tag, repository or asset name
+does not match, or the release is still a draft. A **size mismatch** means a different or
+re-compressed file was uploaded and the recorded hash no longer applies.
 
-```
-[OK  ] gaia_dr3_g12
-       https://github.com/andrew551/MEE2024/releases/download/catalogues-v1/gaia_dr3_g12.zip
-       reachable, 138 MB
-[OK  ] gaia_dr3_g12_13
-       https://github.com/andrew551/MEE2024/releases/download/catalogues-v1/gaia_dr3_g12_13.zip
-       reachable, 189 MB
-
-All catalogue assets are reachable; `mee2024 catalogue --fetch NAME` will work.
-```
-
-If it says `FAIL ... 404 not found`, one of the three exact-match conditions above is
-wrong, or the release is still a draft. If it reports a **size mismatch**, a different or
-re-compressed file was uploaded and the hashes in `download.py` no longer apply.
-
-Then confirm a real download works, ideally on a machine that does not already have the
-catalogue:
+Then confirm a real download on a machine that does not already have it — it verifies the
+SHA-256, unpacks, and checks every column against the manifest before accepting:
 
 ```bash
-mee2024 catalogue --fetch gaia_dr3_g12
+mee2024 catalogue --fetch gaia_dr3_g13
 ```
 
-It downloads, checks the SHA-256, unpacks, and verifies every column against the manifest
-before accepting it.
+## The other tiers
+
+`gaia_dr3_g10` (24 MB) is **bundled inside the executable** rather than released — Part 2.
+`gaia_dr3_g15` is a placeholder for a deep archive that does not exist yet; build it with
+`tools/build_gaia_offline.py --max-mag 15`, then follow Part 1 for it.
+
+The superseded `gaia_dr3_g12` and `gaia_dr3_g12_13` assets stay published: existing
+installations still fetch them, and `mee2024 catalogue --merge` turns that pair into the
+standard archive without downloading anything.
 
 ---
 
-# Part 2 — the Windows executable
-
-## Build
+# Part 2 — the program
 
 ```bash
-cd C:/Users/Andrew/Documents/mee26/MEE2024
 python -m PyInstaller MEE2024.spec --noconfirm
 ```
 
 Run it **from the repository root** — the code uses absolute `from mee2024 import ...`
-imports, so the root has to be on the path. Produces `dist/MEE_2024_v1.0.1.exe`, about
-187 MB, self-contained, no Python needed on the target machine.
+imports, so the root must be on the path. Produces `dist/MEE_2024_v<version>.exe`, one
+file, no Python needed on the target machine. The filename follows `_version()` in
+`mee2024/MEE2024util.py`, so bump that (and `setup.cfg`) first.
 
-The filename comes from `_version()` in `mee2024/MEE2024util.py`, so bumping the version
-there (and in `setup.cfg`) is all that is needed — the spec follows.
+Built and tested with Python 3.9; the full suite also passes on newer interpreters.
 
-Built and tested with Python 3.9. The full test suite passes on 3.9 and 3.14.
+**The build bundles the compact star catalogue** so a fresh install plate-solves offline
+immediately. The spec looks for `gaia_dr3_g10` in the build machine's catalogue directory
+(or `mee2024/resources/catalogues/`) and prints which it used:
+
+```
+spec: bundling gaia_dr3_g10 from C:\Users\...\MEE2024\catalogues\gaia_dr3_g10
+```
+
+If it prints `not found` the exe still works, but every first run needs a download. Create
+the tier in about a second from any deeper installed catalogue:
+
+```bash
+python -c "from mee2024.starcat import download; download.build_compact_tier()"
+```
+
+It is deliberately **not** in source control: 24 MB of generated data that any machine with
+a deeper archive can reproduce.
 
 ## Check before shipping
 
 ```bash
-dist/MEE_2024_v1.0.1.exe --version
-dist/MEE_2024_v1.0.1.exe catalogue --check-remote
-dist/MEE_2024_v1.0.1.exe ui --browser
+dist/MEE_2024_v1.2.0.exe --version
+```
+```bash
+dist/MEE_2024_v1.2.0.exe catalogue
 ```
 
-Then double-click it: the **new app window** should open. That is the default since
-v1.0.0. `MEE_2024_v1.0.1.exe gui` still opens the classic interface, and
-`mee2024 config --set default_interface=classic` makes the classic one the default again.
+The second must list `gaia_dr3_g10` as installed — that proves the bundle arrived *and*
+that the runtime finds it inside the archive. Then double-click it: the app window opens
+(the default since v1.0.0), and `MEE_2024_v1.2.0.exe gui` still opens the classic
+interface. Run a small dataset through it and confirm the plate solve succeeds on a machine
+with no catalogue in its data directory — that is the whole point of the bundle.
 
 ## Publish
 
 ```bash
-gh release create v1.0.1 "dist/MEE_2024_v1.0.1.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.0.1" --notes "Windows executable, no Python installation required. Double-click to open the app window, or run it from a terminal for the command line. The classic interface is still available with: MEE_2024_v1.0.1.exe gui. Star catalogues are downloaded automatically on first use. New in this release: offline catalogues are fetched automatically when a run needs one, with the download shown in MB; a warning when the requested star magnitude is deeper than the selected catalogue reaches; and an Advanced analysis panel with rotatable distortion surfaces and a spatially resolved residual-correlation map."
+gh release create v1.2.0 "dist/MEE_2024_v1.2.0.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.2.0" --notes "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still available with: MEE_2024_v1.2.0.exe gui. This build bundles the compact Gaia catalogue (G < 10) and so plate-solves offline immediately -- fetch gaia_dr3_g13 for fainter stars. New: a rebuilt plate solver that solves blind from 1 to 18 degrees at about a second a field, one standard star catalogue instead of two overlapping ones, native file dialogs, and the plate-solving database is built automatically on first use."
 ```
 
-The executable deliberately does **not** contain the 327 MB of star catalogues. It fetches
-them on first use, or they can be installed from a local file with
-`mee2024 catalogue --install`.
+---
+
+# Part 3 — why the pattern databases are not released
+
+The plate solver reads pattern databases, and it would be natural to publish them beside
+the catalogues. They should not be, for a reason worth stating plainly: **they are derived
+data.** Every byte is computable from the star catalogue the user already has, so
+publishing them means shipping hundreds of megabytes a machine can produce in seconds, and
+then keeping those artefacts in step with every change to the builder.
+
+Measured on this machine:
+
+| built from | legs per anchor | triangles | size | build time | solves |
+|---|---|---|---|---|---|
+| `gaia_dr3_g10` | 8 | 3.2 M | 69 MB | **19 s** | both real fields, 6 of 7 spot cases, 0.1–0.3 s per solve |
+| `gaia_dr3_g13` | 18 | 17.2 M | 230 MB | ~3 min | the full measured envelope (`docs/bench/BENCH.md`) |
+
+So the program builds one on first use instead. `platesolve2.ensure_pattern_db()` runs
+before the first solve, picks the small fast build from the compact catalogue or the full
+one from a deeper archive, and reports progress like any other pipeline stage. The user is
+told what is happening and waits twenty seconds, once — no download, no instructions,
+nothing to choose. Installing a deeper catalogue later earns a better database next time.
+
+If that wait ever proves unpopular, publishing prebuilt databases is a small change: add
+entries to `RELEASES` with `kind='patterndb'` and follow Part 1. Do it only with a
+measurement in hand — a 230 MB download to save three minutes of local computation is a
+poor trade, and a 69 MB download to save twenty seconds is a worse one.
 
 ---
 
 # Moving to Zenodo later
 
 Zenodo gives a citable DOI, which matters once results are published. The switch is a
-two-line edit per catalogue in `RELEASES` in `mee2024/starcat/download.py` — replace `url`
-and fill in `doi`. The `sha256` values stay the same as long as the same files are
-uploaded, so existing installations are unaffected.
-
-Users can also override the source without any new software release:
+two-line edit per catalogue in `RELEASES` — replace `url` and fill in `doi`. The `sha256`
+values stay the same as long as the same files are uploaded, so existing installations are
+unaffected. Users can also override the source with no new software release:
 
 ```bash
-mee2024 catalogue --set-source gaia_dr3_g12 --url URL --sha256 HASH
+mee2024 catalogue --set-source gaia_dr3_g13 --url URL --sha256 HASH
 ```
 
 ## Attribution
@@ -180,3 +197,10 @@ Gaia data is freely redistributable with credit to **ESA/Gaia/DPAC**. The bundle
 Hipparcos-derived catalogue and star-label index come from the Hipparcos-2 reduction
 (van Leeuwen 2007) and Gaia's own `hipparcos2_best_neighbour` crossmatch. Each catalogue
 records its sources in its `manifest.json` provenance field.
+
+---
+
+# After any release
+
+Update the **Current state** table at the top of `progress.md` (version, what is
+published) and add an entry describing what changed.

@@ -26,6 +26,7 @@ Bundling notes, each of which was needed to make the build actually run:
 """
 
 import os
+import re
 import sys
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -107,9 +108,53 @@ a = Analysis(
     hookspath=[],
     runtime_hooks=[],
     # matplotlib's interactive backends and the test frameworks are dead weight in a
-    # bundle that renders to Agg and to the web frontend
-    excludes=['tkinter.test', 'pytest', '_pytest', 'PyQt5', 'PyQt6', 'PySide2', 'PySide6'],
+    # bundle that renders to Agg and to the web frontend.
+    #
+    # The machine-learning stacks matter more than they look: scikit-image and
+    # scikit-learn reference torch, tensorflow and friends in optional code paths, so
+    # PyInstaller's analysis follows them if they happen to be installed on the build
+    # machine -- which turned one build into a 2.7 GB executable instead of ~215 MB.
+    # Nothing here uses them, so excluding them is free, and doing it explicitly means
+    # the executable's size no longer depends on what else the builder has in their
+    # environment.
+    excludes=['tkinter.test', 'pytest', '_pytest', 'PyQt5', 'PyQt6', 'PySide2', 'PySide6',
+              'torch', 'torchvision', 'torchaudio', 'tensorflow', 'tensorboard', 'keras',
+              'jax', 'jaxlib', 'transformers', 'sympy', 'IPython', 'notebook',
+              'jupyter', 'jupyter_core', 'nbconvert', 'nbformat', 'zmq', 'tornado',
+              'numba', 'llvmlite', 'dask', 'bokeh', 'plotly', 'seaborn', 'pyarrow'],
 )
+
+# Belt and braces over `excludes`. Excluding a package stops its *modules* being
+# collected, but binaries a PyInstaller hook has already contributed survive that --
+# torch's CUDA libraries (1.25 GB of cuBLAS, cuFFT and cuSPARSE) sailed straight
+# through an `excludes=['torch']` and into the executable. So drop them from the
+# tables directly, which is the only place a size guarantee can actually be made.
+#
+# cupy and torch are GPU stacks nothing here imports; they arrive only because some
+# dependency mentions them in an optional path and the build machine happens to have
+# them installed. Keep the list to things verified unused: cv2 IS imported by
+# stacker_implementation, and statsmodels by the distortion and eclipse fits.
+UNWANTED = {'torch', 'torchvision', 'torchaudio', 'cupy', 'cupy_backends',
+            'cupyx', 'tensorflow', 'tensorboard', 'keras', 'jax', 'jaxlib',
+            'nvidia', 'triton', 'transformers', 'numba', 'llvmlite'}
+
+
+def _without_unwanted(table):
+    kept = []
+    for entry in table:
+        top = re.split(r'[\\/]', entry[0])[0].lower()
+        if top in UNWANTED or top.split('.')[0] in UNWANTED:
+            continue
+        kept.append(entry)
+    dropped = len(table) - len(kept)
+    if dropped:
+        print(f'spec: dropped {dropped} files belonging to unused GPU/ML stacks')
+    return kept
+
+
+a.binaries = _without_unwanted(a.binaries)
+a.datas = _without_unwanted(a.datas)
+a.pure = _without_unwanted(a.pure)
 
 pyz = PYZ(a.pure)
 
