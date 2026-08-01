@@ -199,6 +199,33 @@ Threading that needed a small solver change: `platesolve2.verify.match_centroids
 returns the **catalogue ids** of the stars it matched, carried out as `matched_ids`, which
 is what lets a label be a name rather than a magnitude.
 
+### Measured: what a deeper archive would cost, and why the time figure is a range
+
+**Size is settled.** Two independently built archives agree on bytes per star to within
+1.5% — `gaia_dr3_g12` packs 3.09 M stars into 138.0 MB and the 12–13 extension packs
+4.28 M into 188.6 MB, i.e. **~44.4 B/star zipped, ~49.7 B/star on disk**. So:
+
+| tier | stars | download | on disk |
+|---|---|---|---|
+| G < 14 | 16.8 M | ~750 MB | ~0.84 GB |
+| G < 15 | 36.9 M | ~1.64 GB | ~1.83 GB |
+
+**Build time is not settled, and the honest answer is a range spanning two orders of
+magnitude.** The recorded all-sky G<12 build fetched 3.09 M rows in 29 queries in 10–22
+minutes — **2,300–5,200 rows/s**. An uncapped async probe run today fetched one 1° stripe
+(222,483 rows at G<15) in **3,951 s — 56 rows/s**, a factor of 45 slower. Nothing in our
+code differs between the two; the archive was simply loaded. Extrapolating today's rate
+gives 182 h for G<15, which I do not believe as a *typical* cost, and quoting it as one
+would be dressing up a bad-day sample as a measurement.
+
+What can be said: at the historically measured rate a G<15 build is **~2–4.5 hours**, with
+a hard floor of ~1–1.4 h set by query latency alone (~185 chunks at 200 k rows each, 20–28 s
+of latency per query regardless of size). On a day like today it is a multi-day job. The
+build is resumable — each stripe chunk is cached as an `.npy` keyed on its band — so a slow
+archive costs patience rather than restarts, which is what makes the wide range tolerable.
+**Recommendation: an overnight run, started when the archive is quiet, not a foreground
+task.**
+
 ---
 
 ## 2026-08-01 — v1.2.0: one catalogue, two choices, offline by default
