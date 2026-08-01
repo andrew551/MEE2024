@@ -50,14 +50,45 @@ class CatalogueRelease:
         return self.url is not None
 
     def directory(self):
+        """Where an installed copy lives, and where a download writes."""
         return get_catalogue_root() / self.name
 
-    def is_installed(self):
+    def bundled_directory(self):
+        """Where a copy shipped inside the program lives, if one was.
+
+        The executable bundles the compact archive so it solves offline out of the box
+        (MEE2024.spec). A downloaded archive in the user's data directory always wins,
+        since it is the deeper one.
+        """
+        from mee2024.MEE2024util import resource_path
+        return Path(resource_path(f'resources/catalogues/{self.name}'))
+
+    def read_directory(self):
+        """The copy to read: the installed one if present, else a bundled one."""
+        for candidate in (self.directory(), self.bundled_directory()):
+            try:
+                store.read_manifest(candidate)
+                return candidate
+            except Exception:
+                continue
+        return self.directory()
+
+    def is_bundled(self):
         try:
-            store.read_manifest(self.directory())
+            store.read_manifest(self.bundled_directory())
             return True
-        except (FileNotFoundError, ValueError):
+        except Exception:
             return False
+
+    def is_installed(self):
+        """Is this archive readable -- from the user's data directory or bundled?"""
+        for candidate in (self.directory(), self.bundled_directory()):
+            try:
+                store.read_manifest(candidate)
+                return True
+            except (FileNotFoundError, ValueError, OSError):
+                continue
+        return False
 
     def human_size(self):
         if not self.size_bytes:
@@ -80,11 +111,17 @@ class CatalogueRelease:
 # read both and concatenate.
 # ---------------------------------------------------------------------------
 
-# The two archives are **disjoint magnitude slices**, not a base and a superset:
-# gaia_dr3_g12 covers G < 12 and gaia_dr3_g12_13 covers 12 < G < 13. GaiaOfflineProvider
-# concatenates whichever are installed, so "G < 13 coverage" means installing both. That
-# split is the point: a calibration field needs only the 138 MB base, while a deep eclipse
-# field adds the second archive.
+# One archive is the standard: **gaia_dr3_g13**, G < 13, everything an ordinary run
+# needs (the default max_star_mag_dist is 12) and deep enough for eclipse fields. The
+# original G<12 + 12<G<13 pair remains supported for anyone who already downloaded it,
+# but splitting the standard depth across two disjoint slices cost more confusion than
+# the 138 MB it saved -- and installing only the extension yields a catalogue containing
+# nothing brighter than G=12, which is a genuine footgun. `mee2024 catalogue --merge`
+# turns an installed pair into the single archive.
+#
+# The other two tiers exist for the ends of the range rather than to subdivide the
+# middle: a compact archive small enough to sit beside the program, and a very deep one
+# for work that genuinely needs it.
 GITHUB_REPO = 'andrew551/MEE2024'
 #: the release tag holding the catalogue assets, kept separate from software releases
 CATALOGUE_TAG = 'catalogues-v1'
@@ -96,19 +133,54 @@ def _github_asset(filename):
 
 
 RELEASES = {
+    'gaia_dr3_g13': CatalogueRelease(
+        name='gaia_dr3_g13',
+        description='Gaia DR3, G < 13 -- the standard archive',
+        magnitude_limit=13.0,
+        n_stars=7_369_627,
+        size_bytes=None,        # filled in when the asset is uploaded
+        doi=None,               # a Zenodo DOI replaces the GitHub URL at publication
+        url=None,               # build locally, or `mee2024 catalogue --merge`
+        sha256=None,            # 'recommended' follows from RECOMMENDED_SETUP
+    ),
+    'gaia_dr3_g10': CatalogueRelease(
+        name='gaia_dr3_g10',
+        description='Gaia DR3, G < 10 -- compact, for bright-star work',
+        magnitude_limit=10.0,
+        n_stars=None,
+        size_bytes=None,
+        doi=None,
+        url=None,
+        sha256=None,
+        role='compact',
+    ),
+    'gaia_dr3_g15': CatalogueRelease(
+        name='gaia_dr3_g15',
+        description='Gaia DR3, G < 15 -- very deep, several GB, for special needs',
+        magnitude_limit=15.0,
+        n_stars=None,
+        size_bytes=None,
+        doi=None,
+        url=None,
+        sha256=None,
+        role='deep',
+    ),
+    # The original pair. Kept downloadable so an existing install keeps working and so
+    # `--merge` has something to merge; superseded by gaia_dr3_g13.
     'gaia_dr3_g12': CatalogueRelease(
         name='gaia_dr3_g12',
-        description='Gaia DR3, G < 12, with double-star neighbour flags',
+        description='Gaia DR3, G < 12 (superseded by gaia_dr3_g13)',
         magnitude_limit=12.0,
         n_stars=3_087_821,
         size_bytes=137_952_319,
-        doi=None,               # a Zenodo DOI replaces the GitHub URL at publication
+        doi=None,
         url=_github_asset('gaia_dr3_g12.zip'),
         sha256='f4a579e369c41b6d7099bac6b20d58c69f6b750092cd62f4085c77c670fbc5cb',
+        role='legacy',
     ),
     'gaia_dr3_g12_13': CatalogueRelease(
         name='gaia_dr3_g12_13',
-        description='Gaia DR3, 12 < G < 13 (optional deep extension for eclipse fields)',
+        description='Gaia DR3, 12 < G < 13 extension (superseded by gaia_dr3_g13)',
         magnitude_limit=13.0,
         n_stars=4_281_806,
         size_bytes=188_640_212,
@@ -119,17 +191,36 @@ RELEASES = {
     ),
 }
 
-DEFAULT_RELEASE = 'gaia_dr3_g12'
+DEFAULT_RELEASE = 'gaia_dr3_g13'
 
-#: The depth we recommend: both archives installed, so the offline provider reaches G<13.
-#: Named as a pair rather than a single "gaia13" archive because the two are disjoint
-#: magnitude slices -- see the note above RELEASES. Installing only the extension gives a
-#: catalogue containing *nothing brighter than G=12*, which is why `role` exists.
-RECOMMENDED_SETUP = ('gaia_dr3_g12', 'gaia_dr3_g12_13')
+#: what a fresh install should end up with
+RECOMMENDED_SETUP = ('gaia_dr3_g13',)
 
-#: Catalogue names that read whatever archives happen to be installed, rather than one
-#: named release. Selecting one of these is what should trigger a first-use download.
+#: fetch order for a first-use download: the standard archive, then the legacy base,
+#: so a fresh install can still get a real archive before g13 is published
+_FETCH_ORDER = ('gaia_dr3_g13', 'gaia_dr3_g12')
+
+#: Catalogue names that *require* an offline archive: selecting one must trigger a
+#: first-use download, and without an archive there is nothing to fall back on.
 OFFLINE_CATALOGUES = ('gaia_offline', 'merged_offline')
+
+#: Catalogue names that *prefer* an offline archive but can fall back to the online
+#: archive. Declining the download is a warning, not an error -- the run still works,
+#: just at minutes per field instead of milliseconds.
+PREFER_OFFLINE_CATALOGUES = ('gaia',)
+
+
+def preferred_release(options=None):
+    """The archive a first-use download should fetch.
+
+    The standard archive if it is installed or published, else the best published
+    alternative, so this stays useful before gaia_dr3_g13 is uploaded.
+    """
+    for name in _FETCH_ORDER:
+        release = get_release(name, options=options)
+        if release.is_installed() or release.is_published:
+            return name
+    return DEFAULT_RELEASE
 
 
 def releases_needed(catalogue, options=None):
@@ -138,10 +229,10 @@ def releases_needed(catalogue, options=None):
     Returns [] when nothing is required -- an online catalogue, a bundled one, or an
     offline one whose archives are already present.
     """
-    if catalogue in OFFLINE_CATALOGUES:
+    if catalogue in OFFLINE_CATALOGUES or catalogue in PREFER_OFFLINE_CATALOGUES:
         if installed_catalogues():
             return []
-        return [DEFAULT_RELEASE]
+        return [preferred_release(options=options)]
     if catalogue in RELEASES:
         return [] if get_release(catalogue, options=options).is_installed() else [catalogue]
     return []
@@ -163,21 +254,36 @@ def prepare_catalogue(catalogue, options=None, progress_for=None, allow_download
     """
     options = options or {}
     note = on_note or (lambda text: None)
+    warnings = []
     needed = releases_needed(catalogue, options=options)
+    # 'gaia' prefers an offline archive but can still run against the online one, so a
+    # missing or declined download is a warning; a strictly offline catalogue is an error
+    soft = catalogue in PREFER_OFFLINE_CATALOGUES
     if needed and not allow_download:
-        raise RuntimeError(
-            f'{catalogue} needs the {needed[0]} archive, which is not installed, and '
-            f'automatic downloading is switched off. Install it with '
-            f'`mee2024 catalogue --fetch {needed[0]}`.')
+        message = (f'{catalogue} needs the {needed[0]} archive, which is not installed, '
+                   f'and automatic downloading is switched off. Install it with '
+                   f'`mee2024 catalogue --fetch {needed[0]}`.')
+        if not soft:
+            raise RuntimeError(message)
+        warnings.append(message + ' Using the online Gaia archive instead, which takes '
+                                  'minutes per field.')
+        needed = []
     for name in needed:
         release = get_release(name, options=options)
         note(f'{catalogue} needs the {name} archive ({release.human_size()}); '
              f'downloading it now')
-        ensure_available(name, options=options,
-                         progress=progress_for(name) if progress_for else None)
+        try:
+            ensure_available(name, options=options,
+                             progress=progress_for(name) if progress_for else None)
+        except Exception as exc:
+            if not soft:
+                raise
+            warnings.append(
+                f'could not install {name} ({exc}). Using the online Gaia archive '
+                f'instead, which takes minutes per field.')
+            break
         note(f'{name} installed')
 
-    warnings = []
     warning = magnitude_warning(catalogue, options.get('max_star_mag_dist'),
                                 effective_magnitude_limit(catalogue, options=options))
     if warning:
@@ -194,8 +300,9 @@ def magnitude_warning(catalogue, requested, limit):
     """
     if limit is None or requested is None or requested <= limit:
         return None
-    advice = (f'Install the {" and ".join(RECOMMENDED_SETUP)} archives to reach G<13.'
-              if limit < 13 else 'Use the online "gaia" catalogue to go deeper.')
+    advice = (f'Install {RECOMMENDED_SETUP[0]} to reach G<13.' if limit < 13
+              else 'Deeper needs the gaia_dr3_g15 archive, or the online '
+                   '"gaia_online" catalogue.')
     return (f'{catalogue} only contains stars to G<{limit:g}, but stars to magnitude '
             f'{requested:g} were requested: nothing fainter than G={limit:g} can be '
             f'matched. {advice}')
@@ -208,7 +315,7 @@ def effective_magnitude_limit(catalogue, options=None):
     the depth of what is *installed*, not what could be installed, since that is what the
     run will really see.
     """
-    if catalogue in OFFLINE_CATALOGUES:
+    if catalogue in OFFLINE_CATALOGUES or catalogue in PREFER_OFFLINE_CATALOGUES:
         limits = [r.magnitude_limit for r in installed_catalogues() if r.magnitude_limit]
         return max(limits) if limits else None
     if catalogue in RELEASES:
@@ -384,7 +491,10 @@ def check_remote(name=None, options=None):
         release = get_release(entry, options=options)
         result = {'name': entry, 'url': release.url, 'ok': False, 'detail': ''}
         if not release.is_published:
-            result['detail'] = 'no URL configured'
+            # a placeholder for a tier that is built locally is not a broken remote:
+            # report it as skipped so a check over the whole registry still passes
+            result['detail'] = 'no URL configured (built locally)'
+            result['skipped'] = True
             results.append(result)
             continue
         request = urllib.request.Request(release.url, method='HEAD',
@@ -426,6 +536,198 @@ def status():
         if release.doi:
             lines.append(f'      doi: {release.doi}')
     return '\n'.join(lines)
+
+
+def _recompute_neighbour_flags(table, radius_arcsec=10.0):
+    """Nearest-neighbour separation and magnitude, over this table's own members.
+
+    Worth redoing after a merge: flags computed inside a G<12 archive cannot know
+    about a G=12.5 companion, so merging the pair and recomputing genuinely improves
+    double-star flagging rather than only reshaping the files.
+    """
+    import numpy as np
+    from scipy.spatial import cKDTree
+
+    vectors = table.get_vectors()
+    distance, index = cKDTree(vectors).query(vectors, k=2, workers=-1)
+    chord = distance[:, 1]
+    table.nn_sep = np.degrees(2 * np.arcsin(np.clip(chord / 2, 0, 1))).astype(
+        np.float32) * 3600
+    table.nn_mag = table.mag[index[:, 1]].astype(np.float32)
+    return table
+
+
+def broken_catalogues():
+    """Directories holding catalogue columns but no readable manifest.
+
+    A half-finished download or unpack leaves exactly this, and every 'is it
+    installed?' check answers no -- so the archive silently vanishes from the set a
+    run or a merge sees. Worth reporting rather than ignoring.
+    """
+    root = get_catalogue_root()
+    broken = []
+    for directory in sorted(root.iterdir()) if root.is_dir() else []:
+        if not directory.is_dir():
+            continue
+        try:
+            store.read_manifest(directory)
+        except Exception:
+            if any(directory.glob('*.npy')):
+                broken.append(directory.name)
+    return broken
+
+
+def build_compact_tier(name='gaia_dr3_g10', source=None, options=None, on_note=None):
+    """Filter a deeper installed archive down to the compact tier.
+
+    The compact archive is what the executable bundles (MEE2024.spec), so that a fresh
+    install solves plates offline immediately instead of querying the online archive at
+    minutes per field. Deriving it locally keeps 24 MB of generated data out of source
+    control.
+    """
+    note = on_note or (lambda text: None)
+    limit = RELEASES[name].magnitude_limit
+    candidates = ([source] if source else
+                  [r.name for r in installed_catalogues()
+                   if r.name != name and (r.magnitude_limit or 0) > limit])
+    for candidate in candidates:
+        directory = get_release(candidate, options=options).read_directory()
+        try:
+            catalogue = store.OfflineCatalogue(directory)
+        except Exception:
+            continue
+        note(f'filtering {candidate} to G<{limit}')
+        table = catalogue.lookup((0.0, 360.0), (-90.0, 90.0),
+                                 max_magnitude=limit, epoch=None)
+        out = get_catalogue_root() / name
+        manifest = store.write_catalogue(
+            out, table, name=name, magnitude_limit=limit,
+            provenance=f'filtered from {candidate} by build_compact_tier')
+        write_local_release_stub(out, name)
+        note(f'{name}: {manifest["n_stars"]} stars written to {out}')
+        return out, manifest
+    raise RuntimeError(
+        f'no installed archive deeper than G<{limit} to filter. Install one first, '
+        f'e.g. `mee2024 catalogue --fetch gaia_dr3_g12`.')
+
+
+def repair_catalogue(name, options=None, on_note=None):
+    """Rebuild a half-installed archive's manifest in place, or explain why not.
+
+    Band, epoch and intended depth cannot be read off the data, so they come from the
+    registry entry and from any sibling archive already installed -- Gaia DR3's
+    reference epoch is the same for every slice of it.
+    """
+    note = on_note or (lambda text: None)
+    release = get_release(name, options=options)
+    directory = release.directory()
+    if not directory.is_dir():
+        raise RuntimeError(f'{name} is not installed at {directory}')
+    try:
+        store.read_manifest(directory)
+    except Exception:
+        pass
+    else:
+        note(f'{name} already has a valid manifest; nothing to repair')
+        return directory, store.read_manifest(directory)
+
+    epoch, band, source = None, 'G', None
+    for other in installed_catalogues():
+        if other.name == name:
+            continue
+        try:
+            manifest = store.read_manifest(other.directory())
+        except Exception:
+            continue
+        epoch, band, source = manifest['epoch'], manifest['band'], other.name
+        break
+    if epoch is None:
+        epoch, band, source = 2016.0, 'G', 'the Gaia DR3 reference epoch'
+    note(f'taking epoch {epoch} and band {band} from {source}')
+
+    manifest = store.rebuild_manifest(
+        directory, name=name, band=band, epoch=epoch,
+        magnitude_limit=release.magnitude_limit,
+        provenance=f'manifest rebuilt by `mee2024 catalogue --repair {name}` after an '
+                   f'interrupted install; epoch and band from {source}')
+    note(f'{name}: manifest rebuilt, {manifest["n_stars"]} stars to '
+         f'G<{manifest["magnitude_limit"]}')
+    return directory, manifest
+
+
+def merge_installed(name=DEFAULT_RELEASE, sources=None, options=None, progress=None,
+                    on_note=None, force=False):
+    """Merge installed Gaia archives into one, and return (directory, manifest).
+
+    This is how a machine holding the original G<12 + 12<G<13 pair reaches the single
+    standard archive without downloading anything: the union is deduplicated by Gaia
+    source id and its neighbour flags are recomputed over the whole set.
+    """
+    import numpy as np
+    from mee2024.starcat import store
+    from mee2024.starcat.table import concat
+
+    note = on_note or (lambda text: None)
+    names = list(sources) if sources else [r.name for r in installed_catalogues()
+                                          if r.name != name]
+    # A half-installed archive reports as absent, so merging around it would quietly
+    # produce a catalogue missing everything that archive held. Refuse instead.
+    damaged = [n for n in broken_catalogues() if n != name and n not in names]
+    if damaged and not force:
+        raise RuntimeError(
+            f'{", ".join(damaged)} looks half-installed (data files but no '
+            f'manifest.json), so it cannot be read and merging without it would '
+            f'silently drop its stars. Reinstall it with '
+            f'`mee2024 catalogue --fetch {damaged[0]}`, or pass --force to merge '
+            f'only what is readable.')
+    directories = [get_release(n, options=options).read_directory() for n in names]
+    directories = [d for d in directories if d.is_dir()]
+    if not directories:
+        raise RuntimeError(
+            'no installed catalogue archives to merge. Fetch one first, e.g. '
+            '`mee2024 catalogue --fetch gaia_dr3_g12`.')
+
+    tables, limits = [], []
+    for directory in directories:
+        catalogue = store.OfflineCatalogue(directory)
+        note(f'reading {catalogue.manifest["name"]} ({len(catalogue)} stars)')
+        tables.append(catalogue.lookup((0.0, 360.0), (-90.0, 90.0),
+                                       max_magnitude=None, epoch=None))
+        if catalogue.magnitude_limit:
+            limits.append(catalogue.magnitude_limit)
+
+    base_epoch = tables[0].epoch
+    tables = [t if t.epoch == base_epoch else t.at_epoch(base_epoch) for t in tables]
+    table = tables[0] if len(tables) == 1 else concat(tables)
+
+    _, unique_index = np.unique(table.ids, return_index=True)
+    if len(unique_index) < len(table):
+        note(f'{len(table) - len(unique_index)} duplicate source ids dropped')
+        table = table.select(np.sort(unique_index))
+
+    # A standard archive must actually contain bright stars. Merging extensions alone
+    # would otherwise write a catalogue whose recorded depth (G<13) is true of its
+    # faint end and a lie about its bright end -- the exact footgun `role` exists for.
+    brightest = float(np.min(table.mag)) if len(table) else float('inf')
+    if brightest > 8.0 and not force:
+        raise RuntimeError(
+            f'the merged result contains nothing brighter than G={brightest:.1f}, so '
+            f'it is an extension rather than a standard archive. Check that the base '
+            f'archive is installed and readable (`mee2024 catalogue --status`), or '
+            f'pass --force if a faint-only catalogue is really what you want.')
+
+    note(f'recomputing neighbour flags over {len(table)} stars')
+    table = _recompute_neighbour_flags(table)
+
+    directory = get_catalogue_root() / name
+    note(f'writing {name} to {directory}')
+    manifest = store.write_catalogue(
+        directory, table, name=name,
+        magnitude_limit=max(limits) if limits else None,
+        provenance=f'merged from {", ".join(names)} by mee2024 catalogue --merge; '
+                   f'neighbour flags recomputed over the union')
+    write_local_release_stub(directory, name)
+    return directory, manifest
 
 
 def write_local_release_stub(directory, name, sha256_value=None):

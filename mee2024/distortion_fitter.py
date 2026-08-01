@@ -162,7 +162,23 @@ def _lookup_neighbours(dbs, stardata, cutoff_arcsec, max_mag):
 
     A starcat provider answers this itself -- the offline one from precomputed columns,
     the online one with a query. Anything else falls back to the Gaia archive.
+
+    An offline archive cannot know about companions fainter than its own depth, so the
+    requested magnitude is clamped to what the catalogue holds and the shortfall is
+    reported rather than left to look like an absence of companions. The cost is
+    bounded: a companion at delta-m shifts a centroid by about 10^(-0.4 delta-m) of the
+    separation, so against a G<13 archive a G=11 star's unflagged G>13 companions move
+    it by under ~10% of their separation, while the archive buys milliseconds per field
+    instead of minutes.
     """
+    limit = getattr(dbs, 'magnitude_limit', None)
+    if limit is not None and max_mag > limit:
+        events.log(f'double-star search limited to G<{limit} by the catalogue '
+                   f'(asked for {max_mag}): companions fainter than that are not '
+                   f'flagged', level='warning')
+        print(f'note: double-star search limited to G<{limit} by the catalogue '
+              f'(asked for {max_mag})')
+        max_mag = limit
     if hasattr(dbs, 'lookup_neighbours'):
         return dbs.lookup_neighbours(stardata, cutoff_arcsec, max_mag)
     return gaia_search.lookup_nearby(stardata, cutoff_arcsec, max_mag)

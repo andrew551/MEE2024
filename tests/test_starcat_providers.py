@@ -172,12 +172,12 @@ def test_registry_lists_the_known_catalogues():
 
 def test_registry_builds_providers_by_name():
     assert isinstance(prov.build('tycho'), prov.TychoProvider)
-    assert isinstance(prov.build('gaia'), prov.GaiaOnlineProvider)
+    assert isinstance(prov.build('gaia_online'), prov.GaiaOnlineProvider)
     assert isinstance(prov.build('merged'), prov.MergedProvider)
 
 
 def test_registry_passes_the_gaia_limit_through():
-    assert prov.build('gaia', gaia_limit=11.5).magnitude_limit == 11.5
+    assert prov.build('gaia_online', gaia_limit=11.5).magnitude_limit == 11.5
 
 
 def test_registry_rejects_an_unknown_name():
@@ -207,3 +207,28 @@ def test_gaia_provider_has_no_bright_star_floor():
     source = inspect.getsource(prov.GaiaOnlineProvider._query)
     assert 'BETWEEN 3' not in source
     assert 'phot_g_mean_mag <' in source
+
+
+def test_the_default_catalogue_follows_what_is_installed(monkeypatch):
+    """'gaia' is the offline archive plus the bright fill, or the online archive
+    until one is installed -- the v1.2.0 offline-first default."""
+    from mee2024.starcat import download
+    monkeypatch.setattr(download, 'installed_catalogues', lambda: [])
+    assert isinstance(prov.build('gaia'), prov.GaiaOnlineProvider)
+
+    built = {}
+    monkeypatch.setattr(download, 'installed_catalogues', lambda: ['pretend'])
+    monkeypatch.setattr(prov.GaiaOfflineProvider, 'from_installed',
+                        classmethod(lambda cls, *a, **k: built.setdefault(
+                            'offline', object.__new__(prov.GaiaOfflineProvider))))
+    merged = prov.build('gaia')
+    assert isinstance(merged, prov.MergedProvider)
+    assert merged.primary is built['offline']
+
+
+def test_user_catalogues_are_a_curated_pair():
+    names = [name for name, _, _ in prov.USER_CATALOGUES]
+    assert names == ['gaia', 'gaia_online']
+    # the building blocks stay reachable by name for tests and advanced use
+    for name in ('tycho', 'hipparcos', 'gaia_offline', 'merged', 'merged_offline'):
+        assert name in prov.known_catalogues()

@@ -342,7 +342,7 @@ def test_offline_provider_caps_requests_at_its_own_depth(tmp_path, capsys):
     printed = capsys.readouterr().out
     assert 'G<12' in printed and 'magnitude 13' in printed
     # and it must name the way out, not merely complain
-    assert 'gaia_dr3_g12_13' in printed
+    assert 'gaia_dr3_g13' in printed
 
 
 def test_depth_warning_reaches_the_event_bus(tmp_path):
@@ -414,10 +414,14 @@ def test_offline_provider_requires_a_directory():
 # ------------------------------------------------------- download and install
 
 def test_release_urls_and_checksums_are_configured():
-    """The registry must carry a real URL and hash, or auto-download cannot work."""
+    """A *published* archive must carry a real URL and hash, or auto-download cannot
+    work. The locally built tiers (gaia_dr3_g13 until it is uploaded, g10, g15) carry
+    neither by design -- `--fetch` explains how to build or merge them instead."""
     from mee2024.starcat import download
-    for name, release in download.RELEASES.items():
-        assert release.is_published, f'{name} has no URL'
+    published = [r for r in download.RELEASES.values() if r.is_published]
+    assert published, 'at least one archive must be fetchable'
+    for release in published:
+        name = release.name
         assert release.url.startswith('https://'), f'{name}: {release.url}'
         assert release.sha256 and len(release.sha256) == 64, f'{name} has no sha256'
         assert release.n_stars > 1_000_000

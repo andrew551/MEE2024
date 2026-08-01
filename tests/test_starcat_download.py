@@ -29,9 +29,18 @@ def base_installed(monkeypatch):
 # ------------------------------------------------------------ releases_needed
 
 def test_an_online_catalogue_needs_no_download(nothing_installed):
-    assert download.releases_needed('gaia') == []
+    assert download.releases_needed('gaia_online') == []
     assert download.releases_needed('tycho') == []
     assert download.releases_needed('hipparcos') == []
+
+
+def test_the_default_catalogue_wants_an_archive_but_does_not_require_one(
+        nothing_installed):
+    """'gaia' prefers the archive -- so selecting it triggers the first-use
+    download -- but falls back to the online archive rather than failing."""
+    assert download.releases_needed('gaia') == [download.preferred_release()]
+    warnings = download.prepare_catalogue('gaia', allow_download=False)
+    assert any('online' in w for w in warnings)
 
 
 def test_the_offline_catalogue_needs_the_base_archive(nothing_installed):
@@ -57,7 +66,7 @@ def test_an_unknown_catalogue_name_needs_nothing(nothing_installed):
 # -------------------------------------------------- effective_magnitude_limit
 
 def test_the_online_archive_reports_no_practical_limit():
-    assert download.effective_magnitude_limit('gaia') is None
+    assert download.effective_magnitude_limit('gaia_online') is None
 
 
 def test_the_offline_depth_is_the_deepest_installed_archive(base_installed):
@@ -66,8 +75,10 @@ def test_the_offline_depth_is_the_deepest_installed_archive(base_installed):
 
 def test_installing_the_extension_deepens_the_offline_catalogue(monkeypatch):
     monkeypatch.setattr(download, 'installed_catalogues',
-                        lambda: list(download.RELEASES.values()))
+                        lambda: [download.RELEASES['gaia_dr3_g12'],
+                                 download.RELEASES['gaia_dr3_g12_13']])
     assert download.effective_magnitude_limit('gaia_offline') == 13.0
+    assert download.effective_magnitude_limit('gaia') == 13.0
 
 
 def test_the_offline_depth_is_unknown_with_nothing_installed(nothing_installed):
@@ -89,13 +100,13 @@ def test_no_warning_when_the_depth_is_unknown():
 def test_a_shallow_catalogue_warns_and_names_the_remedy():
     text = download.magnitude_warning('gaia_offline', 14.0, 12.0)
     assert 'G<12' in text and 'magnitude 14' in text
-    assert 'gaia_dr3_g12_13' in text
+    assert 'gaia_dr3_g13' in text
 
 
 def test_at_full_depth_the_advice_is_to_go_online():
     """Nothing local goes past G=13, so recommending another archive would be wrong."""
     text = download.magnitude_warning('gaia_offline', 15.0, 13.0)
-    assert 'gaia_dr3_g12_13' not in text
+    assert 'gaia_dr3_g13' not in text
     assert 'online' in text
 
 
@@ -144,24 +155,37 @@ def test_prepare_reports_a_depth_problem_it_cannot_fix(base_installed):
 
 
 def test_prepare_is_quiet_for_an_online_catalogue(nothing_installed):
-    assert download.prepare_catalogue('gaia', options={'max_star_mag_dist': 20.0}) == []
+    assert download.prepare_catalogue('gaia_online',
+                                      options={'max_star_mag_dist': 20.0}) == []
 
 
 # ----------------------------------------------------------------- the registry
 
-def test_the_published_archives_are_the_recommended_pair():
-    assert set(download.RECOMMENDED_SETUP) == set(download.RELEASES)
+def test_one_archive_is_the_recommended_setup():
+    """The standard depth is a single archive; the rest are tiers or legacy."""
+    assert download.RECOMMENDED_SETUP == ('gaia_dr3_g13',)
+    assert download.DEFAULT_RELEASE == 'gaia_dr3_g13'
     assert all(download.RELEASES[n].recommended for n in download.RECOMMENDED_SETUP)
+
+
+def test_a_fresh_install_is_offered_a_publishable_archive():
+    """Until g13 is uploaded, the first-use download must still name a real asset."""
+    name = download.preferred_release()
+    release = download.RELEASES[name]
+    assert release.is_published or release.is_installed()
 
 
 def test_the_deep_archive_is_marked_as_an_extension():
     """Its role is what stops it being offered as a catalogue usable on its own."""
-    assert download.RELEASES['gaia_dr3_g12'].role == 'base'
+    assert download.RELEASES['gaia_dr3_g13'].role == 'base'
+    assert download.RELEASES['gaia_dr3_g12'].role == 'legacy'
     assert download.RELEASES['gaia_dr3_g12_13'].role == 'extension'
 
 
 def test_every_published_archive_carries_a_checksum_and_size():
-    for release in download.RELEASES.values():
+    published = [r for r in download.RELEASES.values() if r.is_published]
+    assert published, 'at least one archive must be fetchable'
+    for release in published:
         assert release.sha256 and len(release.sha256) == 64
         assert release.size_bytes and release.size_bytes > 0
         assert release.url.endswith(f'/{release.name}.zip')

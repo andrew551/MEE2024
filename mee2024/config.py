@@ -23,6 +23,9 @@ DEFAULT_OPTIONS = {
     '-DARK-': '',
     '-FLAT-': '',
     'output_dir': '',
+    # 'gaia' is the installed offline archive plus the bright fill Gaia itself lacks,
+    # and falls back to the online archive only until an archive is installed.
+    # 'gaia_online' queries the ESA archive every run: minutes per field
     'catalogue': 'gaia',
     'm': 30,
     'n': 30,

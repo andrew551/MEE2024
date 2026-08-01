@@ -104,9 +104,6 @@ def open_catalogue(path, debug_folder=None, **kwargs):
     if path not in _cache.catalogue_cache:
         if path == get_triangle_db_path():
             _cache.catalogue_cache[path] = _get_triangles()
-        elif path == 'gaia':
-            # the historical online path; starcat's equivalent is 'gaia_starcat'
-            _cache.catalogue_cache[path] = gaia_search.dbs_gaia(**kwargs)
         elif _is_starcat_name(path):
             from mee2024.starcat import providers
             _cache.catalogue_cache[path] = providers.build(str(path), **kwargs)

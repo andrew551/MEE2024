@@ -45,7 +45,13 @@ class Api:
             'presets': self.runner.PRESETS,
             'catalogues': self._catalogues(),
             'default_catalogue': self._default_catalogue(),
-            'known_catalogues': providers.known_catalogues(),
+            # the curated pair, not every registered provider: Tycho and Hipparcos
+            # alone are building blocks, and 'merged' is what 'gaia' now means
+            'known_catalogues': [name for name, _, _ in providers.USER_CATALOGUES],
+            'catalogue_labels': {name: label
+                                 for name, label, _ in providers.USER_CATALOGUES},
+            'catalogue_notes': {name: note
+                                for name, _, note in providers.USER_CATALOGUES},
             'catalogue_limits': self._catalogue_limits(),
             'recommended_catalogue': self._recommended_catalogue(),
             'roots': self.roots(),
@@ -144,27 +150,13 @@ class Api:
         return {'ok': self.runner.flush_watch()}
 
     def _default_catalogue(self):
-        """Prefer the offline catalogue if anything is installed; else the online archive.
-
-        Deliberately 'gaia_offline' rather than a specific archive name: that provider
-        reads *every* installed archive, so with both the base and the deep extension
-        present it reaches G<13. Naming one archive would silently cap the run at that
-        archive's own depth.
-        """
-        from mee2024.starcat import download
-        if download.installed_catalogues():
-            return 'gaia_offline'
+        """Always 'gaia': it reads every installed archive, and falls back to the
+        online archive only until one is installed. Naming a specific archive would
+        cap the run at that archive's own depth."""
         return 'gaia'
 
     def _recommended_catalogue(self):
-        """Which catalogue to badge as recommended in the picker.
-
-        'gaia_offline' reads every installed archive, so with the recommended pair present
-        it is a G<13 catalogue that needs no network and gives reproducible results. It
-        stays the recommendation before they are installed, since choosing it is what
-        triggers the download.
-        """
-        return 'gaia_offline'
+        return 'gaia'
 
     def roots(self):
         """Sensible starting points for the file picker."""

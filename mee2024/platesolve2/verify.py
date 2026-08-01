@@ -33,8 +33,17 @@ def open_verify_catalogue(verify_spec):
                          f"{verify_spec.get('provider')!r}")
     key = tuple(verify_spec.get('releases') or [])
     if key not in _CATALOGUE_CACHE:
-        _CATALOGUE_CACHE[key] = providers.GaiaOfflineProvider.from_installed(
-            list(key) or None)
+        try:
+            provider = providers.GaiaOfflineProvider.from_installed(list(key) or None)
+        except Exception:
+            # The archive this database was built against may have been merged into a
+            # deeper one (`mee2024 catalogue --merge`) and removed. Verifying against
+            # whatever is installed is correct as long as it covers the same stars,
+            # and a deeper archive strictly does.
+            provider = providers.GaiaOfflineProvider.from_installed()
+            print(f'note: {" + ".join(key) or "the named archive"} is no longer '
+                  f'installed; verifying against {provider.describe()} instead')
+        _CATALOGUE_CACHE[key] = provider
     return _CATALOGUE_CACHE[key]
 
 

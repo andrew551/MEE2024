@@ -320,6 +320,7 @@ canvas.plot.rot:active{cursor:grabbing}
           <label for="magmax">Max star magnitude</label>
           <input id="magmax" value="12">
         </div>
+        <div class="faint" id="catalogue-note" style="margin-top:6px"></div>
         <div class="warnline" id="mag-warn"></div>
         <label class="check" style="margin-top:10px">
           <input type="checkbox" id="fieldplot" checked>
@@ -1040,6 +1041,14 @@ function setupAnalysis(){
   window.addEventListener('resize', () => { if(state.analysisOpen) drawAnalysis(); });
 }
 
+/* What the selected catalogue actually is -- 'Gaia' is Gaia plus a bright fill, and
+   the online option costs minutes per field, both worth saying rather than implying. */
+function showCatalogueNote(){
+  const el = $('catalogue-note');
+  if(!el) return;
+  el.textContent = (state.catalogueNotes || {})[$('catalogue').value] || '';
+}
+
 /* ------------------------------------------------- catalogue depth warning */
 function checkMagnitude(){
   const el = $('mag-warn');
@@ -1459,10 +1468,12 @@ document.addEventListener('keydown', e => {
       const l = state.catalogueLimits[name];
       return (l === null || l === undefined) ? '' : ` — G<${l}`;
     };
+    state.catalogueNotes = hello.catalogue_notes || {};
+    const labels = hello.catalogue_labels || {};
     hello.known_catalogues.forEach(name => {
       const o = document.createElement('option');
       o.value = name;
-      o.textContent = name + depth(name)
+      o.textContent = (labels[name] || name) + depth(name)
         + (name === hello.recommended_catalogue ? '  ★ recommended' : '');
       if(name === hello.default_catalogue) o.selected = true;
       sel.appendChild(o);
@@ -1477,9 +1488,10 @@ document.addEventListener('keydown', e => {
       if(c.name === hello.default_catalogue) o.selected = true;
       sel.appendChild(o);
     });
-    sel.onchange = checkMagnitude;
+    sel.onchange = () => { checkMagnitude(); showCatalogueNote(); };
     $('magmax').oninput = checkMagnitude;
     checkMagnitude();
+    showCatalogueNote();
     const roots = $('roots');
     hello.roots.forEach(r => {
       const b = document.createElement('button');

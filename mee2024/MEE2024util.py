@@ -14,7 +14,7 @@ from pathlib import Path
 from platformdirs import user_data_dir, user_config_dir
 
 def _version():
-    return 'v1.1.0'
+    return 'v1.2.0'
 
 
 AUTHORS = 'Andrew Smith and Douglas Smith'
@@ -120,6 +120,17 @@ def migrate_config(loaded):
                          'v1.1.0 default (docs/bench/BENCH.md); set it back to '
                          "'triangle' to keep the classic solver deliberately")
             loaded['platesolver'] = 'v2'
+
+    if written_by < (1, 2, 0):
+        # v1.2.0 made 'gaia' mean the installed offline archive plus the bright fill,
+        # falling back to the online archive only until one is installed. Saying so
+        # once is worth it: the same setting now behaves very differently (and much
+        # faster), and anyone who really wants the archive queried per field needs
+        # to know the new name for it.
+        if loaded.get('catalogue') == 'gaia':
+            notes.append("catalogue 'gaia' now reads the offline archive when one is "
+                         "installed (milliseconds per field instead of minutes); "
+                         "choose 'gaia_online' to query the ESA archive every run")
 
     loaded['__version__'] = _version()
     return notes

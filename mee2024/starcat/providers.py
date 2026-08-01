@@ -297,7 +297,9 @@ class GaiaOfflineProvider(CatalogueProvider):
         from mee2024.starcat import download
         releases = ([download.get_release(n) for n in names] if names
                     else download.installed_catalogues())
-        directories = [r.directory() for r in releases if r.is_installed()]
+        # read_directory(), not directory(): the compact archive may be bundled inside
+        # the program rather than installed in the user's data directory
+        directories = [r.read_directory() for r in releases if r.is_installed()]
         if not directories:
             raise RuntimeError(
                 'no offline catalogue is installed. '
@@ -450,7 +452,29 @@ def known_catalogues():
     return sorted(_BUILDERS)
 
 
-register('gaia', lambda gaia_limit=13.0, **_: GaiaOnlineProvider(gaia_limit=gaia_limit))
+def _gaia(gaia_limit=13.0, **_):
+    """The default: the offline archive plus the bright fill, or the online archive.
+
+    'Gaia' rather than 'merged' because that is what it is to two decimal places --
+    Gaia DR3, plus the ~100 stars so bright that Gaia saturates on them and records
+    nothing at all (Sirius, Vega, Arcturus, Canopus...), filled from Hipparcos. The
+    online archive is the fallback until an offline archive is installed, since a
+    query per field costs minutes where the archive costs milliseconds.
+    """
+    from mee2024.starcat import download
+    if download.installed_catalogues():
+        return MergedProvider(primary=GaiaOfflineProvider.from_installed())
+    return GaiaOnlineProvider(gaia_limit=gaia_limit)
+
+
+register('gaia', _gaia)
+register('gaia_online', lambda gaia_limit=13.0, **_: GaiaOnlineProvider(
+    gaia_limit=gaia_limit))
+# Building blocks and diagnostics. Registered so tests and advanced users can name
+# them, deliberately absent from USER_CATALOGUES: Tycho and Hipparcos alone are not
+# catalogues to reduce a plate against (Tycho is barred from the precision fit
+# outright, see StarTable.is_precision_grade), and 'merged'/'merged_offline' are what
+# 'gaia' now means.
 register('tycho', lambda **_: TychoProvider())
 register('hipparcos', lambda **_: HipparcosProvider())
 register('gaia_offline', lambda **_: GaiaOfflineProvider.from_installed())
@@ -458,3 +482,14 @@ register('merged', lambda gaia_limit=13.0, **_: MergedProvider(
     primary=GaiaOnlineProvider(gaia_limit=gaia_limit)))
 register('merged_offline', lambda **_: MergedProvider(
     primary=GaiaOfflineProvider.from_installed()))
+
+#: (name, label, footnote) for the catalogues a user should choose between.
+USER_CATALOGUES = (
+    ('gaia', 'Gaia',
+     'Gaia DR3 from the installed archive, plus the ~100 stars too bright for Gaia '
+     'to record, filled from Hipparcos. Falls back to the online archive until an '
+     'archive is installed.'),
+    ('gaia_online', 'Gaia archive (online)',
+     'Queries the ESA archive for every field: minutes per run, and needs a '
+     'connection. Use the offline archive unless you have a reason not to.'),
+)

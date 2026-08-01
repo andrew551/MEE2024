@@ -14,10 +14,10 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | Tests | 522 passing (`pytest --runslow` = 496 fast + 26 slow), excluding the star-label file: 6 of its tests fail on CRLF-converted checkouts until the names.txt fix lands |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
-| Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `t06k` (334 MB) / `t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; not yet published as release assets |
-| Catalogues | Gaia G<12 and 12<G<13 published as GitHub release assets, fetched on first use; Hipparcos + labels bundled |
+| Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
+| Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.1.0; Windows exe built from `MEE2024.spec` |
+| Version | v1.2.0; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -50,6 +50,55 @@ zwo3-quintic "−1 d" was a lucky 0.06 σ draw):
 | zwo1 | septic | 104.2 mas | 1565 | 2023-09-23 | −37 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-08-01 — v1.2.0: one catalogue, two choices, offline by default
+
+**The catalogue set is now one archive and two options.** `gaia_dr3_g13` (7,369,627
+stars, 366 MB, verified, brightest G=1.73) replaces the G<12 + 12<G<13 pair as the
+standard depth: the split saved 138 MB and cost more confusion than that was worth, and
+an extension-only install is a genuine footgun. `mee2024 catalogue --merge` builds it
+from an installed pair without downloading anything — and **recomputes the double-star
+neighbour flags over the union**, which the separate archives structurally could not do
+(203,016 stars now carry a close-neighbour flag). The two other tiers are the ends of the
+range rather than more slices: **`gaia_dr3_g10`** (482,106 stars, **24 MB**, bundled into
+the Windows executable so it solves offline out of the box, and kept out of source
+control — the spec takes it from wherever it is installed) and `gaia_dr3_g15` (GB scale,
+special needs).
+
+**Two user-facing catalogue choices, not six.** `gaia` is the installed offline archive
+plus the bright fill — which is what "merged" always was, to two decimal places, so it
+takes the honest name with the footnote shown live in the picker — and `gaia_online`
+queries the archive per field. Tycho, Hipparcos, `merged` and `merged_offline` stay
+registered for tests and advanced use but are off the menu: neither Tycho nor Hipparcos
+alone is a catalogue to reduce a plate against.
+
+**Offline is the default.** `gaia` reads an installed archive when there is one and only
+falls back online until then, so the minutes-per-field online path is now opt-in
+(`gaia_online`). Declining the first-use download warns and keeps working rather than
+failing. Double-star depth is clamped to the catalogue with a stated note; the arithmetic
+is in `_lookup_neighbours` (a companion at Δm displaces a centroid by ~10^(−0.4Δm) of its
+separation, so the offline limit costs little and buys milliseconds).
+
+**Two robustness fixes the work forced out, both from a real failure.** The installed
+`gaia_dr3_g12` turned out to be **half-installed — every data column present, no
+manifest** — because a running instance held the files memory-mapped and Windows refused
+the completing write. Every "is it installed?" check answered no, so the archive had
+silently vanished from the app's view (which is why a fresh run went online), and the
+first merge cheerfully produced a "G<13" archive containing nothing brighter than G=12.
+Now: `broken_catalogues()` detects data-without-manifest, `--merge` refuses while one
+exists (naming the repair), a merged base whose brightest star is fainter than G=8 is
+rejected as a mislabelled extension, and **`mee2024 catalogue --repair`** rebuilds a lost
+manifest after validating the data (equal column lengths, declination genuinely sorted,
+band index recomputed and compared, finite in-range positions, depth consistent). It
+recovered the archive with no download.
+
+**A null result, recorded rather than shipped:** rebuilding the 0.6° pattern layer from
+the deeper G<13 star list changed nothing — identical pass/fail on every sub-degree case.
+Deeper *legs* were never the constraint; anchor density is (a 0.24 deg² field holds ~1.6
+anchors at the shipped density). Sub-degree solving wants the GB-scale anchor-dense layer,
+which is the `g15`-tier conversation, not a free win.
 
 ---
 

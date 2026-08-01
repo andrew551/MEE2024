@@ -5,7 +5,7 @@ Modern Eddington Experiment codebase
 
 ### Windows
 
-The Windows executable (see releases) will run on Windows 10 and 11 computers without having to install Python.
+The Windows executable (see releases) will run on Windows 10 and 11 computers without having to install Python. It carries the compact star catalogue (Gaia G < 10), so it plate-solves offline the moment it starts; fetch the standard `gaia_dr3_g13` archive when you need fainter stars.
 
 ### Mac/Linux
 
@@ -109,43 +109,89 @@ mee2024 config      --show | --set key=value
 mee2024 build-triangle-db                                          # regenerate the platesolve database
 ```
 
-## Offline star catalogues
+## Star catalogues
 
-`mee2024 catalogue` lists what is installed and where. Choosing an offline catalogue
-downloads what it needs on first use, so there is nothing to set up by hand:
+There are two catalogue choices, and the first is the right one almost always:
+
+| choice | what it is |
+|---|---|
+| **Gaia** (default) | the installed offline archive, plus the ~100 stars so bright that Gaia records nothing for them at all (Sirius, Vega, Arcturus, Canopus…), filled from Hipparcos. Milliseconds per field |
+| Gaia archive (online) | queries the ESA archive for every field: minutes per run, and needs a connection. Under Advanced, for when you deliberately want it |
+
+The standard archive is **`gaia_dr3_g13`** — Gaia DR3 to G < 13, 7.37 M stars — which
+covers ordinary runs (the default magnitude limit is 12) and the fainter stars an
+eclipse field wants. Selecting Gaia with nothing installed offers to download it;
+declining is fine, the run falls back to the online archive and says so.
 
 ```bash
-mee2024 catalogue --fetch gaia_dr3_g12       # ...or just select it and press Run
+mee2024 catalogue                            # what is installed, and where
+mee2024 catalogue --fetch gaia_dr3_g13       # ...or just press Run and accept
 mee2024 catalogue --check-remote             # are the published archives reachable?
 ```
 
-The two published archives are **disjoint magnitude slices**, not a base and a superset:
-`gaia_dr3_g12` covers G < 12 (138 MB) and `gaia_dr3_g12_13` covers 12 < G < 13 (189 MB).
-Installing **both** is the recommended setup and is what gives G < 13 coverage; the
-extension on its own contains no star brighter than G = 12. The `gaia_offline` catalogue
-reads whichever are present, so adding the extension later deepens it automatically.
+Two other tiers exist for the ends of the range: **`gaia_dr3_g10`** (G < 10, 24 MB,
+bundled inside the Windows executable so it solves offline out of the box) and
+**`gaia_dr3_g15`** (G < 15, several GB, for work that genuinely needs it).
 
 Asking for stars fainter than the installed catalogue reaches is reported rather than
 silently truncated — a mag-14 request against a G<13 archive warns and names the fix.
+The same honesty applies to double stars: companions fainter than the archive cannot be
+flagged, so the search depth is clamped to the catalogue and said out loud. The cost is
+small (a companion at Δm displaces a centroid by ~10^(−0.4Δm) of its separation) and the
+speed is worth it.
 
-Catalogues can also be built locally with `tools/build_gaia_offline.py` (all-sky Gaia
-G<12 is ~3.1 M stars, 29 queries, 10-22 min).
+### Older installs, and repairs
+
+If you already have the original `gaia_dr3_g12` + `gaia_dr3_g12_13` pair, merge them
+into the standard archive rather than downloading anything — this also recomputes the
+double-star neighbour flags across the union, which the two separate archives could not
+do:
+
+```bash
+mee2024 catalogue --merge                    # -> gaia_dr3_g13, then --remove the parts
+```
+
+An interrupted download or unpack can leave an archive with all its data and no
+manifest, after which everything reports it as absent. That is repairable without
+re-downloading — the data is validated (column lengths, declination ordering, the band
+index, position ranges, depth) before a new manifest is written:
+
+```bash
+mee2024 catalogue --repair gaia_dr3_g12
+```
+
+**Close the program before catalogue operations.** A running instance holds the archive
+memory-mapped, and Windows will refuse the write — which is how a half-installed archive
+happens in the first place.
+
+Catalogues can also be built from scratch with `tools/build_gaia_offline.py` (all-sky
+Gaia G<12 is ~3.1 M stars, 29 queries, 10–22 min).
 
 To move one to another machine without re-downloading from Gaia:
 
 ```bash
-mee2024 catalogue --pack gaia_dr3_g12          # -> gaia_dr3_g12.zip, prints its sha256
+mee2024 catalogue --pack gaia_dr3_g13          # -> gaia_dr3_g13.zip, prints its sha256
 # copy the zip across, then on the other machine:
-mee2024 catalogue --install gaia_dr3_g12.zip
+mee2024 catalogue --install gaia_dr3_g13.zip
 ```
 
 Every column carries a SHA-256 in the catalogue's manifest, so `--install` verifies the
 transfer and refuses to leave a corrupt catalogue in place. `mee2024 catalogue --verify NAME`
 re-checks an installed one at any time.
 
-The plate-solving triangle database (`TripleTriangle_pattern_data.npz`, ~128 MB, in the
-same user-data directory) is a plain `.npz` and can simply be copied to save the few
-minutes it takes to regenerate.
+### The plate-solving databases
+
+The rebuilt solver reads pattern databases built from the star catalogue, one per field
+scale, in the same user-data directory. Build the standard one once:
+
+```bash
+mee2024 build-pattern-db                       # patdb_g12_t17k, ~230 MB, ~3 minutes
+```
+
+Optional layers extend blind solving to the ends of the range — a 0.6° layer for fields
+around a degree and a 4° layer out past 18°. Installing a layer is the entire
+configuration; the solver uses whatever is present, and consults the extra layers only
+when the primary one does not solve a field.
 
 Any option can be overridden with `--set key=value` (repeatable), and `--no-display`
 suppresses every plot window so a run can complete unattended. For example:

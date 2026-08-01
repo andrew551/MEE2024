@@ -247,6 +247,39 @@ def cmd_catalogue(args):
         print(f'    mee2024 catalogue --install {archive.name}')
         return 0
 
+    if args.merge:
+        name = args.merge if isinstance(args.merge, str) else download.DEFAULT_RELEASE
+        options = get_default_options()
+        MEE2024util.read_ini(options, path=args.config)
+        sources = args.from_ or None
+        print(f'merging installed archives into {name} '
+              f'(this reads and rewrites every star, and recomputes neighbour flags)')
+        directory, manifest = download.merge_installed(
+            name, sources=sources, options=options, force=args.force,
+            on_note=lambda t: print(f'  {t}'))
+        print(f"\n{name}: {manifest['n_stars']} stars to G<"
+              f"{manifest['magnitude_limit']}, written to {directory}")
+        print('The parts it was merged from are still installed; remove them with '
+              '`mee2024 catalogue --remove NAME` once you have verified this one.')
+        return 0
+
+    if args.repair:
+        options = get_default_options()
+        MEE2024util.read_ini(options, path=args.config)
+        download.repair_catalogue(args.repair, options=options,
+                                  on_note=lambda t: print(f'  {t}'))
+        return 0
+
+    if args.remove:
+        directory = _resolve_catalogue_dir(args.remove)
+        if directory is None:
+            print(f'{args.remove} is not installed; nothing to remove')
+            return 1
+        import shutil
+        shutil.rmtree(directory)
+        print(f'removed {directory}')
+        return 0
+
     if args.set_source:
         if not args.url:
             print('--set-source needs --url', file=sys.stderr)
@@ -297,10 +330,12 @@ def cmd_catalogue(args):
         MEE2024util.read_ini(options, path=args.config)
         failures = 0
         for result in download.check_remote(options=options):
-            print(f"[{'OK  ' if result['ok'] else 'FAIL'}] {result['name']}")
+            state = 'OK  ' if result['ok'] else (
+                'skip' if result.get('skipped') else 'FAIL')
+            print(f"[{state}] {result['name']}")
             print(f"       {result['url']}")
             print(f"       {result['detail']}")
-            failures += 0 if result['ok'] else 1
+            failures += 0 if (result['ok'] or result.get('skipped')) else 1
         if failures:
             print('\nSee RELEASING.md for the exact tag and asset names expected.')
         else:
@@ -488,13 +523,24 @@ def build_parser():
                    help='install a catalogue from a zip made by --pack')
     p.add_argument('--set-source', metavar='NAME',
                    help='record where a catalogue can be downloaded from')
+    p.add_argument('--merge', nargs='?', const=True, metavar='NAME',
+                   help='merge the installed archives into one (default: '
+                        'gaia_dr3_g13), recomputing double-star neighbour flags')
+    p.add_argument('--from', dest='from_', nargs='+', metavar='NAME',
+                   help='which installed archives --merge should read')
+    p.add_argument('--repair', metavar='NAME',
+                   help='rebuild a lost manifest for an archive whose install was '
+                        'interrupted (validates the data first)')
+    p.add_argument('--remove', metavar='NAME',
+                   help='delete an installed catalogue directory')
     p.add_argument('--url', help='download URL, for --set-source or a one-off --fetch')
     p.add_argument('--sha256', help='expected checksum of the downloaded archive')
     p.add_argument('--out', metavar='FILE', help='where --pack writes its archive')
     p.add_argument('--name', metavar='NAME',
                    help='catalogue name for --install (default: the archive filename)')
     p.add_argument('--force', action='store_true',
-                   help='let --install replace an existing catalogue')
+                   help='let --install replace an existing catalogue, or let --merge '
+                        'proceed with an unreadable or faint-only source')
     p.add_argument('--check-remote', action='store_true',
                    help='check the published archives are reachable, without downloading them')
     p.add_argument('--quiet', action='store_true', help='suppress the progress bar')

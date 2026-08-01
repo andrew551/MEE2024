@@ -35,7 +35,7 @@ if not os.path.isdir(package):
     raise SystemExit('run this spec from the repository root, not from mee2024/')
 
 sys.path.insert(0, os.getcwd())
-from mee2024.MEE2024util import _version           # noqa: E402  (needs the path above)
+from mee2024.MEE2024util import _version, get_catalogue_root  # noqa: E402  (needs the path above)
 
 exe_name = f'MEE_2024_{_version()}'
 
@@ -60,6 +60,28 @@ for subdir in ('hipparcos2', 'star_labels'):
         for name in os.listdir(source):
             datas.append((os.path.join(source, name), f'resources/{subdir}'))
 datas += [(os.path.join(package, 'ui', 'frontend.html'), 'mee2024/ui')]
+
+# The compact star catalogue, so the executable solves plates offline out of the box
+# instead of falling back to minutes-per-field archive queries. It is deliberately NOT
+# in source control (24 MB of generated data): the build takes it from wherever it is
+# installed on this machine, and simply ships without it if absent. Build it with
+#     mee2024 catalogue --merge            (or --fetch gaia_dr3_g12)
+#     python -c "from mee2024.starcat import download; download.build_compact_tier()"
+BUNDLED_CATALOGUE = 'gaia_dr3_g10'
+_catalogue_source = None
+for candidate in (os.path.join(package, 'resources', 'catalogues', BUNDLED_CATALOGUE),
+                  os.path.join(str(get_catalogue_root()), BUNDLED_CATALOGUE)):
+    if os.path.isfile(os.path.join(candidate, 'manifest.json')):
+        _catalogue_source = candidate
+        break
+if _catalogue_source:
+    for name in os.listdir(_catalogue_source):
+        datas.append((os.path.join(_catalogue_source, name),
+                      f'resources/catalogues/{BUNDLED_CATALOGUE}'))
+    print(f'spec: bundling {BUNDLED_CATALOGUE} from {_catalogue_source}')
+else:
+    print(f'spec: {BUNDLED_CATALOGUE} not found; the executable will need to download '
+          f'a catalogue on first use')
 
 hiddenimports = [
     'skimage.data._fetchers',

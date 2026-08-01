@@ -63,7 +63,7 @@ def test_default_catalogue_prefers_offline_when_anything_is_installed(api):
     installing the deep extension deepens the default instead of being ignored."""
     from mee2024.starcat import download
     expected = 'gaia_offline' if download.installed_catalogues() else 'gaia'
-    assert api._default_catalogue() == expected
+    assert api._default_catalogue() == 'gaia'      # always: it reads what is installed
 
 
 def test_browse_lists_directories_and_image_files(api, tmp_path):
@@ -497,19 +497,21 @@ def test_fetch_of_an_installed_catalogue_is_a_no_op(api, monkeypatch):
 
 def test_catalogues_carry_their_depth_and_recommendation(api):
     entries = {c['name']: c for c in api.hello()['catalogues']}
-    assert entries['gaia_dr3_g12']['role'] == 'base'
+    assert entries['gaia_dr3_g13']['role'] == 'base'
+    assert entries['gaia_dr3_g12']['role'] == 'legacy'
     # the deep archive is an extension: alone it holds nothing brighter than G=12
     assert entries['gaia_dr3_g12_13']['role'] == 'extension'
     assert entries['gaia_dr3_g12_13']['magnitude_limit'] == 13.0
-    assert all(c['recommended'] for c in entries.values())
+    # exactly the standard archive is badged; the tiers and legacy parts are not
+    assert [c['name'] for c in entries.values() if c['recommended']] == ['gaia_dr3_g13']
 
 
 def test_hello_reports_how_deep_each_catalogue_reaches(api):
     limits = api.hello()['catalogue_limits']
     # the online archive has no practical limit, so it must not read as a shallow one
-    assert limits['gaia'] is None
+    assert limits['gaia_online'] is None
     assert limits['gaia_dr3_g12'] == 12.0
-    assert api.hello()['recommended_catalogue'] == 'gaia_offline'
+    assert api.hello()['recommended_catalogue'] == 'gaia'
 
 
 def test_the_default_catalogue_uses_every_installed_archive(api, monkeypatch):
@@ -518,7 +520,7 @@ def test_the_default_catalogue_uses_every_installed_archive(api, monkeypatch):
 
     monkeypatch.setattr(download, 'installed_catalogues',
                         lambda: [download.RELEASES['gaia_dr3_g12']])
-    assert api._default_catalogue() == 'gaia_offline'
+    assert api._default_catalogue() == 'gaia'
 
 
 def test_no_installed_archive_falls_back_to_the_online_archive(api, monkeypatch):

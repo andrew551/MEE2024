@@ -118,6 +118,89 @@ def write_catalogue(directory, table, name, catalogue='Gaia DR3', provenance='',
     return manifest
 
 
+def rebuild_manifest(directory, name, band='G', epoch=None, magnitude_limit=None,
+                     catalogue='Gaia DR3', provenance=''):
+    """Reconstruct a lost manifest from the data files, or raise if they are not sound.
+
+    An interrupted install leaves every column written and no manifest -- after which
+    the archive reports as absent, silently. The columns carry enough to rebuild the
+    manifest, *provided* they are internally consistent, so this validates before it
+    writes: equal lengths, declination genuinely sorted (the format's whole premise),
+    a band index that matches the data, and finite positions. What cannot be derived
+    from the data -- band, epoch, intended depth -- must be supplied by the caller.
+    """
+    directory = Path(directory)
+    if epoch is None:
+        raise ValueError('epoch cannot be recovered from the data; supply it')
+
+    arrays, columns = {}, {}
+    for attribute, filename, dtype in COLUMNS:
+        path = directory / filename
+        if not path.exists():
+            raise ValueError(f'{filename} is missing: this archive cannot be repaired, '
+                             f'reinstall it')
+        arrays[attribute] = np.load(path, mmap_mode='r')
+        if arrays[attribute].dtype != np.dtype(dtype):
+            raise ValueError(f'{filename} holds {arrays[attribute].dtype}, '
+                             f'expected {np.dtype(dtype)}')
+        columns[attribute] = {'file': filename, 'dtype': np.dtype(dtype).name,
+                              'sha256': sha256(path)}
+
+    lengths = {len(a) for a in arrays.values()}
+    if len(lengths) != 1:
+        raise ValueError(f'columns have differing lengths ({sorted(lengths)}): the '
+                         f'archive is truncated, reinstall it')
+    n_stars = lengths.pop()
+    if not n_stars:
+        raise ValueError('the archive is empty')
+
+    dec = np.asarray(arrays['dec'])
+    if np.any(np.diff(dec) < 0):
+        raise ValueError('declination is not sorted: lookups would silently miss '
+                         'stars, so this archive cannot be repaired')
+    ra = np.asarray(arrays['ra'])
+    if not (np.all(np.isfinite(ra)) and np.all(np.isfinite(dec))):
+        raise ValueError('positions contain NaN or infinity')
+    if ra.min() < -1e-9 or ra.max() > 2 * np.pi + 1e-9:
+        raise ValueError('right ascension is outside [0, 2pi]: wrong units?')
+
+    index_path = directory / DEC_INDEX_FILE
+    expected_index = build_dec_index(dec)
+    if index_path.exists():
+        stored = np.load(index_path)
+        if stored.shape != expected_index.shape or np.any(stored != expected_index):
+            raise ValueError('the declination band index does not match the data')
+    else:
+        np.save(index_path, expected_index)
+    columns['dec_index'] = {'file': DEC_INDEX_FILE, 'dtype': 'int64',
+                            'sha256': sha256(index_path)}
+
+    mag = np.asarray(arrays['mag'])
+    faintest = float(np.max(mag))
+    if magnitude_limit is not None and faintest > float(magnitude_limit) + 1e-3:
+        raise ValueError(f'stars reach G={faintest:.2f}, past the stated limit '
+                         f'G<{magnitude_limit}: this is not the archive it claims to be')
+
+    manifest = {
+        'format': FORMAT,
+        'format_version': FORMAT_VERSION,
+        'name': name,
+        'catalogue': catalogue,
+        'band': band,
+        'epoch': float(epoch),
+        'magnitude_limit': (float(magnitude_limit) if magnitude_limit is not None
+                            else faintest),
+        'n_stars': int(n_stars),
+        'dec_band_degrees': 1.0,
+        'provenance': provenance,
+        'built': '',
+        'columns': columns,
+    }
+    (directory / MANIFEST_FILE).write_text(json.dumps(manifest, indent=2),
+                                           encoding='utf-8')
+    return manifest
+
+
 def read_manifest(directory):
     directory = Path(directory)
     path = directory / MANIFEST_FILE

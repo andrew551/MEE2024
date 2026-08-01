@@ -153,9 +153,15 @@ def open_db(directory):
     return _DB_CACHE[key]
 
 
-#: the blind multi-scale layer set (S6): tried primary-first, then all together.
-#: Members that are not installed are simply not used.
-LAYER_SET = ('patdb_g12_t17k', 'patdb_g12_t06k', 'patdb_g12_t40k')
+#: The blind multi-scale layer set (S6), one group per FOV scale, primary group first.
+#: Within a group the first installed name wins, so a layer rebuilt against a newer
+#: catalogue supersedes its predecessor without any configuration; groups whose members
+#: are all absent are simply skipped.
+LAYER_SET = (
+    ('patdb_g13_t17k', 'patdb_g12_t17k'),      # ~1.4-10 deg: the primary
+    ('patdb_g13_t06k', 'patdb_g12_t06k'),      # ~1-2 deg
+    ('patdb_g13_t40k', 'patdb_g12_t40k'),      # ~8-18 deg
+)
 
 
 def resolve(options=None):
@@ -188,8 +194,12 @@ def resolve_layers(options=None):
             layers.append(open_db(directory))
         return layers
     installed = installed_databases()
-    layers = [open_db(get_patterndb_root() / name) for name in LAYER_SET
-              if name in installed]
+    layers = []
+    for group in LAYER_SET:
+        for name in group:
+            if name in installed:
+                layers.append(open_db(get_patterndb_root() / name))
+                break
     if layers:
         return layers
     if installed:
