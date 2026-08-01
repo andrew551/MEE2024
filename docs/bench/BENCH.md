@@ -232,3 +232,66 @@ case flips:
 - BROKE: fov_galplane_fov12_s0
 - BROKE: reliability_midlat_fov8_s3
 
+## S4 — quaternion consensus; the poles fall, with honest attribution (`s3_adaptive_c2.json`, `s4_quat.json`)
+
+**Corpus bumped to v2**: the synthetic generator's RA-window silently dropped
+in-frame stars on the far side of the pole (the instrument caveat recorded at S0),
+making the polar cases artificially lopsided; it now opens to the full circle when a
+field's radius reaches the pole. Per protocol, the S3 solver was re-run on corpus v2
+(via `v2_consensus=legacy` — same code, S3 behaviour) as the comparison reference.
+
+**Poles: 0/4 → 4/4. But the attribution is compound, and the bench forced us to be
+honest about it.** Three defects stacked up at the poles:
+
+1. *The instrument* (corpus): lopsided polar fields with elongated triangles.
+2. *A real, pre-existing solver bug that v1 shares*: the verification comparison
+   region comes from the field's **corners**, but a pole-containing field has its
+   declination extreme — the pole — *between* corners, and arbitrary corner RAs; the
+   box therefore excluded the very stars nearest the pole, and every candidate
+   starved at verification. Invisible until S4, because no earlier consensus ever
+   brought a polar field that far. Fixed with a pole-aware bbox.
+3. *The consensus chart*: the legacy roll coordinate's ill-conditioning at the pole
+   is real and measured — candidate quaternion scatter is 3.5× anisotropic in the
+   roll-like components there — but on full-frame fields it sits near-threshold and
+   the dense candidate sets chain through it.
+
+With (1) and (2) fixed, **both** consensus keys solve the poles on this corpus: the
+quaternion key's measured delta is zero (69/80 = 69/80, identical times). It is
+adopted anyway, deliberately: it removes the roll-wrap and pole chart defects *by
+construction* rather than by survivable margin, at zero measured cost; the legacy
+key remains one flag away (`v2_consensus=legacy`).
+
+Two things found while building it, recorded because they explain old mysteries:
+
+- **The per-candidate orientation map is a reflection (det = −1), not a rotation** —
+  the pixel/sky handedness flip. This is the root cause of v1's never-explained
+  "+90/+180 roll" convention shifts (`docs/ARCHITECTURE.md` §4): they compensate for
+  decoding Euler angles from an improper matrix. The quaternion path composes with a
+  fixed reflection first, so its conversion is exact.
+- The dev spike's quaternions "worked" on reflections because `from_matrix` is
+  deterministic and continuous even on improper input — consistent garbage clusters
+  as well as truth.
+
+Overall on corpus v2: **69/80 (86.3%)**, wrong solves 0, junk 8/8, real fields 2/2.
+Baseline chain: v1 61/80 → S1 62 → S2 64 → S3 65 (corpus v1) → S4 69/80 (corpus v2,
+poles now honestly winnable). A size-aware consensus radius (candidate orientation
+noise scales as ε/S, like the S3 match radius) is recorded for S5.
+
+## v2@06794ac vs v2@06794ac (2026-08-01T06:36:17)
+
+corpus v2, 88 shared cases. DB load 13.63 s -> 13.56 s.
+
+| family | correct | wrong | median time (s) |
+|---|---|---|---|
+| fov | 12/20 -> 12/20 | 0 -> 0 | 4.38 -> 4.45 |
+| junk | 8/8 -> 8/8 | 0 -> 0 | 36.2 -> 36.84 |
+| noise | 3/4 -> 3/4 | 0 -> 0 | 21.0 -> 21.52 |
+| pole | 4/4 -> 4/4 | 0 -> 0 | 5.67 -> 5.63 |
+| real | 2/2 -> 2/2 | 0 -> 0 | 2.08 -> 2.09 |
+| reliability | 32/32 -> 32/32 | 0 -> 0 | 3.49 -> 3.52 |
+| rollwrap | 3/3 -> 3/3 | 0 -> 0 | 3.75 -> 3.99 |
+| scatter | 12/12 -> 12/12 | 0 -> 0 | 3.58 -> 3.69 |
+| sparse_detect | 1/3 -> 1/3 | 0 -> 0 | 3.77 -> 3.65 |
+
+overall correct rate 0.8625 -> 0.8625; wrong solves 0 -> 0; junk rejected 8/8 -> 8/8
+

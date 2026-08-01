@@ -133,6 +133,58 @@ def mirror_rep(xyz):
     return out
 
 
+def batch_polar_orthogonalise(matrices):
+    """One Newton-Schulz step projecting near-rotations back onto SO(3).
+
+    Per-candidate rotations come from exact 3-point solves of noisy data, so they
+    are only approximately orthogonal; one step is enough at that error scale (the
+    dev-platesolve spike validated a second step changes nothing).
+    """
+    eye = np.eye(3)
+    mtm = np.einsum('nij,nik->njk', matrices, matrices)
+    return np.einsum('nij,njk->nik', matrices, (3 * eye - mtm) / 2)
+
+
+def rotations_to_quaternions(matrices):
+    """Unit quaternions (x, y, z, w) for a batch of near-rotation matrices.
+
+    Degenerate candidates (poisoned by the determinant floor upstream) produce
+    non-finite rows; those are replaced by distinct far-away placeholders so a
+    KD-tree accepts the array and the rows can never join any cluster.
+    """
+    from scipy.spatial.transform import Rotation
+
+    with np.errstate(over='ignore', invalid='ignore'):
+        polished = batch_polar_orthogonalise(matrices)
+        # a genuine near-rotation polishes to det ~ +1; degenerate solves stay
+        # wildly non-orthogonal (or overflow), however finite their entries
+        det = np.linalg.det(polished)
+    bad = ~np.isfinite(polished).all(axis=(1, 2)) | ~np.isfinite(det) \
+        | (np.abs(det - 1.0) > 0.5)
+    if np.any(bad):
+        polished[bad] = np.eye(3)
+    quat = Rotation.from_matrix(polished).as_quat()
+    if np.any(bad):
+        quat[bad] = 0.0
+        quat[bad, 0] = 1e6 + np.arange(int(bad.sum()))
+    return quat
+
+
+def canonicalise_quaternions(quat, band):
+    """Fix the q / -q double cover: flip each quaternion so sum(q) >= 0.
+
+    A rotation whose quaternion sits within ``band`` of the sum(q) = 0 hyperplane
+    can be measured on either side of it, splitting one physical cluster in two --
+    the failure mode the dev spike tried to patch (its version selected ~50% of
+    candidates by a missing abs() and never negated the twins). Returns the
+    canonicalised array and the indices needing a *negated* twin inserted.
+    """
+    s = quat.sum(axis=1)
+    canonical = quat * np.where(s >= 0, 1.0, -1.0)[:, None]
+    twin_idx = np.nonzero(np.abs(s) < band)[0]
+    return canonical, twin_idx
+
+
 def find_rotation_matrix(image_vectors, catalog_vectors):
     """Least-squares rotation between two ordered sets of unit vectors (Wahba/Kabsch).
 

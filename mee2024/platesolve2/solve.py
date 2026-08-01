@@ -132,7 +132,8 @@ def compute_platescale(db, match_cand, match_data, match_vect):
     scale = sdat[0, :, 0] / match_data[:, 0]
     target_cols = np.stack([anchors[anchor_idx], sdat[0, :, 2:5], sdat[1, :, 2:5]],
                            axis=2)
-    scale, roll, center_vect = _orientation_from_pairs(match_vect, target_cols, scale)
+    scale, roll, center_vect, _ = _orientation_from_pairs(match_vect, target_cols,
+                                                          scale)
     return scale, roll, center_vect, target_cols.swapaxes(1, 2)
 
 
@@ -254,9 +255,18 @@ def compute_platescale_kendall(db, match_cand, canon_points, exact_cut=None):
     scale = angle / pixels
 
     target_cols = target_rows.swapaxes(1, 2)
-    scale, roll, center_vect = _orientation_from_pairs(canon_points, target_cols,
-                                                       scale)
-    return scale, roll, center_vect, target_rows, keep
+    scale, roll, center_vect, rmatrix = _orientation_from_pairs(canon_points,
+                                                                target_cols, scale)
+    # The candidate map is IMPROPER (det = -1): the pixel plane and the sky have
+    # opposite handedness, which is also why v1's roll decode needs its empirical
+    # +90/+180 shifts. Composing with a fixed reflection of the image frame makes
+    # it a genuine rotation, so the quaternion conversion is exact; being the same
+    # fixed reflection for every candidate, same-solution candidates still share
+    # one quaternion.
+    proper = rmatrix.copy()
+    proper[:, :, 1] = -proper[:, :, 1]
+    quat = geometry.rotations_to_quaternions(proper)
+    return scale, roll, center_vect, target_rows, keep, quat
 
 
 # ------------------------------------------------------------ shared downstream
@@ -285,13 +295,22 @@ def _orientation_from_pairs(image_points, target_cols, scale):
     if np.any(bad):
         scale = scale.copy()
         scale[bad] = 1e9
-    return scale, roll, center_vect,
+    return scale, roll, center_vect, rmatrix
 
 
 def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
                           target_rows, centroids, image_size, options, diagnostics,
-                          output_dir=None, est_tolerance=None, adapt_depth=False):
-    """Cluster candidate orientations, verify each strong cluster, keep the best."""
+                          output_dir=None, est_tolerance=None, adapt_depth=False,
+                          quat=None):
+    """Cluster candidate orientations, verify each strong cluster, keep the best.
+
+    With ``quat`` (S4), candidates cluster on [log s, q] -- a singularity-free,
+    uniform metric on scale x SO(3). The legacy [log s, roll, centre] key (used by
+    the frozen ratio path, and as the kendall rollback) has two chart defects:
+    roll enters unwrapped, so a consensus straddling roll = 0/2pi splits, and roll
+    itself is ill-conditioned near the celestial poles, where candidate rolls
+    scatter far beyond TOL_ROLL for one physical pointing.
+    """
     verify_spec = db.manifest.get('verify') or {}
     mag_limit = float(verify_spec.get('mag_limit', 12.0))
     epoch = float(verify_spec.get('epoch', 2024.0))
@@ -304,15 +323,28 @@ def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
     n_obs = centroids.shape[0]
     all_star_plate = centroids - np.array([image_size[0] / 2, image_size[1] / 2])
 
+    N = scale.shape[0]
     with np.errstate(divide='ignore'):
-        vector_plates = np.c_[np.log(scale) / LOG_TOL_SCALE, roll / TOL_ROLL,
-                              center_vect / TOL_CENT]
-    tree_matches = KDTree(vector_plates)
+        log_scale = np.log(scale) / LOG_TOL_SCALE
+        if quat is None:
+            data = np.c_[log_scale, roll / TOL_ROLL, center_vect / TOL_CENT]
+            index_map = np.arange(N)
+        else:
+            # double cover: q and -q are one rotation. Canonicalise the sign and
+            # add negated twins for the sliver of candidates near the boundary,
+            # so one physical cluster cannot be split in two.
+            canonical, twin_idx = geometry.canonicalise_quaternions(
+                quat, band=2 * TOL_ROLL)
+            base = np.c_[log_scale, canonical / TOL_ROLL]
+            twins = np.c_[log_scale[twin_idx], -canonical[twin_idx] / TOL_ROLL]
+            data = np.r_[base, twins]
+            index_map = np.r_[np.arange(N), twin_idx]
+    tree_matches = KDTree(data)
     candidate_pairs = tree_matches.query_pairs(1)
-    N = vector_plates.shape[0]
+    M = data.shape[0]
     graph = csr_matrix(([1 for _ in candidate_pairs],
                         ([x[0] for x in candidate_pairs],
-                         [x[1] for x in candidate_pairs])), shape=(N, N))
+                         [x[1] for x in candidate_pairs])), shape=(M, M))
     n_components, labels = connected_components(csgraph=graph, directed=False,
                                                 return_labels=True)
 
@@ -324,9 +356,9 @@ def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
     # needs 4 non-redundant triangles to be worth the Python-level work.
     triples = np.sort(np.asarray(match_info, dtype=np.int64), axis=1)
     triple_ids = (triples[:, 0] << 40) | (triples[:, 1] << 20) | triples[:, 2]
-    order = np.lexsort((np.arange(N), labels))
+    order = np.lexsort((index_map, labels))
     sorted_labels = labels[order]
-    boundaries = np.r_[0, np.nonzero(np.diff(sorted_labels))[0] + 1, N]
+    boundaries = np.r_[0, np.nonzero(np.diff(sorted_labels))[0] + 1, M]
     starts, stops = boundaries[:-1], boundaries[1:]
     big = np.nonzero(stops - starts >= 4)[0]
 
@@ -334,8 +366,9 @@ def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
     best_non_redundant = None
     n_matches = 0
     for b in big:
-        indices = order[starts[b]:stops[b]]         # ascending candidate order
-        if len(np.unique(triple_ids[indices])) < 4:
+        # ascending candidate order; a twin resolves to its original candidate
+        indices = np.unique(index_map[order[starts[b]:stops[b]]])
+        if len(indices) < 4 or len(np.unique(triple_ids[indices])) < 4:
             continue
         seen = set()
         non_redundant = []
@@ -475,18 +508,19 @@ def solve_kendall(db, catalogue, centroids, image_size, options, output_dir=None
             if len(cand) == 0:
                 continue
             exact = None if fixed > 0 else (dist, s_img, eps)
-            scale, roll, center_vect, target_rows, keep = \
+            scale, roll, center_vect, target_rows, keep, quat = \
                 compute_platescale_kendall(db, cand, points, exact_cut=exact)
             if keep is not None:
                 triplets = triplets[keep]
             if scale.shape[0] == 0:
                 continue
+            legacy = options.get('v2_consensus') == 'legacy'
             result = _consensus_and_verify(
                 db, catalogue, scale, roll, center_vect,
                 [tuple(t) for t in triplets], target_rows,
                 pool_centroids, pool_size, options, diagnostics, output_dir,
                 est_tolerance=(fixed if fixed > 0 else mean_radius),
-                adapt_depth=True)
+                adapt_depth=True, quat=None if legacy else quat)
             if result['success']:
                 result['mirror'] = is_mirror
                 if is_mirror:

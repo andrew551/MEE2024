@@ -42,7 +42,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tools.synthetic_field import junk_field, solution_matches_truth, synthesize_field
 
-CORPUS_VERSION = '1'
+# v2: synthesize_field now opens the RA window to the full circle for fields whose
+# radius reaches the pole -- with the old partial window, in-frame stars on the far
+# side of the pole silently vanished and the pole cases were artificially lopsided
+CORPUS_VERSION = '2'
 
 #: named pointings (ra, dec): the measured envelope's regimes plus the two the current
 #: consensus parameterisation is expected to fail (poles; roll near the 0/2pi wrap)
@@ -145,13 +148,19 @@ def open_synthetic_catalogue():
             f'or build it with tools/build_gaia_offline.py.')
 
 
-def make_options(solver, db):
+def make_options(solver, db, overrides=None):
     from mee2024.config import get_default_options
     options = get_default_options()
     options.update(flag_display=False, flag_display2=False, flag_display3=False,
                    flag_debug=False, platesolver='v2' if solver == 'v2' else 'triangle')
     if db:
         options['pattern_db'] = db
+    for item in overrides or []:
+        key, _, value = item.partition('=')
+        try:
+            options[key] = float(value)
+        except ValueError:
+            options[key] = value
     return options
 
 
@@ -276,7 +285,7 @@ def cmd_run(args):
           + (f', db={args.db}' if args.db else ''))
 
     catalogue = open_synthetic_catalogue()
-    options = make_options(args.solver, args.db)
+    options = make_options(args.solver, args.db, args.opt)
 
     # load the solver's database once, timed, so per-case times are pure solve time
     t0 = time.perf_counter()
@@ -302,6 +311,7 @@ def cmd_run(args):
         'meta': {
             'corpus_version': CORPUS_VERSION,
             'solver': args.solver, 'db': args.db or '',
+            'options': list(args.opt or []),
             'git_sha': git_sha(),
             'started': datetime.now().isoformat(timespec='seconds'),
             'db_load_s': db_load,
@@ -391,6 +401,8 @@ def main(argv=None):
     p.add_argument('--db', default='', help='pattern DB variant (v2 only)')
     p.add_argument('--out', required=True, help='output JSON path')
     p.add_argument('--family', nargs='*', help='restrict to these case families')
+    p.add_argument('--opt', action='append', metavar='KEY=VALUE',
+                   help='solver option override, e.g. --opt v2_consensus=legacy')
     p.add_argument('--quick', action='store_true',
                    help='thinned corpus for a smoke run (not comparable to full runs)')
     p.set_defaults(func=cmd_run)

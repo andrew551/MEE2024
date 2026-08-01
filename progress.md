@@ -50,6 +50,40 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-08-01 — S4: the poles fall — to three fixes, honestly attributed
+
+**Poles 0/4 → 4/4** (corpus v2; 69/80 overall, wrong solves 0, junk 8/8). The stage
+was built for the quaternion consensus key, and the bench then forced an honest
+attribution: three defects had stacked up at the poles, and the chart singularity
+was only one of them.
+
+1. **The instrument lied at the poles.** The synthetic generator's RA-window dropped
+   in-frame stars on the far side of the pole, so polar test fields were lopsided
+   with elongated triangles. Fixed (full RA circle when the field reaches the pole);
+   corpus bumped to v2 and the S3 reference re-run per protocol.
+2. **A real solver bug v1 shares**: the verification region is built from the field
+   *corners*, but a pole-containing field's declination extreme — the pole — lies
+   between corners, so verification excluded the stars nearest the pole and every
+   correct candidate starved. Invisible until now: no earlier consensus ever brought
+   a polar field as far as verification. Fixed with a pole-aware bbox.
+3. **The chart defect is real but survivable**: candidate orientations at the pole
+   scatter 3.5× anisotropically in the roll-like components — near-threshold for the
+   legacy (roll, centre) key, which nonetheless chains through on full-frame fields.
+
+With 1+2 fixed, both consensus keys solve the poles; the quaternion key's measured
+delta is zero. **Adopted anyway**: it removes the roll-wrap and pole defects by
+construction rather than by margin, at zero measured cost (`v2_consensus=legacy` is
+the rollback). The satisfying by-product: the per-candidate orientation map turns
+out to be a *reflection* (det = −1, the pixel/sky handedness flip) — which finally
+explains v1's mysterious "+90/+180 roll" convention shifts: they compensate for
+decoding Euler angles from an improper matrix. The quaternion path composes with a
+fixed reflection first, so its conversion is exact.
+
+Recorded for S5: a size-aware consensus radius (candidate orientation noise scales
+as ε/S, exactly like the S3 match radius — the same physics, one level up).
+
+---
+
 ## 2026-08-01 — S3: the tolerance becomes a physical model; dimmer-legs judged
 
 **The query radius is no longer a constant.** Per triangle:
@@ -652,17 +686,16 @@ every historical result, so it is left as a deliberate choice.
 
 Milestones A and C are done; the UI is through P1 plus the analysis views above.
 
-1. **Milestone D — plate-solve robustness.** Staged rebuild with an A/B gate: S0
-   (bench + baseline), S1 (Gaia DB + verification switch), S2 (Kendall invariant +
-   single-pass mirror), and S3 (calibrated tolerance model + escalation +
-   detection-aware verification depth; S2b's dimmer-legs judged and declined) are
-   landed — 61 → 65/80 against v1, real fields at 1.6 s warm, zero wrong solves
-   throughout. Next: **S4, quaternion consensus** (poles 0/4 is its pinned target;
-   also reclaims most of the escalation ladder's failure-path cost). Then S5
-   (progressive anchors; mmap/bucket index — the ~13 s KD-tree build at load is now
-   the dominant latency). Open statistics note: the acceptance threshold's
-   addon-dominated floor (~9) is what keeps sparse-10 failing; revisit with the
-   corrected p-value experiment. Designed in `docs/PLATESOLVER_V2_DESIGN.md`.
+1. **Milestone D — plate-solve robustness.** Staged rebuild with an A/B gate: S0–S4
+   are landed — Gaia DB, Kendall invariant, calibrated tolerance model, quaternion
+   consensus with the pole-aware verification bbox. **61/80 (v1) → 69/80, poles
+   0/4 → 4/4, real fields 1.6–2 s warm, zero wrong solves at every stage.** Next:
+   **S5** — progressive anchor sampling; mmap/bucket index (the ~13 s KD-tree build
+   at load is the dominant latency); size-aware consensus radius. Then S6
+   (multi-scale layers + platescale hints; the sub-1° floor and blind wide fields).
+   Open statistics note: the acceptance threshold's addon-dominated floor (~9) keeps
+   sparse-10 failing; revisit with the corrected p-value experiment. Designed in
+   `docs/PLATESOLVER_V2_DESIGN.md`; stage record in `docs/bench/BENCH.md`.
 2. **Milestone B — auto-calibration and a quality score.** The score cards and the nn_corr
    grading exist; `mee2024/quality.py` and `mee2024 autocal` do not.
 3. **Milestone E — centroid backend rig.** Not started. The half-pixel convention note

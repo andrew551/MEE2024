@@ -43,11 +43,18 @@ def synthesize_field(catalogue, ra_deg, dec_deg, roll_deg, fov_width_deg,
     platescale_rad = np.radians(fov_width_deg) / width
     x = (platescale_rad, np.radians(ra_deg), np.radians(dec_deg), np.radians(roll_deg))
 
-    # query a bounding box comfortably containing the field
+    # query a bounding box comfortably containing the field. A field whose radius
+    # reaches the celestial pole holds stars at every right ascension, so the RA
+    # window must open to the full circle there -- with a partial window, in-frame
+    # stars on the far side of the pole silently vanish, biasing polar fields'
+    # detections to one half of the frame
     radius_deg = fov_width_deg * np.hypot(height, width) / width / 2 * 1.2
-    cos_dec = max(np.cos(np.radians(dec_deg)), 0.05)
-    ra_lo = (ra_deg - radius_deg / cos_dec) % 360
-    ra_hi = (ra_deg + radius_deg / cos_dec) % 360
+    if abs(dec_deg) + radius_deg >= 89.9:
+        ra_lo, ra_hi = 0.0, 360.0
+    else:
+        cos_dec = max(np.cos(np.radians(dec_deg)), 0.05)
+        ra_lo = (ra_deg - radius_deg / cos_dec) % 360
+        ra_hi = (ra_deg + radius_deg / cos_dec) % 360
     dec_lo = max(dec_deg - radius_deg, -89.99)
     dec_hi = min(dec_deg + radius_deg, 89.99)
     stars = catalogue.lookup((ra_lo, ra_hi), (dec_lo, dec_hi), mag_limit, epoch)

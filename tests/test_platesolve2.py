@@ -264,6 +264,99 @@ def test_kendall_agrees_with_ratio_dphi_solution(mini_db, mini_db_kendall):
                                                     rel=1e-3)
 
 
+# ---------------------------------------------------- quaternion consensus (S4)
+
+def test_quaternion_canonicalisation_pairs_boundary_rotations():
+    """q and -q are one rotation; near the sum(q)=0 boundary the measured sign is
+    arbitrary, and the twin mechanism must keep such a cluster together."""
+    from scipy.spatial.transform import Rotation
+    rng = np.random.default_rng(4)
+    # a rotation whose quaternion sits almost exactly on the boundary
+    q0 = rng.normal(size=4)
+    q0 -= q0.sum() / 4                       # sum(q0) = 0
+    q0 /= np.linalg.norm(q0)
+    jitter = rng.normal(scale=1e-5, size=(40, 4))
+    cluster = q0 + jitter
+    cluster /= np.linalg.norm(cluster, axis=1, keepdims=True)
+    signs = np.where(rng.random(40) < 0.5, 1.0, -1.0)   # measured on either side
+    quat = cluster * signs[:, None]
+
+    canonical, twin_idx = geometry.canonicalise_quaternions(quat, band=1e-3)
+    assert len(twin_idx) == 40               # all sit inside the boundary band
+    # every member must be within a tiny distance of q0 or -q0 after adding twins
+    data = np.r_[canonical, -canonical[twin_idx]]
+    close_to_plus = np.linalg.norm(data - q0, axis=1) < 1e-3
+    close_to_minus = np.linalg.norm(data + q0, axis=1) < 1e-3
+    assert np.all(close_to_plus | close_to_minus)
+    # and each original rotation is represented on the +q0 side by itself or twin
+    represented = close_to_plus[:40] | close_to_plus[40:]
+    assert np.all(represented)
+
+    # far from the boundary no twins are made and canonicalisation is stable
+    r = Rotation.from_euler('xyz', [0.4, -1.0, 2.2]).as_quat()
+    stack = np.r_[[r], [-r]]
+    canonical2, twin2 = geometry.canonicalise_quaternions(stack, band=1e-3)
+    assert len(twin2) == 0
+    assert np.allclose(canonical2[0], canonical2[1])
+
+
+def test_rotations_to_quaternions_handles_degenerate_rows():
+    from scipy.spatial.transform import Rotation
+    good = Rotation.from_euler('zyx', [[0.1, 0.2, 0.3], [1.0, -0.5, 2.0]]).as_matrix()
+    bad = np.full((1, 3, 3), 1e30)
+    quat = geometry.rotations_to_quaternions(np.r_[good, bad])
+    assert np.all(np.isfinite(quat))
+    # good rows round-trip; the bad row is a far-away placeholder
+    assert np.allclose(np.abs(Rotation.from_matrix(good).as_quat()),
+                       np.abs(quat[:2]), atol=1e-6)
+    assert np.linalg.norm(quat[2]) > 1e5
+
+
+@pytest.fixture(scope='module')
+def mini_db_polar(tmp_path_factory):
+    """A star patch covering the celestial pole: the legacy consensus chart's
+    singular point."""
+    rng = np.random.default_rng(19)
+    n = 900
+    # a dense 3-degree polar cap: the synthetic generator's RA-window query loses
+    # in-frame stars on the far side of the pole, so density compensates to keep
+    # the detected count (and hence triangle sizes) representative of the bench's
+    # real polar fields
+    r = np.degrees(np.arccos(1 - rng.random(n) * (1 - np.cos(np.radians(3.0)))))
+    theta = rng.uniform(0, 2 * np.pi, n)
+    dec = np.radians(90.0 - r)
+    ra = theta
+    mag = rng.uniform(5.0, 11.0, n).astype(np.float32)
+    stars = StarTable(ra=ra, dec=dec, mag=mag, ids=np.arange(n, dtype=np.int64),
+                      epoch=2024.0)
+    out_dir, _ = build.build_pattern_db(
+        stars, 'test_mini_polar', out_root=tmp_path_factory.mktemp('patterndb'),
+        params=dict(MINI_PARAMS, invariant='kendall'),
+        verify_spec={'provider': 'test', 'mag_limit': 12.0, 'epoch': 2024.0})
+    return pattern_db.PatternDB(out_dir), PatchCatalogue(stars)
+
+
+def test_quaternion_consensus_solves_at_the_pole(mini_db_polar):
+    """dec = +89: the legacy (centre, roll) chart is singular here (the S0 bench
+    measured 0/4); the quaternion key has no chart to be singular in.
+
+    Frame and detection count mirror the bench's polar cases: per-candidate
+    orientation noise scales as (centroid noise) / (triangle size in px), and the
+    consensus tolerance is a fixed 4.4e-4, so an unrealistically small frame makes
+    even a perfect metric fragment. (A size-aware consensus radius is S5 work.)
+    """
+    from tools.synthetic_field import synthesize_field, solution_matches_truth
+    db, catalogue = mini_db_polar
+    centroids, truth = synthesize_field(catalogue, 180.0, 89.0, roll_deg=57.0,
+                                        fov_width_deg=2.4, shape=(2000, 3000),
+                                        mag_limit=12.0, epoch=2024.0, n_detect=120,
+                                        seed=6)
+    result = platesolve_v2(centroids, (2000, 3000),
+                           options={'rough_match_threshhold': 36},
+                           catalogue=catalogue, db=db)
+    assert result['success'] and solution_matches_truth(result, truth)
+
+
 # -------------------------------------------------------- tolerance model (S3)
 
 def test_query_radius_model_shape(mini_db_kendall):

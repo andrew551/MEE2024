@@ -75,6 +75,18 @@ def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
                   [image_size[0] - 1., 0]])
         - np.array([image_size[0] / 2, image_size[1] / 2])))
     bbox = get_bbox(corners)
+    # A corner-derived box cannot describe a field that reaches the celestial pole:
+    # the field's declination extreme is the pole itself, between corners, and its
+    # corner RAs are arbitrary -- the box then silently excludes the very stars
+    # nearest the pole, and verification starves. (v1 shares this defect; it was
+    # invisible while no solver brought polar fields as far as verification.)
+    half_diag_deg = np.degrees(platescale_fit[0]) * np.hypot(*image_size) / 2
+    boresight_dec_deg = np.degrees(platescale_fit[2])
+    if 90.0 - abs(boresight_dec_deg) < half_diag_deg * 1.1:
+        if boresight_dec_deg >= 0:
+            bbox = ((0.0, 360.0), (min(bbox[1]), 90.0))
+        else:
+            bbox = ((0.0, 360.0), (-90.0, max(bbox[1])))
     table = catalogue.lookup(bbox[0], bbox[1], mag_limit, epoch=epoch)
     stardata = np.zeros((len(table), 6))
     if len(table):
