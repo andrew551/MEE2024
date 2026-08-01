@@ -101,10 +101,11 @@ DEFAULT_OPTIONS = {
     # which interface a no-argument launch (or a double-clicked .exe) opens:
     # 'app' for the new window, 'classic' for the original FreeSimpleGUI one
     'default_interface': 'app',
-    # which plate solver runs: 'triangle' is the production solver; 'v2' is the
-    # Gaia/shape-space rebuild (mee2024/platesolve2), kept opt-in until it dominates
-    # the bench (tools/solver_bench.py)
-    'platesolver': 'triangle',
+    # which plate solver runs. 'v2' is the Gaia/Kendall rebuild (mee2024/platesolve2;
+    # measured record in docs/bench/BENCH.md) and falls back to 'triangle' -- the
+    # classic Tycho solver -- automatically when its pattern database or catalogue
+    # is not installed
+    'platesolver': 'v2',
     # which pattern database the v2 solver reads; '' auto-selects the best installed
     'pattern_db': '',
     # 1-sigma centroid noise the v2 solver assumes when sizing its match radius, in

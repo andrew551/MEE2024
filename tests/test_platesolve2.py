@@ -553,3 +553,12 @@ def test_acceptance_threshold_tolerance_parameter():
     tight = estimate_acceptance_threshold(100, 3_000_000, np.radians(36 / 3600), 18,
                                           tolerance=0.001)
     assert tight < loose
+
+
+def test_preflight_reports_unavailable_when_nothing_is_installed(monkeypatch,
+                                                                 tmp_path):
+    """The v1.1.0 default-with-fallback hinges on preflight never raising."""
+    from mee2024.platesolve2 import preflight
+    monkeypatch.setattr(pattern_db, 'get_patterndb_root', lambda: tmp_path)
+    ok, reason = preflight({})
+    assert not ok and 'build-pattern-db' in reason

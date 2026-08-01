@@ -14,7 +14,7 @@ from pathlib import Path
 from platformdirs import user_data_dir, user_config_dir
 
 def _version():
-    return 'v1.0.1'
+    return 'v1.1.0'
 
 
 AUTHORS = 'Andrew Smith and Douglas Smith'
@@ -109,6 +109,17 @@ def migrate_config(loaded):
             notes.append(f'rough_match_threshhold reset from {previous} to 36 arcsec: '
                          'it was tuned against a units bug fixed in v1.0.0')
         loaded['rough_match_threshhold'] = 36
+
+    if written_by < (1, 1, 0):
+        # v1.1.0 promotes the rebuilt plate solver to the default. Configs written
+        # earlier carry platesolver='triangle' only because that was the old
+        # default, not as a choice; runs without the v2 pattern database still
+        # fall back to the classic solver automatically.
+        if loaded.get('platesolver') == 'triangle':
+            notes.append("platesolver 'triangle' -> 'v2': the rebuilt solver is the "
+                         'v1.1.0 default (docs/bench/BENCH.md); set it back to '
+                         "'triangle' to keep the classic solver deliberately")
+            loaded['platesolver'] = 'v2'
 
     loaded['__version__'] = _version()
     return notes

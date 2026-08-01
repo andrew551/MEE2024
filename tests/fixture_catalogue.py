@@ -18,19 +18,24 @@ DATA = Path(__file__).parent / 'data'
 
 
 def skip_unless_triangle_db():
-    """Skip (never build) when the plate-solving triangle database is absent.
+    """Skip (never build) when no plate-solving database is available.
 
-    database_cache generates a missing database inline -- a silent multi-minute Tycho
-    build that must never fire in the middle of a test run. Building it is a deliberate
-    one-off act, so tell the reader exactly how.
+    Since v1.1.0 the default solver is v2 with automatic fallback to the classic
+    one, so a pipeline test can run if EITHER database is present. What must never
+    happen is database_cache generating a missing Tycho database inline -- a silent
+    multi-minute build in the middle of a test run -- hence skip, with the remedy.
     """
     import pytest
 
     from mee2024.MEE2024util import get_triangle_db_path
+    from mee2024.platesolve2 import preflight
+    if preflight({})[0]:
+        return None
     path = get_triangle_db_path()
     if not path.exists():
-        pytest.skip(f'triangle database missing at {path}; '
-                    f'build it once with `mee2024 build-triangle-db`')
+        pytest.skip(f'no plate-solving database; build one with '
+                    f'`mee2024 build-pattern-db` (v2) or '
+                    f'`mee2024 build-triangle-db` (classic, at {path})')
     return path
 
 

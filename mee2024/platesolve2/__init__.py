@@ -16,6 +16,22 @@ import numpy as np
 from mee2024 import events
 
 
+def preflight(options=None):
+    """Can a v2 solve actually run? Returns (ok, reason).
+
+    The v1.1.0 default is 'v2' with automatic fallback: a fresh install has
+    neither the pattern database nor the offline catalogue, and must keep solving
+    (via the classic Tycho solver) rather than erroring several stages deep.
+    """
+    from mee2024.platesolve2 import pattern_db, verify
+    try:
+        dbs = pattern_db.resolve_layers(options or {})
+        verify.open_verify_catalogue(dbs[0].manifest.get('verify') or {})
+        return True, ''
+    except Exception as exc:
+        return False, str(exc)
+
+
 def platesolve(centroids, image_shape, options=None, output_dir=None,
                try_mirror_also=True, catalogue=None, db=None):
     """Lost-in-space solve of an (n, 2) brightest-first (y, x) centroid array.

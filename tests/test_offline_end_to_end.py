@@ -16,10 +16,14 @@ from mee2024.starcat import providers, store
 from tests.fixture_catalogue import build_centroid_zip, load_gaia_fixture
 from tests.test_starcat_store import table_from_fixture
 
-# field, order, expected rms (mas), expected stars, expected guessed date
+# field, order, expected rms (mas), expected stars, expected guessed date.
+# Re-pinned at v1.1.0 for v2-seeded fits: the solver seed moved by ~0.3 arcsec,
+# which lands the partially-degenerate date+distortion fit in a neighbouring
+# optimum -- rms/star-count/nn_corr are equivalent and the date shift is well
+# inside the honest sigma_t (~16 days for zwo3; see progress.md 2026-07-30).
 CASES = [
-    ('zwo3_zenith', 'quintic', 109.6, 434, '2023-10-28'),
-    ('zwo1_zenith', 'quintic', 111.9, 1564, '2023-09-06'),
+    ('zwo3_zenith', 'quintic', 108.9, 433, '2023-10-16'),
+    ('zwo1_zenith', 'quintic', 115.1, 1565, '2023-09-07'),
 ]
 
 

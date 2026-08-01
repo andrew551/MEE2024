@@ -83,3 +83,16 @@ def test_get_default_options_returns_a_fresh_copy():
     a['max_star_mag_dist'] = 99
     assert get_default_options()['max_star_mag_dist'] != 99
     assert DEFAULT_OPTIONS['max_star_mag_dist'] != 99
+
+
+def test_migration_promotes_the_v2_solver_once(tmp_path):
+    """A pre-v1.1.0 config carrying the old default is moved to v2, with a note;
+    a v1.1.0 config that says 'triangle' said it deliberately and is kept."""
+    old = {'__version__': 'v1.0.1', 'platesolver': 'triangle'}
+    notes = MEE2024util.migrate_config(old)
+    assert old['platesolver'] == 'v2'
+    assert any('platesolver' in n for n in notes)
+
+    deliberate = {'__version__': MEE2024util._version(), 'platesolver': 'triangle'}
+    assert MEE2024util.migrate_config(deliberate) == []
+    assert deliberate['platesolver'] == 'triangle'

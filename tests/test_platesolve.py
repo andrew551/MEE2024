@@ -168,16 +168,18 @@ def _offline_catalogue_or_skip():
 
 def _solver_ready_or_skip(solver, options):
     """Point options at the requested solver, skipping if its database is absent."""
+    options['platesolver'] = solver
     if solver == 'v2':
-        from mee2024.platesolve2 import pattern_db
-        try:
-            pattern_db.resolve({})
-        except RuntimeError:
-            pytest.skip('no v2 pattern database; build one with '
-                        '`mee2024 build-pattern-db`')
-        options['platesolver'] = 'v2'
+        from mee2024.platesolve2 import preflight
+        ok, reason = preflight({})
+        if not ok:
+            pytest.skip(f'v2 solver unavailable ({reason}); build its database '
+                        'with `mee2024 build-pattern-db`')
     else:
-        skip_unless_triangle_db()
+        from mee2024.MEE2024util import get_triangle_db_path
+        if not get_triangle_db_path().exists():
+            pytest.skip('triangle database missing; build it once with '
+                        '`mee2024 build-triangle-db`')
 
 
 @pytest.mark.slow
