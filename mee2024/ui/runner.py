@@ -44,7 +44,7 @@ class PipelineRunner:
     #: presets the Simple mode offers, chosen from the measured behaviour of the pipeline
     PRESETS = {
         'auto': {'label': 'Auto (recommended)',
-                 'note': 'sensitive centroids, quintic distortion, guessed date'},
+                 'note': 'sensitive centroids, cubic distortion, guessed date'},
         'quick': {'label': 'Quick look',
                   'note': 'plain centroids, cubic distortion -- fastest'},
         'deep': {'label': 'Deep',
@@ -124,9 +124,40 @@ class PipelineRunner:
             self.bus.reset()   # event times should be relative to this run, not to boot
             self.cancel_event = threading.Event()
 
+        self.remember(spec)
         self.thread = threading.Thread(target=self._work, args=(dict(spec),), daemon=True)
         self.thread.start()
         return True
+
+    #: what a run should carry over to the next session, and where it lives in the
+    #: options dict the config file round-trips
+    REMEMBERED = {'output_dir': 'output_dir', 'catalogue': 'catalogue',
+                  'preset': 'ui_preset', 'observation_date': 'observation_date'}
+
+    def remember(self, spec):
+        """Save the choices this run was given, so the next session starts there.
+
+        Without this the app forgot everything between launches -- the folder you
+        last used most of all -- because nothing in the UI ever wrote the config
+        file that the CLI and the classic interface have always used.
+        """
+        from mee2024.MEE2024util import read_ini, write_ini
+
+        try:
+            options = get_default_options()
+            read_ini(options)
+            lights = [str(p) for p in spec.get('lights') or []]
+            if lights:
+                options['workDir'] = str(Path(lights[0]).parent)
+            for key, option in self.REMEMBERED.items():
+                value = spec.get(key)
+                if value:
+                    options[option] = str(value)
+            for key, value in (spec.get('options') or {}).items():
+                options[key] = value
+            write_ini(options)
+        except Exception as exc:      # never let bookkeeping break a run
+            events.log(f'could not save settings: {exc}', level='warning')
 
     def build_options(self, spec):
         options = get_default_options()
@@ -134,7 +165,7 @@ class PipelineRunner:
         # never open a plot window: everything the user should see travels as an event
         options.update(flag_display=False, flag_display2=False, flag_display3=False)
         if preset == 'auto':
-            options.update(sensitive_mode_stack=True, distortionOrder='quintic',
+            options.update(sensitive_mode_stack=True, distortionOrder='cubic',
                            guess_date=True)
         elif preset == 'quick':
             options.update(sensitive_mode_stack=False, distortionOrder='cubic',
@@ -185,6 +216,14 @@ class PipelineRunner:
                     # only stage 2 consults the catalogue, but check before stage 1 so a
                     # missing download is not discovered after minutes of stacking
                     self.prepare_catalogue(options)
+                if options.get('platesolver', 'v2') == 'v2':
+                    # the plate-solving database is derived from the catalogue, so it
+                    # is built here rather than downloaded -- once, before any work
+                    from mee2024 import platesolve2
+                    platesolve2.ensure_pattern_db(
+                        options, on_note=events.log,
+                        progress=EventProgress(stage='patterndb',
+                                               label='Preparing the plate solver'))
 
                 centroid_zip = spec.get('centroid_zip')
                 if 'stack' in stages:

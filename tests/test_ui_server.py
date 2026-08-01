@@ -6,6 +6,7 @@ with urllib against a real server on an ephemeral localhost port.
 
 import json
 import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -115,7 +116,7 @@ def test_start_rejects_a_missing_file(api, tmp_path):
 # ------------------------------------------------------------------- options
 
 @pytest.mark.parametrize('preset,order,guess', [
-    ('auto', 'quintic', True), ('quick', 'cubic', False), ('deep', 'septic', True),
+    ('auto', 'cubic', True), ('quick', 'cubic', False), ('deep', 'septic', True),
 ])
 def test_presets_map_to_options(preset, order, guess):
     options = PipelineRunner().build_options({'preset': preset})
@@ -608,3 +609,73 @@ def test_no_warning_when_the_catalogue_is_deep_enough(monkeypatch):
     with events.using(runner.bus):
         runner.prepare_catalogue({'catalogue': 'gaia_offline', 'max_star_mag_dist': 12.0})
     assert not [e for e in runner.sink.events if e.get('level') == 'warning']
+
+
+# ------------------------------------------------- session lifetime and pickers
+
+def test_the_wait_ends_when_the_page_says_goodbye():
+    """Closing a browser tab used to leave the process running until the terminal
+    was killed, because nothing told the server the page had gone."""
+    import threading
+    from mee2024.ui.server import Api, UiServer
+
+    server = UiServer(api=Api())
+    server.api.page_open = True          # a page is here
+    outcome = {}
+
+    def wait():
+        outcome['reason'] = server.wait_until_closed(idle_seconds=30, poll=0.05)
+
+    waiter = threading.Thread(target=wait, daemon=True)
+    waiter.start()
+    time.sleep(0.2)
+    assert waiter.is_alive(), 'must keep waiting while the page is open'
+    server.api.goodbye()
+    waiter.join(timeout=3)
+    assert outcome['reason'] == 'closed'
+    server.httpd.server_close()
+
+
+def test_the_wait_gives_up_if_no_page_ever_arrives():
+    from mee2024.ui.server import Api, UiServer
+    server = UiServer(api=Api())
+    assert server.wait_until_closed(idle_seconds=0.3, poll=0.05) == 'never opened'
+    server.httpd.server_close()
+
+
+def test_a_running_pipeline_keeps_the_session_alive(monkeypatch):
+    """Tidiness must never cut a run short."""
+    import threading
+    from mee2024.ui.server import Api, UiServer
+    server = UiServer(api=Api())
+    monkeypatch.setattr(type(server.api.runner), 'is_running', property(lambda s: True))
+    server.api.page_open = False
+    outcome = {}
+    waiter = threading.Thread(
+        target=lambda: outcome.setdefault(
+            'reason', server.wait_until_closed(idle_seconds=0.2, poll=0.05)),
+        daemon=True)
+    waiter.start()
+    time.sleep(0.5)
+    assert waiter.is_alive() and 'reason' not in outcome
+    server.httpd.server_close()
+
+
+def test_pick_reports_whether_a_native_dialog_exists(api):
+    """Browser mode has no file dialog, and 'unavailable' must stay distinguishable
+    from 'the user cancelled' -- the frontend falls back only for the first."""
+    assert api.pick({'multiple': True}) == {'available': False, 'paths': []}
+
+    api.native_dialog = lambda multiple=True, directory=False: ['/frames/a.fits']
+    assert api.pick({'multiple': True}) == {'available': True,
+                                           'paths': ['/frames/a.fits']}
+
+    api.native_dialog = lambda multiple=True, directory=False: None
+    assert api.pick({}) == {'available': True, 'paths': []}
+
+
+def test_hello_offers_where_the_last_session_left_off(api):
+    last = api.hello()['last']
+    for key in ('work_dir', 'output_dir', 'catalogue', 'preset', 'distortion_order'):
+        assert key in last
+    assert api.hello()['config_path'].endswith('MEE_config.txt')

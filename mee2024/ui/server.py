@@ -13,6 +13,7 @@ import os
 import secrets
 import string
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -32,14 +33,33 @@ class Api:
     def __init__(self, runner=None):
         self.runner = runner or PipelineRunner()
         self._fetching = None
+        #: liveness, for the browser-mode watchdog (see UiServer.wait_until_closed)
+        self.last_seen = time.time()
+        self.page_open = False
+        self.native_dialog = None
 
     # ------------------------------------------------------------------ meta
 
     def hello(self):
+        from mee2024.MEE2024util import get_config_path, read_ini
         from mee2024.config import get_default_options
         from mee2024.starcat import providers
         defaults = get_default_options()
+        saved = get_default_options()
+        read_ini(saved)          # the user's own settings, if they have run before
         return {
+            # where the session should pick up from: the folder last used, the
+            # catalogue and preset last chosen. Absent on a first run, and the
+            # frontend keeps its own defaults then.
+            'last': {
+                'work_dir': saved.get('workDir') or '',
+                'output_dir': saved.get('output_dir') or '',
+                'catalogue': saved.get('catalogue') or defaults['catalogue'],
+                'preset': saved.get('ui_preset') or 'auto',
+                'distortion_order': saved.get('distortionOrder')
+                or defaults['distortionOrder'],
+            },
+            'config_path': str(get_config_path()),
             'version': _version(),
             'authors': AUTHORS,
             'presets': self.runner.PRESETS,
@@ -234,6 +254,33 @@ class Api:
                 out[key] = {'error': str(exc)}
         return out
 
+    def pick(self, spec=None):
+        """Open the platform's own file dialog, if this session has one.
+
+        Available in the native window (app.py installs it); in browser mode there is
+        no such thing, so the answer is ``{'available': False}`` and the frontend
+        falls back to its own picker. Cancelling returns no paths, which is different
+        from being unavailable and must stay distinguishable.
+        """
+        spec = spec or {}
+        if self.native_dialog is None:
+            return {'available': False, 'paths': []}
+        chosen = self.native_dialog(multiple=bool(spec.get('multiple', True)),
+                                    directory=bool(spec.get('directory')))
+        return {'available': True, 'paths': [str(p) for p in (chosen or [])]}
+
+    def goodbye(self):
+        """The page is going away (tab closed, navigated off, browser quit).
+
+        Sent as a beacon on pagehide, so a browser-mode session ends when the user
+        closes the tab instead of leaving a server running until the terminal is
+        killed. A run in progress is left alone -- the watchdog handles that case
+        once it finishes.
+        """
+        self.page_open = False
+        self.last_seen = time.time()
+        return {'ok': True}
+
     def reveal(self, path):
         """Open a folder in the platform file manager."""
         target = Path(path)
@@ -297,6 +344,9 @@ class _Handler(BaseHTTPRequestHandler):
         if not self._authorised(query):
             self._send_json({'error': 'bad token'}, 403)
             return
+        # any authorised call means the page is still there
+        self.api.last_seen = time.time()
+        self.api.page_open = True
         try:
             if parsed.path == '/api/hello':
                 self._send_json(self.api.hello())
@@ -338,6 +388,10 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_json(self.api.watch_flush())
             elif parsed.path == '/api/catalogue/fetch':
                 self._send_json(self.api.fetch_catalogue(payload.get('name')))
+            elif parsed.path == '/api/goodbye':
+                self._send_json(self.api.goodbye())
+            elif parsed.path == '/api/pick':
+                self._send_json(self.api.pick(payload))
             else:
                 self._send_json({'error': 'not found'}, 404)
         except Exception as exc:
@@ -384,6 +438,33 @@ class UiServer:
             self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
             self.thread.start()
         return self
+
+    def wait_until_closed(self, idle_seconds=20.0, poll=1.0):
+        """Block until the page goes away, so `mee2024` returns to the prompt.
+
+        Closing a browser tab tells the server nothing by itself, which is why the
+        process used to outlive it and had to be killed by hand. Two signals end the
+        wait: the page's own goodbye beacon, and silence -- the frontend polls while
+        it is open, so no traffic for ``idle_seconds`` means nobody is watching. A
+        run in progress always keeps the server alive, however quiet the page is,
+        since the work matters more than the tidy exit.
+        """
+        page_seen_ever = False
+        while True:
+            time.sleep(poll)
+            if self.api.page_open:
+                page_seen_ever = True
+            if self.api.runner.is_running or getattr(
+                    self.api.runner.watcher, 'running', False):
+                self.api.last_seen = time.time()
+                continue
+            # 'closed' only counts once a page has actually been here: at start-up
+            # the browser has not loaded anything yet, and exiting then would be a
+            # race the user always loses
+            if page_seen_ever and not self.api.page_open:
+                return 'closed'
+            if time.time() - self.api.last_seen > idle_seconds:
+                return 'idle' if page_seen_ever else 'never opened'
 
     def stop(self):
         # shutdown() blocks for ever if serve_forever() was never entered, so only ask

@@ -310,8 +310,8 @@ canvas.plot.rot:active{cursor:grabbing}
           <select id="catalogue"></select>
           <label for="order">Distortion order</label>
           <select id="order">
-            <option>linear</option><option>cubic</option>
-            <option selected>quintic</option><option>septic</option>
+            <option>linear</option><option selected>cubic</option>
+            <option>quintic</option><option>septic</option>
           </select>
           <label for="obsdate">Observation date</label>
           <input id="obsdate" placeholder="guess it" size="10">
@@ -728,7 +728,17 @@ function diverging(t){
    crisp rather than resampled. Returns the logical drawing size. */
 function fitCanvas(canvas){
   const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth || 720, h = parseInt(canvas.getAttribute('height'), 10);
+  // The drawing height must come from somewhere that redraws cannot move. Reading
+  // back canvas.getAttribute('height') is not that place: assigning canvas.height
+  // *is* that attribute, so `height = h*dpr` fed itself and the plot grew by one
+  // device-pixel-ratio on every wheel tick and every drag frame. Remember the
+  // original height once, and pin the CSS box so the backing store cannot change
+  // the layout either.
+  if(canvas._cssHeight === undefined){
+    canvas._cssHeight = parseInt(canvas.getAttribute('height'), 10) || 430;
+  }
+  const w = canvas.clientWidth || 720, h = canvas._cssHeight;
+  canvas.style.height = h + 'px';
   canvas.width = Math.round(w*dpr); canvas.height = Math.round(h*dpr);
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1247,6 +1257,36 @@ async function run(){
 /* ------------------------------------------------------------ file picker */
 const picker = {target:null, dirsOnly:false, cwd:null, chosen:new Set(), files:[]};
 
+/* The platform's own dialog when the session has one (the native window), this
+   page's picker otherwise (a browser cannot open a file dialog without a real user
+   gesture on an <input type=file>, which gives no paths a pipeline can read). */
+async function choose(target, dirsOnly){
+  let answer = null;
+  try{
+    answer = await api('pick', {multiple: !dirsOnly, directory: dirsOnly});
+  }catch(err){ answer = null; }
+  if(answer && answer.available){
+    if(answer.paths && answer.paths.length) applyChoice(target, dirsOnly, answer.paths);
+    return;                                   // available and cancelled: respect it
+  }
+  await openPicker(target, dirsOnly);
+}
+
+function applyChoice(target, dirsOnly, paths){
+  if(dirsOnly){
+    if(target === 'watch'){
+      state.watchFolder = paths[0];
+      $('watchdir').textContent = paths[0];
+    }else{
+      state.outputDir = paths[0];
+      $('outdir').textContent = paths[0];
+    }
+  }else{
+    state[target] = paths.slice().sort();
+    renderFiles();
+  }
+}
+
 async function openPicker(target, dirsOnly){
   picker.target = target; picker.dirsOnly = dirsOnly;
   picker.chosen = new Set();
@@ -1328,10 +1368,10 @@ function confirmPicker(){
 }
 
 /* -------------------------------------------------------------------- init */
-$('pick-lights').onclick = () => openPicker('lights', false);
-$('pick-darks').onclick  = () => openPicker('darks', false);
-$('pick-flats').onclick  = () => openPicker('flats', false);
-$('pick-out').onclick    = () => openPicker(null, true);
+$('pick-lights').onclick = () => choose('lights', false);
+$('pick-darks').onclick  = () => choose('darks', false);
+$('pick-flats').onclick  = () => choose('flats', false);
+$('pick-out').onclick    = () => choose(null, true);
 $('clear-lights').onclick = () => { state.lights=[]; renderFiles(); };
 $('pick-close').onclick = closePicker;
 $('pick-ok').onclick = confirmPicker;
@@ -1394,7 +1434,17 @@ function renderWatch(){
   host.innerHTML = bits.join('');
 }
 
-$('pick-watch').onclick = () => openPicker('watch', true);
+$('pick-watch').onclick = () => choose('watch', true);
+
+/* Tell the server the page is going away, so a browser-mode session ends with the
+   tab instead of leaving `mee2024` running until the terminal is killed. sendBeacon
+   survives page teardown where fetch() does not; the token rides in the query
+   string because a beacon cannot set headers. */
+window.addEventListener('pagehide', () => {
+  try{
+    navigator.sendBeacon('/api/goodbye?token=' + encodeURIComponent(TOKEN), '{}');
+  }catch(err){ /* going away regardless */ }
+});
 $('watch-start').onclick = async () => {
   if(!state.watchFolder){ banner('choose a folder to watch first'); return; }
   try{ await api('watch/start', watchSpec()); showLive(); }
@@ -1468,6 +1518,12 @@ document.addEventListener('keydown', e => {
       const l = state.catalogueLimits[name];
       return (l === null || l === undefined) ? '' : ` — G<${l}`;
     };
+    // pick up where the last session left off (saved when a run starts)
+    const last = hello.last || {};
+    if(last.output_dir){ state.outputDir = last.output_dir; $('outdir').textContent = last.output_dir; }
+    if(last.preset){ state.preset = last.preset; }
+    if(last.distortion_order){ $('order').value = last.distortion_order; }
+    if(last.work_dir){ picker.cwd = last.work_dir; }
     state.catalogueNotes = hello.catalogue_notes || {};
     const labels = hello.catalogue_labels || {};
     hello.known_catalogues.forEach(name => {

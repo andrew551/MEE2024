@@ -32,6 +32,58 @@ def preflight(options=None):
         return False, str(exc)
 
 
+#: How to build a pattern database when none is installed, by the depth of the star
+#: catalogue available. The compact catalogue gets a smaller, faster database: fewer
+#: legs per anchor means fewer triangles, which is both quicker to build (seconds) and
+#: quicker to query, at some cost in coverage. A deeper catalogue earns the full one.
+FIRST_BUILD = (
+    (12.0, 'patdb_g13_t17k', {'theta_pat_deg': 1.7, 'e': 18, 'invariant': 'kendall'},
+     'about three minutes'),
+    (0.0, 'patdb_g10_t17k', {'theta_pat_deg': 1.7, 'e': 8, 'invariant': 'kendall'},
+     'about twenty seconds'),
+)
+
+
+def ensure_pattern_db(options=None, progress=None, on_note=None):
+    """Build a pattern database if none is installed. Returns True if v2 can solve.
+
+    The database is derived from the star catalogue, so downloading it would mean
+    shipping hundreds of megabytes of something the user's own machine can compute --
+    and asking them to run a build command first is a worse first experience than
+    simply doing it. Reports progress like any other pipeline stage, and never raises:
+    if it cannot build, the caller falls back to the classic solver.
+    """
+    from mee2024.platesolve2 import build, pattern_db
+
+    note = on_note or (lambda text: None)
+    try:
+        pattern_db.resolve_layers(options or {})
+        return True
+    except Exception:
+        pass
+
+    try:
+        from mee2024.starcat import download
+        installed = download.installed_catalogues()
+        if not installed:
+            note('no star catalogue is installed, so no pattern database can be built')
+            return False
+        deepest = max(installed, key=lambda r: r.magnitude_limit or 0)
+        depth = deepest.magnitude_limit or 0
+        for threshold, name, params, duration in FIRST_BUILD:
+            if depth >= threshold:
+                break
+        note(f'building the plate-solving database from {deepest.name} '
+             f'({duration}); this happens once')
+        build.build_from_catalogue(name=name, catalogue_names=(deepest.name,),
+                                  params=params, progress=progress)
+        note(f'{name} built')
+        return True
+    except Exception as exc:
+        note(f'could not build a pattern database: {exc}')
+        return False
+
+
 def platesolve(centroids, image_shape, options=None, output_dir=None,
                try_mirror_also=True, catalogue=None, db=None):
     """Lost-in-space solve of an (n, 2) brightest-first (y, x) centroid array.

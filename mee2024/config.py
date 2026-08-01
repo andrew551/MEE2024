@@ -104,6 +104,9 @@ DEFAULT_OPTIONS = {
     # which interface a no-argument launch (or a double-clicked .exe) opens:
     # 'app' for the new window, 'classic' for the original FreeSimpleGUI one
     'default_interface': 'app',
+    # the app window's last processing preset ('auto', 'quick', 'deep'), so a new
+    # session starts where the last one left off
+    'ui_preset': 'auto',
     # which plate solver runs. 'v2' is the Gaia/Kendall rebuild (mee2024/platesolve2;
     # measured record in docs/bench/BENCH.md) and falls back to 'triangle' -- the
     # classic Tycho solver -- automatically when its pattern database or catalogue

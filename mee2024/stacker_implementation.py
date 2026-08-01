@@ -68,6 +68,66 @@ def read_observation_date(file):
         pass
     return None
 
+def read_pointing(file):
+    """Where the telescope thought it was pointing, in degrees, or None.
+
+    Capture software writes this: RA/DEC as degrees, or OBJCTRA/OBJCTDEC as
+    sexagesimal hours and degrees. It is the mount's own claim, not a measurement,
+    which is exactly what makes it worth comparing against a solved position.
+    """
+    def sexagesimal(text, unit):
+        parts = [float(p) for p in str(text).replace(':', ' ').split()]
+        value = sum(p / 60 ** i for i, p in enumerate(parts))
+        return value * (15.0 if unit == 'hours' else 1.0)
+
+    try:
+        with fits.open(file) as hdul:
+            header = hdul['PRIMARY'].header if 'PRIMARY' in hdul else hdul[0].header
+        for ra_key, dec_key, unit in (('RA', 'DEC', 'degrees'),
+                                      ('OBJCTRA', 'OBJCTDEC', 'hours'),
+                                      ('CRVAL1', 'CRVAL2', 'degrees')):
+            ra, dec = header.get(ra_key), header.get(dec_key)
+            if ra is None or dec is None:
+                continue
+            try:
+                ra = float(ra) if unit == 'degrees' else sexagesimal(ra, 'hours')
+                dec = float(dec) if unit == 'degrees' else sexagesimal(dec, 'degrees')
+            except (TypeError, ValueError):
+                ra, dec = sexagesimal(ra, 'hours'), sexagesimal(dec, 'degrees')
+            if -90 <= dec <= 90:
+                return float(ra % 360), float(dec)
+    except Exception:
+        pass
+    return None
+
+
+def pointing_comment(header_pointing, solved_ra, solved_dec):
+    """(separation in degrees, plain-language verdict) against the header's claim.
+
+    The mount's own pointing is an independent check on the whole chain: a solve that
+    lands where the telescope was aimed says the alignment and configuration were
+    right, and one that lands elsewhere says something upstream is wrong -- which is
+    worth saying at the moment of the solve rather than leaving to be noticed later.
+    """
+    if not header_pointing or solved_ra is None or solved_dec is None:
+        return None, None
+    ra, dec = header_pointing
+    dra = ((solved_ra - ra + 180) % 360 - 180) * np.cos(np.radians(dec))
+    separation = float(np.hypot(dra, solved_dec - dec))
+    if separation < 0.5:
+        verdict = 'agrees with the telescope pointing -- alignment and setup look good'
+    elif separation < 5:
+        verdict = ('close to the telescope pointing -- fine for the analysis, though '
+                   'the mount alignment could be better')
+    elif separation < 30:
+        verdict = ('well away from the telescope pointing -- check the mount alignment '
+                   'and that these frames are the field you meant')
+    else:
+        verdict = ('nowhere near the telescope pointing -- the header, the frames or '
+                   'the setup disagree; something is wrong upstream')
+    return separation, verdict
+
+
 def roll_fillzero(src, shift):
     rolled = np.roll(src, shift=shift, axis=(0,1))
     i, j = shift
@@ -631,6 +691,20 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
         
         df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
         flag_found_IDs = True
+
+        header_pointing = read_pointing(files[0])
+        separation, verdict = pointing_comment(header_pointing, solution['ra'],
+                                               solution['dec'])
+        if verdict:
+            message = (f'solved position is {separation:.2f}° from the header '
+                       f'(RA {header_pointing[0]:.3f}°, Dec {header_pointing[1]:.3f}°): '
+                       f'{verdict}')
+            print(message)
+            logger.info(message)
+            events.log(message,
+                       level='info' if separation < 5 else 'warning')
+            events.emit(events.METRICS, header_pointing_separation_deg=separation,
+                        header_pointing_verdict=verdict)
     else:
         logger.error("ERROR: platesolve failed to identify location")
         print("ERROR: platesolve failed to identify location")
@@ -679,6 +753,9 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
                          # from the first frame's FITS header; lets stage 2 score a blind
                          # date guess against the truth. None for inputs without a header.
                          'observation_date_header': read_observation_date(files[0]),
+                         # the mount's own claim about where it was pointing, so the
+                         # solved position can be scored against it here and in stage 2
+                         'header_pointing': read_pointing(files[0]),
                          'remove saturated blob?':options['delete_saturated_blob'],
                          'blob saturation level':options['blob_saturation_level'],
                          'blob_radius_extra':options['blob_radius_extra'],

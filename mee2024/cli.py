@@ -125,6 +125,16 @@ def _prepare_catalogue(args, options):
             allow_download=options.get('auto_download_catalogue', True),
             on_note=print, progress_for=lambda name: make_progress(args)):
         print(f'warning: {warning}')
+    _prepare_pattern_db(args, options)
+
+
+def _prepare_pattern_db(args, options):
+    """Build the plate-solving database if it is missing: derived data, not a download."""
+    if options.get('platesolver', 'v2') != 'v2':
+        return
+    from mee2024 import platesolve2
+    platesolve2.ensure_pattern_db(options, on_note=print,
+                                  progress=make_progress(args))
 
 
 # --------------------------------------------------------------------------- commands
@@ -132,6 +142,8 @@ def _prepare_catalogue(args, options):
 def cmd_stack(args):
     options = resolve_options(args)
     _use_headless_backend(options)
+    # stage 1 plate-solves too, so the solver's database must exist before it starts
+    _prepare_pattern_db(args, options)
     from mee2024 import database_cache, stacker_implementation
     try:
         lights = [str(p) for p in args.lights]
@@ -223,7 +235,8 @@ def cmd_gui(args):
 def cmd_ui(args):
     """The app window: a native web view when available, otherwise the browser."""
     from mee2024.ui import app
-    app.launch(prefer_browser=args.browser, port=args.port)
+    app.launch(prefer_browser=args.browser, port=args.port,
+               keep_alive=args.keep_alive)
     return 0
 
 
@@ -276,7 +289,16 @@ def cmd_catalogue(args):
             print(f'{args.remove} is not installed; nothing to remove')
             return 1
         import shutil
-        shutil.rmtree(directory)
+        try:
+            shutil.rmtree(directory)
+        except PermissionError as exc:
+            # a running MEE2024 holds the catalogue memory-mapped, and Windows will
+            # not delete a mapped file. Say which program to close rather than
+            # showing a traceback about one .npy file.
+            print(f'cannot remove {directory}: {exc.strerror or exc}.\n'
+                  f'Close any running MEE2024 window (it keeps the catalogue open) '
+                  f'and try again.', file=sys.stderr)
+            return 1
         print(f'removed {directory}')
         return 0
 
@@ -468,6 +490,9 @@ def build_parser():
                    help='use the default browser instead of a native window')
     p.add_argument('--port', type=int, default=0,
                    help='serve on a fixed port instead of an ephemeral one')
+    p.add_argument('--keep-alive', action='store_true',
+                   help='keep serving after the page closes (for a browser on '
+                        'another machine, or reloading the tab while developing)')
     p.set_defaults(func=cmd_ui)
 
     p = sub.add_parser('gui', help='open the classic interface (legacy)')

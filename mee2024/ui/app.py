@@ -32,11 +32,14 @@ def have_webview():
         return False
 
 
-def launch(prefer_browser=False, host='127.0.0.1', port=0, block=True):
+def launch(prefer_browser=False, host='127.0.0.1', port=0, block=True,
+           keep_alive=False):
     """Start the server and open the UI. Returns the server (already running).
 
     prefer_browser: skip the native window even if pywebview is installed.
     block: when True, return only once the window (or the user's Ctrl-C) closes.
+    keep_alive: stay up even after the page goes away -- for serving a browser on
+        another machine, or reloading the tab freely while developing.
     """
     server = UiServer(api=Api(), host=host, port=port).start()
     # flush: a frozen (PyInstaller) build buffers stdout when it is redirected or
@@ -50,9 +53,13 @@ def launch(prefer_browser=False, host='127.0.0.1', port=0, block=True):
 
     webbrowser.open(server.url)
     if block:
-        print('Close this window or press Ctrl-C to quit.', flush=True)
+        print('Close the browser tab (or press Ctrl-C) to quit.', flush=True)
         try:
-            threading.Event().wait()
+            if keep_alive:
+                threading.Event().wait()
+            else:
+                reason = server.wait_until_closed()
+                print(f'browser session ended ({reason}); shutting down', flush=True)
         except KeyboardInterrupt:
             print('\nshutting down')
         finally:
@@ -68,12 +75,17 @@ def _run_native(server):
         width=DEFAULT_SIZE[0], height=DEFAULT_SIZE[1],
         min_size=MIN_SIZE, background_color='#0b0e14')
 
-    # A native file dialog is nicer than the built-in browser when one is available;
-    # the frontend's own picker remains the portable path and the only one in browser mode.
-    server.api.native_dialog = lambda multiple=True, directory=False: window.create_file_dialog(
-        webview.FOLDER_DIALOG if directory
-        else (webview.OPEN_DIALOG if not multiple else webview.OPEN_DIALOG),
-        allow_multiple=multiple)
+    # The platform's own file dialog, which the frontend asks for through /api/pick.
+    # Browser mode has no equivalent, so the built-in picker stays as the fallback.
+    def native_dialog(multiple=True, directory=False):
+        return window.create_file_dialog(
+            webview.FOLDER_DIALOG if directory else webview.OPEN_DIALOG,
+            allow_multiple=bool(multiple) and not directory,
+            file_types=() if directory else (
+                'Image frames (*.fit;*.fits;*.fts;*.tif;*.tiff;*.png;*.jpg;*.jpeg)',
+                'All files (*.*)'))
+
+    server.api.native_dialog = native_dialog
 
     gui = None
     if sys.platform.startswith('linux'):
