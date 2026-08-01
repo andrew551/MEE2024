@@ -334,10 +334,16 @@ def test_check_remote_reports_a_missing_asset_clearly(monkeypatch, capsys):
 
 
 def test_check_remote_accepts_a_correctly_published_asset(monkeypatch, capsys):
+    """Every published asset serves the size its registry entry claims."""
     from mee2024.starcat import download
 
+    # keyed on the URL, so this stays honest as more archives are published: a fixed
+    # size would pass only while exactly one release had one
+    by_url = {r.url: r.size_bytes for r in download.RELEASES.values() if r.url}
+
     class FakeResponse:
-        headers = {'Content-Length': str(download.RELEASES['gaia_dr3_g12'].size_bytes)}
+        def __init__(self, request):
+            self.headers = {'Content-Length': str(by_url[request.full_url])}
 
         def __enter__(self):
             return self
@@ -345,9 +351,8 @@ def test_check_remote_accepts_a_correctly_published_asset(monkeypatch, capsys):
         def __exit__(self, *exc):
             return False
 
-    monkeypatch.setattr(download.urllib.request, 'urlopen', lambda *a, **k: FakeResponse())
-    monkeypatch.setitem(download.RELEASES, 'gaia_dr3_g12_13',
-                        download.RELEASES['gaia_dr3_g12'])
+    monkeypatch.setattr(download.urllib.request, 'urlopen',
+                        lambda request, **k: FakeResponse(request))
     assert cli.main(['catalogue', '--no-config', '--check-remote']) == 0
     assert 'reachable' in capsys.readouterr().out
 

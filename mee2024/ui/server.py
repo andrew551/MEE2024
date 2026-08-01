@@ -113,6 +113,12 @@ class Api:
         out = []
         for name in download.RELEASES:
             release = download.get_release(name, options=options)
+            # a superseded archive is still listed if it is installed -- it can be
+            # selected as the catalogue for a run, and hiding an archive someone is
+            # actually using would be worse than the clutter -- but it is never offered
+            # as a download
+            if not (release.offered or release.is_installed()):
+                continue
             out.append({'name': release.name, 'description': release.description,
                         'installed': release.is_installed(),
                         'size': release.human_size(),

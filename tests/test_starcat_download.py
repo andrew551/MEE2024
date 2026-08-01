@@ -43,9 +43,9 @@ def test_the_default_catalogue_wants_an_archive_but_does_not_require_one(
     assert any('online' in w for w in warnings)
 
 
-def test_the_offline_catalogue_needs_the_base_archive(nothing_installed):
-    assert download.releases_needed('gaia_offline') == ['gaia_dr3_g12']
-    assert download.releases_needed('merged_offline') == ['gaia_dr3_g12']
+def test_the_offline_catalogue_needs_the_standard_archive(nothing_installed):
+    assert download.releases_needed('gaia_offline') == ['gaia_dr3_g13']
+    assert download.releases_needed('merged_offline') == ['gaia_dr3_g13']
 
 
 def test_the_offline_catalogue_needs_nothing_once_an_archive_is_present(base_installed):
@@ -123,7 +123,7 @@ def test_prepare_downloads_what_is_missing(monkeypatch, nothing_installed):
     warnings = download.prepare_catalogue(
         'gaia_offline', options={'max_star_mag_dist': 12.0},
         on_note=notes.append)
-    assert fetched == ['gaia_dr3_g12']
+    assert fetched == ['gaia_dr3_g13']
     assert any('downloading' in n for n in notes)
     assert warnings == []
 
@@ -138,13 +138,13 @@ def test_prepare_passes_a_progress_reporter_per_archive(monkeypatch, nothing_ins
     sentinel = object()
     download.prepare_catalogue('gaia_offline', options={},
                                progress_for=lambda name: sentinel)
-    assert seen == {'gaia_dr3_g12': sentinel}
+    assert seen == {'gaia_dr3_g13': sentinel}
 
 
 def test_prepare_refuses_when_downloading_is_switched_off(monkeypatch, nothing_installed):
     monkeypatch.setattr(download, 'ensure_available',
                         lambda name, **kw: pytest.fail('must not download'))
-    with pytest.raises(RuntimeError, match='--fetch gaia_dr3_g12'):
+    with pytest.raises(RuntimeError, match='--fetch gaia_dr3_g13'):
         download.prepare_catalogue('gaia_offline', options={}, allow_download=False)
 
 
@@ -169,7 +169,7 @@ def test_one_archive_is_the_recommended_setup():
 
 
 def test_a_fresh_install_is_offered_a_publishable_archive():
-    """Until g13 is uploaded, the first-use download must still name a real asset."""
+    """The first-use download must name an asset that actually exists."""
     name = download.preferred_release()
     release = download.RELEASES[name]
     assert release.is_published or release.is_installed()

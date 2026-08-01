@@ -261,10 +261,10 @@ canvas.plot.rot:active{cursor:grabbing}
       <span class="byline">Modern Eddington Experiment &middot; __MEE_AUTHORS__</span>
     </div>
     <div class="spacer"></div>
-    <div class="tabs">
-      <button id="tab-run" class="on">Run</button>
-      <button id="tab-watch">Watch</button>
-    </div>
+    <!-- Watch mode is built and tested but not exposed: it is an advanced workflow that
+         wants more thought before it earns a permanent tab. Restoring it means putting
+         the two-tab group back here and dropping the display:none on #watch-card. -->
+    <button class="btn primary" id="run-top">Run analysis</button>
   </header>
 
   <main>
@@ -314,6 +314,11 @@ canvas.plot.rot:active{cursor:grabbing}
           <h3 style="margin:0;flex:1">4 &middot; Settings</h3>
           <button class="btn" id="settings-toggle">Hide</button>
         </div>
+        <div class="faint" id="settings-auto-note" style="margin-top:9px;display:none">
+          Auto chooses these for you &mdash; sensitive centroids, a cubic distortion fit,
+          the date recovered from proper motions, and the standard catalogue. Pick
+          <b>Custom</b> above to change them.
+        </div>
         <div id="settings-body" style="margin-top:10px">
           <div class="adv">
             <label for="catalogue">Star catalogue</label>
@@ -342,6 +347,10 @@ canvas.plot.rot:active{cursor:grabbing}
           <div class="warnline" id="mag-warn"></div>
           <div class="faint" id="datemode-note" style="margin-top:6px"></div>
           <label class="check" style="margin-top:10px">
+            <input type="checkbox" id="sensitive" checked>
+            <span>Sensitive centroid finder (slower, finds fainter stars)</span>
+          </label>
+          <label class="check">
             <input type="checkbox" id="rm-double">
             <span>Drop stars with a close companion (double stars)</span>
           </label>
@@ -349,10 +358,15 @@ canvas.plot.rot:active{cursor:grabbing}
             <input type="checkbox" id="rm-nopm">
             <span>Drop stars with no proper motion in the catalogue</span>
           </label>
-          <div id="cat-downloads" style="margin-top:12px"></div>
         </div>
+        <!-- outside the collapsible body on purpose: a missing catalogue is a fact about
+             the machine, not a setting, and Auto needs one just as much as Custom does -->
+        <div id="cat-downloads" style="margin-top:12px"></div>
       </div>
 
+      <!-- WATCH MODE, TEMPORARILY UNREACHABLE. The card is complete and the server API
+           behind it is live and tested; only the way in has been removed (see the header).
+           setTab() never selects it, so this stays hidden. -->
       <div class="card" id="watch-card" style="display:none">
         <h3>Watch a folder</h3>
         <p class="faint" style="margin:0 0 10px">
@@ -454,6 +468,7 @@ canvas.plot.rot:active{cursor:grabbing}
             <div class="subtabs" id="analysis-tabs">
               <button data-view="dx" class="on">x-displacement surface</button>
               <button data-view="dy">y-displacement surface</button>
+              <button data-view="dr">|displacement| surface</button>
               <button data-view="corr">Residual correlation</button>
             </div>
             <div id="surface-panel">
@@ -551,8 +566,9 @@ async function api(path, body){
 const state = {
   lights:[], darks:[], flats:[], outputDir:null, preset:'auto',
   since:0, status:'idle', stages:new Map(), metrics:{}, solve:null, advanced:false,
-  tab:'simple', watch:null, watchFolder:null, keepPolling:false,
+  tab:'run', watch:null, watchFolder:null, keepPolling:false, settingsOpen:true,
   analysis:null, analysisOpen:false, analysisView:'dx', catalogueLimits:{},
+  stars:null, previewImage:null,
 };
 
 /* ------------------------------------------------------------------ helpers */
@@ -622,10 +638,15 @@ function renderFiles(){
   if(state.darks.length) bits.push(state.darks.length+' dark'+(state.darks.length>1?'s':''));
   if(state.flats.length) bits.push(state.flats.length+' flat'+(state.flats.length>1?'s':''));
   $('calib-note').textContent = bits.length ? bits.join(', ')+' selected' : '';
-  $('run').disabled = state.lights.length===0 || state.status==='running';
+  $('run').disabled = $('run-top').disabled =
+    state.lights.length===0 || state.status==='running';
 }
 
 /* ---------------------------------------------------------------- presets */
+/* Two choices, because that is how many decisions there really are: let the program
+   decide, or decide yourself. The old three presets were each a different frozen
+   combination of the same controls section 4 already exposes, so picking one meant
+   guessing which frozen combination was nearest what you wanted. */
 function renderPresets(presets){
   const host = $('presets');
   host.innerHTML = '';
@@ -636,9 +657,19 @@ function renderPresets(presets){
                 + '<span class="faint"></span></div>';
     b.querySelector('strong').textContent = info.label;
     b.querySelector('span').textContent = info.note;
-    b.onclick = () => { state.preset = key; renderPresets(presets); };
+    b.onclick = () => { state.preset = key; renderPresets(presets); applyPreset(); };
     host.appendChild(b);
   });
+  applyPreset();
+}
+
+/* Auto ignores section 4, so section 4 must not look like it is being obeyed. */
+function applyPreset(){
+  const custom = state.preset === 'custom';
+  $('settings-body').style.display = custom && state.settingsOpen ? '' : 'none';
+  $('settings-toggle').style.display = custom ? '' : 'none';
+  $('settings-toggle').textContent = state.settingsOpen ? 'Hide' : 'Show';
+  $('settings-auto-note').style.display = custom ? 'none' : '';
 }
 
 /* --------------------------------------------------------------- progress */
@@ -843,14 +874,46 @@ function bilinear(grid, xs, ys, x, y){
        + grid[j+1][i]*(1-tx)*ty + grid[j+1][i+1]*tx*ty;
 }
 
+/* The magnitude view is derived, not sent: |d| = hypot(dx, dy) over the fitted grid, and
+   per star the measured magnitude against the fitted one. The fit at a star is recovered
+   exactly rather than interpolated -- the payload gives measured and residual, and
+   measured + residual is what the polynomial predicted there -- so what is plotted is a
+   difference of magnitudes, not the magnitude of the residual vector. That keeps it
+   signed, and a signed residual is what tells you whether the fit ran short or long.
+
+   Sign matches the payload's own convention (rx = fit - measured), so a positive residual
+   means the same thing in all three views. Computed once per analysis event, then cached. */
+function magnitudeView(a){
+  if(a.mag) return a.mag;
+  const hyp = Math.hypot;
+  const grid = a.surface.dx.map((row, j) =>
+    row.map((v, i) => hyp(v, a.surface.dy[j][i])));
+  const st = a.stars, n = st.x.length, sd = new Array(n), sr = new Array(n);
+  for(let i = 0; i < n; i++){
+    const measured = hyp(st.dx[i], st.dy[i]);
+    sd[i] = measured;
+    sr[i] = hyp(st.dx[i] + st.rx[i], st.dy[i] + st.ry[i]) - measured;
+  }
+  a.mag = {grid, sd, sr};
+  return a.mag;
+}
+
 function drawSurface(){
   const a = state.analysis;
   const canvas = $('surface-canvas');
   if(!a || !canvas.clientWidth) return;
   const {ctx, w, h} = fitCanvas(canvas);
-  const comp = state.analysisView === 'dy' ? 'dy' : 'dx';
-  const grid = a.surface[comp], xs = a.surface.x, ys = a.surface.y;
-  const st = a.stars, sd = st[comp], sr = comp==='dx' ? st.rx : st.ry;
+  const view = state.analysisView;
+  const comp = (view === 'dy' || view === 'dr') ? view : 'dx';
+  const st = a.stars, xs = a.surface.x, ys = a.surface.y;
+  let grid, sd, sr;
+  if(comp === 'dr'){
+    ({grid, sd, sr} = magnitudeView(a));
+  }else{
+    grid = a.surface[comp];
+    sd = st[comp];
+    sr = comp === 'dx' ? st.rx : st.ry;
+  }
 
   // one length scale for x and y keeps the detector's aspect ratio honest
   const half = Math.max(a.image_size[0], a.image_size[1]) / 2;
@@ -878,9 +941,10 @@ function drawSurface(){
     return [cx + p[0]*scale, cy + p[1]*scale, p[2]];
   };
 
-  // a floor grid under the surface, purely as a depth cue
+  // a floor grid under the surface, purely as a depth cue. |d| is non-negative, so its
+  // floor sits at zero -- which is also the undistorted plane, and worth seeing
   ctx.strokeStyle = '#1c2334'; ctx.lineWidth = 1;
-  const floor = -0.95*zmax;
+  const floor = comp === 'dr' ? 0 : -0.95*zmax;
   for(let k=0;k<=8;k++){
     const fx = xs[0] + (xs[nx-1]-xs[0])*k/8, fy = ys[0] + (ys[ny-1]-ys[0])*k/8;
     let p1 = P(fx, ys[0], floor), p2 = P(fx, ys[ny-1], floor);
@@ -905,7 +969,9 @@ function drawSurface(){
     ctx.moveTo(q.c[0][0], q.c[0][1]);
     for(let k=1;k<4;k++) ctx.lineTo(q.c[k][0], q.c[k][1]);
     ctx.closePath();
-    ctx.fillStyle = diverging(q.z/zmax); ctx.fill();
+    // |d| never goes negative, so half the diverging ramp would go unused; stretch it
+    // across [0, zmax] so the shading still spans the surface's full range
+    ctx.fillStyle = diverging(comp === 'dr' ? 2*q.z/zmax - 1 : q.z/zmax); ctx.fill();
     ctx.strokeStyle = 'rgba(10,14,24,.35)'; ctx.lineWidth = 0.6; ctx.stroke();
   }
   ctx.globalAlpha = 1;
@@ -929,9 +995,9 @@ function drawSurface(){
     ctx.strokeStyle = 'rgba(6,9,18,.8)'; ctx.lineWidth = 0.7; ctx.stroke();
   }
 
+  const NAME = {dx: 'x-displacement', dy: 'y-displacement', dr: '|displacement|'};
   ctx.fillStyle = '#66708a'; ctx.font = '11px ui-monospace, monospace';
-  ctx.fillText(`${comp === 'dx' ? 'x' : 'y'}-displacement (pixels), `
-             + `${a.order} fit`, 10, 16);
+  ctx.fillText(`${NAME[comp]} (pixels), ${a.order} fit`, 10, 16);
   ctx.fillText(`peak fitted ${peakFit.toFixed(2)} px`
              + (gain === 1 ? '' : `  ·  residuals ×${gain}`), 10, 31);
 
@@ -939,9 +1005,14 @@ function drawSurface(){
   for(const v of sr) ss += v*v;
   const rms = Math.sqrt(ss/Math.max(1, sr.length));
   const arc = a.platescale ? ` = ${(rms*a.platescale*1000).toFixed(0)} mas` : '';
+  // the payload's residual is (fit - measured), so a *negative* one puts the star above
+  // the surface. The legend used to say the opposite -- the colours were right and the
+  // caption was inverted.
   $('surface-legend').textContent =
     `${st.x.length} stars · scatter about the surface ${rms.toFixed(3)} px${arc} · `
-  + `amber below the surface, blue above`
+  + `amber above the surface, blue below`
+  + (comp === 'dr' ? ' · |d| cannot go negative, so the floor grid is zero displacement'
+                   : '')
   + (gain === 1 ? '' : ` · residuals drawn ${gain}× larger than true`);
 }
 
@@ -1299,6 +1370,7 @@ function handleEvent(e){
     case 'analysis':
       state.analysis = e;
       state.analysis.nn = null;   // computed on first use, then cached
+      state.analysis.mag = null;  // ditto for the |displacement| view
       $('analysis-card').style.display = '';
       // the backend picks the bin count from the star count; the slider re-bins live
       $('corr-bins').value = e.bins;
@@ -1344,9 +1416,11 @@ async function poll(){
 
 function onStatusChange(s){
   const running = s.status==='running';
-  $('run').style.display = (running || state.tab==='watch') ? 'none' : '';
+  const idle = !(running || state.tab==='watch');
+  $('run').style.display = idle ? '' : 'none';
+  $('run-top').style.display = idle ? '' : 'none';
   $('cancel').style.display = running ? '' : 'none';
-  $('run').disabled = running || state.lights.length===0;
+  $('run').disabled = $('run-top').disabled = running || state.lights.length===0;
   if(!running){
     // keep polling while a folder watch or a download is live: more work is coming
     if(!state.keepPolling) stopPolling();
@@ -1390,20 +1464,29 @@ function resetRunView(){
   $('open-out').style.display='none';
 }
 
-/* The run specification, shared by the one-shot Run button and by watch mode. */
+/* The run specification, shared by the one-shot Run button and by watch mode.
+
+   Under Auto the settings panel is not merely hidden, it is not sent: the runner's own
+   preset decides, and a stale control the user cannot see must not reach through and
+   change the run. Custom sends everything. */
 function buildSpec(){
   const spec = {
     lights: state.lights, darks: state.darks, flats: state.flats,
     output_dir: state.outputDir, preset: state.preset,
   };
+  if(state.preset !== 'custom'){
+    // the distortion field is the picture that answers "was the fit any good", so it
+    // is drawn under either preset rather than being a checkbox nobody had reason to clear
+    spec.options = {distortion_field_plot: true};
+    return spec;
+  }
   const options = {};
   spec.catalogue = $('catalogue').value || null;
   options.distortionOrder = $('order').value;
   options.distortion_fit_tol = parseFloat($('tol').value) || 1.0;
   options.max_star_mag_dist = parseFloat($('magmax').value) || 13.0;
-  // the distortion field is the picture that answers "was the fit any good", so it
-  // is always drawn rather than being a checkbox nobody had a reason to clear
   options.distortion_field_plot = true;
+  options.sensitive_mode_stack = $('sensitive').checked;
   options.remove_double_tab2 = $('rm-double').checked;
   options.remove_missing_pm = $('rm-nopm').checked;
 
@@ -1567,24 +1650,23 @@ $('cancel').onclick = () => api('cancel', {}).catch(e => banner(e.message));
 /* There is one mode now. The old Simple/Advanced split hid the settings that matter
    (catalogue, date, magnitude limit) behind a tab most people never opened, while
    offering nothing Simple mode actually needed to be simpler about; the settings are
-   simply collapsible instead, and every run sees the same options. */
+   simply collapsible instead, and every run sees the same options.
+
+   Watch mode still exists server-side but has no way in, so this only ever sees 'run'.
+   Kept as a function rather than inlined: restoring the tab is then one call site. */
 function setTab(name){
   state.tab = name;
   state.advanced = true;
-  for(const t of ['run','watch'])
-    $('tab-'+t).classList.toggle('on', t === name);
   $('watch-card').style.display = name === 'watch' ? '' : 'none';
   // in watch mode the folder drives the run, so the one-shot Run button would only
   // confuse: the watcher decides when frames are complete
   $('run').style.display = name === 'watch' ? 'none' : '';
 }
-$('tab-run').onclick = () => setTab('run');
-$('tab-watch').onclick = () => setTab('watch');
+$('run-top').onclick = run;
 
 $('settings-toggle').onclick = () => {
-  const body = $('settings-body'), open = body.style.display === 'none';
-  body.style.display = open ? '' : 'none';
-  $('settings-toggle').textContent = open ? 'Hide' : 'Show';
+  state.settingsOpen = !state.settingsOpen;
+  applyPreset();
 };
 
 /* The date has three sources, and which one is in use should be visible rather than
@@ -1699,11 +1781,12 @@ function renderCatalogueDownloads(catalogues){
   const title = document.createElement('div');
   title.className = 'faint';
   title.style.marginBottom = '4px';
-  // the two archives are disjoint magnitude slices, so "G<13" means installing both --
-  // easy to get wrong, and wrong quietly, so say it here rather than in the docs only
+  // these are alternative depths of the same catalogue, not pieces of one -- the old
+  // wording described a disjoint pair that no longer exists, and told people to install
+  // both, which would now just be the same stars twice
   title.textContent = missing.length > 1
-    ? 'Offline catalogues not yet on this machine. Both together give G<13, the '
-      + 'recommended depth; the base archive alone gives G<12.'
+    ? 'Offline catalogues not yet on this machine. These are alternative depths of the '
+      + 'same catalogue — one is enough; the recommended one covers ordinary work.'
     : 'Offline catalogues not yet on this machine';
   host.appendChild(title);
   for(const c of missing){
@@ -1748,7 +1831,6 @@ document.addEventListener('keydown', e => {
 (async function init(){
   try{
     const hello = await api('hello');
-    renderPresets(hello.presets);
     state.catalogueLimits = hello.catalogue_limits || {};
     const sel = $('catalogue');
     const depth = name => {
@@ -1758,7 +1840,11 @@ document.addEventListener('keydown', e => {
     // pick up where the last session left off (saved when a run starts)
     const last = hello.last || {};
     if(last.output_dir){ state.outputDir = last.output_dir; $('outdir').textContent = last.output_dir; }
-    if(last.preset){ state.preset = last.preset; }
+    // a config saved by an older version may name a preset that no longer exists
+    // ('quick', 'deep'); the server still honours those, but there is no button for
+    // them, so an unselectable preset would leave the panel showing nothing chosen
+    if(last.preset && hello.presets[last.preset]){ state.preset = last.preset; }
+    renderPresets(hello.presets);
     if(last.distortion_order){ $('order').value = last.distortion_order; }
     if(last.work_dir){ picker.cwd = last.work_dir; }
     state.version = hello.version;

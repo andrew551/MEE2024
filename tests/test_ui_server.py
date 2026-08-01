@@ -499,12 +499,28 @@ def test_fetch_of_an_installed_catalogue_is_a_no_op(api, monkeypatch):
 def test_catalogues_carry_their_depth_and_recommendation(api):
     entries = {c['name']: c for c in api.hello()['catalogues']}
     assert entries['gaia_dr3_g13']['role'] == 'base'
-    assert entries['gaia_dr3_g12']['role'] == 'legacy'
-    # the deep archive is an extension: alone it holds nothing brighter than G=12
-    assert entries['gaia_dr3_g12_13']['role'] == 'extension'
-    assert entries['gaia_dr3_g12_13']['magnitude_limit'] == 13.0
-    # exactly the standard archive is badged; the tiers and legacy parts are not
+    assert entries['gaia_dr3_g13']['magnitude_limit'] == 13.0
+    assert entries['gaia_dr3_g10']['role'] == 'compact'
+    # exactly the standard archive is badged; the other tiers are not
     assert [c['name'] for c in entries.values() if c['recommended']] == ['gaia_dr3_g13']
+
+
+def test_superseded_archives_are_not_offered_for_download(api, monkeypatch):
+    """Listing them beside the archive that replaced them invites the same stars twice."""
+    from mee2024.starcat import download
+
+    for name in ('gaia_dr3_g12', 'gaia_dr3_g12_13'):
+        monkeypatch.setattr(download.RELEASES[name], 'is_installed', lambda: False)
+    assert 'gaia_dr3_g12' not in {c['name'] for c in api.hello()['catalogues']}
+
+
+def test_a_superseded_archive_still_shows_while_it_is_installed(api, monkeypatch):
+    """It can be selected as the catalogue for a run; hiding one in use would be worse."""
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g12'], 'is_installed', lambda: True)
+    entries = {c['name']: c for c in api.hello()['catalogues']}
+    assert entries['gaia_dr3_g12']['role'] == 'legacy'
 
 
 def test_hello_reports_how_deep_each_catalogue_reaches(api):

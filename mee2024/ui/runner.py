@@ -41,14 +41,17 @@ class CancellableProgress(ProgressReporter):
 class PipelineRunner:
     """Owns at most one run at a time and the events it produced."""
 
-    #: presets the Simple mode offers, chosen from the measured behaviour of the pipeline
+    #: How to process: let the pipeline decide, or decide yourself. There used to be three
+    #: presets, but each was only a frozen combination of controls the settings panel
+    #: already exposes, so choosing between them meant guessing which frozen combination
+    #: was nearest what you wanted. 'quick' and 'deep' are still honoured so a saved
+    #: config from an older version keeps running.
     PRESETS = {
         'auto': {'label': 'Auto (recommended)',
-                 'note': 'sensitive centroids, cubic distortion, guessed date'},
-        'quick': {'label': 'Quick look',
-                  'note': 'plain centroids, cubic distortion -- fastest'},
-        'deep': {'label': 'Deep',
-                 'note': 'sensitive centroids, septic distortion -- for wide fields'},
+                 'note': 'no settings needed -- sensitive centroids, cubic distortion, '
+                         'date recovered from proper motions'},
+        'custom': {'label': 'Custom',
+                   'note': 'choose everything yourself in Settings below'},
     }
 
     def __init__(self):
@@ -164,6 +167,8 @@ class PipelineRunner:
         preset = spec.get('preset', 'auto')
         # never open a plot window: everything the user should see travels as an event
         options.update(flag_display=False, flag_display2=False, flag_display3=False)
+        # 'custom' takes the defaults and lets spec['options'] below say everything;
+        # every other preset pins the choices it names
         if preset == 'auto':
             options.update(sensitive_mode_stack=True, distortionOrder='cubic',
                            guess_date=True)

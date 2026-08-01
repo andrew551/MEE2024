@@ -32,21 +32,21 @@ is **`catalogues-v1`**, and the asset is **`gaia_dr3_g13.zip`**.
 mee2024 catalogue --pack gaia_dr3_g13
 ```
 
-This writes `gaia_dr3_g13.zip` and prints its size and SHA-256. Put both into the
-`gaia_dr3_g13` entry of `RELEASES` in `mee2024/starcat/download.py`, replacing the `None`
-placeholders:
+This writes `gaia_dr3_g13.zip` and prints its size and SHA-256, which go into the
+`gaia_dr3_g13` entry of `RELEASES` in `mee2024/starcat/download.py`.
 
-```python
-    'gaia_dr3_g13': CatalogueRelease(
-        ...
-        size_bytes=<the size it printed>,
-        url=_github_asset('gaia_dr3_g13.zip'),
-        sha256='<the hash it printed>',
-    ),
+**Already done for the current archive** — the registry now carries:
+
+```
+size_bytes  319_719_061                                                       (320 MB)
+sha256      897e6bc2ef32a4faf04c9294a48dde3318fd43edc6bd2041581a2cffc66453f0
+url         _github_asset('gaia_dr3_g13.zip')
 ```
 
-The application refuses any download whose hash does not match, so **do not rename, re-zip
-or re-compress the file afterwards** — upload exactly what `--pack` produced.
+Repack only if the archive itself changes; then update both numbers, because the
+application refuses any download whose hash does not match. **Do not rename, re-zip or
+re-compress the file** — zip output is not byte-reproducible, so a second `--pack` of the
+same data yields a different hash. Upload exactly the file `--pack` produced.
 
 ## Step 2 — upload
 
@@ -90,11 +90,16 @@ mee2024 catalogue --fetch gaia_dr3_g13
 
 `gaia_dr3_g10` (24 MB) is **bundled inside the executable** rather than released — Part 2.
 `gaia_dr3_g15` is a placeholder for a deep archive that does not exist yet; build it with
-`tools/build_gaia_offline.py --max-mag 15`, then follow Part 1 for it.
+`tools/build_gaia_offline.py --max-mag 15`, then follow Part 1 for it. Expect **~1.6 GB to
+download, ~1.8 GB installed**, and a build measured between two hours and several days
+depending on how loaded the Gaia archive is that day (see `progress.md`); it resumes, so
+run it overnight rather than watching it.
 
-The superseded `gaia_dr3_g12` and `gaia_dr3_g12_13` assets stay published: existing
-installations still fetch them, and `mee2024 catalogue --merge` turns that pair into the
-standard archive without downloading anything.
+The superseded `gaia_dr3_g12` and `gaia_dr3_g12_13` assets stay published so existing
+installations keep working and `mee2024 catalogue --merge` still has a pair to merge — but
+they are **no longer offered in the app** (`CatalogueRelease.offered`), and the first-use
+download no longer falls back to them: handing someone a G<12 archive when they asked for
+the standard one is worse than reporting the failure.
 
 ---
 

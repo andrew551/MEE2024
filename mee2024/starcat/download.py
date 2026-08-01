@@ -46,6 +46,18 @@ class CatalogueRelease:
         return self.name in RECOMMENDED_SETUP
 
     @property
+    def offered(self):
+        """Should the app offer this as something to download?
+
+        Superseded archives stay in ``RELEASES`` -- an existing install must keep
+        verifying, and ``--merge`` needs to know about the pair it merges from -- but
+        listing them beside the archive that replaced them only invites someone to
+        download 327 MB of the same stars twice, or worse, to install the extension
+        alone and end up with a catalogue containing nothing brighter than G=12.
+        """
+        return self.role not in ('legacy', 'extension')
+
+    @property
     def is_published(self):
         return self.url is not None
 
@@ -138,10 +150,10 @@ RELEASES = {
         description='Gaia DR3, G < 13 -- the standard archive',
         magnitude_limit=13.0,
         n_stars=7_369_627,
-        size_bytes=None,        # filled in when the asset is uploaded
+        size_bytes=319_719_061,
         doi=None,               # a Zenodo DOI replaces the GitHub URL at publication
-        url=None,               # build locally, or `mee2024 catalogue --merge`
-        sha256=None,            # 'recommended' follows from RECOMMENDED_SETUP
+        url=_github_asset('gaia_dr3_g13.zip'),
+        sha256='897e6bc2ef32a4faf04c9294a48dde3318fd43edc6bd2041581a2cffc66453f0',
     ),
     'gaia_dr3_g10': CatalogueRelease(
         name='gaia_dr3_g10',
@@ -196,9 +208,11 @@ DEFAULT_RELEASE = 'gaia_dr3_g13'
 #: what a fresh install should end up with
 RECOMMENDED_SETUP = ('gaia_dr3_g13',)
 
-#: fetch order for a first-use download: the standard archive, then the legacy base,
-#: so a fresh install can still get a real archive before g13 is published
-_FETCH_ORDER = ('gaia_dr3_g13', 'gaia_dr3_g12')
+#: Fetch order for a first-use download. Now that the standard archive is published this
+#: is a list of one: falling back to the superseded G<12 base would quietly hand someone
+#: a shallower catalogue than the one they were told they were getting, which is worse
+#: than saying the download failed.
+_FETCH_ORDER = ('gaia_dr3_g13',)
 
 #: Catalogue names that *require* an offline archive: selecting one must trigger a
 #: first-use download, and without an archive there is nothing to fall back on.
