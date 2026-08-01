@@ -274,6 +274,19 @@ def _do_3D_plot(plate, errors, reg_x, reg_y, img_shape, w, m, options):
 
 def do_cubic_fit(plate, stardata, initial_guess, img_shape, options, weights=1):
     target = stardata.get_vectors()
+    # Least squares with no rows (or fewer rows than free coefficients) fails deep
+    # inside the regression with a message about array dimensions, which says nothing
+    # about the cause: the matching stage found too few stars. Say that instead.
+    n_terms = (mapping[options['distortionOrder']] + 1) * (
+        mapping[options['distortionOrder']] + 2) // 2
+    if len(plate) < n_terms:
+        raise ValueError(
+            f'only {len(plate)} star(s) matched the catalogue, but a '
+            f'{options["distortionOrder"]} distortion fit needs at least {n_terms}. '
+            f'Nothing can be fitted from this. Common causes: the plate solve landed '
+            f'on the wrong field, the observation date is far from the truth, the '
+            f'magnitude limit excludes the stars that were detected, or the catalogue '
+            f'lists stars twice (check `mee2024 catalogue` for overlapping archives).')
     w = (max(img_shape)/2) # 1 # for astrometrica convention
     m = 1 #result.x[0] # for astrometrica convention
     #w = 1

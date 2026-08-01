@@ -10,6 +10,7 @@ returning JSON-able dicts, so tests exercise the behaviour without going through
 
 import json
 import os
+import platform
 import secrets
 import string
 import threading
@@ -62,6 +63,9 @@ class Api:
                 or defaults['distortionOrder'],
             },
             'config_path': str(get_config_path()),
+            # context for a bug report, gathered where it is actually known
+            'platform': f'{platform.platform()} python {platform.python_version()}',
+            'solver_info': self._solver_info(),
             'version': _version(),
             'authors': AUTHORS,
             'presets': self.runner.PRESETS,
@@ -83,6 +87,22 @@ class Api:
                 'quiet_seconds': defaults['watch_quiet_seconds'],
             },
         }
+
+    def _solver_info(self):
+        """Which solver and which databases a run would actually use."""
+        from mee2024.config import get_default_options
+        from mee2024.MEE2024util import read_ini
+        options = get_default_options()
+        read_ini(options)
+        which = options.get('platesolver', 'v2')
+        if which != 'v2':
+            return 'triangle (classic)'
+        try:
+            from mee2024.platesolve2 import pattern_db
+            layers = [db.name for db in pattern_db.resolve_layers(options)]
+            return 'v2 [' + ', '.join(layers) + ']'
+        except Exception as exc:
+            return f'v2 (no pattern database: {exc.__class__.__name__})'
 
     def _catalogues(self):
         from mee2024.config import get_default_options

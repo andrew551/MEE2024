@@ -664,6 +664,17 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     if options['remove_edgy_centroids']:
         centroids_stacked_data = filter_edgy_centroids(centroids_stacked_data, stacked)
     centroids_stacked = np.array([x[2] for x in centroids_stacked_data])
+    # No detections at all means every later step gets an empty or 1-D array and
+    # fails somewhere unrecognisable. Name the real problem here.
+    if centroids_stacked.size == 0:
+        raise ValueError(
+            'no stars were found on the stacked image, so there is nothing to plate '
+            'solve. Check that these are light frames of a star field, and that the '
+            'detection settings suit them: a lower centroid threshold '
+            '(centroid_gaussian_thresh) or a smaller minimum area (min_area) finds '
+            'fainter stars, and "remove big bright object" may be masking the frame '
+            'if the saturation level is set too low.')
+    centroids_stacked = centroids_stacked.reshape(-1, 2)
 
     df_detection = pd.DataFrame({'px': np.array(centroids_stacked)[:, 1],
                                'py': np.array(centroids_stacked)[:, 0],

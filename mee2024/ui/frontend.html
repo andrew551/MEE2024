@@ -271,6 +271,13 @@ canvas.plot.rot:active{cursor:grabbing}
   <main>
     <div class="col left">
       <div class="banner" id="banner"></div>
+      <div id="diagnostics" style="display:none;margin-top:8px">
+        <button class="btn" id="diag-toggle">Show error details</button>
+        <button class="btn" id="diag-copy">Copy for a bug report</button>
+        <pre id="diag-body" style="display:none;max-height:260px;overflow:auto;
+             background:var(--bg);border:1px solid var(--line);border-radius:8px;
+             padding:10px;font-size:11px;white-space:pre-wrap"></pre>
+      </div>
 
       <div class="card">
         <h3>1 &middot; Light frames</h3>
@@ -533,6 +540,45 @@ function banner(msg){
   const b = $('banner');
   b.textContent = msg || '';
   b.classList.toggle('on', !!msg);
+  if(!msg) $('diagnostics').style.display = 'none';
+}
+
+/* A failure's message alone is rarely enough to act on: what a developer needs is
+   the stack trace, the version, and what the run was actually asked to do. Collect
+   all of it into one block the user can copy in a single click and paste into a bug
+   report. */
+function showDiagnostics(text, trace){
+  state.lastError = {text, trace};
+  const box = $('diagnostics');
+  box.style.display = '';
+  $('diag-toggle').textContent = 'Show error details';
+  $('diag-body').style.display = 'none';
+}
+
+function diagnosticsText(){
+  const err = state.lastError || {};
+  const lines = [
+    'MEE2024 error report',
+    '--------------------',
+    `version   ${state.version || 'unknown'}`,
+    `platform  ${state.platform || navigator.userAgent}`,
+    `solver    ${state.solverInfo || 'unknown'}`,
+    `catalogue ${$('catalogue') ? $('catalogue').value : 'unknown'}`,
+    `preset    ${state.preset}   order ${$('order') ? $('order').value : '?'}`,
+    `frames    ${state.lights.length} light, ${state.darks.length} dark, `
+      + `${state.flats.length} flat`,
+    `first     ${state.lights[0] || '(none)'}`,
+    `output    ${state.outputDir || '(alongside the input)'}`,
+    '',
+    `error     ${err.text || '(none recorded)'}`,
+    '',
+    'traceback',
+    err.trace || '(none: the failure was reported without one)',
+    '',
+    'recent log',
+    ...(state.logTail || []),
+  ];
+  return lines.join('\n');
 }
 
 /* ------------------------------------------------------------- file listing */
@@ -1082,6 +1128,9 @@ function appendLog(text, cls){
   line.textContent = text;
   el.appendChild(line);
   el.scrollTop = el.scrollHeight;
+  // the tail goes into a bug report: what happened just before the failure is
+  // usually more informative than the failure itself
+  state.logTail = (state.logTail || []).concat(text).slice(-40);
 }
 
 /* ----------------------------------------------------------------- events */
@@ -1150,7 +1199,8 @@ function handleEvent(e){
     case 'log':
       appendLog(e.text, e.level==='warning' ? 'w' : null); break;
     case 'error':
-      appendLog(e.text, 'e'); banner(e.text); break;
+      appendLog(e.text, 'e'); banner(e.text);
+      showDiagnostics(e.text, e.traceback); break;
   }
 }
 
@@ -1436,6 +1486,27 @@ function renderWatch(){
 
 $('pick-watch').onclick = () => choose('watch', true);
 
+$('diag-toggle').onclick = () => {
+  const body = $('diag-body'), open = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  if(open) body.textContent = diagnosticsText();
+  $('diag-toggle').textContent = open ? 'Hide error details' : 'Show error details';
+};
+$('diag-copy').onclick = async () => {
+  const text = diagnosticsText();
+  try{
+    await navigator.clipboard.writeText(text);
+    $('diag-copy').textContent = 'Copied';
+  }catch(err){
+    // clipboard access can be refused; showing the text is the fallback that
+    // always works -- the user can select it by hand
+    $('diag-body').style.display = '';
+    $('diag-body').textContent = text;
+    $('diag-copy').textContent = 'Copy failed — select the text below';
+  }
+  setTimeout(() => { $('diag-copy').textContent = 'Copy for a bug report'; }, 4000);
+};
+
 /* Liveness, in two parts.
 
    A heartbeat, because this page only polls *during* a run: an open but idle page
@@ -1537,6 +1608,9 @@ document.addEventListener('keydown', e => {
     if(last.preset){ state.preset = last.preset; }
     if(last.distortion_order){ $('order').value = last.distortion_order; }
     if(last.work_dir){ picker.cwd = last.work_dir; }
+    state.version = hello.version;
+    state.platform = hello.platform;
+    state.solverInfo = hello.solver_info;
     state.catalogueNotes = hello.catalogue_notes || {};
     const labels = hello.catalogue_labels || {};
     hello.known_catalogues.forEach(name => {
