@@ -250,9 +250,21 @@ is no effect to hide.
 Combining with the earlier 222 k-row probe gives **~200 s fixed per job plus ~59 rows/s
 marginal**: linear in rows, so chunking differently only moves the fixed term, which is
 already small. The variable that actually swings the answer by 50× is the archive's own
-throughput on the day. **No builder change is justified** (`tools/build_gaia_offline.py`
-stays as it is); the remaining levers are when you run it, an authenticated session (ESA
-gives logged-in users higher priority), and possibly a different TAP endpoint.
+throughput on the day. **No builder change is justified** — `tools/build_gaia_offline.py`
+stays as it is.
+
+Nor is the server the lever. **GAVO's `gaia.dr3lite`** — a deliberately slimmed Gaia DR3,
+the most promising candidate precisely because it is built for sweeps like this — returned
+the same band at **15 rows/s, three times slower than ESA**. VizieR answered 503 and gave
+no measurement (and an earlier attempt through astroquery's `TapPlus` measured nothing at
+either mirror: a 406 from AIP, and a certificate failure at VizieR because `TapPlus` POSTs
+through raw `http.client` and so uses the system trust store rather than `certifi` — client
+problems, not slow servers). Across five ESA queries over two hours the rate held at
+44–50 rows/s, so this was a sustained bad day rather than a bad moment.
+
+**Remaining levers, none of them code:** when the build is run, and an authenticated ESA
+session (logged-in users are given higher priority than anonymous ones). Everything about
+*how* we ask has now been measured and does not matter.
 
 ---
 
