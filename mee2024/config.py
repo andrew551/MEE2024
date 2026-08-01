@@ -107,6 +107,10 @@ DEFAULT_OPTIONS = {
     'platesolver': 'triangle',
     # which pattern database the v2 solver reads; '' auto-selects the best installed
     'pattern_db': '',
+    # 1-sigma centroid noise the v2 solver assumes when sizing its match radius, in
+    # pixels. 0.3 suits stacked images; failed solves escalate this automatically,
+    # so single noisy frames cost a retry rather than a permanently wider search
+    'platesolve_noise_px': 0.3,
 }
 
 

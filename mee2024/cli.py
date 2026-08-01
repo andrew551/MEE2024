@@ -381,6 +381,8 @@ def cmd_build_pattern_db(args):
         params['invariant'] = args.invariant
     if args.tolerance is not None:
         params['tolerance'] = args.tolerance
+    if args.dedupe is not None:
+        params['dedupe_rule'] = args.dedupe
     progress = NullProgress() if args.quiet else TextProgress()
     out_dir, manifest = build.build_from_catalogue(
         name=args.name, catalogue_names=tuple(args.catalogue), params=params,
@@ -515,6 +517,9 @@ def build_parser():
     p.add_argument('--tolerance', type=float, default=None,
                    help='calibrated invariant-space match radius, recorded in the '
                         'manifest for the solver to use')
+    p.add_argument('--dedupe', choices=['none', 'dimmer_legs'], default=None,
+                   help='dimmer_legs stores each star triple once, under its '
+                        'brightest member (more distinct triples per byte)')
     p.add_argument('--quiet', action='store_true', help='suppress the progress bar')
     p.set_defaults(func=cmd_build_pattern_db)
 

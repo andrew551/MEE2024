@@ -76,11 +76,17 @@ def select_anchors_and_legs(vectors, a, b, theta_sep, theta_double, progress):
     return kept, kept2
 
 
-def extract_patterns(vectors, kept, kept2, e, theta_pat, progress):
+def extract_patterns(vectors, kept, kept2, e, theta_pat, progress,
+                     dimmer_legs_only=False):
     """Per anchor: the e brightest legs within theta_pat, as (dtheta, phi, vector).
 
     Returns (pattern_ind, pattern_data, n_legs), padded where an anchor has fewer
     than e legs in range. pattern_ind holds *star-list* row indices.
+
+    ``dimmer_legs_only`` stores each star triple once, under its brightest member:
+    the dev-platesolve dedupe rule (the S2b variant). With the vertex-symmetric
+    kendall invariant this imposes no ordering assumption on the *query* side -- a
+    query triple matches whichever anchor the database stored it under.
     """
     anchor_rows = np.nonzero(kept)[0]
     leg_rows = np.nonzero(kept2)[0]
@@ -102,7 +108,13 @@ def extract_patterns(vectors, kept, kept2, e, theta_pat, progress):
         neighbour_lists = tree2.query_ball_point(vectors[chunk_rows], theta_pat,
                                                  workers=-1)
         for i, neighbours in zip(range(start, stop), neighbour_lists):
-            neighbours.remove(int(to_leg[anchor_rows[i]]))   # don't match self
+            self_leg = int(to_leg[anchor_rows[i]])
+            if dimmer_legs_only:
+                # legs strictly dimmer than the anchor (leg rows are
+                # brightness-ordered, and the anchor is itself a leg)
+                neighbours = [idx for idx in neighbours if idx > self_leg]
+            else:
+                neighbours.remove(self_leg)          # don't match self
             # leg rows are brightness-ordered: smallest indices = brightest
             chosen = sorted(neighbours)[:e]
             k = len(chosen)
@@ -237,10 +249,12 @@ def build_pattern_db(stars, name, out_root=None, params=None, verify_spec=None,
     theta_pat = np.radians(p['theta_pat_deg'])
     e = int(p['e'])
 
+    dedupe = p.get('dedupe_rule', 'none')
     kept, kept2 = select_anchors_and_legs(vectors, a, b, theta_sep, theta_double,
                                           progress)
     pattern_ind, pattern_data, n_legs = extract_patterns(
-        vectors, kept, kept2, e, theta_pat, progress)
+        vectors, kept, kept2, e, theta_pat, progress,
+        dimmer_legs_only=(dedupe == 'dimmer_legs'))
     # pattern_ind holds rows of the truncated, brightness-sorted list; map back to
     # the caller's table rows so the indices stay meaningful provenance
     valid = pattern_ind >= 0
@@ -261,7 +275,7 @@ def build_pattern_db(stars, name, out_root=None, params=None, verify_spec=None,
                                                        progress)
     arrays.update(anchor_tri_offset=offsets, tri_legs=tri_legs, tri_inv=tri_inv)
 
-    stored = dict(p, invariant=invariant, a=a, b=b, d=d, dedupe_rule='none')
+    stored = dict(p, invariant=invariant, a=a, b=b, d=d, dedupe_rule=dedupe)
     out_dir = (Path(out_root) if out_root else get_patterndb_root()) / name
     manifest = pattern_db.write_pattern_db(
         out_dir, arrays, stored,

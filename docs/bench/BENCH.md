@@ -127,6 +127,43 @@ Measured mechanics:
   (~4–5 px) and beyond the calibration set; S3's noise-adaptive radius is the
   designed fix. Sparse-10 (S3) and poles 0/4 (S4) unchanged, as assigned.
 
+## S3 (+S2b) — the tolerance model; dimmer-legs judged and declined (`s3_adaptive.json`, `s3_dimmer.json`)
+
+The query radius is now the calibrated model
+`r = 0.0006 + 4.8·(2√2·ε/S_img) + 0.93·(θ_db/2)²` per triangle (fitted on 4,677
+identity-verified true pairs; the curvature coefficient ≈ 1 *confirms* the design
+doc's projective prediction), with ε from `platesolve_noise_px` (default 0.3),
+candidates re-cut with their actual catalogue-triangle size, an escalation ladder
+(×3 on total failure, radii capped at 0.02, candidates budgeted at 1.5 M/pool), and
+verification depth capped at 8× the detection count so sparse fields are not judged
+against a comparison set they could never match. 0.81 % of true pairs canonicalise
+onto the mirror point (noisy chirality of near-degenerate triangles) — the
+irreducible loss band the ≥4 consensus absorbs.
+
+**Gate: PASS.** 64 → **65/80**, wrong solves 0, junk 8/8, real fields 2/2. The
+8 px-noise case is recovered by the escalation ladder. Success-path medians
+collapse: real fields 5.4 → **1.6 s**, reliability 2.7 s, scatter 2.7 s; solved-case
+candidates 758 k → 518 k median, and on the real (low-noise) fields ~156 k — the S1
+verification margin being spent, as designed. The cost: failed solves now pay the
+ladder — junk 10 → 28 s, poles 11 → 35 s (bounded by the candidate budget; S4 turns
+poles into successes and junk fields are rare in practice).
+
+**sparse-10, honestly**: the depth fix works (the true candidate's matches went
+6 → 8 of 10 once the cap respected the bbox-vs-frame geometry), but the case still
+fails because the acceptance threshold has a *floor* of ~9 = 3 defining stars + 3
+addon (the deliberate safety margin) + x1 ≈ 3 — density cannot push it lower. Fixing
+it means revisiting the addon for the tiny-λ regime, which is acceptance-statistics
+work (the corrected-p-value experiment in the design doc), not tolerance work. Left
+failing, with the mechanism pinned.
+
+**S2b decision — pre-registered rule applied: NOT adopted.** At identical size
+(230 MB, same anchor/triangle counts), `patdb_g12_t17kd` ties the scatter sweep
+12/12 (the axis the rule names) and *breaks* `fov_galplane_8°`, `fov_galplane_12°`
+and one 8° reliability draw — 65 → 62/80. Physical cause: storing only
+dimmer-than-anchor legs thins patterns of exactly the bright stars that wide fields'
+top-18 window depends on. The dedupe idea's remaining home is S5's index layout, not
+the pattern content. `patdb_g12_t17k` stays the default.
+
 ## v2@1ec236e vs v2@292d79e (2026-08-01T00:53:58)
 
 corpus v1, 88 shared cases. DB load 12.01 s -> 13.21 s.
@@ -150,4 +187,48 @@ case flips:
 - fixed: reliability_midlat_fov8_s3
 - BROKE: noise_midlat_fov2.4_noise_px8_s0
 - fixed: scatter_midlat_fov2.4_mag_order_scatter0.6_s0
+
+## v2@292d79e vs v2@26f6660 (2026-08-01T02:33:59)
+
+corpus v1, 88 shared cases. DB load 13.21 s -> 12.74 s.
+
+| family | correct | wrong | median time (s) |
+|---|---|---|---|
+| fov | 12/20 -> 12/20 | 0 -> 0 | 5.48 -> 3.43 |
+| junk | 8/8 -> 8/8 | 0 -> 0 | 10.17 -> 27.69 |
+| noise | 2/4 -> 3/4 | 0 -> 0 | 10.14 -> 16.75 |
+| pole | 0/4 -> 0/4 | 0 -> 0 | 10.65 -> 34.94 |
+| real | 2/2 -> 2/2 | 0 -> 0 | 5.37 -> 1.59 |
+| reliability | 32/32 -> 32/32 | 0 -> 0 | 4.97 -> 2.67 |
+| rollwrap | 3/3 -> 3/3 | 0 -> 0 | 5.51 -> 2.87 |
+| scatter | 12/12 -> 12/12 | 0 -> 0 | 5.28 -> 2.73 |
+| sparse_detect | 1/3 -> 1/3 | 0 -> 0 | 2.04 -> 2.96 |
+
+overall correct rate 0.8 -> 0.8125; wrong solves 0 -> 0; junk rejected 8/8 -> 8/8
+
+case flips:
+- fixed: noise_midlat_fov2.4_noise_px8_s0
+
+## v2@26f6660 vs v2@26f6660 (2026-08-01T02:34:00)
+
+corpus v1, 88 shared cases. DB load 12.74 s -> 13.01 s.
+
+| family | correct | wrong | median time (s) |
+|---|---|---|---|
+| fov | 12/20 -> 10/20 | 0 -> 0 | 3.43 -> 3.45 |
+| junk | 8/8 -> 8/8 | 0 -> 0 | 27.69 -> 23.17 |
+| noise | 3/4 -> 3/4 | 0 -> 0 | 16.75 -> 14.22 |
+| pole | 0/4 -> 0/4 | 0 -> 0 | 34.94 -> 29.51 |
+| real | 2/2 -> 2/2 | 0 -> 0 | 1.59 -> 1.28 |
+| reliability | 32/32 -> 31/32 | 0 -> 0 | 2.67 -> 2.29 |
+| rollwrap | 3/3 -> 3/3 | 0 -> 0 | 2.87 -> 2.62 |
+| scatter | 12/12 -> 12/12 | 0 -> 0 | 2.73 -> 2.32 |
+| sparse_detect | 1/3 -> 1/3 | 0 -> 0 | 2.96 -> 2.28 |
+
+overall correct rate 0.8125 -> 0.775; wrong solves 0 -> 0; junk rejected 8/8 -> 8/8
+
+case flips:
+- BROKE: fov_galplane_fov8_s0
+- BROKE: fov_galplane_fov12_s0
+- BROKE: reliability_midlat_fov8_s3
 

@@ -50,6 +50,40 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-08-01 — S3: the tolerance becomes a physical model; dimmer-legs judged
+
+**The query radius is no longer a constant.** Per triangle:
+`r = 0.0006 + 4.8·(2√2·ε/S) + 0.93·(θ_db/2)²`, fitted on 4,677 identity-verified
+true pairs (the generator now returns its stars' source ids, so true pairs come from
+identity, not from a query that would truncate the tail). The curvature coefficient
+landing at ~1 is the design doc's projective prediction, measured. ε comes from the
+new `platesolve_noise_px` option (default 0.3, stacked-image grade); total failure
+escalates ×3 with radii capped and candidates budgeted, so a noisier-than-assumed
+image costs a retry rather than widening every search. Verification depth now tracks
+the detection count (8× cap), so sparse fields are compared against stars they could
+actually have detected.
+
+**Bench (docs/bench/BENCH.md): 64 → 65/80, gates all hold.** The 8 px-noise case is
+recovered by escalation. Success-path medians collapse — real fields 5.4 → **1.6 s**
+warm, reliability/scatter ~2.7 s — with solved-case candidates 758 k → 518 k median
+and ~156 k on the real low-noise fields: the S1 verification margin, spent as
+designed. Failure paths pay for the ladder (junk 28 s, poles 35 s, budget-bounded);
+S4 turns the poles into successes, which reclaims most of that.
+
+**sparse-10 stays failed, now with the mechanism pinned all the way down**: the
+depth fix restored its matches 6 → 8 of 10, but the acceptance threshold floors at
+~9 = 3 defining stars + 3 addon + x1≈3 — the addon is the deliberate safety margin,
+and lowering it is acceptance-statistics work (the corrected p-value experiment),
+not tolerance work.
+
+**S2b, decided by the pre-registered rule: dimmer-legs is NOT adopted.** Identical
+size, scatter sweep tied 12/12 — and three wide-FOV/reliability cases break
+(65 → 62/80). Storing only dimmer-than-anchor legs thins patterns of exactly the
+bright stars the wide-field top-18 window depends on. The idea's remnant lives in
+S5's index layout, not in pattern content.
+
+---
+
 ## 2026-08-01 — S2: triangles move onto the Kendall shape sphere
 
 **The invariant is now geometry, not bookkeeping.** `patdb_g12_t17k` stores each
@@ -618,14 +652,17 @@ every historical result, so it is left as a deliberate choice.
 
 Milestones A and C are done; the UI is through P1 plus the analysis views above.
 
-1. **Milestone D — plate-solve robustness.** Now a staged rebuild with an A/B gate:
-   S0 (bench + baseline), S1 (Gaia pattern DB + verification switch) and S2 (Kendall
-   invariant + single-pass mirror; 64/80, reliability and scatter families clean) are
-   landed. Next: S3, the tolerance model — per-image noise-adaptive radius, FOV
-   curvature term, DB floor — which also owes three fixes the bench assigned it:
-   verification depth adapted to detection count (sparse-10), the 8 px-noise radius,
-   and spending the S1 verification margin. Then S4 (quaternion consensus; poles are
-   still 0/4 by design). Designed in `docs/PLATESOLVER_V2_DESIGN.md`.
+1. **Milestone D — plate-solve robustness.** Staged rebuild with an A/B gate: S0
+   (bench + baseline), S1 (Gaia DB + verification switch), S2 (Kendall invariant +
+   single-pass mirror), and S3 (calibrated tolerance model + escalation +
+   detection-aware verification depth; S2b's dimmer-legs judged and declined) are
+   landed — 61 → 65/80 against v1, real fields at 1.6 s warm, zero wrong solves
+   throughout. Next: **S4, quaternion consensus** (poles 0/4 is its pinned target;
+   also reclaims most of the escalation ladder's failure-path cost). Then S5
+   (progressive anchors; mmap/bucket index — the ~13 s KD-tree build at load is now
+   the dominant latency). Open statistics note: the acceptance threshold's
+   addon-dominated floor (~9) is what keeps sparse-10 failing; revisit with the
+   corrected p-value experiment. Designed in `docs/PLATESOLVER_V2_DESIGN.md`.
 2. **Milestone B — auto-calibration and a quality score.** The score cards and the nn_corr
    grading exist; `mee2024/quality.py` and `mee2024 autocal` do not.
 3. **Milestone E — centroid backend rig.** Not started. The half-pixel convention note

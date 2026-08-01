@@ -23,7 +23,8 @@ from mee2024 import transforms
 def synthesize_field(catalogue, ra_deg, dec_deg, roll_deg, fov_width_deg,
                      shape=(2000, 3000), mag_limit=12.0, epoch=2023.84,
                      noise_px=0.3, distortion_px=3.0, n_detect=120,
-                     mag_order_scatter=0.3, dropout=0.05, seed=0):
+                     mag_order_scatter=0.3, dropout=0.05, seed=0,
+                     return_ids=False):
     """Returns (centroids, truth). centroids is an (n, 2) array of (y, x), brightest first.
 
     catalogue: anything with .lookup(ra_range, dec_range, max_magnitude, epoch) -> StarTable
@@ -34,6 +35,8 @@ def synthesize_field(catalogue, ra_deg, dec_deg, roll_deg, fov_width_deg,
     mag_order_scatter: magnitude noise applied before brightness ordering, so the
         detected-brightest list is realistically imperfect
     dropout: fraction of stars randomly not detected
+    return_ids: also return the catalogue source id of each detected centroid, in
+        centroid order -- the ground-truth star identities, for calibration work
     """
     rng = np.random.default_rng(seed)
     height, width = shape
@@ -55,6 +58,7 @@ def synthesize_field(catalogue, ra_deg, dec_deg, roll_deg, fov_width_deg,
     inside = ((np.abs(plate[:, 0]) < height / 2 - 2) &
               (np.abs(plate[:, 1]) < width / 2 - 2))
     plate, mags = plate[inside], stars.get_mags()[inside]
+    ids = stars.get_ids()[inside]
 
     # cubic optical distortion, same functional form the fitter models
     w = max(shape) / 2
@@ -66,9 +70,10 @@ def synthesize_field(catalogue, ra_deg, dec_deg, roll_deg, fov_width_deg,
 
     # detection: imperfect brightness ordering, random dropouts, centroid noise
     keep = rng.random(len(plate)) > dropout
-    plate, mags = plate[keep], mags[keep]
+    plate, mags, ids = plate[keep], mags[keep], ids[keep]
     order = np.argsort(mags + rng.normal(0, mag_order_scatter, len(mags)))
     plate = plate[order][:n_detect]
+    ids = ids[order][:n_detect]
     plate = plate + rng.normal(0, noise_px, plate.shape)
 
     centroids = plate + np.array([height / 2, width / 2])
@@ -76,6 +81,8 @@ def synthesize_field(catalogue, ra_deg, dec_deg, roll_deg, fov_width_deg,
              'platescale_arcsec': np.degrees(platescale_rad) * 3600,
              'fov_width_deg': fov_width_deg, 'n_stars': len(centroids),
              'n_in_field': int(np.sum(inside))}
+    if return_ids:
+        return centroids, truth, ids
     return centroids, truth
 
 

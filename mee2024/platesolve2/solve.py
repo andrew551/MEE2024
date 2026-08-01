@@ -36,6 +36,32 @@ TOL_ROLL = np.radians(0.025)
 LOG_TOL_SCALE = 0.01
 MAX_MATCH = 100            # verification centroids
 
+# The S3 tolerance model, calibrated on 4677 identity-verified true triangle pairs
+# over 24 synthetic fields (docs/bench/BENCH.md, S3):
+#
+#     r = C0 + C1 * (2*sqrt(2) * eps_px / S_img) + C2 * (theta_db / 2)^2
+#
+# C0 = the floor (catalogue + residual small-field curvature); C1 = the q99.5 noise
+# envelope (folds the corpus's optical-distortion term); C2 ~ 1 confirms the
+# projective-curvature prediction of the design doc. eps_px comes from
+# options['platesolve_noise_px']; at query time theta_db is unknown so the curvature
+# term uses the pattern-disc envelope, and candidates are re-cut exactly afterwards.
+# 0.81% of true pairs canonicalise onto the mirror point (noisy chirality of
+# near-degenerate triangles) and are unreachable at any radius -- the >=4 consensus
+# absorbs that loss band.
+MODEL_C0 = 0.0006
+MODEL_C1 = 4.8
+MODEL_C2 = 0.93
+RADIUS_MAX = 0.02          # global cap: keeps worst-case candidate counts bounded
+#: escalation ladder: failed solves retry with the noise assumption scaled up, so a
+#: noisier-than-assumed image costs retries instead of a permanently inflated radius
+ESCALATION = (1.0, 3.0)
+#: per-pool candidate ceiling: an escalated radius on a hopeless field (junk, poles)
+#: can return millions of hits whose consensus clustering is quadratic-ish. Keeping
+#: the most shape-consistent candidates preserves the recovery power -- true pairs
+#: sit well inside their bound -- while bounding the failure path's cost.
+CANDIDATE_BUDGET = 1_500_000
+
 
 # ------------------------------------------------------------ ratio_dphi query
 
@@ -123,21 +149,36 @@ def _image_triplets(n_centroids, f, g):
     return np.array(triplets, dtype=np.int64).reshape(-1, 3)
 
 
-def match_triangles_kendall(db, centroids, image_shape, tolerance):
+def query_radii(db, s_img_px, eps_px):
+    """The S3 model's per-triangle query radius, with the curvature envelope.
+
+    theta_db is unknown before the query, so the curvature term uses the pattern
+    disc's worst case (a leg-to-leg side spans up to 2 * theta_pat); candidates are
+    re-cut with their actual size afterwards.
+    """
+    theta_pat = np.radians(float(db.manifest['params'].get('theta_pat_deg', 1.7)))
+    envelope = MODEL_C2 * theta_pat ** 2      # ((2 * theta_pat) / 2) ** 2
+    r = MODEL_C0 + MODEL_C1 * (2 * np.sqrt(2) * eps_px / s_img_px) + envelope
+    return np.minimum(r, RADIUS_MAX)
+
+
+def match_triangles_kendall(db, centroids, image_shape, eps_px, fixed_tolerance=0.0):
     """Batched shape-sphere query of one image orientation.
 
     Returns (match_cand, canonical image points (n, 3, 2), canonical centroid-index
-    triplets (n, 3)). The permutation code computed per image triangle reorders both
-    the points and the index triplet into the canonical frame, so candidates pair
-    with database vertices positionally.
+    triplets (n, 3), candidate shape distances, candidate image sizes, mean radius).
+    The permutation code computed per image triangle reorders both the points and
+    the index triplet into the canonical frame, so candidates pair with database
+    vertices positionally.
     """
     g = db.pattern_width
     vectors = (np.c_[centroids[:, 1], centroids[:, 0]]
                - np.array([image_shape[1], image_shape[0]]) / 2)
     triplets = _image_triplets(vectors.shape[0], F_ANCHORS, g)
+    empty = (np.zeros(0, dtype=np.int64), np.zeros((0, 3, 2)),
+             np.zeros((0, 3), dtype=np.int64), np.zeros(0), np.zeros(0), 0.0)
     if len(triplets) == 0:
-        return (np.zeros(0, dtype=np.int64), np.zeros((0, 3, 2)),
-                np.zeros((0, 3), dtype=np.int64))
+        return empty
 
     points = vectors[triplets]                      # (n_tri, 3, 2)
     xyz, code = geometry.kendall_rep_2d(points[:, 0], points[:, 1], points[:, 2])
@@ -145,26 +186,45 @@ def match_triangles_kendall(db, centroids, image_shape, tolerance):
     rows = np.arange(len(triplets))[:, None]
     canon_points = points[rows, order]              # canonical vertex order
     canon_triplets = triplets[rows, order]
+    # the canonical first side is the longest: the noise term's size scale
+    s_img = np.linalg.norm(canon_points[:, 0] - canon_points[:, 1], axis=1)
 
-    hit_lists = db.kd_tree.query_ball_point(xyz, tolerance)
+    if fixed_tolerance > 0:
+        radii = np.full(len(triplets), fixed_tolerance)
+    else:
+        radii = query_radii(db, s_img, eps_px)
+    hit_lists = db.kd_tree.query_ball_point(xyz, radii)
     match_cand, tri_rows = [], []
     for t, hits in enumerate(hit_lists):
         match_cand.extend(hits)
         tri_rows.extend([t] * len(hits))
+    if not match_cand:
+        return empty
     tri_rows = np.array(tri_rows, dtype=np.int64)
-    return (np.array(match_cand, dtype=np.int64),
-            canon_points[tri_rows].astype(np.float64),
-            canon_triplets[tri_rows])
+    match_cand = np.array(match_cand, dtype=np.int64)
+
+    xy = np.asarray(db.tri_inv, dtype=np.float64)[match_cand]
+    z = np.sqrt(np.maximum(1.0 - xy[:, 0] ** 2 - xy[:, 1] ** 2, 0.0))
+    dist = np.linalg.norm(np.c_[xy, z] - xyz[tri_rows], axis=1)
+
+    if len(match_cand) > CANDIDATE_BUDGET:
+        # keep the most shape-consistent fraction of each query's ball
+        ratio = dist / radii[tri_rows]
+        keep = np.argpartition(ratio, CANDIDATE_BUDGET)[:CANDIDATE_BUDGET]
+        keep.sort()
+        match_cand, tri_rows, dist = match_cand[keep], tri_rows[keep], dist[keep]
+    return (match_cand, canon_points[tri_rows].astype(np.float64),
+            canon_triplets[tri_rows], dist, s_img[tri_rows], float(np.mean(radii)))
 
 
-def _kendall_pool(db, centroids, image_size, tolerance):
-    """Lazily evaluated query pool, so a successful normal solve never pays for the
-    mirror query (extraction is cheap; the KD-tree query is not)."""
-    return match_triangles_kendall(db, centroids, image_size, tolerance)
+def compute_platescale_kendall(db, match_cand, canon_points, exact_cut=None):
+    """Orientation per candidate, pairing canonical image and database vertices.
 
-
-def compute_platescale_kendall(db, match_cand, canon_points):
-    """Orientation per candidate, pairing canonical image and database vertices."""
+    ``exact_cut = (dist, s_img, eps_px)`` re-applies the S3 model with each
+    candidate's *actual* catalogue-triangle size in the curvature term, before the
+    expensive orientation solve. Returns (..., keep) so the caller can slice its
+    parallel arrays; keep is None when no cut was applied.
+    """
     anchors = np.asarray(db.anchors)
     pattern_data = np.asarray(db.pattern_data)
     tri_perm = np.asarray(db.tri_perm)
@@ -176,16 +236,27 @@ def compute_platescale_kendall(db, match_cand, canon_points):
     order = geometry.PERM_TABLE[tri_perm[match_cand]]
     target_rows = verts[np.arange(len(match_cand))[:, None], order]
 
-    # platescale from the canonical first side: catalogue chord -> angle, over pixels
+    # canonical first side: catalogue chord -> angle
     chord = np.linalg.norm(target_rows[:, 0] - target_rows[:, 1], axis=1)
-    angle = 2 * np.arcsin(0.5 * chord)
+    angle = 2 * np.arcsin(0.5 * np.minimum(chord, 2.0))
+
+    keep = None
+    if exact_cut is not None:
+        dist, s_img, eps_px = exact_cut
+        bound = (MODEL_C0 + MODEL_C1 * (2 * np.sqrt(2) * eps_px / s_img)
+                 + MODEL_C2 * (angle / 2) ** 2)
+        keep = dist <= np.minimum(bound, RADIUS_MAX)
+        canon_points = canon_points[keep]
+        target_rows = target_rows[keep]
+        angle = angle[keep]
+
     pixels = np.linalg.norm(canon_points[:, 0] - canon_points[:, 1], axis=1)
     scale = angle / pixels
 
     target_cols = target_rows.swapaxes(1, 2)
     scale, roll, center_vect = _orientation_from_pairs(canon_points, target_cols,
                                                        scale)
-    return scale, roll, center_vect, target_rows
+    return scale, roll, center_vect, target_rows, keep
 
 
 # ------------------------------------------------------------ shared downstream
@@ -219,7 +290,7 @@ def _orientation_from_pairs(image_points, target_cols, scale):
 
 def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
                           target_rows, centroids, image_size, options, diagnostics,
-                          output_dir=None):
+                          output_dir=None, est_tolerance=None, adapt_depth=False):
     """Cluster candidate orientations, verify each strong cluster, keep the best."""
     verify_spec = db.manifest.get('verify') or {}
     mag_limit = float(verify_spec.get('mag_limit', 12.0))
@@ -301,10 +372,11 @@ def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
         platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll + 180)
         stardata, plate2, max_error, local_density = verify.match_centroids(
             centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options,
-            catalogue, mag_limit, epoch)
+            catalogue, mag_limit, epoch, adapt_depth=adapt_depth)
         thresh = verify.estimate_acceptance_threshold(
             min(n_obs, MAX_MATCH), n_stars_catalogue, max_error, db.pattern_width,
-            addon=3, local_density=local_density, tolerance=db.tolerance)
+            addon=3, local_density=local_density,
+            tolerance=est_tolerance if est_tolerance else db.tolerance)
         diagnostics['threshold'] = int(thresh)
 
         events.emit(events.SOLVE_CANDIDATE, n_triangles=len(non_redundant),
@@ -369,10 +441,13 @@ def solve_helper(db, catalogue, centroids, image_size, options, output_dir=None)
 
 def solve_kendall(db, catalogue, centroids, image_size, options, output_dir=None,
                   try_mirror_also=True):
-    """The S2 solve: one batched query covers both the field and its mirror image.
+    """The S2/S3 solve: one query pass covers the field and its mirror image, at a
+    radius set by the calibrated tolerance model.
 
-    The mirror pool's consensus and verification only run if the normal pool fails,
-    but the expensive part -- extraction and the KD-tree query -- is never repeated.
+    Pools are evaluated lazily -- a successful normal solve never pays for the
+    mirror query -- and a fully failed attempt escalates the noise assumption
+    (ESCALATION) before giving up, so a noisier-than-assumed image costs a retry
+    rather than a permanently inflated radius for everyone.
     """
     t0 = time.perf_counter()
     mirrored_centroids = centroids[:, [1, 0]]
@@ -382,26 +457,43 @@ def solve_kendall(db, catalogue, centroids, image_size, options, output_dir=None
     if try_mirror_also:
         pools.append((mirrored_centroids, mirrored_size, True))
 
-    diagnostics = {'n_candidates': 0, 'n_clusters_checked': 0, 'threshold': None}
+    eps0 = float(options.get('platesolve_noise_px', 0.3) or 0.3)
+    fixed = float(options.get('v2_fixed_tolerance', 0) or 0)
+    attempts = (1.0,) if fixed > 0 else ESCALATION
+
+    diagnostics = {'n_candidates': 0, 'n_clusters_checked': 0, 'threshold': None,
+                   'noise_px_used': None}
     result = _failure_result(diagnostics)
-    for pool_centroids, pool_size, is_mirror in pools:
-        # queried lazily: a successful normal solve never pays for the mirror query
-        cand, points, triplets = _kendall_pool(db, pool_centroids, pool_size,
-                                               db.tolerance)
-        diagnostics['n_candidates'] += int(len(cand))
-        if len(cand) == 0:
-            continue
-        scale, roll, center_vect, target_rows = compute_platescale_kendall(
-            db, cand, points)
-        result = _consensus_and_verify(db, catalogue, scale, roll, center_vect,
-                                       [tuple(t) for t in triplets], target_rows,
-                                       pool_centroids, pool_size, options,
-                                       diagnostics, output_dir)
+    for scale_up in attempts:
+        eps = eps0 * scale_up
+        diagnostics['noise_px_used'] = eps if fixed <= 0 else None
+        for pool_centroids, pool_size, is_mirror in pools:
+            cand, points, triplets, dist, s_img, mean_radius = \
+                match_triangles_kendall(db, pool_centroids, pool_size, eps,
+                                        fixed_tolerance=fixed)
+            diagnostics['n_candidates'] += int(len(cand))
+            if len(cand) == 0:
+                continue
+            exact = None if fixed > 0 else (dist, s_img, eps)
+            scale, roll, center_vect, target_rows, keep = \
+                compute_platescale_kendall(db, cand, points, exact_cut=exact)
+            if keep is not None:
+                triplets = triplets[keep]
+            if scale.shape[0] == 0:
+                continue
+            result = _consensus_and_verify(
+                db, catalogue, scale, roll, center_vect,
+                [tuple(t) for t in triplets], target_rows,
+                pool_centroids, pool_size, options, diagnostics, output_dir,
+                est_tolerance=(fixed if fixed > 0 else mean_radius),
+                adapt_depth=True)
+            if result['success']:
+                result['mirror'] = is_mirror
+                if is_mirror:
+                    result['matched_centroids'][:, [0, 1]] = \
+                        result['matched_centroids'][:, [1, 0]]
+                break
         if result['success']:
-            result['mirror'] = is_mirror
-            if is_mirror:
-                result['matched_centroids'][:, [0, 1]] = \
-                    result['matched_centroids'][:, [1, 0]]
             break
     result['mirror'] = result.get('mirror', False)
     if not result['success']:

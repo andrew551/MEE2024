@@ -264,6 +264,32 @@ def test_kendall_agrees_with_ratio_dphi_solution(mini_db, mini_db_kendall):
                                                     rel=1e-3)
 
 
+# -------------------------------------------------------- tolerance model (S3)
+
+def test_query_radius_model_shape(mini_db_kendall):
+    """More assumed noise -> wider; larger triangles -> tighter; always capped."""
+    from mee2024.platesolve2 import solve
+    db, _, _ = mini_db_kendall
+    sizes = np.array([200.0, 800.0, 2500.0])
+    r_small_eps = solve.query_radii(db, sizes, 0.3)
+    r_big_eps = solve.query_radii(db, sizes, 3.0)
+    assert np.all(np.diff(r_small_eps) < 0)          # bigger triangle, tighter
+    assert np.all(r_big_eps >= r_small_eps)          # noisier, wider
+    assert np.all(r_big_eps <= solve.RADIUS_MAX + 1e-12)
+
+
+def test_fixed_tolerance_override_still_solves(mini_db_kendall):
+    """The S2 rollback: a positive v2_fixed_tolerance bypasses the adaptive model."""
+    from tools.synthetic_field import solution_matches_truth
+    db, catalogue, _ = mini_db_kendall
+    centroids, truth = _field(catalogue)
+    result = platesolve_v2(centroids, (1000, 1500),
+                           options={'rough_match_threshhold': 36,
+                                    'v2_fixed_tolerance': 0.005},
+                           catalogue=catalogue, db=db)
+    assert result['success'] and solution_matches_truth(result, truth)
+
+
 # ------------------------------------------------------- kendall geometry unit
 
 def _random_triangles_2d(n, rng):

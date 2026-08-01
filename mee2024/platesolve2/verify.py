@@ -59,11 +59,13 @@ def _bbox_solid_angle(ra_range, dec_range):
 
 
 def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
-                    mag_limit, epoch):
+                    mag_limit, epoch, adapt_depth=False):
     """Mutually match observed centroids against catalogue stars for one candidate.
 
     Returns (stardata, matched_plate, max_error, local_density) with ``stardata`` in
-    v1's (n, 6) layout: [ra_rad, dec_rad, vx, vy, vz, mag].
+    v1's (n, 6) layout: [ra_rad, dec_rad, vx, vy, vz, mag]. ``adapt_depth`` enables
+    the S3 detection-count-aware comparison set; the S1 ratio path keeps the full
+    depth so its behaviour stays frozen.
     """
     corners = transforms.to_polar(transforms.linear_transform(
         platescale_fit,
@@ -80,8 +82,24 @@ def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
         stardata[:, 1] = table.dec
         stardata[:, 2:5] = table.get_vectors()
         stardata[:, 5] = table.get_mags()
-    # local catalogue density: the false-match rate scales with it, and the galactic
-    # plane runs 3-10x the all-sky mean, so the acceptance threshold must know it
+
+    # Verification depth tracks the detection count (S3): the detections are the
+    # field's brightest stars, so catalogue stars much fainter than that population
+    # can never be matched -- they only add confusers and inflate the local density
+    # (which sets the acceptance threshold). A 10-star field verified against the
+    # full G<12 set needs a threshold no 10 detections can reach. The factor of 8
+    # covers the bounding box exceeding the frame (~2x in area) plus detection
+    # ordering scatter, so every plausible counterpart stays in the comparison set;
+    # for a normal ~100-detection field the cap exceeds the bbox count and nothing
+    # changes.
+    if adapt_depth:
+        depth_cap = max(8 * len(centroids), 60)
+        if stardata.shape[0] > depth_cap:
+            stardata = stardata[np.argsort(stardata[:, 5], kind='stable')[:depth_cap]]
+
+    # local catalogue density of the comparison set actually used: the false-match
+    # rate scales with it, and the galactic plane runs 3-10x the all-sky mean, so
+    # the acceptance threshold must know it
     local_density = stardata.shape[0] / max(_bbox_solid_angle(*bbox), 1e-12)
 
     match_threshhold = np.radians(options['rough_match_threshhold'] / 3600)
