@@ -55,17 +55,21 @@ Legacy: `mee2024 gui` keeps launching the FreeSimpleGUI interface until the new 
 reaches parity; the new one lives at `mee2024 ui` meanwhile, then they swap
 (`mee2024 gui --legacy` preserved indefinitely — it is ~430 lines and costs nothing).
 
-## 3. UX: three modes, one window
+## 3. UX: one window, one settings panel, plus Live
 
-**Simple** (default): a drop zone for light frames, optional dark/flat pickers, one
+**Run** (default): a drop zone for light frames, optional dark/flat pickers, one
 **Run** button, and an **Auto** toggle (milestone B's auto-calibration chooses centroid
 preset and distortion order via `nn_corr`). Results appear as large score cards —
 platesolve ✓/✗ with pointing on a small sky map, RMS (mas), star count, `nn_corr` grade,
-date-guess vs header date. Every number gets a plain-language caption ("113 mas ≈ the
-width of a human hair at 200 m").
+date-guess vs header date, and how far the solve sits from the FITS header's pointing.
+Every number gets a plain-language caption ("113 mas ≈ the width of a human hair at
+200 m").
 
-**Advanced**: the full option set, grouped as today's three tabs, with the config
-file round-tripping unchanged (same `options` dict, same `MEE_config.txt`).
+**Settings**: the full option set in one collapsible panel, with the config file
+round-tripping unchanged (same `options` dict, same `MEE_config.txt`). *This was
+originally a separate "Advanced" mode; splitting simple from advanced only created two
+places for a setting to live, and hid controls people wanted. One panel that folds away
+does the same job.*
 
 **Live**: pick a watch folder; each arriving frame is centroided and platesolved
 (~5–9 s measured — comfortably within a typical exposure+download cadence), and the
@@ -84,6 +88,9 @@ plumbing, not new science.
    the winning consensus cluster lights up and the verified stars connect to their
    catalogue counterparts with name labels (the new `LabelIndex` supplies "Vega", not
    `gaia:2097892…`). Data: `solve_candidate` + matched-star list.
+   **Partly built**: the static half of this — labelled stars over the stacked image,
+   with a tier slider and red crosses on the doubles the fit discarded — ships as the
+   `stars` event (`mee2024/star_labels.py`); the animation does not.
 3. **Distortion quiver/heatmap** with the polynomial surface, replacing the 3D matplotlib
    popups.
 4. **Metric gauges** for rms / nn_corr / star count / date-guess error, colour-graded by
@@ -94,8 +101,8 @@ plumbing, not new science.
 | phase | deliverable | status |
 |---|---|---|
 | P0 | event bus + `--events-jsonl`; CLI/legacy GUI consume it | **done** |
-| P1 | app shell: Simple mode, progress, score cards | **done** |
-| P2 | Advanced: distortion field, date-guess accuracy, catalogue downloads | **done** |
+| P1 | app shell: progress, score cards | **done** |
+| P2 | distortion field, date-guess accuracy, catalogue downloads | **done** |
 | P3 | Watch mode (folder watcher, settle rule, batching) | **done** |
 | P4 | animations, subprocess isolation, packaging | next |
 

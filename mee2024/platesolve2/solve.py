@@ -405,7 +405,7 @@ def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
         acc_roll = (acc_roll + 180) % 360   # v1's convention shift, kept as-is
 
         platescale = (np.degrees(scale[el]), acc_ra, acc_dec, acc_roll + 180)
-        stardata, plate2, max_error, local_density = verify.match_centroids(
+        stardata, plate2, max_error, local_density, matched_ids = verify.match_centroids(
             centroids[:MAX_MATCH, :], np.radians(platescale), image_size, options,
             catalogue, mag_limit, epoch, adapt_depth=adapt_depth)
         thresh = verify.estimate_acceptance_threshold(
@@ -434,6 +434,8 @@ def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
                     'matched_centroids': plate2 + np.array([image_size[0] / 2,
                                                             image_size[1] / 2]),
                     'matched_stars': stardata,
+                    # catalogue identifiers, so the UI can label stars by name or HIP
+                    'matched_ids': matched_ids,
                     'diagnostics': diagnostics,
                 }
             if stardata.shape[0] >= thresh + 10:

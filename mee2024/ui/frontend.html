@@ -262,8 +262,7 @@ canvas.plot.rot:active{cursor:grabbing}
     </div>
     <div class="spacer"></div>
     <div class="tabs">
-      <button id="tab-simple" class="on">Simple</button>
-      <button id="tab-advanced">Advanced</button>
+      <button id="tab-run" class="on">Run</button>
       <button id="tab-watch">Watch</button>
     </div>
   </header>
@@ -310,34 +309,48 @@ canvas.plot.rot:active{cursor:grabbing}
         <div class="presets" id="presets"></div>
       </div>
 
-      <div class="card" id="advanced-card" style="display:none">
-        <h3>Advanced</h3>
-        <div class="adv">
-          <label for="catalogue">Star catalogue</label>
-          <select id="catalogue"></select>
-          <label for="order">Distortion order</label>
-          <select id="order">
-            <option>linear</option><option selected>cubic</option>
-            <option>quintic</option><option>septic</option>
-          </select>
-          <label for="obsdate">Observation date</label>
-          <input id="obsdate" placeholder="guess it" size="10">
-          <label for="tol">Fit tolerance (&Prime;)</label>
-          <input id="tol" value="1.0">
-          <label for="magmax">Max star magnitude</label>
-          <input id="magmax" value="12">
+      <div class="card" id="advanced-card">
+        <div class="row">
+          <h3 style="margin:0;flex:1">4 &middot; Settings</h3>
+          <button class="btn" id="settings-toggle">Hide</button>
         </div>
-        <div class="faint" id="catalogue-note" style="margin-top:6px"></div>
-        <div class="warnline" id="mag-warn"></div>
-        <label class="check" style="margin-top:10px">
-          <input type="checkbox" id="fieldplot" checked>
-          <span>Show the distortion field</span>
-        </label>
-        <div class="faint" style="margin-top:9px">
-          Leave the date blank to recover it from proper motions &mdash; it also serves as
-          a check on the FITS header.
+        <div id="settings-body" style="margin-top:10px">
+          <div class="adv">
+            <label for="catalogue">Star catalogue</label>
+            <select id="catalogue"></select>
+            <label for="order">Distortion order</label>
+            <select id="order">
+              <option>linear</option><option selected>cubic</option>
+              <option>quintic</option><option>septic</option>
+            </select>
+            <label for="datemode">Observation date</label>
+            <div class="row">
+              <select id="datemode" style="flex:1">
+                <option value="guess" selected>Recover it from proper motions</option>
+                <option value="header">Read it from the FITS header</option>
+                <option value="manual">Set it myself</option>
+              </select>
+              <input id="obsdate" placeholder="YYYY-MM-DD" size="10"
+                     style="display:none">
+            </div>
+            <label for="tol">Fit tolerance (&Prime;)</label>
+            <input id="tol" value="1.0">
+            <label for="magmax">Max star magnitude</label>
+            <input id="magmax" value="13">
+          </div>
+          <div class="faint" id="catalogue-note" style="margin-top:6px"></div>
+          <div class="warnline" id="mag-warn"></div>
+          <div class="faint" id="datemode-note" style="margin-top:6px"></div>
+          <label class="check" style="margin-top:10px">
+            <input type="checkbox" id="rm-double">
+            <span>Drop stars with a close companion (double stars)</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="rm-nopm">
+            <span>Drop stars with no proper motion in the catalogue</span>
+          </label>
+          <div id="cat-downloads" style="margin-top:12px"></div>
         </div>
-        <div id="cat-downloads" style="margin-top:12px"></div>
       </div>
 
       <div class="card" id="watch-card" style="display:none">
@@ -403,7 +416,19 @@ canvas.plot.rot:active{cursor:grabbing}
         <div class="scores" id="scores" style="margin-top:16px"></div>
         <div class="card preview" id="preview-card" style="display:none;margin-top:16px">
           <h3>Stacked image</h3>
-          <div id="preview"></div>
+          <div class="row" id="label-controls" style="display:none;margin-bottom:10px">
+            <label for="labels" class="faint">Star labels</label>
+            <input type="range" id="labels" min="0" max="4" step="1" value="1"
+                   style="flex:1;max-width:220px">
+            <span class="pill" id="labels-level">named</span>
+            <div class="spacer"></div>
+            <span class="faint" id="labels-count"></span>
+          </div>
+          <div id="preview" style="position:relative">
+            <canvas id="preview-canvas" style="width:100%;display:block;
+                    border-radius:10px"></canvas>
+          </div>
+          <div class="faint" id="labels-legend" style="margin-top:7px"></div>
         </div>
         <div class="card preview" id="field-card" style="display:none;margin-top:16px">
           <h3>Distortion field</h3>
@@ -683,6 +708,21 @@ function renderScores(){
       ok ? `${solve.n_matched} stars matched to the catalogue`
          : 'no confident match found', ok?'g-ok':'g-bad',
       ok ? skyDot(solve.ra, solve.dec) : ''));
+
+    // How far the solved pointing is from what the mount recorded: an independent
+    // check on the alignment, and the only card here that says anything about the
+    // telescope rather than the analysis.
+    // metrics are keyed by the stage that emitted them; the pointing comparison
+    // happens in stage 1, right after the solve
+    const pointing = m.stack || {};
+    const sep = pointing.header_pointing_separation_deg;
+    if(ok && sep !== undefined && sep !== null){
+      const grade = sep < 0.5 ? 'g-ok' : sep < 5 ? 'g-warn' : 'g-bad';
+      const shown = sep < 1 ? `${(sep*60).toFixed(1)}′` : `${sep.toFixed(2)}°`;
+      host.appendChild(scoreCard('Vs. telescope', shown, '',
+        pointing.header_pointing_verdict
+        || 'from the RA/Dec the mount recorded in the FITS header', grade));
+    }
   }
   if(m.stack && m.stack.n_centroids !== undefined){
     host.appendChild(scoreCard('Centroids', m.stack.n_centroids.toLocaleString(), '',
@@ -1089,6 +1129,7 @@ function setupAnalysis(){
     $('corr-bins-val').textContent = $('corr-bins').value;
     drawCorrelation();
   };
+  $('labels').oninput = drawPreview;
   $('resid-gain').onchange = drawSurface;
   $('surface-reset').onclick = () => {
     Object.assign(view3d, DEFAULT_VIEW); drawSurface();
@@ -1103,6 +1144,74 @@ function showCatalogueNote(){
   const el = $('catalogue-note');
   if(!el) return;
   el.textContent = (state.catalogueNotes || {})[$('catalogue').value] || '';
+}
+
+/* ------------------------------------------ the stacked image and its labels */
+/* Labels are drawn over the preview rather than baked into it, so how many to show
+   is a live choice: a wide field identifies hundreds of stars, and a name beside
+   every one of them is unreadable. The slider adds tiers, never swaps them. */
+const LABEL_LEVELS = ['none', 'named', 'HIP', 'bright Gaia', 'all'];
+const TIER_RANK = {named: 1, hip: 2, bright: 3, all: 4};
+
+function drawPreview(){
+  const image = state.previewImage, canvas = $('preview-canvas');
+  if(!image || !canvas) return;
+  const level = parseInt($('labels').value, 10);
+  const stars = state.stars;
+  // the canvas is displayed at the card's width; draw at the image's own pixel size
+  // so labels land exactly where the stars are
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0);
+  if(!stars || !stars.x.length){ $('label-controls').style.display = 'none'; return; }
+  $('label-controls').style.display = '';
+
+  // the image is a strided copy of the frame; positions are in full-frame pixels
+  const sx = image.naturalWidth / stars.image_size[1];
+  const sy = image.naturalHeight / stars.image_size[0];
+  // 'all' can mean hundreds of labels on one frame, so that tier gets a smaller font
+  const font = Math.max(7, Math.round(image.naturalWidth / (level >= 4 ? 130 : 80)));
+  ctx.font = `${font}px ui-monospace, monospace`;
+  ctx.lineWidth = Math.max(1, image.naturalWidth / 900);
+
+  let shown = 0, dropped = 0;
+  for(let i = 0; i < stars.x.length; i++){
+    const x = stars.x[i] * sx, y = stars.y[i] * sy;
+    const eliminated = stars.dropped && stars.dropped[i];
+    const wanted = level > 0 && TIER_RANK[stars.tier[i]] <= level;
+
+    if(eliminated){
+      // a star the fit threw out as a double: its centroid is pulled off the
+      // catalogue position by the companion, so it cannot be measured honestly
+      const r = font * 0.55;
+      ctx.strokeStyle = '#ff6b6b';
+      ctx.beginPath();
+      ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r);
+      ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r);
+      ctx.stroke();
+      dropped++;
+    }else{
+      ctx.strokeStyle = 'rgba(109,196,255,.85)';
+      ctx.beginPath();
+      ctx.arc(x, y, font * 0.5, 0, 6.2832);
+      ctx.stroke();
+    }
+    if(wanted && stars.label[i]){
+      ctx.fillStyle = eliminated ? '#ff9d9d' : '#cfe3ff';
+      ctx.fillText(stars.label[i], x + font * 0.7, y - font * 0.5);
+      shown++;
+    }
+  }
+  $('labels-level').textContent = LABEL_LEVELS[level];
+  $('labels-count').textContent =
+    `${shown} label${shown === 1 ? '' : 's'} of ${stars.x.length} identified stars`;
+  $('labels-legend').innerHTML = dropped
+    ? `Circles mark stars matched to the catalogue. <span style="color:var(--bad)">`
+      + `Red crosses (${dropped})</span> are stars the distortion fit discarded as `
+      + `double stars: a close companion pulls the measured centre away from the `
+      + `catalogue position, so they cannot be measured honestly.`
+    : 'Circles mark stars matched to the catalogue.';
 }
 
 /* ------------------------------------------------- catalogue depth warning */
@@ -1173,12 +1282,19 @@ function handleEvent(e){
     case 'image':
       if(e.name === 'stack_preview'){
         $('preview-card').style.display='';
-        $('preview').innerHTML = `<img alt="stacked image" src="data:image/png;base64,${e.png}">`;
+        state.previewImage = new Image();
+        state.previewImage.onload = drawPreview;
+        state.previewImage.src = 'data:image/png;base64,' + e.png;
       }else if(e.name === 'distortion_field'){
         $('field-card').style.display='';
         $('field').innerHTML =
           `<img alt="distortion field" src="data:image/png;base64,${e.png}">`;
       }
+      break;
+    case 'stars':
+      // may arrive before or after the preview image; whichever is last draws
+      state.stars = e;
+      if(state.previewImage && state.previewImage.complete) drawPreview();
       break;
     case 'analysis':
       state.analysis = e;
@@ -1266,9 +1382,11 @@ function showLive(){
 
 function resetRunView(){
   state.stages.clear(); state.metrics={}; state.solve=null; state.analysis=null;
+  state.stars=null; state.previewImage=null;
   $('scores').innerHTML='';
   $('preview-card').style.display='none'; $('details-card').style.display='none';
   $('field-card').style.display='none'; $('analysis-card').style.display='none';
+  $('label-controls').style.display='none'; $('labels-legend').textContent='';
   $('open-out').style.display='none';
 }
 
@@ -1279,16 +1397,26 @@ function buildSpec(){
     output_dir: state.outputDir, preset: state.preset,
   };
   const options = {};
-  if(state.advanced || state.tab==='watch'){
-    spec.catalogue = $('catalogue').value || null;
+  spec.catalogue = $('catalogue').value || null;
+  options.distortionOrder = $('order').value;
+  options.distortion_fit_tol = parseFloat($('tol').value) || 1.0;
+  options.max_star_mag_dist = parseFloat($('magmax').value) || 13.0;
+  // the distortion field is the picture that answers "was the fit any good", so it
+  // is always drawn rather than being a checkbox nobody had a reason to clear
+  options.distortion_field_plot = true;
+  options.remove_double_tab2 = $('rm-double').checked;
+  options.remove_missing_pm = $('rm-nopm').checked;
+
+  const mode = $('datemode').value;
+  if(mode === 'manual'){
     const obs = $('obsdate').value.trim();
     if(obs) spec.observation_date = obs;
-    options.distortionOrder = $('order').value;
-    options.distortion_fit_tol = parseFloat($('tol').value) || 1.0;
-    options.max_star_mag_dist = parseFloat($('magmax').value) || 12.0;
-    options.distortion_field_plot = $('fieldplot').checked;
+  }else if(mode === 'header'){
+    spec.date_from_header = true;      // the runner reads DATE-OBS off frame one
+  }else{
+    options.guess_date = true;
   }
-  if(Object.keys(options).length) spec.options = options;
+  spec.options = options;
   return spec;
 }
 
@@ -1436,20 +1564,45 @@ $('modal').onclick = e => { if(e.target === $('modal')) closePicker(); };
 $('run').onclick = run;
 $('cancel').onclick = () => api('cancel', {}).catch(e => banner(e.message));
 
+/* There is one mode now. The old Simple/Advanced split hid the settings that matter
+   (catalogue, date, magnitude limit) behind a tab most people never opened, while
+   offering nothing Simple mode actually needed to be simpler about; the settings are
+   simply collapsible instead, and every run sees the same options. */
 function setTab(name){
   state.tab = name;
-  state.advanced = (name === 'advanced');
-  for(const t of ['simple','advanced','watch'])
+  state.advanced = true;
+  for(const t of ['run','watch'])
     $('tab-'+t).classList.toggle('on', t === name);
-  $('advanced-card').style.display = name === 'advanced' ? '' : 'none';
   $('watch-card').style.display = name === 'watch' ? '' : 'none';
   // in watch mode the folder drives the run, so the one-shot Run button would only
   // confuse: the watcher decides when frames are complete
   $('run').style.display = name === 'watch' ? 'none' : '';
 }
-$('tab-simple').onclick = () => setTab('simple');
-$('tab-advanced').onclick = () => setTab('advanced');
+$('tab-run').onclick = () => setTab('run');
 $('tab-watch').onclick = () => setTab('watch');
+
+$('settings-toggle').onclick = () => {
+  const body = $('settings-body'), open = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  $('settings-toggle').textContent = open ? 'Hide' : 'Show';
+};
+
+/* The date has three sources, and which one is in use should be visible rather than
+   inferred from whether a box is empty. */
+function dateMode(){
+  const mode = $('datemode').value;
+  $('obsdate').style.display = mode === 'manual' ? '' : 'none';
+  $('datemode-note').textContent =
+    mode === 'guess'
+      ? 'The date is recovered from the stars’ own proper motions, which also '
+        + 'checks the FITS header independently. Honest precision is two to four weeks.'
+    : mode === 'header'
+      ? 'Taken from the first frame’s DATE-OBS. Right for ordinary data; the '
+        + 'recovered date is the better check if you suspect the header.'
+      : 'Used exactly as given. Format YYYY-MM-DD.';
+}
+$('datemode').onchange = dateMode;
+dateMode();
 
 /* ------------------------------------------------------------- watch mode */
 function watchSpec(){

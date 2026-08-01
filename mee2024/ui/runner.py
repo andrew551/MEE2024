@@ -184,6 +184,19 @@ class PipelineRunner:
         if spec.get('observation_date'):
             options['observation_date'] = spec['observation_date']
             options['guess_date'] = False
+        elif spec.get('date_from_header'):
+            # take it from the frames themselves rather than guessing or asking
+            from mee2024.stacker_implementation import read_observation_date
+            lights = [str(p) for p in spec.get('lights') or []]
+            header_date = read_observation_date(lights[0]) if lights else None
+            if header_date:
+                options['observation_date'] = header_date
+                options['guess_date'] = False
+                events.log(f'observation date {header_date} read from the FITS header')
+            else:
+                options['guess_date'] = True
+                events.log('no date in the FITS header; recovering it from proper '
+                           'motions instead', level='warning')
         options.update(spec.get('options') or {})
         return options
 

@@ -12,6 +12,7 @@ from scipy.optimize import minimize
 import time
 from mee2024.MEE2024util import output_path, _version, setup_logger
 from mee2024 import events
+from mee2024 import star_labels
 from mee2024.progress import NullProgress
 import datetime
 import pandas as pd
@@ -689,6 +690,7 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     # plate solve
     flag_found_IDs = False
     df_identification = None
+    pointing_metrics = {}
     solution = platesolve_triangle.platesolve(centroids_stacked, stacked.shape, options = options, output_dir = output_dir)
     print(solution)
     logger.info(str(solution))
@@ -703,6 +705,8 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
         df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
         flag_found_IDs = True
 
+        star_labels.emit_from_solution(solution, stacked.shape)
+
         header_pointing = read_pointing(files[0])
         separation, verdict = pointing_comment(header_pointing, solution['ra'],
                                                solution['dec'])
@@ -714,8 +718,10 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
             logger.info(message)
             events.log(message,
                        level='info' if separation < 5 else 'warning')
-            events.emit(events.METRICS, header_pointing_separation_deg=separation,
-                        header_pointing_verdict=verdict)
+            # carried on the stage's own metrics event below, so the UI finds it
+            # where it looks for everything else about stage 1
+            pointing_metrics = {'header_pointing_separation_deg': separation,
+                                'header_pointing_verdict': verdict}
     else:
         logger.error("ERROR: platesolve failed to identify location")
         print("ERROR: platesolve failed to identify location")
@@ -783,7 +789,8 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
                 n_frames=len(files), platesolved=bool(flag_found_IDs),
                 ra=solution['ra'], dec=solution['dec'], roll=solution['roll'],
                 platescale=solution['platescale/arcsec'],
-                stack_rms_px=[None if r is None else float(r) for r in rms_errors])
+                stack_rms_px=[None if r is None else float(r) for r in rms_errors],
+                **pointing_metrics)
     
     print('making archive', output_dir, Path(output_dir).parent)
     shutil.make_archive(data_dir, 'zip', Path(data_dir))

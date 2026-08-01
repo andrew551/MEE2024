@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 from mee2024 import database_cache
 from mee2024 import events
+from mee2024 import star_labels
 import datetime
 from mee2024 import distortion_polynomial
 from mee2024 import gaia_search
@@ -272,10 +273,15 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     flag_is_outlier = errors_arcseconds >= options['distortion_fit_tol']
     flag_unexplained_outlier = np.logical_and(np.logical_and(flag_is_outlier, np.logical_not(flag_missing_pm)), np.logical_not(flag_is_double))
     print(np.sum(flag_unexplained_outlier), ' unexplained outliers')
+    # Two independent reasons to drop a star, each its own choice: a close companion
+    # pulls the centroid off the catalogue position, and a star with no catalogue
+    # proper motion cannot be propagated to the observation epoch. They used to be
+    # welded to one flag, which meant asking for either got both.
+    keep_j = errors_arcseconds < options['distortion_fit_tol']
     if options['remove_double_tab2']:
-        keep_j = np.logical_and(np.logical_and(errors_arcseconds < options['distortion_fit_tol'], ~flag_is_double), ~flag_missing_pm)
-    else:
-        keep_j = errors_arcseconds < options['distortion_fit_tol']
+        keep_j = np.logical_and(keep_j, ~flag_is_double)
+    if options['remove_missing_pm']:
+        keep_j = np.logical_and(keep_j, ~flag_missing_pm)
 
     # Never let a low-precision catalogue into the fit. A merged catalogue may include
     # Tycho stars to fill the bright end for plate solving, but Tycho positions reach
@@ -452,6 +458,24 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                                'flag_missing_pm':flag_missing_pm,
                                'flag_is_outlier':flag_is_outlier,})
             
+    # Re-label the preview's stars now that the fit has spoken. Stage 1 could only say
+    # which detections matched; this stage worked from a deeper catalogue and knows which
+    # of them it had to discard as double stars -- the frontend crosses those out. Only
+    # the stars the fit used, plus the discarded doubles, are shown: an outlier dropped
+    # for some other reason would otherwise look like a star that was measured.
+    eliminated_double = np.logical_and(flag_is_double, ~keep_j)
+    shown = np.logical_or(keep_j, eliminated_double)
+    positions = np.c_[plate2_unfiltered[:, 0] + image_size[0] / 2,
+                      plate2_unfiltered[:, 1] + image_size[1] / 2][shown]
+    preview_shape = image_size
+    if plate_solve_result['mirror']:
+        # the frame was transposed for the solve; the preview image was not
+        positions = positions[:, [1, 0]]
+        preview_shape = (image_size[1], image_size[0])
+    star_labels.emit(positions, stardata_unfiltered.get_mags()[shown], preview_shape,
+                     ids=np.asarray(stardata_unfiltered.ids)[shown],
+                     dropped=eliminated_double[shown], stage='distortion')
+
     df_identification.to_csv(data_dir / 'CATALOGUE_MATCHED_ERRORS.csv')
     shutil.make_archive(data_dir, 'zip', Path(data_dir))
     zipfilepath = Path(data_dir).parent / 'distortion.zip'

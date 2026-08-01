@@ -38,11 +38,15 @@ SOLVE_RESULT = 'solve_result'        # success, ra, dec, roll, platescale, n_mat
 METRICS = 'metrics'                  # any subset of the quality numbers
 IMAGE = 'image'                      # name, png (base64), width, height
 ANALYSIS = 'analysis'                # stars, surface, image_size, platescale, order
+STARS = 'stars'                      # identified stars over the stacked preview:
+                                     # stage, x, y, mag, label, tier, dropped,
+                                     # image_size
 LOG = 'log'                          # level, text
 ERROR = 'error'                      # text, traceback
 
 ALL_TYPES = (STAGE_STARTED, STAGE_FINISHED, PROGRESS, FRAME_ALIGNED, CENTROIDS_FOUND,
-             SOLVE_CANDIDATE, SOLVE_RESULT, METRICS, IMAGE, ANALYSIS, LOG, ERROR)
+             SOLVE_CANDIDATE, SOLVE_RESULT, METRICS, IMAGE, ANALYSIS, STARS, LOG,
+             ERROR)
 
 
 # --------------------------------------------------------------------- sinks
@@ -231,9 +235,17 @@ def png_event(name, figure=None, image=None, max_width=900):
         height, width = int(source.shape[0]), int(source.shape[1])
         step = max(1, int(np.ceil(width / max_width)))
         small = np.asarray(source[::step, ::step], dtype=np.float32)  # stride, then cast
-        lo, hi = np.percentile(small, (25.0, 99.5))
-        scaled = (small - lo) * (255.0 / max(hi - lo, 1e-9))
-        grey = np.clip(scaled, 0, 255).astype(np.uint8)
+        # A star field is almost entirely sky, so a percentile stretch anchored low in
+        # the distribution renders that sky mid-grey and the stars barely brighter. Put
+        # the black point just above the sky (most pixels ARE sky, so the median is it)
+        # and the white point well down the bright tail: the background goes dark and
+        # the stars stand out, which is what this preview is for.
+        lo, hi = np.percentile(small, (55.0, 99.9))
+        if hi <= lo:                                  # a flat or nearly empty frame
+            lo, hi = float(small.min()), float(max(small.max(), small.min() + 1e-9))
+        # gamma < 1 lifts the faint stars back up without lifting the sky with them
+        normalised = np.clip((small - lo) / (hi - lo), 0.0, 1.0)
+        grey = (255.0 * normalised ** 0.65).astype(np.uint8)
         _write_png_greyscale(grey, buffer)
     return emit(IMAGE, name=name, width=width, height=height,
                 png=base64.b64encode(buffer.getvalue()).decode('ascii'))

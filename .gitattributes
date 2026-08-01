@@ -1,0 +1,8 @@
+# names.txt is a blob indexed by byte offsets stored in hip_name_offset.npy.
+# Any EOL conversion shifts the offsets and corrupts every name after the first
+# newline, so it must be checked out byte-for-byte.
+mee2024/resources/star_labels/names.txt -text
+
+# Belt and braces: numpy archives must never be treated as text.
+*.npy binary
+*.npz binary

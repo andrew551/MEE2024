@@ -77,7 +77,12 @@ DEFAULT_OPTIONS = {
     'limit_radial_sun_radii_value': 9.0,
     'crop_circle': False,
     'crop_circle_thresh': 1.0,
+    # drop stars with a close companion from the distortion fit: the companion pulls
+    # the measured centroid away from the catalogue position
     'remove_double_tab2': False,
+    # drop stars the catalogue has no proper motion for: they cannot be propagated to
+    # the observation epoch, so their position carries the catalogue epoch's error
+    'remove_missing_pm': False,
     'eclipse_method': 'Method 1 & 2',
     # draw the fitted distortion field (arrows + magnitude map) and emit it as an event
     'distortion_field_plot': True,

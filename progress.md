@@ -11,7 +11,7 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 533 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 543 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
@@ -156,6 +156,48 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-01 — one settings panel, and the stacked image gets named stars
+
+**Simple and advanced modes are one mode.** Two modes meant two places for a setting to
+be, and the simple one hid controls people wanted; now there is a single always-advanced
+panel that collapses. The display-distortion checkbox is gone — the field plot is always
+drawn, because it costs one basis evaluation and answers the first question anyone asks of
+a fit. `max_star_mag_dist` defaults to 13, matching the standard archive's depth. The date
+is a three-way choice (**guess it / read the FITS header / type one**) rather than a
+checkbox plus a text field that contradicted each other; reading the header is new, and
+falls back to guessing with a warning when the frames carry no date. **Removing double
+stars and removing stars with no proper motion are now separate checkboxes** — and
+separate in the fit, which they were not: asking for either used to get both
+(`distortion_fitter.py`, `remove_missing_pm` added to the defaults). The scoreboard gained
+a **"Vs. telescope"** card: how far the solved position sits from the FITS header's, in
+degrees, with the same 0.5°/5° grading the log message uses.
+
+**The stacked preview is darker, and its stars have names.** The stretch anchored its black
+point at the 25th percentile, which rendered the sky mid-grey — but a star field is almost
+entirely sky, so most of the frame *is* that percentile. The black point now sits at the
+median with the white point at 99.9%, and a γ=0.65 curve lifts the faint stars back without
+lifting the sky: the background goes dark and the stars are visible.
+
+Over that image, the identified stars are drawn as a live overlay from a new `STARS` event
+(`mee2024/star_labels.py`), and a **slider adds labels in tiers — none → named → HIP →
+bright Gaia → all** (the last at a smaller font, because a wide field identifies hundreds).
+Positions travel as columns rather than baked into the PNG, so changing the tier costs no
+run: how many names fit is a question about screen space, not about the data. Both stages
+emit; the distortion fit's event supersedes the solve's, because it worked from a deeper
+catalogue and knows something the solve did not — **which stars it discarded as double
+stars, which the frontend crosses out in red** with a legend saying why (a close companion
+pulls the measured centre off the catalogue position). Only the stars the fit used, plus
+those crossed-out doubles, are drawn: an outlier dropped for another reason would otherwise
+look like a star that had been measured. Verified end to end in the browser — 4 synthetic
+stars, tier stepping, and a pixel check that the eliminated one is red and the kept one is
+not.
+
+Threading that needed a small solver change: `platesolve2.verify.match_centroids` now
+returns the **catalogue ids** of the stars it matched, carried out as `matched_ids`, which
+is what lets a label be a name rather than a magnitude.
 
 ---
 

@@ -71,8 +71,10 @@ def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
                     mag_limit, epoch, adapt_depth=False):
     """Mutually match observed centroids against catalogue stars for one candidate.
 
-    Returns (stardata, matched_plate, max_error, local_density) with ``stardata`` in
-    v1's (n, 6) layout: [ra_rad, dec_rad, vx, vy, vz, mag]. ``adapt_depth`` enables
+    Returns (stardata, matched_plate, max_error, local_density, ids) with ``stardata``
+    in v1's (n, 6) layout: [ra_rad, dec_rad, vx, vy, vz, mag] and ``ids`` the catalogue
+    identifier of each matched star, which is what lets the UI label them by name or
+    HIP number. ``adapt_depth`` enables
     the S3 detection-count-aware comparison set; the S1 ratio path keeps the full
     depth so its behaviour stays frozen.
     """
@@ -98,11 +100,13 @@ def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
             bbox = ((0.0, 360.0), (-90.0, max(bbox[1])))
     table = catalogue.lookup(bbox[0], bbox[1], mag_limit, epoch=epoch)
     stardata = np.zeros((len(table), 6))
+    ids = np.zeros(len(table), dtype=np.int64)
     if len(table):
         stardata[:, 0] = table.ra
         stardata[:, 1] = table.dec
         stardata[:, 2:5] = table.get_vectors()
         stardata[:, 5] = table.get_mags()
+        ids = np.asarray(table.get_ids(), dtype=np.int64)
 
     # Verification depth tracks the detection count (S3): the detections are the
     # field's brightest stars, so catalogue stars much fainter than that population
@@ -116,7 +120,9 @@ def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
     if adapt_depth:
         depth_cap = max(8 * len(centroids), 60)
         if stardata.shape[0] > depth_cap:
-            stardata = stardata[np.argsort(stardata[:, 5], kind='stable')[:depth_cap]]
+            keep_brightest = np.argsort(stardata[:, 5], kind='stable')[:depth_cap]
+            stardata = stardata[keep_brightest]
+            ids = ids[keep_brightest]
 
     # local catalogue density of the comparison set actually used: the false-match
     # rate scales with it, and the galactic plane runs 3-10x the all-sky mean, so
@@ -126,7 +132,8 @@ def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
     match_threshhold = np.radians(options['rough_match_threshhold'] / 3600)
     if stardata.shape[0] < 2:
         # nothing (or one star) to match against: no verification is possible
-        return stardata[:0], np.zeros((0, 2)), match_threshhold, local_density
+        return (stardata[:0], np.zeros((0, 2)), match_threshhold, local_density,
+                ids[:0])
 
     all_star_plate = centroids - np.array([image_size[0] / 2, image_size[1] / 2])
     all_vectors = transforms.linear_transform(platescale_fit, all_star_plate)
@@ -149,9 +156,11 @@ def match_centroids(centroids, platescale_fit, image_size, options, catalogue,
         keep, indices_bar[indices[:, 0]].flatten() == np.arange(indices.shape[0]))
     keep_i = np.nonzero(keep)
 
-    stardata = stardata[indices[keep_i, 0].flatten(), :]
+    chosen = indices[keep_i, 0].flatten()
+    stardata = stardata[chosen, :]
+    ids = ids[chosen]
     plate2 = all_star_plate[keep_i, :][0]
     matched_vectors = all_vectors[keep_i, :][0]
     errors = np.linalg.norm(stardata[:, 2:5] - matched_vectors, axis=1)
     max_error = np.max(errors) if errors.size else match_threshhold
-    return stardata, plate2, max_error, local_density
+    return stardata, plate2, max_error, local_density, ids
