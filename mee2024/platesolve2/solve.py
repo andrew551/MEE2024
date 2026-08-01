@@ -139,10 +139,16 @@ def compute_platescale(db, match_cand, match_data, match_vect):
 
 # --------------------------------------------------------------- kendall query
 
-def _image_triplets(n_centroids, f, g):
-    """The (i, j, k) query triangles, with v1's skip rules."""
+def _image_triplets(n_centroids, f, g, first_anchor=0):
+    """The (i, j, k) query triangles, with v1's skip rules.
+
+    ``first_anchor`` starts the anchor range above the brightest stars: round two
+    of the progressive-anchor ladder (S5a) tries ranks [f, 2f), which rescues
+    fields whose brightest "detections" are artifacts -- hot pixels, cosmic rays --
+    that poison every triangle of a strict brightest-f prefix.
+    """
     triplets = []
-    for i in range(f):
+    for i in range(first_anchor, f):
         for j, k in itertools.combinations(range(g), 2):
             if j == i or k == i or max(i, k) >= n_centroids:
                 continue
@@ -163,19 +169,25 @@ def query_radii(db, s_img_px, eps_px):
     return np.minimum(r, RADIUS_MAX)
 
 
-def match_triangles_kendall(db, centroids, image_shape, eps_px, fixed_tolerance=0.0):
+def match_triangles_kendall(db, centroids, image_shape, eps_px, fixed_tolerance=0.0,
+                            anchor_round=1):
     """Batched shape-sphere query of one image orientation.
 
     Returns (match_cand, canonical image points (n, 3, 2), canonical centroid-index
     triplets (n, 3), candidate shape distances, candidate image sizes, mean radius).
     The permutation code computed per image triangle reorders both the points and
     the index triplet into the canonical frame, so candidates pair with database
-    vertices positionally.
+    vertices positionally. ``anchor_round`` 2 queries anchor ranks [f, 2f) only --
+    its results merge with round 1's downstream.
     """
     g = db.pattern_width
     vectors = (np.c_[centroids[:, 1], centroids[:, 0]]
                - np.array([image_shape[1], image_shape[0]]) / 2)
-    triplets = _image_triplets(vectors.shape[0], F_ANCHORS, g)
+    if anchor_round == 1:
+        triplets = _image_triplets(vectors.shape[0], F_ANCHORS, g)
+    else:
+        triplets = _image_triplets(vectors.shape[0], 2 * F_ANCHORS, g,
+                                   first_anchor=F_ANCHORS)
     empty = (np.zeros(0, dtype=np.int64), np.zeros((0, 3, 2)),
              np.zeros((0, 3), dtype=np.int64), np.zeros(0), np.zeros(0), 0.0)
     if len(triplets) == 0:
@@ -194,19 +206,9 @@ def match_triangles_kendall(db, centroids, image_shape, eps_px, fixed_tolerance=
         radii = np.full(len(triplets), fixed_tolerance)
     else:
         radii = query_radii(db, s_img, eps_px)
-    hit_lists = db.kd_tree.query_ball_point(xyz, radii)
-    match_cand, tri_rows = [], []
-    for t, hits in enumerate(hit_lists):
-        match_cand.extend(hits)
-        tri_rows.extend([t] * len(hits))
-    if not match_cand:
+    match_cand, tri_rows, dist = db.query_ball(xyz, radii)
+    if len(match_cand) == 0:
         return empty
-    tri_rows = np.array(tri_rows, dtype=np.int64)
-    match_cand = np.array(match_cand, dtype=np.int64)
-
-    xy = np.asarray(db.tri_inv, dtype=np.float64)[match_cand]
-    z = np.sqrt(np.maximum(1.0 - xy[:, 0] ** 2 - xy[:, 1] ** 2, 0.0))
-    dist = np.linalg.norm(np.c_[xy, z] - xyz[tri_rows], axis=1)
 
     if len(match_cand) > CANDIDATE_BUDGET:
         # keep the most shape-consistent fraction of each query's ball
@@ -434,6 +436,10 @@ def _consensus_and_verify(db, catalogue, scale, roll, center_vect, match_info,
                     'matched_stars': stardata,
                     'diagnostics': diagnostics,
                 }
+            if stardata.shape[0] >= thresh + 10:
+                # an accept this far past the threshold is unambiguous; the
+                # remaining clusters are chance structure not worth verifying
+                break
 
     if n_matches > 1:
         print(f'WARNING: multiple ({n_matches}) platesolves were successful, '
@@ -492,21 +498,57 @@ def solve_kendall(db, catalogue, centroids, image_size, options, output_dir=None
 
     eps0 = float(options.get('platesolve_noise_px', 0.3) or 0.3)
     fixed = float(options.get('v2_fixed_tolerance', 0) or 0)
-    attempts = (1.0,) if fixed > 0 else ESCALATION
+    max_rounds = int(options.get('v2_anchor_rounds', 2) or 2)
+    # the ladder is ordered cheapest-first: a second anchor round costs one more
+    # query at the same radius, a noise escalation multiplies every ball
+    if fixed > 0:
+        ladder = ((1.0, 1),)
+    elif max_rounds >= 2:
+        ladder = ((1.0, 1), (1.0, 2), (ESCALATION[-1], 2))
+    else:
+        ladder = tuple((s, 1) for s in ESCALATION)
 
     diagnostics = {'n_candidates': 0, 'n_clusters_checked': 0, 'threshold': None,
-                   'noise_px_used': None}
+                   'noise_px_used': None, 'anchor_rounds_used': None}
     result = _failure_result(diagnostics)
-    for scale_up in attempts:
+    query_cache = {}
+
+    def pool_query(pool_idx, pool_centroids, pool_size, eps, rounds):
+        parts = []
+        for rnd in range(1, rounds + 1):
+            key = (pool_idx, eps, rnd)
+            if key not in query_cache:
+                query_cache[key] = match_triangles_kendall(
+                    db, pool_centroids, pool_size, eps, fixed_tolerance=fixed,
+                    anchor_round=rnd)
+                diagnostics['n_candidates'] += int(len(query_cache[key][0]))
+            parts.append(query_cache[key])
+        parts = [p for p in parts if len(p[0])]
+        if not parts:
+            return None
+        cand = np.concatenate([p[0] for p in parts])
+        points = np.concatenate([p[1] for p in parts])
+        triplets = np.concatenate([p[2] for p in parts])
+        dist = np.concatenate([p[3] for p in parts])
+        s_img = np.concatenate([p[4] for p in parts])
+        mean_radius = float(np.average([p[5] for p in parts],
+                                       weights=[len(p[0]) for p in parts]))
+        if len(cand) > CANDIDATE_BUDGET:
+            keep = np.argpartition(dist, CANDIDATE_BUDGET)[:CANDIDATE_BUDGET]
+            keep.sort()
+            cand, points, triplets = cand[keep], points[keep], triplets[keep]
+            dist, s_img = dist[keep], s_img[keep]
+        return cand, points, triplets, dist, s_img, mean_radius
+
+    for scale_up, rounds in ladder:
         eps = eps0 * scale_up
         diagnostics['noise_px_used'] = eps if fixed <= 0 else None
-        for pool_centroids, pool_size, is_mirror in pools:
-            cand, points, triplets, dist, s_img, mean_radius = \
-                match_triangles_kendall(db, pool_centroids, pool_size, eps,
-                                        fixed_tolerance=fixed)
-            diagnostics['n_candidates'] += int(len(cand))
-            if len(cand) == 0:
+        diagnostics['anchor_rounds_used'] = rounds
+        for pool_idx, (pool_centroids, pool_size, is_mirror) in enumerate(pools):
+            queried = pool_query(pool_idx, pool_centroids, pool_size, eps, rounds)
+            if queried is None:
                 continue
+            cand, points, triplets, dist, s_img, mean_radius = queried
             exact = None if fixed > 0 else (dist, s_img, eps)
             scale, roll, center_vect, target_rows, keep, quat = \
                 compute_platescale_kendall(db, cand, points, exact_cut=exact)

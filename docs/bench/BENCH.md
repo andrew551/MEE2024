@@ -295,3 +295,62 @@ corpus v2, 88 shared cases. DB load 13.63 s -> 13.56 s.
 
 overall correct rate 0.8625 -> 0.8625; wrong solves 0 -> 0; junk rejected 8/8 -> 8/8
 
+## S5 — the index disappears; anchors go progressive (`s4_quat_c4.json`, `s5_anchors_buckets.json`)
+
+**S5b — bucket index.** Kendall triangle columns are bucket-sorted at build time over
+a 400×400 (x, y) grid (z is derived, so the shape sphere is two-dimensional on
+disk); a query gathers grid cells straight from the memory-mapped files and applies
+the exact metric ball. No KD-tree is ever built: **DB load 12–13 s → 0.0 s**, cold
+first solve 3.3 s in a fresh process (was ~15 s), warm real fields 1.8 s — and the
+~1 GB resident tree is gone, which retires the UI-server memory concern from
+`docs/UI_DESIGN.md` for the solver's part. A `tri_anchor` column replaces the
+prefix-sum decode on grid-ordered rows; unbucketed databases fall back to the
+KD-tree. Identity with the tree is asserted by test on every candidate set.
+
+**S5a — progressive anchor rounds.** The ladder tries the brightest-9 anchor prefix,
+then merges ranks 9–17, then escalates noise — so the classic real-frame poison
+(saturated artifacts outranking every real star) costs one extra query instead of
+the field. The corpus gained an `artifact` family to measure exactly this
+(v3 → v4: 12 artifacts poison the *entire* round-1 prefix, which a single-round
+solver provably cannot solve; corpus v4 reference re-run per protocol via
+`v2_anchor_rounds=1`).
+
+**Gate: PASS.** Artifact family **4/8 → 6/8** — both fully-poisoned midlat cases
+flip to solving, in 11 s median instead of 33 s of failing. The two sparse-pointing
+12-artifact cases fail under both configurations: with 12 fakes atop a sparse field
+only ~6 real stars remain in the top 18, below the matching floor regardless of
+which anchors are tried. All other families unchanged; wrong solves 0, junk 8/8,
+poles 4/4, real fields 2/2 at 1.8–1.9 s.
+
+The honest cost: junk rejection now exhausts the full ladder — 36 → 58 s median.
+That is the price of never giving up while any rung remains; it touches only
+fields with no sky in them, and the candidate budget keeps it bounded. Recorded as
+acceptable; a cheap "no evidence anywhere" early-abort is a possible refinement if
+watch-mode users point at closed domes often.
+
+Chain to date: v1 61/80 → S1 62 → S2 64 → S3 65 → S4 69/80 (corpus v2) → S5 75/88
+solvable on corpus v4, zero wrong solves at every stage.
+
+## v2@4406261 vs v2@4406261 (2026-08-01T08:02:23)
+
+corpus v4, 96 shared cases. DB load 0.0 s -> 0.0 s.
+
+| family | correct | wrong | median time (s) |
+|---|---|---|---|
+| artifact | 4/8 -> 6/8 | 0 -> 0 | 33.15 -> 11.39 |
+| fov | 12/20 -> 12/20 | 0 -> 0 | 3.95 -> 4.03 |
+| junk | 8/8 -> 8/8 | 0 -> 0 | 35.83 -> 57.6 |
+| noise | 3/4 -> 3/4 | 0 -> 0 | 19.25 -> 14.63 |
+| pole | 4/4 -> 4/4 | 0 -> 0 | 5.12 -> 5.11 |
+| real | 2/2 -> 2/2 | 0 -> 0 | 1.83 -> 1.88 |
+| reliability | 32/32 -> 32/32 | 0 -> 0 | 3.11 -> 3.15 |
+| rollwrap | 3/3 -> 3/3 | 0 -> 0 | 3.44 -> 3.5 |
+| scatter | 12/12 -> 12/12 | 0 -> 0 | 3.21 -> 3.33 |
+| sparse_detect | 1/3 -> 1/3 | 0 -> 0 | 3.3 -> 3.77 |
+
+overall correct rate 0.8295 -> 0.8523; wrong solves 0 -> 0; junk rejected 8/8 -> 8/8
+
+case flips:
+- fixed: artifact_midlat_fov2.4_n_artifacts12_s0
+- fixed: artifact_midlat_fov2.4_n_artifacts12_s1
+

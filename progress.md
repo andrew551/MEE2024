@@ -50,6 +50,32 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-08-01 — S5: the index disappears; anchors go progressive
+
+**The pattern database no longer has a load time.** Kendall triangle columns are
+bucket-sorted at build time over an (x, y) grid — the shape sphere is
+two-dimensional on disk, z being derived — and a query is a gather of grid cells
+from the memory-mapped files plus an exact metric ball, asserted identical to the
+KD-tree by test. **DB load 12–13 s → 0.0 s; a cold process solves a real field in
+3.3 s total; warm solves 1.8 s.** The ~1 GB resident tree is gone, which also
+retires the solver's share of the UI-server memory concern from `docs/UI_DESIGN.md`.
+
+**Anchors are now a ladder, not a prefix.** Brightest-9 first, then ranks 9–17
+merged in, then noise escalation — so saturated artifacts outranking every real
+star (the classic real-frame failure v1's design doc named) cost one extra query
+instead of the field. Measured on the new `artifact` corpus family: with 12 fakes
+poisoning the whole first round — provably unsolvable single-round — **both midlat
+cases flip to solving, 4/8 → 6/8**, in 11 s median instead of 33 s of failing. The
+two sparse 12-artifact cases fail either way (6 real stars in the top 18 is below
+the matching floor, whoever anchors). Honest cost, recorded: junk rejection exhausts
+the ladder, 36 → 58 s — only fields with no sky pay it.
+
+Chain: v1 61/80 → S1 62 → S2 64 → S3 65 → S4 69/80 → S5 75/88 solvable (corpus
+grew twice: un-lopsided poles, then artifacts), **zero wrong solves at every
+stage**.
+
+---
+
 ## 2026-08-01 — S4: the poles fall — to three fixes, honestly attributed
 
 **Poles 0/4 → 4/4** (corpus v2; 69/80 overall, wrong solves 0, junk 8/8). The stage
@@ -686,16 +712,18 @@ every historical result, so it is left as a deliberate choice.
 
 Milestones A and C are done; the UI is through P1 plus the analysis views above.
 
-1. **Milestone D — plate-solve robustness.** Staged rebuild with an A/B gate: S0–S4
+1. **Milestone D — plate-solve robustness.** Staged rebuild with an A/B gate: S0–S5
    are landed — Gaia DB, Kendall invariant, calibrated tolerance model, quaternion
-   consensus with the pole-aware verification bbox. **61/80 (v1) → 69/80, poles
-   0/4 → 4/4, real fields 1.6–2 s warm, zero wrong solves at every stage.** Next:
-   **S5** — progressive anchor sampling; mmap/bucket index (the ~13 s KD-tree build
-   at load is the dominant latency); size-aware consensus radius. Then S6
-   (multi-scale layers + platescale hints; the sub-1° floor and blind wide fields).
-   Open statistics note: the acceptance threshold's addon-dominated floor (~9) keeps
-   sparse-10 failing; revisit with the corrected p-value experiment. Designed in
-   `docs/PLATESOLVER_V2_DESIGN.md`; stage record in `docs/bench/BENCH.md`.
+   consensus + pole-aware verification, bucket index + progressive anchors.
+   **61/80 (v1) → 75/88 solvable, poles 4/4, artifact-poisoned fields recovered,
+   DB load 0 s, cold solve 3.3 s / warm 1.8 s, zero wrong solves at every stage.**
+   Next: **S6** — multi-scale θ_pat layers + platescale/pointing hints (the sub-1°
+   floor and blind wide fields; quads stay conditional on its results). Deferred
+   S5 refinements: size-aware consensus radius; a junk early-abort (ladder
+   exhaustion costs ~58 s on skyless fields). Open statistics note: the acceptance
+   threshold's addon-dominated floor (~9) keeps sparse-10 failing; revisit with the
+   corrected p-value experiment. Designed in `docs/PLATESOLVER_V2_DESIGN.md`; stage
+   record in `docs/bench/BENCH.md`.
 2. **Milestone B — auto-calibration and a quality score.** The score cards and the nn_corr
    grading exist; `mee2024/quality.py` and `mee2024 autocal` do not.
 3. **Milestone E — centroid backend rig.** Not started. The half-pixel convention note

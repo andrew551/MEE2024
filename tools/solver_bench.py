@@ -44,8 +44,12 @@ from tools.synthetic_field import junk_field, solution_matches_truth, synthesize
 
 # v2: synthesize_field now opens the RA window to the full circle for fields whose
 # radius reaches the pole -- with the old partial window, in-frame stars on the far
-# side of the pole silently vanished and the pole cases were artificially lopsided
-CORPUS_VERSION = '2'
+# side of the pole silently vanished and the pole cases were artificially lopsided.
+# v3: adds the 'artifact' family -- bright junk detections (hot pixels, cosmic rays)
+# prepended to real fields, the classic poison for a strict brightest-f anchor prefix.
+# v4: hardens it -- 12 artifacts poison the entire brightest-9 prefix, which is the
+# case a single anchor round cannot solve at all and the progressive ladder must
+CORPUS_VERSION = '4'
 
 #: named pointings (ra, dec): the measured envelope's regimes plus the two the current
 #: consensus parameterisation is expected to fail (poles; roll near the 0/2pi wrap)
@@ -118,6 +122,14 @@ def build_corpus():
     for roll in (0.0, 57.0, 359.9):
         add('rollwrap', 'midlat', 2.4, roll_deg=roll)
 
+    # bright artifacts atop a real field: hot pixels and cosmic rays outrank real
+    # stars in flux, poisoning a strict brightest-f anchor prefix (S5a's target)
+    for pointing in ('midlat', 'sparse'):
+        for n_junk_stars in (3, 12):
+            for draw in range(2):
+                add('artifact', pointing, 2.4, seed_tag=draw,
+                    n_artifacts=n_junk_stars)
+
     # pure noise must be rejected -- the wrong-solve gate
     for draw in range(N_JUNK):
         add('junk', seed_tag=draw)
@@ -185,6 +197,13 @@ def prepare_case(case, catalogue):
         n_detect=case.get('n_detect', 120),
         mag_order_scatter=case.get('mag_order_scatter', 0.3),
         seed=case_seed(case['id']))
+    n_artifacts = case.get('n_artifacts', 0)
+    if n_artifacts:
+        # artifacts saturate, so they outrank every star in a brightest-first list
+        rng = np.random.default_rng(case_seed(case['id']) + 1)
+        fakes = np.c_[rng.uniform(2, SHAPE[0] - 2, n_artifacts),
+                      rng.uniform(2, SHAPE[1] - 2, n_artifacts)]
+        centroids = np.r_[fakes, centroids]
     return centroids, SHAPE, truth
 
 
@@ -295,7 +314,11 @@ def cmd_run(args):
             platesolve_triangle.load()
     else:
         from mee2024.platesolve2 import pattern_db
-        pattern_db.resolve(options).kd_tree  # noqa: B018  -- forces the index build
+        db = pattern_db.resolve(options)
+        if db.is_bucketed:
+            db.query_ball(np.array([[0.5, 0.2, np.sqrt(1 - 0.29)]]), [0.005])
+        else:
+            db.kd_tree  # noqa: B018  -- forces the index build
     db_load = round(time.perf_counter() - t0, 2)
     print(f'database load: {db_load} s')
 

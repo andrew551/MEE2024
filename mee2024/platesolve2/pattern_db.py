@@ -45,7 +45,8 @@ INVARIANT_KENDALL = 'kendall'          # tri_inv = shape-sphere (x, y); z derive
 #: (manifest key, filename, dtype) -- dtypes are pinned so a DB built on one
 #: platform loads identically on another (np.int_ is int32 on Windows, int64 on Linux).
 #: Keys absent from the arrays dict are simply not written (tri_perm exists only for
-#: the kendall invariant).
+#: the kendall invariant; tri_anchor and tri_bucket_offset only for bucket-sorted
+#: databases, whose triangle rows are grid-ordered rather than anchor-ordered).
 COLUMNS = (
     ('anchors', 'anchors.npy', np.float32),
     ('anchor_tri_offset', 'anchor_tri_offset.npy', np.int64),
@@ -54,6 +55,8 @@ COLUMNS = (
     ('tri_legs', 'tri_legs.npy', np.uint8),
     ('tri_inv', 'tri_inv.npy', np.float32),
     ('tri_perm', 'tri_perm.npy', np.uint8),
+    ('tri_anchor', 'tri_anchor.npy', np.int32),
+    ('tri_bucket_offset', 'tri_bucket_offset.npy', np.int64),
 )
 
 MANIFEST_FILE = 'manifest.json'
@@ -206,6 +209,16 @@ class PatternDB:
     tri_legs = property(lambda self: self._open('tri_legs'))
     tri_inv = property(lambda self: self._open('tri_inv'))
     tri_perm = property(lambda self: self._open('tri_perm'))
+    tri_anchor = property(lambda self: self._open('tri_anchor'))
+    tri_bucket_offset = property(lambda self: self._open('tri_bucket_offset'))
+
+    @property
+    def is_bucketed(self):
+        return 'tri_bucket_offset' in self.manifest['columns']
+
+    @property
+    def grid_n(self):
+        return int(self.manifest['params']['bucket_grid_n'])
 
     @property
     def name(self):
@@ -245,10 +258,71 @@ class PatternDB:
 
     def triangle_anchor_and_legs(self, triangle_indices):
         """Decode flat triangle rows -> (anchor index, leg j, leg k)."""
-        offsets = np.asarray(self.anchor_tri_offset)
-        anchor = np.searchsorted(offsets, triangle_indices, side='right') - 1
+        if 'tri_anchor' in self.manifest['columns']:
+            anchor = np.asarray(self.tri_anchor)[triangle_indices]
+        else:
+            offsets = np.asarray(self.anchor_tri_offset)
+            anchor = np.searchsorted(offsets, triangle_indices, side='right') - 1
         legs = np.asarray(self.tri_legs)[triangle_indices]
         return anchor, legs[:, 0], legs[:, 1]
+
+    def query_ball(self, points, radii):
+        """Triangle rows within each radius of each shape point, with distances.
+
+        Returns (row indices, query-point rows, distances) as flat arrays. On a
+        bucket-sorted database this is a pure gather over memory-mapped columns --
+        no index is ever built, so a cold process pays pages, not seconds. Databases
+        without buckets fall back to the KD-tree (built on first use).
+        """
+        points = np.asarray(points, dtype=np.float64)
+        radii = np.broadcast_to(np.asarray(radii, dtype=np.float64), (len(points),))
+        if not self.is_bucketed:
+            hit_lists = self.kd_tree.query_ball_point(points, radii)
+            cand = np.array([i for hits in hit_lists for i in hits], dtype=np.int64)
+            rows = np.repeat(np.arange(len(points)), [len(h) for h in hit_lists])
+            xy = np.asarray(self.tri_inv, dtype=np.float64)[cand]
+            z = np.sqrt(np.maximum(1.0 - xy[:, 0] ** 2 - xy[:, 1] ** 2, 0.0))
+            dist = np.linalg.norm(np.c_[xy, z] - points[rows], axis=1)
+            return cand, rows, dist
+
+        grid_n = self.grid_n
+        cell = 2.0 / grid_n
+        offsets = np.asarray(self.tri_bucket_offset)
+        inv = self.tri_inv     # memory-mapped; sliced per gather
+
+        out_cand, out_rows, out_dist = [], [], []
+        for q, (point, radius) in enumerate(zip(points, radii)):
+            ix0 = int(np.clip((point[0] - radius + 1) / cell, 0, grid_n - 1))
+            ix1 = int(np.clip((point[0] + radius + 1) / cell, 0, grid_n - 1))
+            iy0 = int(np.clip((point[1] - radius + 1) / cell, 0, grid_n - 1))
+            iy1 = int(np.clip((point[1] + radius + 1) / cell, 0, grid_n - 1))
+            # y is the minor grid axis, so each x-stripe of cells is one contiguous
+            # row range in the bucket-sorted arrays
+            pieces = []
+            for ix in range(ix0, ix1 + 1):
+                lo = int(offsets[ix * grid_n + iy0])
+                hi = int(offsets[ix * grid_n + iy1 + 1])
+                if hi > lo:
+                    pieces.append(np.arange(lo, hi, dtype=np.int64))
+            if not pieces:
+                continue
+            rows = np.concatenate(pieces)
+            xy = np.asarray(inv[rows], dtype=np.float64)
+            dz = np.sqrt(np.maximum(1.0 - xy[:, 0] ** 2 - xy[:, 1] ** 2, 0.0)) \
+                - point[2]
+            dist_sq = ((xy[:, 0] - point[0]) ** 2 + (xy[:, 1] - point[1]) ** 2
+                       + dz ** 2)
+            keep = dist_sq <= radius ** 2
+            if not np.any(keep):
+                continue
+            out_cand.append(rows[keep])
+            out_rows.append(np.full(int(keep.sum()), q, dtype=np.int64))
+            out_dist.append(np.sqrt(dist_sq[keep]))
+        if not out_cand:
+            empty = np.zeros(0, dtype=np.int64)
+            return empty, empty, np.zeros(0)
+        return (np.concatenate(out_cand), np.concatenate(out_rows),
+                np.concatenate(out_dist))
 
     def __repr__(self):
         return (f'<PatternDB {self.name}: {self.manifest["n_anchors"]} anchors, '

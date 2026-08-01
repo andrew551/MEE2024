@@ -264,6 +264,67 @@ def test_kendall_agrees_with_ratio_dphi_solution(mini_db, mini_db_kendall):
                                                     rel=1e-3)
 
 
+# ----------------------------------------------------- progressive anchors (S5)
+
+def test_anchor_rounds_rescue_a_field_with_bright_artifacts(mini_db_kendall):
+    """Twelve saturated artifacts occupy every brightest-9 rank: round one has no
+    real anchor at all, so a single-round solver cannot succeed, and round two
+    (ranks 9..17, holding six real stars) must recover the field."""
+    from tools.synthetic_field import solution_matches_truth
+    db, catalogue, _ = mini_db_kendall
+    centroids, truth = _field(catalogue)
+    rng = np.random.default_rng(12)
+    fakes = np.c_[rng.uniform(2, 998, 12), rng.uniform(2, 1498, 12)]
+    poisoned = np.r_[fakes, centroids]
+
+    single = platesolve_v2(poisoned, (1000, 1500),
+                           options={'rough_match_threshhold': 36,
+                                    'v2_anchor_rounds': 1},
+                           catalogue=catalogue, db=db)
+    assert not single['success']
+
+    result = platesolve_v2(poisoned, (1000, 1500),
+                           options={'rough_match_threshhold': 36},
+                           catalogue=catalogue, db=db)
+    assert result['success'] and solution_matches_truth(result, truth)
+
+
+# ----------------------------------------------------------- bucket index (S5)
+
+def test_bucket_query_is_identical_to_a_kd_tree(mini_db_kendall):
+    """The bucket gather must return exactly the KD-tree's candidate sets."""
+    from scipy.spatial import KDTree
+    db, _, manifest = mini_db_kendall
+    assert db.is_bucketed
+    xy = np.asarray(db.tri_inv, dtype=np.float64)
+    pts3 = np.c_[xy, np.sqrt(np.maximum(1 - xy[:, 0]**2 - xy[:, 1]**2, 0.0))]
+    tree = KDTree(pts3)
+
+    rng = np.random.default_rng(8)
+    queries = pts3[rng.integers(0, len(pts3), 40)] \
+        + rng.normal(scale=0.002, size=(40, 3))
+    queries /= np.linalg.norm(queries, axis=1, keepdims=True)
+    radii = rng.uniform(0.001, 0.02, 40)
+
+    cand, rows, dist = db.query_ball(queries, radii)
+    reference = tree.query_ball_point(queries, radii)
+    for q in range(40):
+        mine = sorted(cand[rows == q].tolist())
+        assert mine == sorted(reference[q]), f'query {q} differs'
+    # and the returned distances are the true 3-D distances
+    xyq = np.asarray(db.tri_inv, dtype=np.float64)[cand]
+    z = np.sqrt(np.maximum(1 - xyq[:, 0]**2 - xyq[:, 1]**2, 0.0))
+    assert np.allclose(dist, np.linalg.norm(np.c_[xyq, z] - queries[rows], axis=1))
+
+
+def test_bucketed_db_never_builds_a_tree(mini_db_kendall):
+    """Opening and querying must not touch the KD-tree path at all."""
+    db, _, _ = mini_db_kendall
+    fresh = pattern_db.PatternDB(db.directory)
+    fresh.query_ball(np.array([[0.6, 0.1, np.sqrt(1 - 0.37)]]), [0.005])
+    assert fresh._kd_tree is None
+
+
 # ---------------------------------------------------- quaternion consensus (S4)
 
 def test_quaternion_canonicalisation_pairs_boundary_rotations():

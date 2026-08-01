@@ -41,6 +41,10 @@ DEFAULT_PARAMS = dict(
 )
 
 ANCHOR_CHUNK = 8192
+#: kendall bucket grid: 400 x 400 cells of 0.005 over the (x, y) unit square. Cell
+#: size only affects gather efficiency, never correctness -- a query spans however
+#: many cells its radius needs.
+BUCKET_GRID_N = 400
 
 
 def select_anchors_and_legs(vectors, a, b, theta_sep, theta_double, progress):
@@ -269,11 +273,29 @@ def build_pattern_db(stars, name, out_root=None, params=None, verify_spec=None,
     if invariant == pattern_db.INVARIANT_KENDALL:
         offsets, tri_legs, tri_inv, tri_perm = compute_triangles_kendall(
             arrays['anchors'], pattern_data, n_legs, e, progress)
-        arrays['tri_perm'] = tri_perm
+        # Bucket-sort the triangle columns over an (x, y) grid: the solver then
+        # queries by gathering grid cells from the memory-mapped files -- no search
+        # index is ever built, so opening the database costs pages, not seconds.
+        # tri_anchor replaces the prefix-sum decode, which cannot describe
+        # grid-ordered rows.
+        grid_n = int(p.get('bucket_grid_n', BUCKET_GRID_N))
+        tri_anchor = np.repeat(np.arange(len(offsets) - 1, dtype=np.int32),
+                               np.diff(offsets))
+        cell = 2.0 / grid_n
+        ix = np.clip(((tri_inv[:, 0] + 1) / cell).astype(np.int64), 0, grid_n - 1)
+        iy = np.clip(((tri_inv[:, 1] + 1) / cell).astype(np.int64), 0, grid_n - 1)
+        bucket = ix * grid_n + iy
+        order_tri = np.argsort(bucket, kind='stable')
+        arrays.update(
+            tri_inv=tri_inv[order_tri], tri_legs=tri_legs[order_tri],
+            tri_perm=tri_perm[order_tri], tri_anchor=tri_anchor[order_tri],
+            tri_bucket_offset=np.searchsorted(
+                bucket[order_tri], np.arange(grid_n * grid_n + 1)).astype(np.int64))
+        p = dict(p, bucket_grid_n=grid_n)
     else:
         offsets, tri_legs, tri_inv = compute_triangles(pattern_data, n_legs, e,
                                                        progress)
-    arrays.update(anchor_tri_offset=offsets, tri_legs=tri_legs, tri_inv=tri_inv)
+        arrays.update(anchor_tri_offset=offsets, tri_legs=tri_legs, tri_inv=tri_inv)
 
     stored = dict(p, invariant=invariant, a=a, b=b, d=d, dedupe_rule=dedupe)
     out_dir = (Path(out_root) if out_root else get_patterndb_root()) / name
