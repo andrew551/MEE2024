@@ -51,6 +51,14 @@ def launch(prefer_browser=False, host='127.0.0.1', port=0, block=True,
         server.stop()
         return server
 
+    # Say which interface this is and why, because the difference is visible: the
+    # native window can open the platform's file dialogs and a browser tab cannot.
+    if prefer_browser:
+        print('opening in your browser (--browser)', flush=True)
+    else:
+        print('opening in your browser: pywebview is not installed, so there is no '
+              'native window. `pip install pywebview` for the app window and native '
+              'file dialogs.', flush=True)
     webbrowser.open(server.url)
     if block:
         print('Close the browser tab (or press Ctrl-C) to quit.', flush=True)

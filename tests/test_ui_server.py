@@ -624,15 +624,57 @@ def test_the_wait_ends_when_the_page_says_goodbye():
     outcome = {}
 
     def wait():
-        outcome['reason'] = server.wait_until_closed(idle_seconds=30, poll=0.05)
+        outcome['reason'] = server.wait_until_closed(idle_seconds=30,
+                                                     grace_seconds=0.2, poll=0.05)
 
     waiter = threading.Thread(target=wait, daemon=True)
     waiter.start()
     time.sleep(0.2)
     assert waiter.is_alive(), 'must keep waiting while the page is open'
     server.api.goodbye()
-    waiter.join(timeout=3)
+    waiter.join(timeout=5)
     assert outcome['reason'] == 'closed'
+    server.httpd.server_close()
+
+
+def test_a_pagehide_that_is_not_a_close_does_not_end_the_session():
+    """pagehide also fires for navigation and for the back/forward cache, from which
+    a page can come back -- acting on it at once froze a live page."""
+    import threading
+    from mee2024.ui.server import Api, UiServer
+    server = UiServer(api=Api())
+    server.api.page_open = True
+    outcome = {}
+    waiter = threading.Thread(
+        target=lambda: outcome.setdefault('reason', server.wait_until_closed(
+            idle_seconds=30, grace_seconds=1.0, poll=0.05)), daemon=True)
+    waiter.start()
+    server.api.goodbye()
+    time.sleep(0.3)
+    server.api.ping()                 # the page came back (pageshow)
+    time.sleep(1.5)
+    assert waiter.is_alive() and 'reason' not in outcome
+    server.httpd.server_close()
+
+
+def test_a_heartbeat_keeps_an_idle_page_alive():
+    """The page only polls during a run, so an idle one must be kept alive by its
+    heartbeat -- otherwise the server shuts down under a live page, which is exactly
+    what left a frozen tab behind."""
+    import threading
+    from mee2024.ui.server import Api, UiServer
+    server = UiServer(api=Api())
+    server.api.page_open = True
+    outcome = {}
+    waiter = threading.Thread(
+        target=lambda: outcome.setdefault('reason', server.wait_until_closed(
+            idle_seconds=0.6, grace_seconds=1.0, poll=0.05)), daemon=True)
+    waiter.start()
+    for _ in range(6):
+        time.sleep(0.2)
+        server.api.ping()
+        server.api.last_seen = time.time()
+    assert waiter.is_alive() and 'reason' not in outcome
     server.httpd.server_close()
 
 

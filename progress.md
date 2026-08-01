@@ -11,7 +11,7 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 522 passing (`pytest --runslow` = 496 fast + 26 slow), excluding the star-label file: 6 of its tests fail on CRLF-converted checkouts until the names.txt fix lands |
+| Tests | 533 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
@@ -55,12 +55,30 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ## 2026-08-01 — four UI bugs, a pointing check, and an executable that was 2.7 GB
 
-**Closing the browser tab left the process running.** A closed tab tells a server
-nothing, and browser mode simply waited on an Event forever. The page now sends a
-`sendBeacon` goodbye on `pagehide`, and the server also runs an idle watchdog — the
-frontend polls while it is open, so silence means nobody is watching. A run or an
-active watch keeps the session alive regardless; `mee2024 ui --keep-alive` restores
-the old behaviour for serving a browser elsewhere.
+**Closing the browser tab left the process running** -- and the first fix for it was
+worse than the bug. A closed tab tells a server nothing, so the beacon-on-`pagehide`
+plus idle-watchdog approach was right in outline and wrong in both details: the page
+only polls *during a run*, so an open, idle page made no requests at all and the
+watchdog shut the server down beneath it, leaving a frozen tab; and `pagehide` is not
+proof of a close, since it also fires for navigation and for the back/forward cache,
+from which a page can return. Now: a 5-second heartbeat runs whenever the page is
+open, `pagehide` starts a 3-second countdown that any later request cancels,
+`pageshow` cancels it explicitly, and the idle backstop is 150 s -- long on purpose,
+because browsers throttle background-tab timers to about one a minute and a
+backgrounded tab is still open. A run or an active watch always wins.
+
+**pywebview was never a declared dependency**, so an install from source silently lost
+the native app window that the README promises -- and with it the platform file
+dialogs, since a browser tab cannot open one. That is why the app appeared in a
+browser and why the native picker did not show up. It is now in `requirements.txt` and
+`install_requires` (marker-guarded to Windows and macOS; Linux additionally needs
+system webkit2gtk), and the launcher says which interface it chose and why instead of
+quietly degrading. A `.venv` recipe is documented in the README: an environment
+carrying unrelated heavyweight packages also inflates the packaged executable, as the
+2.7 GB build showed.
+
+`mee2024 ui --keep-alive` still keeps the server up regardless, for serving a browser
+on another machine or reloading the tab freely while developing.
 
 **The 3-D surface and correlation map grew on every scroll and drag.** `fitCanvas`
 read the drawing height back out of `canvas.getAttribute('height')` — but assigning

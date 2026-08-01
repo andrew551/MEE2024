@@ -51,11 +51,46 @@ mee2024
 
 ### Installation from Source
 
-- To run (and potentially edit) the Python source code, install the most recent version of Python from python.org (make sure to check the box to add Python to PATH on windows).
+To run (and potentially edit) the Python source code, install Python from python.org
+(on Windows, check the box to add Python to PATH). Then, from the repository root,
+work in a virtual environment so the project has exactly its own dependencies and
+nothing else:
 
-- To install requirements: pip install -r requirements.txt
+```bash
+python -m venv .venv
+```
+```bash
+.venv/Scripts/python.exe -m pip install -r requirements.txt      # Windows
+```
+```bash
+.venv/bin/python -m pip install -r requirements.txt              # macOS / Linux
+```
 
-- Run with python: python mee2024/main.py
+Then run it with that interpreter:
+
+```bash
+.venv/Scripts/python.exe mee2024/main.py
+```
+
+`.venv/` is git-ignored. Keeping the environment clean is not just tidiness: an
+environment carrying unrelated heavyweight packages (a GPU build of PyTorch, say)
+inflates the packaged executable, because PyInstaller follows optional references to
+them from scikit-image and scikit-learn.
+
+**`pywebview` is what gives you the native app window** — and with it the platform's
+own file dialogs. Without it `mee2024` falls back to your default browser, which
+cannot open a native dialog; the app says which one it is using and why on start-up.
+It is in `requirements.txt` for Windows and macOS; on Linux it additionally needs
+system webkit2gtk (e.g. `sudo apt install gir1.2-webkit2-4.0`).
+
+Tests:
+
+```bash
+.venv/Scripts/python.exe -m pip install -e ".[dev]"
+```
+```bash
+.venv/Scripts/python.exe -m pytest
+```
 
 ## The app window
 

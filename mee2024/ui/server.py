@@ -36,6 +36,8 @@ class Api:
         #: liveness, for the browser-mode watchdog (see UiServer.wait_until_closed)
         self.last_seen = time.time()
         self.page_open = False
+        #: when the page said goodbye, if it has; any later request clears it
+        self.closing_since = None
         self.native_dialog = None
 
     # ------------------------------------------------------------------ meta
@@ -269,16 +271,27 @@ class Api:
                                     directory=bool(spec.get('directory')))
         return {'available': True, 'paths': [str(p) for p in (chosen or [])]}
 
-    def goodbye(self):
-        """The page is going away (tab closed, navigated off, browser quit).
+    def ping(self):
+        """The page is still here. Cheapest possible call; cancels a pending close.
 
-        Sent as a beacon on pagehide, so a browser-mode session ends when the user
-        closes the tab instead of leaving a server running until the terminal is
-        killed. A run in progress is left alone -- the watchdog handles that case
-        once it finishes.
+        The frontend beats this while it is open, because it does *not* poll when
+        idle -- polling only runs during a run -- and an open page that makes no
+        requests is indistinguishable from a closed one.
+        """
+        self.closing_since = None
+        return {'ok': True}
+
+    def goodbye(self):
+        """The page says it is going away (tab closed, navigated off, browser quit).
+
+        Sent as a beacon on pagehide. Deliberately *not* an immediate shutdown:
+        pagehide also fires when a page is merely navigated within or frozen into
+        the browser's back/forward cache, after which it can come back alive -- and
+        acting on it at once left the user looking at a live page whose server had
+        gone. So it only starts a countdown, which any later request cancels.
         """
         self.page_open = False
-        self.last_seen = time.time()
+        self.closing_since = time.time()
         return {'ok': True}
 
     def reveal(self, path):
@@ -344,11 +357,15 @@ class _Handler(BaseHTTPRequestHandler):
         if not self._authorised(query):
             self._send_json({'error': 'bad token'}, 403)
             return
-        # any authorised call means the page is still there
+        # any authorised call means the page is still there, and cancels a countdown
+        # started by a pagehide that turned out not to be a close
         self.api.last_seen = time.time()
         self.api.page_open = True
+        self.api.closing_since = None
         try:
-            if parsed.path == '/api/hello':
+            if parsed.path == '/api/ping':
+                self._send_json(self.api.ping())
+            elif parsed.path == '/api/hello':
                 self._send_json(self.api.hello())
             elif parsed.path == '/api/state':
                 self._send_json(self.api.state(query.get('since', ['0'])[0]))
@@ -439,15 +456,23 @@ class UiServer:
             self.thread.start()
         return self
 
-    def wait_until_closed(self, idle_seconds=20.0, poll=1.0):
+    def wait_until_closed(self, idle_seconds=150.0, grace_seconds=3.0, poll=0.5):
         """Block until the page goes away, so `mee2024` returns to the prompt.
 
         Closing a browser tab tells the server nothing by itself, which is why the
-        process used to outlive it and had to be killed by hand. Two signals end the
-        wait: the page's own goodbye beacon, and silence -- the frontend polls while
-        it is open, so no traffic for ``idle_seconds`` means nobody is watching. A
-        run in progress always keeps the server alive, however quiet the page is,
-        since the work matters more than the tidy exit.
+        process used to outlive it. Two signals end the wait, and both are
+        deliberately forgiving, because exiting under a page that is still open is
+        far worse than exiting a few seconds late:
+
+        * the page's goodbye beacon starts a ``grace_seconds`` countdown, which any
+          later request cancels -- ``pagehide`` also fires for navigation and for
+          the back/forward cache, from which a page can return;
+        * silence for ``idle_seconds`` is the backstop for a browser that was killed
+          outright. It is long because the page's heartbeat is throttled to about
+          once a minute while its tab sits in the background, and a backgrounded tab
+          is still very much open.
+
+        A run or an active folder watch always keeps the server alive.
         """
         page_seen_ever = False
         while True:
@@ -457,11 +482,10 @@ class UiServer:
             if self.api.runner.is_running or getattr(
                     self.api.runner.watcher, 'running', False):
                 self.api.last_seen = time.time()
+                self.api.closing_since = None
                 continue
-            # 'closed' only counts once a page has actually been here: at start-up
-            # the browser has not loaded anything yet, and exiting then would be a
-            # race the user always loses
-            if page_seen_ever and not self.api.page_open:
+            closing = self.api.closing_since
+            if closing is not None and time.time() - closing > grace_seconds:
                 return 'closed'
             if time.time() - self.api.last_seen > idle_seconds:
                 return 'idle' if page_seen_ever else 'never opened'

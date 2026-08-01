@@ -1436,15 +1436,28 @@ function renderWatch(){
 
 $('pick-watch').onclick = () => choose('watch', true);
 
-/* Tell the server the page is going away, so a browser-mode session ends with the
-   tab instead of leaving `mee2024` running until the terminal is killed. sendBeacon
-   survives page teardown where fetch() does not; the token rides in the query
-   string because a beacon cannot set headers. */
+/* Liveness, in two parts.
+
+   A heartbeat, because this page only polls *during* a run: an open but idle page
+   otherwise makes no requests at all, and the server cannot tell it apart from one
+   that has gone. Without this the session would shut down under a live page and
+   leave it frozen.
+
+   And a goodbye on pagehide, so closing the tab ends the session promptly rather
+   than leaving `mee2024` running until the terminal is killed. sendBeacon survives
+   page teardown where fetch() does not, and the token rides in the query string
+   because a beacon cannot set headers. pagehide is not proof of a close -- it also
+   fires for navigation and for the back/forward cache -- so the server treats it as
+   a countdown, and pageshow (a page restored from that cache) cancels it. */
+const HEARTBEAT_MS = 5000;
+setInterval(() => { api('ping').catch(() => {}); }, HEARTBEAT_MS);
+
 window.addEventListener('pagehide', () => {
   try{
     navigator.sendBeacon('/api/goodbye?token=' + encodeURIComponent(TOKEN), '{}');
   }catch(err){ /* going away regardless */ }
 });
+window.addEventListener('pageshow', () => { api('ping').catch(() => {}); });
 $('watch-start').onclick = async () => {
   if(!state.watchFolder){ banner('choose a folder to watch first'); return; }
   try{ await api('watch/start', watchSpec()); showLive(); }

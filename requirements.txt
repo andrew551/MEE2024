@@ -12,3 +12,7 @@ Pandas
 scikit-learn
 statsmodels
 platformdirs
+# The native app window. Without it, `mee2024` falls back to the default browser --
+# which also means no native file dialogs, since a browser cannot open one.
+# Linux additionally needs system webkit2gtk (e.g. gir1.2-webkit2-4.0).
+pywebview
