@@ -108,6 +108,9 @@ def write_catalogue(directory, table, name, catalogue='Gaia DR3', provenance='',
         'epoch': table.epoch,
         'magnitude_limit': (float(magnitude_limit) if magnitude_limit is not None
                             else float(np.max(table.mag)) if len(table) else None),
+        # the bright end as well as the faint one: an archive covering 12 < G < 13 and
+        # one covering G < 13 have the same limit and are not interchangeable
+        'magnitude_min': float(np.min(table.mag)) if len(table) else None,
         'n_stars': int(len(table)),
         'dec_band_degrees': 1.0,
         'provenance': provenance,
@@ -241,6 +244,7 @@ class OfflineCatalogue:
             if problems:
                 raise ValueError(f'{self.directory} failed verification: {problems}')
         self._mmap = {}
+        self._magnitude_min = None
         self.dec_index = self._open('dec_index')
 
     def _open(self, attribute):
@@ -266,6 +270,21 @@ class OfflineCatalogue:
     @property
     def magnitude_limit(self):
         return self.manifest['magnitude_limit']
+
+    @property
+    def magnitude_min(self):
+        """The brightest magnitude this archive holds -- its bright end.
+
+        Recorded by newer builds; measured from the data for archives written before
+        it was, since telling a base archive from an extension needs both ends and
+        the faint limit alone cannot.
+        """
+        recorded = self.manifest.get('magnitude_min')
+        if recorded is not None:
+            return float(recorded)
+        if self._magnitude_min is None:
+            self._magnitude_min = float(np.min(self._open('mag')))
+        return self._magnitude_min
 
     def __len__(self):
         return self.n_stars

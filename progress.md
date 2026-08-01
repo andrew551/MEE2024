@@ -53,6 +53,39 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-08-01 — the duplicate-catalogue bug: a good field that matched nothing
+
+**Reported symptom**: stage 1 solved a real 3008² field (RA 280.60, Dec 50.83, 1.56°,
+1217 centroids, 100/100 verification stars), then stage 2 died in the polynomial fit
+with `ValueError: Found array with 0 sample(s) (shape=(0, 9))`.
+
+**Cause, introduced by the v1.2.0 catalogue work.**
+`GaiaOfflineProvider.from_installed()` read *every* installed archive and concatenated
+them — correct while the archives were guaranteed disjoint magnitude slices, and wrong
+the moment they were not. With `gaia_dr3_g13` (a superset of the base + extension pair
+it was merged from) and `gaia_dr3_g10` (a subset of it) also installed, every star was
+listed two or three times. Duplicate entries do not merely waste memory: they defeat
+the "nearest match must be twice as close as the runner-up" ambiguity test, because the
+runner-up *is* the duplicate sitting on top of the winner. Measured on the reported
+field: **190 stars matched within 36″, and the confusion test rejected all 190**. The
+plate solver was unaffected only because it pins the single archive named in its
+pattern-database manifest.
+
+**Fix**: `choose_non_overlapping()` selects a coherent archive set using both ends of
+each archive's magnitude range — the new `magnitude_min` manifest field, measured from
+the data for archives written before it existed. The superset wins over the parts it
+contains; the genuinely complementary base + extension pair is still read together; a
+lone compact archive is still used. Four fast tests pin those cases.
+
+**Also added**, because the symptom pointed nowhere near the cause: when many stars
+match within the threshold but almost none survive the ambiguity test, stage 2 now says
+so and names duplicate catalogue entries as the likely reason.
+
+**Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
+nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
 ## 2026-08-01 — v1.2.0: one catalogue, two choices, offline by default
 
 **The catalogue set is now one archive and two options.** `gaia_dr3_g13` (7,369,627

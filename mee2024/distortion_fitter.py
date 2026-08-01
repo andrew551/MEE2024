@@ -103,8 +103,25 @@ def match_centroids(other_stars_df, rough_platesolve_x, dbs, corners, image_size
     match_threshhold = options['rough_match_threshhold'] / 3600
     confusion_ratio = 2 # closest match must be 2x closer than second place
 
-    keep = np.logical_and(distances[:, 0] < match_threshhold, distances[:, 1] / distances[:, 0] > confusion_ratio) # note: this distance metric is not perfect (doesn't take into account meridian etc.)
+    close_enough = distances[:, 0] < match_threshhold
+    keep = np.logical_and(close_enough, distances[:, 1] / distances[:, 0] > confusion_ratio) # note: this distance metric is not perfect (doesn't take into account meridian etc.)
     keep = np.logical_and(keep, indices_bar[indices[:, 0]].flatten() == np.arange(indices.shape[0])) # is the nearest-neighbour relation reflexive? [this eliminates 1-to-many matching]
+
+    # A catalogue listing the same star twice makes every match look ambiguous: the
+    # runner-up is the duplicate, sitting on top of the winner, so the confusion test
+    # rejects everything and a perfectly good field matches nothing. Say so, because
+    # the symptom (zero stars, later a fit with no samples) points nowhere near the cause.
+    if close_enough.sum() >= 10 and keep.sum() < 0.05 * close_enough.sum():
+        pairs = np.sum(distances[close_enough, 1] < 2 * match_threshhold)
+        message = (f'{int(close_enough.sum())} stars matched within '
+                   f'{options["rough_match_threshhold"]} arcsec but only '
+                   f'{int(keep.sum())} survived the ambiguity test'
+                   + (f' -- {int(pairs)} of them have a second catalogue star almost on '
+                      f'top of the first, which is what a catalogue containing '
+                      f'duplicate entries looks like. Check `mee2024 catalogue` for '
+                      f'overlapping archives.' if pairs else '.'))
+        print('WARNING: ' + message)
+        events.log(message, level='warning')
 
     if options['crop_circle']:
         radial_dist = 2 * np.linalg.norm(all_star_plate, axis=1) / np.linalg.norm(list(image_size))

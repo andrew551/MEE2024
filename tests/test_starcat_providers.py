@@ -232,3 +232,48 @@ def test_user_catalogues_are_a_curated_pair():
     # the building blocks stay reachable by name for tests and advanced use
     for name in ('tycho', 'hipparcos', 'gaia_offline', 'merged', 'merged_offline'):
         assert name in prov.known_catalogues()
+
+
+# ------------------------------- overlapping archives (the v1.2.0 duplicate bug)
+
+class _FakeArchive:
+    """Just enough of OfflineCatalogue for the selection rule."""
+
+    def __init__(self, name, bright, faint):
+        self.manifest = {'name': name}
+        self.magnitude_min = bright
+        self.magnitude_limit = faint
+
+
+def test_a_superset_archive_wins_over_the_parts_it_contains():
+    """The bug this rule exists for: reading g13 alongside the g12 + 12<G<13 pair it
+    was merged from lists every star twice, and duplicate entries make every match
+    look ambiguous -- so a good field matches nothing at all."""
+    standard = _FakeArchive('gaia_dr3_g13', 1.7, 13.0)
+    base = _FakeArchive('gaia_dr3_g12', 1.7, 12.0)
+    extension = _FakeArchive('gaia_dr3_g12_13', 12.0, 13.0)
+    compact = _FakeArchive('gaia_dr3_g10', 1.7, 10.0)
+
+    chosen = prov.choose_non_overlapping([standard, base, extension, compact])
+    assert [c.manifest['name'] for c in chosen] == ['gaia_dr3_g13']
+
+
+def test_the_disjoint_pair_is_still_read_together():
+    """Without the standard archive, base + extension are complementary and both
+    belong: the extension alone holds nothing brighter than G=12."""
+    base = _FakeArchive('gaia_dr3_g12', 1.7, 12.0)
+    extension = _FakeArchive('gaia_dr3_g12_13', 12.0, 13.0)
+    chosen = prov.choose_non_overlapping([extension, base])
+    assert [c.manifest['name'] for c in chosen] == ['gaia_dr3_g12', 'gaia_dr3_g12_13']
+
+
+def test_a_lone_compact_archive_is_used():
+    compact = _FakeArchive('gaia_dr3_g10', 1.7, 10.0)
+    assert prov.choose_non_overlapping([compact]) == [compact]
+
+
+def test_a_deeper_archive_extends_a_compact_one():
+    compact = _FakeArchive('gaia_dr3_g10', 1.7, 10.0)
+    deep = _FakeArchive('gaia_dr3_g15', 1.7, 15.0)
+    chosen = prov.choose_non_overlapping([compact, deep])
+    assert [c.manifest['name'] for c in chosen] == ['gaia_dr3_g15']

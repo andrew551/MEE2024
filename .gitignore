@@ -13,6 +13,10 @@ mee2024/build/
 mee2024/dist/
 TripleTrianglePlatesolveDatabase/TripleTriangle_pattern_data.npz
 
+# Test input frames and whatever the capture software drops beside them (camera
+# settings, logs). Local only: 173 MB of FITS has no business in git.
+tests/data/fits/
+
 # Raw frames: far too large for git (~120 MB each). Keep them locally only.
 example_data*/
 mee2024/example_data*/

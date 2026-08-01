@@ -268,6 +268,49 @@ class HipparcosProvider(CatalogueProvider):
 
 # --------------------------------------------------------------- Gaia offline
 
+def choose_non_overlapping(catalogues):
+    """The subset of archives to read together, covering the widest magnitude range.
+
+    Archives used to be guaranteed disjoint magnitude slices, so reading every
+    installed one was right. That is no longer true: the standard archive is a
+    superset of the original base + extension pair, and the compact archive is a
+    subset of it. Reading overlapping archives lists every star two or three times,
+    and duplicate catalogue entries do not merely waste memory -- they defeat the
+    "nearest match must be twice as close as the runner-up" test that both the plate
+    solver's verification and the distortion fit rely on, so *every* star is rejected
+    as ambiguous and a good field silently matches nothing.
+
+    Selection uses both ends of each archive's magnitude range: take the one reaching
+    brightest, then keep adding any archive that extends the faint end, skipping those
+    already covered.
+    """
+    ordered = sorted(catalogues, key=lambda c: (c.magnitude_min,
+                                                -(c.magnitude_limit or 99)))
+    chosen, covered_to = [], None
+    for catalogue in ordered:
+        faint = catalogue.magnitude_limit or catalogue.magnitude_min
+        if covered_to is None:
+            chosen.append(catalogue)
+            covered_to = faint
+            continue
+        if faint <= covered_to + 1e-9:
+            continue        # entirely inside what is already covered
+        if catalogue.magnitude_min > covered_to + 1e-9:
+            # a gap: the archives are not contiguous, so reading both would leave a
+            # hole rather than a duplicate. Keep it -- a hole is honest, and the
+            # depth warning covers the rest.
+            chosen.append(catalogue)
+            covered_to = faint
+            continue
+        chosen.append(catalogue)
+        covered_to = faint
+    if len(chosen) < len(catalogues):
+        skipped = [c.manifest['name'] for c in catalogues if c not in chosen]
+        print(f'note: ignoring {", ".join(skipped)}: already covered by '
+              f'{", ".join(c.manifest["name"] for c in chosen)}')
+    return chosen
+
+
 class GaiaOfflineProvider(CatalogueProvider):
     """A downloaded or locally built Gaia catalogue, read by memory map.
 
@@ -282,14 +325,16 @@ class GaiaOfflineProvider(CatalogueProvider):
     name = 'gaia_offline'
     is_offline = True
 
-    def __init__(self, directories, verify_checksums=False):
+    def __init__(self, directories, verify_checksums=False, allow_overlap=False):
         from mee2024.starcat.store import OfflineCatalogue
         if isinstance(directories, (str, bytes)) or hasattr(directories, '__fspath__'):
             directories = [directories]
-        self.catalogues = [OfflineCatalogue(d, verify_checksums=verify_checksums)
-                           for d in directories]
-        if not self.catalogues:
+        catalogues = [OfflineCatalogue(d, verify_checksums=verify_checksums)
+                      for d in directories]
+        if not catalogues:
             raise ValueError('at least one catalogue directory is required')
+        self.catalogues = (catalogues if allow_overlap
+                           else choose_non_overlapping(catalogues))
 
     @classmethod
     def from_installed(cls, names=None, verify_checksums=False):
