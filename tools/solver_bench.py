@@ -48,8 +48,11 @@ from tools.synthetic_field import junk_field, solution_matches_truth, synthesize
 # v3: adds the 'artifact' family -- bright junk detections (hot pixels, cosmic rays)
 # prepended to real fields, the classic poison for a strict brightest-f anchor prefix.
 # v4: hardens it -- 12 artifacts poison the entire brightest-9 prefix, which is the
-# case a single anchor round cannot solve at all and the progressive ladder must
-CORPUS_VERSION = '4'
+# case a single anchor round cannot solve at all and the progressive ladder must.
+# v5 (S6): extends the FOV sweep (1.4 and 14 degrees) and adds the 'widedist'
+# family -- wide fields with the heavy optical distortion wide lenses actually have,
+# the term that limits EVERY invariant (similarity or projective) at wide FOV
+CORPUS_VERSION = '5'
 
 #: named pointings (ra, dec): the measured envelope's regimes plus the two the current
 #: consensus parameterisation is expected to fail (poles; roll near the 0/2pi wrap)
@@ -89,8 +92,14 @@ def build_corpus():
 
     # FOV envelope, both density regimes (PLATESOLVER_DESIGN.md section 1 shape)
     for pointing in ('midlat', 'galplane'):
-        for fov in (0.6, 1.0, 2.0, 2.4, 4.0, 6.0, 8.0, 10.0, 12.0, 18.0):
+        for fov in (0.6, 1.0, 1.4, 2.0, 2.4, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 18.0):
             add('fov', pointing, fov)
+
+    # wide fields with wide-lens optics: the distortion term grows with FOV and is
+    # the physics no invariant escapes -- what the S7 quad/penta decision hinges on
+    for fov in (10.0, 14.0):
+        for draw in range(2):
+            add('widedist', 'midlat', fov, seed_tag=draw, distortion_px=8.0)
 
     # reliability over detection-ordering draws: the measured 8/8, 6/8, 4/8 table
     for pointing, fov in (('midlat', 2.4), ('zwo3like', 2.4),
@@ -194,6 +203,7 @@ def prepare_case(case, catalogue):
         roll_deg=case.get('roll_deg', 57.0),
         fov_width_deg=case['fov'], shape=SHAPE,
         noise_px=case.get('noise_px', 0.3),
+        distortion_px=case.get('distortion_px', 3.0),
         n_detect=case.get('n_detect', 120),
         mag_order_scatter=case.get('mag_order_scatter', 0.3),
         seed=case_seed(case['id']))

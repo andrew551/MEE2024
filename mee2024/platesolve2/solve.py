@@ -478,17 +478,22 @@ def solve_helper(db, catalogue, centroids, image_size, options, output_dir=None)
     return result
 
 
-def solve_kendall(db, catalogue, centroids, image_size, options, output_dir=None,
+def solve_kendall(dbs, catalogue, centroids, image_size, options, output_dir=None,
                   try_mirror_also=True):
-    """The S2/S3 solve: one query pass covers the field and its mirror image, at a
-    radius set by the calibrated tolerance model.
+    """The S2/S3/S6 solve: one query pass covers the field and its mirror image, at
+    a radius set by the calibrated tolerance model, over one or more FOV layers.
 
-    Pools are evaluated lazily -- a successful normal solve never pays for the
-    mirror query -- and a fully failed attempt escalates the noise assumption
-    (ESCALATION) before giving up, so a noisier-than-assumed image costs a retry
-    rather than a permanently inflated radius for everyone.
+    ``dbs`` is the layer list, primary first. Pools are evaluated lazily -- a
+    successful normal solve never pays for the mirror query -- and the failure
+    ladder escalates in cost order: a second anchor round, then the remaining FOV
+    layers (candidates from every layer merge into ONE consensus, because scale and
+    orientation are physical, layer-independent quantities), then the noise
+    assumption. A standard field on the primary layer pays nothing for any of it.
     """
     t0 = time.perf_counter()
+    if not isinstance(dbs, (list, tuple)):
+        dbs = [dbs]
+    primary, everything = (dbs[0],), tuple(dbs)
     mirrored_centroids = centroids[:, [1, 0]]
     mirrored_size = (image_size[1], image_size[0])
 
@@ -499,66 +504,86 @@ def solve_kendall(db, catalogue, centroids, image_size, options, output_dir=None
     eps0 = float(options.get('platesolve_noise_px', 0.3) or 0.3)
     fixed = float(options.get('v2_fixed_tolerance', 0) or 0)
     max_rounds = int(options.get('v2_anchor_rounds', 2) or 2)
-    # the ladder is ordered cheapest-first: a second anchor round costs one more
-    # query at the same radius, a noise escalation multiplies every ball
     if fixed > 0:
-        ladder = ((1.0, 1),)
-    elif max_rounds >= 2:
-        ladder = ((1.0, 1), (1.0, 2), (ESCALATION[-1], 2))
+        ladder = ((1.0, 1, primary),)
     else:
-        ladder = tuple((s, 1) for s in ESCALATION)
+        ladder = [(1.0, 1, primary)]
+        if max_rounds >= 2:
+            ladder.append((1.0, 2, primary))
+        if len(everything) > 1:
+            ladder.append((1.0, max_rounds, everything))
+        ladder.append((ESCALATION[-1], max_rounds, everything))
+        ladder = tuple(ladder)
 
     diagnostics = {'n_candidates': 0, 'n_clusters_checked': 0, 'threshold': None,
-                   'noise_px_used': None, 'anchor_rounds_used': None}
+                   'noise_px_used': None, 'anchor_rounds_used': None,
+                   'layers_used': None}
     result = _failure_result(diagnostics)
     query_cache = {}
 
-    def pool_query(pool_idx, pool_centroids, pool_size, eps, rounds):
-        parts = []
-        for rnd in range(1, rounds + 1):
-            key = (pool_idx, eps, rnd)
-            if key not in query_cache:
-                query_cache[key] = match_triangles_kendall(
-                    db, pool_centroids, pool_size, eps, fixed_tolerance=fixed,
-                    anchor_round=rnd)
-                diagnostics['n_candidates'] += int(len(query_cache[key][0]))
-            parts.append(query_cache[key])
-        parts = [p for p in parts if len(p[0])]
-        if not parts:
+    def pool_candidates(pool_idx, pool_centroids, pool_size, eps, rounds, layers):
+        """Computed candidates of one pool, merged across rounds and layers."""
+        budget = CANDIDATE_BUDGET // len(layers)
+        merged = []
+        for layer in layers:
+            parts = []
+            for rnd in range(1, rounds + 1):
+                key = (pool_idx, eps, rnd, layer.name)
+                if key not in query_cache:
+                    query_cache[key] = match_triangles_kendall(
+                        layer, pool_centroids, pool_size, eps,
+                        fixed_tolerance=fixed, anchor_round=rnd)
+                    diagnostics['n_candidates'] += int(len(query_cache[key][0]))
+                parts.append(query_cache[key])
+            parts = [p for p in parts if len(p[0])]
+            if not parts:
+                continue
+            cand = np.concatenate([p[0] for p in parts])
+            points = np.concatenate([p[1] for p in parts])
+            triplets = np.concatenate([p[2] for p in parts])
+            dist = np.concatenate([p[3] for p in parts])
+            s_img = np.concatenate([p[4] for p in parts])
+            mean_radius = float(np.average([p[5] for p in parts],
+                                           weights=[len(p[0]) for p in parts]))
+            if len(cand) > budget:
+                keep = np.argpartition(dist, budget)[:budget]
+                keep.sort()
+                cand, points, triplets = cand[keep], points[keep], triplets[keep]
+                dist, s_img = dist[keep], s_img[keep]
+            exact = None if fixed > 0 else (dist, s_img, eps)
+            scale, roll, center_vect, target_rows, keep, quat = \
+                compute_platescale_kendall(layer, cand, points, exact_cut=exact)
+            if keep is not None:
+                triplets = triplets[keep]
+            if scale.shape[0]:
+                merged.append((scale, roll, center_vect, quat, target_rows,
+                               triplets, mean_radius, len(cand)))
+        if not merged:
             return None
-        cand = np.concatenate([p[0] for p in parts])
-        points = np.concatenate([p[1] for p in parts])
-        triplets = np.concatenate([p[2] for p in parts])
-        dist = np.concatenate([p[3] for p in parts])
-        s_img = np.concatenate([p[4] for p in parts])
-        mean_radius = float(np.average([p[5] for p in parts],
-                                       weights=[len(p[0]) for p in parts]))
-        if len(cand) > CANDIDATE_BUDGET:
-            keep = np.argpartition(dist, CANDIDATE_BUDGET)[:CANDIDATE_BUDGET]
-            keep.sort()
-            cand, points, triplets = cand[keep], points[keep], triplets[keep]
-            dist, s_img = dist[keep], s_img[keep]
-        return cand, points, triplets, dist, s_img, mean_radius
+        weights = [m[7] for m in merged]
+        return (np.concatenate([m[0] for m in merged]),
+                np.concatenate([m[1] for m in merged]),
+                np.concatenate([m[2] for m in merged]),
+                np.concatenate([m[3] for m in merged]),
+                np.concatenate([m[4] for m in merged]),
+                np.concatenate([m[5] for m in merged]),
+                float(np.average([m[6] for m in merged], weights=weights)))
 
-    for scale_up, rounds in ladder:
+    for scale_up, rounds, layers in ladder:
         eps = eps0 * scale_up
         diagnostics['noise_px_used'] = eps if fixed <= 0 else None
         diagnostics['anchor_rounds_used'] = rounds
+        diagnostics['layers_used'] = [layer.name for layer in layers]
         for pool_idx, (pool_centroids, pool_size, is_mirror) in enumerate(pools):
-            queried = pool_query(pool_idx, pool_centroids, pool_size, eps, rounds)
-            if queried is None:
+            merged = pool_candidates(pool_idx, pool_centroids, pool_size, eps,
+                                     rounds, layers)
+            if merged is None:
                 continue
-            cand, points, triplets, dist, s_img, mean_radius = queried
-            exact = None if fixed > 0 else (dist, s_img, eps)
-            scale, roll, center_vect, target_rows, keep, quat = \
-                compute_platescale_kendall(db, cand, points, exact_cut=exact)
-            if keep is not None:
-                triplets = triplets[keep]
-            if scale.shape[0] == 0:
-                continue
+            scale, roll, center_vect, quat, target_rows, triplets, mean_radius \
+                = merged
             legacy = options.get('v2_consensus') == 'legacy'
             result = _consensus_and_verify(
-                db, catalogue, scale, roll, center_vect,
+                dbs[0], catalogue, scale, roll, center_vect,
                 [tuple(t) for t in triplets], target_rows,
                 pool_centroids, pool_size, options, diagnostics, output_dir,
                 est_tolerance=(fixed if fixed > 0 else mean_radius),

@@ -375,8 +375,12 @@ def cmd_build_pattern_db(args):
     params = {}
     if args.theta_pat is not None:
         params['theta_pat_deg'] = args.theta_pat
+    if args.theta_sep is not None:
+        params['theta_sep_deg'] = args.theta_sep
     if args.depth is not None:
         params['d'] = args.depth
+    if args.anchors is not None:
+        params['a'], params['b'] = args.anchors
     if args.invariant is not None:
         params['invariant'] = args.invariant
     if args.tolerance is not None:
@@ -510,8 +514,13 @@ def build_parser():
                    help='installed offline catalogue(s) to build from')
     p.add_argument('--theta-pat', type=float, default=None, metavar='DEG',
                    help='pattern disc radius in degrees (default 1.7)')
+    p.add_argument('--theta-sep', type=float, default=None, metavar='DEG',
+                   help='anchor isolation radius in degrees (default 0.4)')
     p.add_argument('--depth', type=int, default=None, metavar='N',
                    help='star-list depth (default 700000)')
+    p.add_argument('--anchors', type=int, nargs=2, default=None, metavar=('A', 'B'),
+                   help='unconditional and gap-fill anchor counts '
+                        '(default 80000 160000)')
     p.add_argument('--invariant', choices=['ratio_dphi', 'kendall'], default=None,
                    help='triangle invariant (default ratio_dphi)')
     p.add_argument('--tolerance', type=float, default=None,

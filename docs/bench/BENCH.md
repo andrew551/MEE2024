@@ -354,3 +354,86 @@ case flips:
 - fixed: artifact_midlat_fov2.4_n_artifacts12_s0
 - fixed: artifact_midlat_fov2.4_n_artifacts12_s1
 
+## S6 — multi-scale layers: blind at every platescale; S7 decided (`s5_ref_c5.json`, `s6_layers.json`)
+
+Two new FOV layers built by the same builder, and a layer rung in the failure
+ladder. Candidates from every layer merge into **one consensus** — scale and
+orientation are physical, layer-independent quantities — so this is one blind
+solver, not a switchboard. `pattern_db=''` auto-assembles whatever members of
+`LAYER_SET` are installed; installing a layer *is* the configuration. A standard
+field on the primary layer pays nothing new: the extra layers are only queried
+after the primary ladder rungs fail.
+
+| layer | θ_pat | anchors | triangles | size | covers |
+|---|---|---|---|---|---|
+| `patdb_g12_t06k` | 0.6° | 269,723 (e=12) | 17.8 M | 334 MB | ~1–2° |
+| `patdb_g12_t17k` | 1.7° | 112,660 (e=18) | 17.2 M | 230 MB | ~1.4–10° (primary) |
+| `patdb_g12_t40k` | 4.0° | 22,381 (e=18) | 3.4 M | 60 MB | ~8–18°+ |
+
+**Gate: PASS — the largest single-stage gain of the rebuild.** Corpus v5 (FOV sweep
+extended to 1.4° and 14°; new `widedist` family = wide fields with the 8 px optical
+distortion wide lenses actually have): overall **77 → 89/96 solvable (0.802 →
+0.927)**, twelve case flips all *fixed*, none broken, wrong solves 0, junk 8/8.
+The blind envelope is now **1°–18° across both density regimes**, poles included,
+artifact-poisoned fields recovered, real fields 1.8 s.
+
+**The S7 quad/penta decision, from data: NOT NEEDED within practical FOV.**
+The owner's information-theoretic instinct held: wide fields are cheap once the
+pattern window matches — the t40 layer holds 5× fewer patterns, so even at the
+curvature-inflated per-candidate tolerance (the S3 model's (θ_db/2)² term, which
+extends to wide layers with no new code) its query balls stay sparse. Measured:
+t40 alone solves 10–18° at ~1 s, **including all four heavy-distortion cases** —
+the regime where projective invariants were hypothesised to be necessary. And the
+`widedist` family makes the deeper point: real wide-lens distortion (8 px) dwarfs
+projection curvature, and *no* invariant — similarity or projective — escapes
+optics distortion; only tolerance modelling does. Quads/pentas would add build and
+query machinery to solve a problem the measurements show is already solved. Filed
+as declined-unless-new-evidence, alongside a v2.1 idea: for a fixed instrument,
+feeding the pipeline's own fitted distortion polynomial back into the solver's
+tolerance floor would sharpen wide-field matching further.
+
+Honest notes: the trimmed t06 (e=12, θ_sep 0.2°) gives back the dense-galactic
+0.6° case its 1.2 GB draft solved — sub-degree dense fields want a fatter
+locally-built variant (parameters in the manifest); midlat 0.6° is the G<12
+catalogue floor itself (the g12_13 extension is the lever, not solver work). The
+full layer set totals 624 MB against the ~500 MB guideline — acceptable because
+layers ship as optional add-ons (the base install remains 230 MB). Junk rejection
+pays for the extra rung: 58 → 81 s, skyless fields only.
+
+Chain: v1 61/80 → S1 62 → S2 64 → S3 65 → S4 69/80 → S5 75/88 → **S6 89/96
+solvable**, zero wrong solves at every stage.
+
+## v2@fe8a15b vs v2@fe8a15b (2026-08-01T09:32:09)
+
+corpus v5, 104 shared cases. DB load 0.0 s -> 0.01 s.
+
+| family | correct | wrong | median time (s) |
+|---|---|---|---|
+| artifact | 6/8 -> 6/8 | 0 -> 0 | 11.31 -> 11.34 |
+| fov | 13/24 -> 22/24 | 0 -> 0 | 4.26 -> 4.23 |
+| junk | 8/8 -> 8/8 | 0 -> 0 | 57.71 -> 81.06 |
+| noise | 3/4 -> 3/4 | 0 -> 0 | 13.58 -> 13.4 |
+| pole | 4/4 -> 4/4 | 0 -> 0 | 4.92 -> 4.73 |
+| real | 2/2 -> 2/2 | 0 -> 0 | 1.87 -> 1.79 |
+| reliability | 32/32 -> 32/32 | 0 -> 0 | 3.17 -> 3.17 |
+| rollwrap | 3/3 -> 3/3 | 0 -> 0 | 3.46 -> 3.33 |
+| scatter | 12/12 -> 12/12 | 0 -> 0 | 3.17 -> 3.1 |
+| sparse_detect | 1/3 -> 1/3 | 0 -> 0 | 3.53 -> 8.63 |
+| widedist | 1/4 -> 4/4 | 0 -> 0 | 50.98 -> 29.73 |
+
+overall correct rate 0.8021 -> 0.9271; wrong solves 0 -> 0; junk rejected 8/8 -> 8/8
+
+case flips:
+- fixed: fov_midlat_fov1_s0
+- fixed: fov_midlat_fov1.4_s0
+- fixed: fov_midlat_fov10_s0
+- fixed: fov_midlat_fov12_s0
+- fixed: fov_midlat_fov14_s0
+- fixed: fov_midlat_fov18_s0
+- fixed: fov_galplane_fov1_s0
+- fixed: fov_galplane_fov1.4_s0
+- fixed: fov_galplane_fov18_s0
+- fixed: widedist_midlat_fov10_distortion_px8_s1
+- fixed: widedist_midlat_fov14_distortion_px8_s0
+- fixed: widedist_midlat_fov14_distortion_px8_s1
+

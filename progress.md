@@ -50,6 +50,36 @@ All of the above is asserted by `tests/test_stage2_regression.py`, offline.
 
 ---
 
+## 2026-08-01 — S6: blind at every platescale; the quad question answered by data
+
+**Three FOV layers, one solver.** The same builder produced a 0.6° layer (deep
+star list, 334 MB) and a 4° layer (bright sparse anchors, 60 MB) beside the 1.7°
+primary; candidates from every layer merge into a single consensus, since scale and
+orientation are physical quantities that don't know which layer found them. The
+failure ladder gained one rung — all layers — after the primary's rungs, so a
+standard field pays nothing. Installing a layer *is* the configuration.
+
+**Bench (corpus v5, now 104 cases): 77 → 89/96 solvable (0.927), twelve flips all
+fixed, none broken, zero wrong solves.** The blind envelope is **1°–18° in both
+density regimes** — the owner's goal of blind solving at every platescale down to
+the floor, delivered. The remaining sub-degree cases are the G<12 catalogue floor
+itself (midlat) and a dense-field case a fatter locally-built t06 handles (its
+1.2 GB draft solved it; the shipped 334 MB trim gives it back — parameters
+recorded).
+
+**S7 (quads/pentas): declined, by measurement.** The 4° layer alone solves 10–18°
+at ~1 s including the new `widedist` family — wide fields with the 8 px optical
+distortion wide lenses actually have. Two lessons the numbers teach: wide fields
+are information-cheap (5× fewer patterns per layer beats the curvature-inflated
+tolerance, exactly as the information argument predicted), and real wide-lens
+distortion dwarfs projection curvature while respecting *no* invariant, projective
+or otherwise — tolerance modelling is the only defence, and the S3 model already
+provides it per candidate. Filed alongside a v2.1 idea: feed the pipeline's own
+fitted distortion polynomial back into the solver's tolerance floor for a fixed
+instrument.
+
+---
+
 ## 2026-08-01 — S5: the index disappears; anchors go progressive
 
 **The pattern database no longer has a load time.** Kendall triangle columns are
@@ -712,18 +742,20 @@ every historical result, so it is left as a deliberate choice.
 
 Milestones A and C are done; the UI is through P1 plus the analysis views above.
 
-1. **Milestone D — plate-solve robustness.** Staged rebuild with an A/B gate: S0–S5
-   are landed — Gaia DB, Kendall invariant, calibrated tolerance model, quaternion
-   consensus + pole-aware verification, bucket index + progressive anchors.
-   **61/80 (v1) → 75/88 solvable, poles 4/4, artifact-poisoned fields recovered,
-   DB load 0 s, cold solve 3.3 s / warm 1.8 s, zero wrong solves at every stage.**
-   Next: **S6** — multi-scale θ_pat layers + platescale/pointing hints (the sub-1°
-   floor and blind wide fields; quads stay conditional on its results). Deferred
-   S5 refinements: size-aware consensus radius; a junk early-abort (ladder
-   exhaustion costs ~58 s on skyless fields). Open statistics note: the acceptance
-   threshold's addon-dominated floor (~9) keeps sparse-10 failing; revisit with the
-   corrected p-value experiment. Designed in `docs/PLATESOLVER_V2_DESIGN.md`; stage
-   record in `docs/bench/BENCH.md`.
+1. **Milestone D — plate-solve robustness.** The staged rebuild S0–S6 is landed:
+   Gaia DB, Kendall invariant, calibrated tolerance model, quaternion consensus +
+   pole-aware verification, bucket index + progressive anchors, multi-scale FOV
+   layers. **v1's 61/80 → 89/96 solvable (0.93); blind envelope 1°–18° in both
+   density regimes; poles 4/4; artifact-poisoned fields recovered; DB load 0 s,
+   cold solve 3.3 s, warm 1.8 s; zero wrong solves at every stage.** S7
+   (quads/pentas): **declined by measurement** — the 4° layer covers 10–18°
+   including heavy-distortion wide optics. Remaining candidates for a polish
+   stage: promote v2 to the pipeline default (retire the v1 dispatch), ship the
+   layer DBs as release assets, size-aware consensus radius, junk early-abort
+   (~81 s ladder exhaustion on skyless fields), the acceptance-threshold floor
+   (sparse-10; corrected p-value experiment), and the v2.1 idea of feeding the
+   fitted distortion polynomial back into the solver's tolerance floor. Designed
+   in `docs/PLATESOLVER_V2_DESIGN.md`; stage record in `docs/bench/BENCH.md`.
 2. **Milestone B — auto-calibration and a quality score.** The score cards and the nn_corr
    grading exist; `mee2024/quality.py` and `mee2024 autocal` do not.
 3. **Milestone E — centroid backend rig.** Not started. The half-pixel convention note

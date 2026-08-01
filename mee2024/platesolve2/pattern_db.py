@@ -153,25 +153,47 @@ def open_db(directory):
     return _DB_CACHE[key]
 
 
-def resolve(options=None):
-    """The PatternDB a run should use, honouring options['pattern_db'].
+#: the blind multi-scale layer set (S6): tried primary-first, then all together.
+#: Members that are not installed are simply not used.
+LAYER_SET = ('patdb_g12_t17k', 'patdb_g12_t06k', 'patdb_g12_t40k')
 
-    An empty selection prefers DEFAULT_NAME, then the only installed database. A
-    missing database raises with the exact command that creates one.
+
+def resolve(options=None):
+    """The primary PatternDB a run should use, honouring options['pattern_db'].
+
+    ``pattern_db`` may be a comma-separated layer list; the first entry is the
+    primary. An empty selection prefers DEFAULT_NAME, then the only installed
+    database. A missing database raises with the exact command that creates one.
+    """
+    return resolve_layers(options)[0]
+
+
+def resolve_layers(options=None):
+    """Every pattern-database layer a solve should consult, primary first.
+
+    An explicit ``pattern_db`` (single name or comma list) is honoured exactly --
+    which is also how a bench pins a single layer. The empty default uses whichever
+    members of LAYER_SET are installed, so installing the narrow or wide layer
+    deepens blind coverage with no configuration.
     """
     requested = (options or {}).get('pattern_db', '')
     if requested:
-        directory = get_patterndb_root() / requested
-        if not directory.is_dir():
-            raise RuntimeError(
-                f'pattern database {requested!r} is not installed at {directory}. '
-                f'Build it with `mee2024 build-pattern-db --name {requested}`.')
-        return open_db(directory)
+        layers = []
+        for name in [n.strip() for n in requested.split(',') if n.strip()]:
+            directory = get_patterndb_root() / name
+            if not directory.is_dir():
+                raise RuntimeError(
+                    f'pattern database {name!r} is not installed at {directory}. '
+                    f'Build it with `mee2024 build-pattern-db --name {name}`.')
+            layers.append(open_db(directory))
+        return layers
     installed = installed_databases()
-    if DEFAULT_NAME in installed:
-        return open_db(get_patterndb_root() / DEFAULT_NAME)
+    layers = [open_db(get_patterndb_root() / name) for name in LAYER_SET
+              if name in installed]
+    if layers:
+        return layers
     if installed:
-        return open_db(get_patterndb_root() / installed[0])
+        return [open_db(get_patterndb_root() / installed[0])]
     raise RuntimeError(
         'no v2 pattern database is installed. Build the default with '
         '`mee2024 build-pattern-db` (needs the gaia_dr3_g12 offline catalogue), '
