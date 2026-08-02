@@ -1,0 +1,16 @@
+# Build-only tools. Not needed to run MEE2024 -- install these on top of
+# requirements.txt when producing a release executable:
+#
+#     .venv/Scripts/python -m pip install -r requirements.txt -r requirements-build.txt
+#
+# Build from the project's own .venv rather than a system Python. The venv holds exactly
+# the declared dependencies, so PyInstaller cannot sweep up something heavy that merely
+# happened to be installed -- which is how an earlier build reached 2.7 GB on CUDA
+# libraries no part of this project uses. MEE2024.spec now only *checks* for those and
+# fails loudly, since with a clean venv there is nothing to strip.
+#
+# Pinned, because a release executable should not change because a build tool did. The
+# floor is real, not cautious: PyInstaller 6.12 cannot bundle numpy >= 2.5 -- its hook
+# predates the numpy.core -> numpy._core move, and the executable builds happily and then
+# dies on startup with "No module named 'numpy._core._exceptions'".
+pyinstaller==6.21.0

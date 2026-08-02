@@ -124,37 +124,41 @@ a = Analysis(
               'numba', 'llvmlite', 'dask', 'bokeh', 'plotly', 'seaborn', 'pyarrow'],
 )
 
-# Belt and braces over `excludes`. Excluding a package stops its *modules* being
-# collected, but binaries a PyInstaller hook has already contributed survive that --
-# torch's CUDA libraries (1.25 GB of cuBLAS, cuFFT and cuSPARSE) sailed straight
-# through an `excludes=['torch']` and into the executable. So drop them from the
-# tables directly, which is the only place a size guarantee can actually be made.
+# This used to *strip* GPU/ML files from the tables, because `excludes` alone could not:
+# excluding a package stops its modules being collected, but binaries a PyInstaller hook
+# has already contributed survive it, and torch's CUDA libraries (1.25 GB of cuBLAS, cuFFT
+# and cuSPARSE) sailed straight through `excludes=['torch']` into a 2.7 GB executable.
 #
-# cupy and torch are GPU stacks nothing here imports; they arrive only because some
-# dependency mentions them in an optional path and the build machine happens to have
-# them installed. Keep the list to things verified unused: cv2 IS imported by
-# stacker_implementation, and statsmodels by the distortion and eclipse fits.
+# The build environment is the real fix. Releases are built from the project's own .venv
+# (see RELEASING.md), which holds only the declared dependencies, so there is nothing
+# stray to collect -- measured: the strip removed exactly zero files. Editing the tables
+# is therefore no longer earning its keep, and silently mutating a build is a poor way to
+# discover you built it in the wrong place. What remains is the check, which is the part
+# that was actually load-bearing: fail loudly, and say what to do about it.
 UNWANTED = {'torch', 'torchvision', 'torchaudio', 'cupy', 'cupy_backends',
             'cupyx', 'tensorflow', 'tensorboard', 'keras', 'jax', 'jaxlib',
             'nvidia', 'triton', 'transformers', 'numba', 'llvmlite'}
 
 
-def _without_unwanted(table):
-    kept = []
-    for entry in table:
-        top = re.split(r'[\\/]', entry[0])[0].lower()
-        if top in UNWANTED or top.split('.')[0] in UNWANTED:
-            continue
-        kept.append(entry)
-    dropped = len(table) - len(kept)
-    if dropped:
-        print(f'spec: dropped {dropped} files belonging to unused GPU/ML stacks')
-    return kept
+def _check_no_unwanted(*tables):
+    found = set()
+    for table in tables:
+        for entry in table:
+            top = re.split(r'[\\/]', entry[0])[0].lower().split('.')[0]
+            if top in UNWANTED:
+                found.add(top)
+    if found:
+        raise SystemExit(
+            f'spec: refusing to build -- {", ".join(sorted(found))} would be bundled, and '
+            f'nothing here imports them. This means the build environment carries packages '
+            f'the project does not declare (a torch install adds ~1.25 GB of CUDA '
+            f'libraries). Build from the project venv instead:\n'
+            f'    .venv/Scripts/python -m pip install -r requirements.txt '
+            f'-r requirements-build.txt\n'
+            f'    .venv/Scripts/python -m PyInstaller MEE2024.spec --noconfirm')
 
 
-a.binaries = _without_unwanted(a.binaries)
-a.datas = _without_unwanted(a.datas)
-a.pure = _without_unwanted(a.pure)
+_check_no_unwanted(a.binaries, a.datas, a.pure)
 
 pyz = PYZ(a.pure)
 

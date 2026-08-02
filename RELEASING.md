@@ -123,9 +123,19 @@ the standard one is worse than reporting the failure.
 
 # Part 2 — the program
 
+Build **from the project's own `.venv`**, not a system Python:
+
 ```bash
-python -m PyInstaller MEE2024.spec --noconfirm
+.venv/Scripts/python -m pip install -r requirements.txt -r requirements-build.txt
 ```
+```bash
+.venv/Scripts/python -m PyInstaller MEE2024.spec --noconfirm
+```
+
+The venv holds exactly the declared dependencies, so PyInstaller cannot sweep up something
+heavy that merely happened to be installed on the machine — which is how an earlier build
+reached 2.7 GB on CUDA libraries no part of this project uses. `MEE2024.spec` still strips
+those by name, but from a clean venv that filter is a safety net rather than the mechanism.
 
 Run it **from the repository root** — the code uses absolute `from mee2024 import ...`
 imports, so the root must be on the path. Produces `dist/MEE_2024_v<version>.exe`, one
@@ -155,22 +165,32 @@ a deeper archive can reproduce.
 ## Check before shipping
 
 ```bash
-dist/MEE_2024_v1.2.0.exe --version
-```
-```bash
-dist/MEE_2024_v1.2.0.exe catalogue
+dist/MEE_2024_v1.2.2.exe --version
 ```
 
-The second must list `gaia_dr3_g10` as installed — that proves the bundle arrived *and*
-that the runtime finds it inside the archive. Then double-click it: the app window opens
-(the default since v1.0.0), and `MEE_2024_v1.2.0.exe gui` still opens the classic
+**Actually run it.** A broken bundle builds perfectly and dies on the first import —
+PyInstaller 6.12 against numpy 2.5 produced an exe that failed with `No module named
+'numpy._core._exceptions'`, and nothing in the build log hinted at it.
+
+```bash
+python tools/inspect_exe.py dist/MEE_2024_v1.2.2.exe
+```
+
+This reads the archive and gates the release on it: the bundled catalogue, the UI frontend,
+the star-label index, Hipparcos, Tycho, and the absence of any GPU/ML stack. Reading the
+archive is the only honest check — running the exe and seeing `gaia_dr3_g10 ... installed`
+proves nothing on a build machine, because that catalogue is installed in its own data
+directory, which is exactly where the runtime looks first.
+
+Then double-click it: the app window opens
+(the default since v1.0.0), and `MEE_2024_v1.2.2.exe gui` still opens the classic
 interface. Run a small dataset through it and confirm the plate solve succeeds on a machine
 with no catalogue in its data directory — that is the whole point of the bundle.
 
 ## Publish
 
 ```bash
-gh release create v1.2.0 "dist/MEE_2024_v1.2.0.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.2.0" --notes "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still available with: MEE_2024_v1.2.0.exe gui. This build bundles the compact Gaia catalogue (G < 10) and so plate-solves offline immediately -- fetch gaia_dr3_g13 for fainter stars. New: a rebuilt plate solver that solves blind from 1 to 18 degrees at about a second a field, one standard star catalogue instead of two overlapping ones, native file dialogs, and the plate-solving database is built automatically on first use."
+gh release create v1.2.2 "dist/MEE_2024_v1.2.2.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.2.2" --notes "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still available with: MEE_2024_v1.2.2.exe gui. This build bundles the compact Gaia catalogue (G < 10) and so plate-solves offline immediately -- the standard G < 13 archive downloads on first use. Since v1.2.0: identified stars are labelled over the stacked image, with a slider for how many names to show and a red cross on double stars the fit discarded; the stacked image gained a zoom and a darker stretch; one settings panel instead of simple/advanced modes, with Auto or Custom; every plot now shares the image's orientation and aspect ratio, and the 3-D surfaces are no longer drawn upside down; a magnitude-of-displacement surface joins the x and y ones; the combined dark and flat are saved for reuse."
 ```
 
 ---
