@@ -1,0 +1,19 @@
+candidates                : 5237
+dark-confirmed hot        : 161
+largest dither offset     : 5.6 px
+background noise          : 11.9 ADU
+
+median detector persistence:
+  hot       :    242.4 sigma
+  not hot   :      0.2 sigma
+median sky persistence:
+  hot       :     -1.0 sigma
+  not hot   :     36.2 sigma
+
+separation by a threshold on (detector - sky) persistence:
+  recall  50%: precision  96.4%, threshold    243.3 sigma, 3 false positives
+  recall  80%: precision  97.7%, threshold    216.9 sigma, 3 false positives
+  recall  90%: precision  94.8%, threshold     78.4 sigma, 8 false positives
+  recall  95%: precision  92.2%, threshold     59.0 sigma, 13 false positives
+  recall  99%: precision  51.9%, threshold      8.6 sigma, 148 false positives
+  at zero false positives: recall  21.7% (35 of 161), threshold 429.6 sigma
