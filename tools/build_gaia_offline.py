@@ -143,6 +143,27 @@ def plan_chunks(stripes, dec_step, min_mag, max_mag, region):
     return plan, total
 
 
+def _hms(seconds):
+    seconds = int(max(0, seconds))
+    return f'{seconds // 3600}h{seconds % 3600 // 60:02d}m'
+
+
+def _save_chunk(path, rows):
+    """Cache one chunk, atomically.
+
+    A deep build runs for hours or days and will be interrupted. Writing straight to the
+    final name risks a truncated file that the next run counts as complete and never
+    refetches -- a silent hole in the sky. Write beside it and rename: the rename is
+    atomic, so a chunk is either absent or whole. ``np.save`` is handed an open file so it
+    does not append its own ``.npy`` to the temporary name, which also keeps the temporary
+    out of the ``stripe_*.npy`` glob that assembles the catalogue.
+    """
+    tmp = path.with_name(path.name + '.part')
+    with open(tmp, 'wb') as fp:
+        np.save(fp, rows)
+    tmp.replace(path)
+
+
 def build(name, max_mag, min_mag, region, dec_step, out_dir, work_dir, progress,
           neighbour_depth=None):
     n_bands = int(np.ceil(180.0 / dec_step))
@@ -163,20 +184,33 @@ def build(name, max_mag, min_mag, region, dec_step, out_dir, work_dir, progress,
     print(f'{len(plan)} chunk(s); {len(plan) - len(remaining)} already cached, '
           f'{len(remaining)} to fetch')
     if remaining:
-        # each Gaia async query costs ~18 s of latency, plus transfer time
-        print(f'estimated time: {len(remaining) * 20 / 60:.0f}-'
-              f'{len(remaining) * 45 / 60:.0f} min')
+        # Latency alone, and only if the archive is behaving. Measured throughput has
+        # ranged over 50x between days (see progress.md), so this is a floor, not a
+        # forecast -- the running estimate below is the one to believe.
+        print(f'floor if the archive is fast: {len(remaining) * 20 / 60:.0f}-'
+              f'{len(remaining) * 45 / 60:.0f} min. A slow day can be far longer; the '
+              f'estimate is revised from measured rate as it goes.')
 
     progress.start(len(plan), 'Querying Gaia')
     started = time.perf_counter()
+    fetched = fetched_rows = 0
     for done, (band, dec_lo, dec_hi, part, ra_lo, ra_hi) in enumerate(plan, start=1):
         path = chunk_path(band, part)
         if not path.exists():
             rows = fetch_chunk(dec_lo, dec_hi, ra_lo, ra_hi, min_mag, max_mag, region)
-            np.save(path, rows)
+            _save_chunk(path, rows)
+            fetched += 1
+            fetched_rows += len(rows)
+            elapsed = time.perf_counter() - started
+            left = len(remaining) - fetched
+            # the reporter owns a single rewritten line, so start on a fresh one
+            print(f'\r  [{done}/{len(plan)}] dec {dec_lo:+.0f}..{dec_hi:+.0f} part '
+                  f'{part}: {len(rows):,} rows | {fetched_rows / elapsed:,.0f} rows/s '
+                  f'| elapsed {_hms(elapsed)} | {left} left, ETA '
+                  f'{_hms(elapsed / fetched * left)}', flush=True)
         progress.update(done)
     progress.finish()
-    print(f'queries finished in {time.perf_counter() - started:.0f} s')
+    print(f'queries finished in {_hms(time.perf_counter() - started)}')
 
     chunks = [np.load(p) for p in sorted(work_dir.glob('stripe_*.npy'))]
     chunks = [c for c in chunks if len(c)]

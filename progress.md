@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 543 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 557 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.0; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.2.1; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,48 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-02 — v1.2.1: every plot now agrees with the picture it describes
+
+**The 3-D surfaces were upside down, and nobody could see it.** `project()` mapped +z to
+*downward* on screen. On the signed dx/dy views that is invisible — a distortion field is
+as plausible inverted as not — but the moment the |displacement| surface arrived, which
+cannot go negative, its floor hung above its peak. Fixed at the source, so all three views
+change together. Two things fell out of the same reading: the depth key had the **opposite
+sign to its own screen mapping**, so the far side of a surface could paint over the near
+side; and the *earlier* commit's legend edit ("amber above the surface, blue below") was
+premature — it described the physics while the renderer still drew z downward, so it was
+wrong when written and is right now. Both halves are needed; neither is right alone.
+
+**Everything now uses the image's own axes.** `y` in this pipeline is a row offset, so it
+increases *downward*, and every plot drew it upward: the 3-D surfaces, the residual
+correlation map (which explicitly flipped `j`), the distortion field and magnitude panels,
+and the residual scatter. A map of where the optics misbehave is useless if it mirrors the
+frame. All of them are now top-left origin, like the image.
+
+**Aspect ratios are honest in pixel space.** The correlation map drew *square cells*, but a
+cell covers W/nbins × H/nbins pixels — on a 3520×4656 sensor that stretched the detector
+into a square. The grid now carries the frame's shape. (The 3-D surfaces already shared one
+length scale across x and y; the matplotlib panels already had `set_aspect('equal')`.)
+
+Verified numerically rather than by eye: the projection's five sign conventions checked
+one at a time, the correlation map's filled quadrant tracked to the frame quadrant that
+holds the stars, and the drawn grid measured at **1.502** against an expected 1.500.
+
+**The stacked image gained a zoom control** (1–4×) and its preview is rendered at 1600 px
+instead of 900. The backing store deliberately stays at the image's own size whatever the
+zoom — scaling it would be ~800 MB at 4× on a full frame — so zoom only widens the CSS box
+and the container scrolls.
+
+**A deep build can now be left alone.** `tools/build_gaia_offline.py` prints a running
+`rows/s · elapsed · ETA` revised from measured rate (the static up-front estimate assumed
+a fast archive, which the last two days have not been), and **chunks are written to a
+`.part` file and renamed**. The rename is atomic, so a build killed mid-write leaves a
+chunk either absent or whole — previously a truncated cache entry would have been counted
+as complete on the next run and never refetched, a silent hole in the sky. `RELEASING.md`
+carries the g15 command, its ~6–8 GB assembly peak, and what to expect.
 
 ---
 

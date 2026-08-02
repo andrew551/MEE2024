@@ -410,6 +410,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     axs[1, 0].set_xlabel('x-error(pixels)')
     axs[1, 0].grid()
     axs[1, 0].set_aspect('equal')
+    axs[1, 0].invert_yaxis()  # y is a row offset: down here means down in the frame
     radii = np.linalg.norm(plate2, axis=1)
     axs[1, 1].scatter(radii, np.degrees(mag_errors)*3600, marker='+', color = marker_colors)
     axs[1, 1].set_ylabel('error (arcsec)')

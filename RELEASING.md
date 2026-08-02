@@ -89,11 +89,29 @@ mee2024 catalogue --fetch gaia_dr3_g13
 ## The other tiers
 
 `gaia_dr3_g10` (24 MB) is **bundled inside the executable** rather than released — Part 2.
-`gaia_dr3_g15` is a placeholder for a deep archive that does not exist yet; build it with
-`tools/build_gaia_offline.py --max-mag 15`, then follow Part 1 for it. Expect **~1.6 GB to
-download, ~1.8 GB installed**, and a build measured between two hours and several days
-depending on how loaded the Gaia archive is that day (see `progress.md`); it resumes, so
-run it overnight rather than watching it.
+
+`gaia_dr3_g15` is a placeholder for a deep archive that does not exist yet. Build it in a
+terminal of its own:
+
+```bash
+python tools/build_gaia_offline.py --name gaia_dr3_g15 --max-mag 15
+```
+
+Then follow Part 1 to publish it. What to expect:
+
+* **~1.6 GB to download, ~1.8 GB installed**, 36.9 M stars.
+* **Between two hours and several days.** Gaia's throughput has been measured to swing
+  50× between days and no query shape changes it (`progress.md`); the builder prints a
+  running `rows/s · elapsed · ETA` per chunk, revised from what it actually measures, so
+  believe that rather than the up-front floor it prints first.
+* **Interrupting it is safe.** Every chunk is cached under
+  `<catalogue root>/.build_gaia_dr3_g15/stripe_<band>_<part>.npy` and skipped on the next
+  run, and each is written to a `.part` file and renamed, so a kill mid-write leaves no
+  half-file to be mistaken for a complete one. Ctrl-C and restart the same command as
+  often as you like; only the assembly at the end has to run start to finish.
+* **Peak memory ~6–8 GB** in that final assembly: every chunk is concatenated and a
+  36.9 M-point KD-tree is built for the double-star neighbour flags. On a smaller machine,
+  build it in declination halves with `--region` and merge.
 
 The superseded `gaia_dr3_g12` and `gaia_dr3_g12_13` assets stay published so existing
 installations keep working and `mee2024 catalogue --merge` still has a pair to merge — but

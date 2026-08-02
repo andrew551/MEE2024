@@ -686,7 +686,9 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     logger.info(f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
     events.emit(events.CENTROIDS_FOUND, stage='stack', n=int(centroids_stacked.shape[0]),
                 image_shape=[int(imgs_0.shape[0]), int(imgs_0.shape[1])])
-    events.png_event('stack_preview', image=stacked)
+    # wider than the pane it lands in, so the zoom control has real detail to reveal
+    # rather than magnified PNG pixels
+    events.png_event('stack_preview', image=stacked, max_width=1600)
     # plate solve
     flag_found_IDs = False
     df_identification = None

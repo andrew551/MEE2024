@@ -433,12 +433,22 @@ canvas.plot.rot:active{cursor:grabbing}
           <div class="row" id="label-controls" style="display:none;margin-bottom:10px">
             <label for="labels" class="faint">Star labels</label>
             <input type="range" id="labels" min="0" max="4" step="1" value="1"
-                   style="flex:1;max-width:220px">
+                   style="flex:1;max-width:200px">
             <span class="pill" id="labels-level">named</span>
             <div class="spacer"></div>
             <span class="faint" id="labels-count"></span>
           </div>
-          <div id="preview" style="position:relative">
+          <div class="row" style="margin-bottom:10px">
+            <label for="zoom" class="faint">Zoom</label>
+            <input type="range" id="zoom" min="100" max="400" step="10" value="100"
+                   style="flex:1;max-width:200px">
+            <span class="pill" id="zoom-level">1.0&times;</span>
+            <div class="spacer"></div>
+            <button class="btn" id="zoom-reset">Fit</button>
+          </div>
+          <!-- scrolls rather than growing the card: at 4x a 1600px preview is wider than
+               any sensible pane, and the point of zooming is to go and look at a corner -->
+          <div id="preview" style="position:relative;overflow:auto;max-height:74vh">
             <canvas id="preview-canvas" style="width:100%;display:block;
                     border-radius:10px"></canvas>
           </div>
@@ -824,12 +834,24 @@ const view3d = {az:-0.62, el:1.12, zoom:1};
 const DEFAULT_VIEW = {az:-0.62, el:1.12, zoom:1};
 
 /* Rotate by azimuth about the vertical, then tilt; return screen x, y and a depth key.
-   Larger depth is nearer the viewer, so painter's-algorithm order is ascending. */
+   Larger depth is nearer the viewer, so painter's-algorithm order is ascending.
+
+   Callers pass image coordinates: x to the right, y a row index growing *downward*, z a
+   displacement in pixels. Both of those needed flipping. z used to be drawn downward, so
+   every surface stood on its head -- invisible on the signed dx/dy views, obvious the
+   moment |d| arrived and its floor hung above its peak. And the image's y ran up the
+   screen, so a plot did not match the picture it described.
+
+   `el` is measured from the zenith: 0 is a plan view, pi/2 a side-on one. The camera sits
+   along (0, -sin el, cos el) with (0, cos el, sin el) as its up vector, which is where
+   both the screen and depth terms come from -- the old depth key had the opposite sign to
+   its own screen mapping, so the far side of a surface could paint over the near side. */
 function project(x, y, z, az, el){
   const ca=Math.cos(az), sa=Math.sin(az), ce=Math.cos(el), se=Math.sin(el);
-  const x1 = x*ca - y*sa;
-  const y1 = x*sa + y*ca;
-  return [x1, -(y1*ce - z*se), y1*se + z*ce];
+  const wy = -y;                        // image y points down; world y points away
+  const x1 = x*ca - wy*sa;
+  const y1 = x*sa + wy*ca;
+  return [x1, -(y1*ce + z*se), z*ce - y1*se];
 }
 
 function diverging(t){
@@ -1062,28 +1084,32 @@ function drawCorrelation(){
   const {ctx, w, h} = fitCanvas(canvas);
   const cells = binCorrelations(nbins);
 
-  const pad = {l:46, r:78, t:26, b:34};
+  const W = a.image_size[1], H = a.image_size[0];
+  const pad = {l:62, r:78, t:26, b:34};
   const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
-  // square cells, so a patch is not stretched into looking like a band
-  const side = Math.min(pw/nbins, ph/nbins);
-  const gw = side*nbins, gh = side*nbins;
+  // The grid keeps the detector's shape. Cells were drawn square, but a cell covers
+  // W/nbins by H/nbins *pixels* -- square cells stretch a 3520x4656 sensor into a square
+  // one, and the map is supposed to be read against the image.
+  const scale = Math.min(pw/W, ph/H);
+  const gw = W*scale, gh = H*scale, cw = gw/nbins, ch = gh/nbins;
   const ox = pad.l + (pw-gw)/2, oy = pad.t + (ph-gh)/2;
 
   let filled = 0, total = 0, count = 0;
   for(let j=0;j<nbins;j++){
     for(let i=0;i<nbins;i++){
       const c = cells[j][i];
-      // y grows downward on screen but upward in plate coordinates
-      const x = ox + i*side, y = oy + (nbins-1-j)*side;
+      // row 0 at the top, as in the image: this used to be drawn bottom-up, which put
+      // the top of the frame at the bottom of the map
+      const x = ox + i*cw, y = oy + j*ch;
       if(c.n === 0){
-        ctx.fillStyle = '#10141f'; ctx.fillRect(x, y, side, side);
+        ctx.fillStyle = '#10141f'; ctx.fillRect(x, y, cw, ch);
       }else{
         const v = c.sum/c.n;
-        ctx.fillStyle = diverging(v); ctx.fillRect(x, y, side, side);
+        ctx.fillStyle = diverging(v); ctx.fillRect(x, y, cw, ch);
         filled++; total += v*c.n; count += c.n;
       }
       ctx.strokeStyle = 'rgba(11,14,20,.55)'; ctx.lineWidth = 0.5;
-      ctx.strokeRect(x, y, side, side);
+      ctx.strokeRect(x, y, cw, ch);
     }
   }
 
@@ -1092,11 +1118,16 @@ function drawCorrelation(){
   ctx.fillStyle = '#66708a'; ctx.font = '11px ui-monospace, monospace';
   ctx.fillText('x (pixels)', ox + gw/2 - 26, oy + gh + 24);
   ctx.save();
-  ctx.translate(ox - 30, oy + gh/2 + 26); ctx.rotate(-Math.PI/2);
+  ctx.translate(ox - 46, oy + gh/2 + 26); ctx.rotate(-Math.PI/2);
   ctx.fillText('y (pixels)', 0, 0);
   ctx.restore();
+  // (0,0) is the top-left corner, the same place it is in the image
   ctx.fillText('0', ox - 4, oy + gh + 14);
-  ctx.fillText(String(a.image_size[1]), ox + gw - 18, oy + gh + 14);
+  ctx.fillText(String(W), ox + gw - 18, oy + gh + 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('0', ox - 6, oy + 9);
+  ctx.fillText(String(H), ox - 6, oy + gh);
+  ctx.textAlign = 'left';
 
   const bx = ox + gw + 22, bh = Math.min(gh, 220), by = oy + (gh-bh)/2;
   for(let k=0;k<bh;k++){
@@ -1201,6 +1232,8 @@ function setupAnalysis(){
     drawCorrelation();
   };
   $('labels').oninput = drawPreview;
+  $('zoom').oninput = drawPreview;
+  $('zoom-reset').onclick = () => { $('zoom').value = 100; drawPreview(); };
   $('resid-gain').onchange = drawSurface;
   $('surface-reset').onclick = () => {
     Object.assign(view3d, DEFAULT_VIEW); drawSurface();
@@ -1229,8 +1262,13 @@ function drawPreview(){
   if(!image || !canvas) return;
   const level = parseInt($('labels').value, 10);
   const stars = state.stars;
-  // the canvas is displayed at the card's width; draw at the image's own pixel size
-  // so labels land exactly where the stars are
+  // The backing store stays at the image's own pixel size whatever the zoom -- scaling it
+  // instead would be 800 MB at 4x on a full frame -- and zoom only widens the CSS box,
+  // letting the container scroll. Drawing in image pixels also puts every label exactly
+  // where its star is, at any zoom.
+  const zoom = parseInt($('zoom').value, 10) / 100;
+  canvas.style.width = (100 * zoom) + '%';
+  $('zoom-level').textContent = zoom.toFixed(1) + '×';
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
   const ctx = canvas.getContext('2d');
@@ -1461,6 +1499,7 @@ function resetRunView(){
   $('preview-card').style.display='none'; $('details-card').style.display='none';
   $('field-card').style.display='none'; $('analysis-card').style.display='none';
   $('label-controls').style.display='none'; $('labels-legend').textContent='';
+  $('zoom').value = 100;
   $('open-out').style.display='none';
 }
 

@@ -290,3 +290,37 @@ def test_payload_chooses_bins_from_its_own_star_count(options):
     assert payload['bins'] == dp.suggest_residual_bins(430) == 7
     sparse, _, _, _ = _payload(options, n_stars=40, bins=0)
     assert sparse['bins'] == 4
+
+
+# ---------------------------------------------------- orientation and aspect ratio
+
+def _field_figure(options):
+    options['distortionOrder'] = 'cubic'
+    n_coeff = len(dp.get_coeff_names(options))
+    coeff_x, coeff_y = np.zeros(n_coeff), np.zeros(n_coeff)
+    coeff_x[1], coeff_y[2] = 0.4, -0.25
+    return dp.render_distortion_field(coeff_x, coeff_y, (400, 600), options,
+                                      platescale_arcsec=1.5)
+
+
+def test_the_distortion_field_puts_row_zero_at_the_top(options):
+    """`y` is a row offset, so it grows downward. A field plotted the other way up
+    mirrors the frame it describes, which is worse than useless for locating a defect."""
+    import matplotlib.pyplot as plt
+
+    fig = _field_figure(options)
+    try:
+        assert all(ax.yaxis_inverted() for ax in fig.axes[:2])
+    finally:
+        plt.close(fig)
+
+
+def test_the_distortion_field_panels_are_equal_aspect(options):
+    """Both axes are pixels, so a circle of displacement must not be drawn as an ellipse."""
+    import matplotlib.pyplot as plt
+
+    fig = _field_figure(options)
+    try:
+        assert all(ax.get_aspect() == 1.0 for ax in fig.axes[:2])
+    finally:
+        plt.close(fig)

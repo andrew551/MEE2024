@@ -422,6 +422,9 @@ def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arc
     ax.set_xlabel('x (pixels from centre)')
     ax.set_ylabel('y (pixels from centre)')
     ax.set_aspect('equal')
+    # y is a row offset, so it increases downward. Left to itself matplotlib puts it the
+    # other way up, and the field then mirrors the frame it is describing.
+    ax.invert_yaxis()
     ax.grid(alpha=0.25)
 
     ax = axes[1]
@@ -433,6 +436,7 @@ def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arc
     ax.set_title('Distortion magnitude')
     ax.set_xlabel('x (pixels from centre)')
     ax.set_aspect('equal')
+    ax.invert_yaxis()
 
     peak = float(np.max(magnitude) * scale)
     fig.suptitle(f'peak displacement {peak:.2f} {unit}'
