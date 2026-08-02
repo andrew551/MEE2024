@@ -445,6 +445,10 @@ canvas.plot.rot:active{cursor:grabbing}
                    style="flex:1;max-width:200px">
             <span class="pill" id="zoom-level">1.0&times;</span>
             <div class="spacer"></div>
+            <label class="check" style="margin:0">
+              <input type="checkbox" id="invert" checked>
+              <span>Invert</span>
+            </label>
             <button class="btn" id="zoom-reset">Fit</button>
           </div>
           <!-- scrolls rather than growing the card: at 4x a 1600px preview is wider than
@@ -1234,6 +1238,7 @@ function setupAnalysis(){
   };
   $('labels').oninput = drawPreview;
   $('zoom').oninput = drawPreview;
+  $('invert').onchange = drawPreview;
   $('zoom-reset').onclick = () => { $('zoom').value = 100; drawPreview(); };
   $('resid-gain').onchange = drawSurface;
   $('surface-reset').onclick = () => {
@@ -1274,6 +1279,26 @@ function drawPreview(){
   canvas.height = image.naturalHeight;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(image, 0, 0);
+
+  // Inverted by default: dark stars on white is how a plate is traditionally examined,
+  // it prints, and faint stars are easier to see against paper than against black. Done
+  // with a composite over the drawn image rather than in the PNG, so the toggle is
+  // instant and the pipeline keeps sending one image.
+  const inverted = $('invert').checked;
+  if(inverted){
+    ctx.globalCompositeOperation = 'difference';
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  // markers and labels are drawn *after* the inversion, so they need their own light and
+  // dark palettes -- pale blue on white is unreadable
+  const ink = inverted
+    ? {circle: 'rgba(0,90,170,.85)', label: '#123a63', cross: '#c81e1e',
+       droppedLabel: '#a01414'}
+    : {circle: 'rgba(109,196,255,.85)', label: '#cfe3ff', cross: '#ff6b6b',
+       droppedLabel: '#ff9d9d'};
+
   if(!stars || !stars.x.length){ $('label-controls').style.display = 'none'; return; }
   $('label-controls').style.display = '';
 
@@ -1295,20 +1320,20 @@ function drawPreview(){
       // a star the fit threw out as a double: its centroid is pulled off the
       // catalogue position by the companion, so it cannot be measured honestly
       const r = font * 0.55;
-      ctx.strokeStyle = '#ff6b6b';
+      ctx.strokeStyle = ink.cross;
       ctx.beginPath();
       ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r);
       ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r);
       ctx.stroke();
       dropped++;
     }else{
-      ctx.strokeStyle = 'rgba(109,196,255,.85)';
+      ctx.strokeStyle = ink.circle;
       ctx.beginPath();
       ctx.arc(x, y, font * 0.5, 0, 6.2832);
       ctx.stroke();
     }
     if(wanted && stars.label[i]){
-      ctx.fillStyle = eliminated ? '#ff9d9d' : '#cfe3ff';
+      ctx.fillStyle = eliminated ? ink.droppedLabel : ink.label;
       ctx.fillText(stars.label[i], x + font * 0.7, y - font * 0.5);
       shown++;
     }

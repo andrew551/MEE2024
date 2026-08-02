@@ -52,6 +52,89 @@ def open_images(files):
     return [open_image(file) for file in files]
 
 
+def read_bit_depth(file):
+    """How many bits the camera's ADC actually produced, or None if it does not say.
+
+    FITS stores everything in one of a few container sizes, so ``BITPIX`` describes the
+    container and not the sensor: a 12-bit camera routinely writes ``BITPIX = 16``, and
+    may scale its values up inside it. Cameras that know better also write ``BITDEPTH``,
+    which is the number we want -- it is what makes a dark comparable to a light.
+    """
+    try:
+        with fits.open(file) as hdul:
+            header = hdul['PRIMARY'].header if 'PRIMARY' in hdul else hdul[0].header
+    except Exception:
+        return None
+    for key in ('BITDEPTH', 'BIT_DEPTH', 'BITSPERSAMPLE'):
+        value = header.get(key)
+        if value not in (None, ''):
+            try:
+                return int(str(value).strip())
+            except ValueError:
+                pass
+    bitpix = header.get('BITPIX')
+    # negative BITPIX is floating point, which has no ADC depth to report
+    return int(bitpix) if isinstance(bitpix, int) and bitpix > 0 else None
+
+
+def assert_matching_bit_depth(lights, darks=(), flats=()):
+    """Refuse to calibrate frames of one bit depth with frames of another.
+
+    A dark is subtracted from a light pixel for pixel, so the two have to be counting in
+    the same units. Mixing depths -- 12-bit lights with darks a driver has stretched into
+    16 bits, say -- subtracts numbers that are a fixed factor too large, which does not
+    look like an error: the background goes negative or the stars go flat, and the run
+    completes. Better to stop and say so.
+
+    Frames that do not declare a depth are skipped rather than assumed.
+    """
+    by_depth = {}
+    for label, files in (('light', lights), ('dark', darks), ('flat', flats)):
+        for path in files or []:
+            depth = read_bit_depth(path)
+            if depth is not None:
+                by_depth.setdefault(depth, []).append((label, path))
+    if len(by_depth) <= 1:
+        return sorted(by_depth)[0] if by_depth else None
+    summary = '; '.join(
+        f'{depth}-bit: ' + ', '.join(sorted({label for label, _ in entries}))
+        + f' (e.g. {Path(entries[0][1]).name})'
+        for depth, entries in sorted(by_depth.items()))
+    raise ValueError(
+        f'the frames do not share a bit depth -- {summary}. A dark or flat is combined '
+        f'with a light pixel for pixel, so they must count in the same units. Re-export '
+        f'the calibration frames at the same depth as the lights, or leave them out.')
+
+
+def hot_pixel_mask(dark, sigmas=20.0):
+    """Detector pixels whose dark level puts them outside the population of real pixels.
+
+    A hot pixel reads high no matter what the sky is doing, and the worst of them saturate.
+    Subtracting a dark does *not* remove those: saturation clips, so the light and the dark
+    both sit at full scale and their difference says nothing about the sky -- on the
+    measured example the residual after subtraction was still 35 to 258 sigma above the
+    background at these sites. Because they are fixed to the detector while the field is
+    dithered, they then smear across the stack as a little constellation of fake stars.
+
+    They are found from the master dark's own distribution rather than an absolute level,
+    which would depend on the camera. The bulk of a dark is tight -- on the example, a
+    median of 306 ADU with a robust sigma of 5, and a 99.999th percentile of 396 -- so a
+    threshold 20 sigma out sits far beyond the honest pixels and still catches the whole
+    tail: 299 pixels of 46.8 million, which is nothing to lose.
+    """
+    dark = np.asarray(dark)
+    if dark.ndim != 2:
+        return None
+    # strided for the statistics: a full-frame median of 47 M pixels is not worth the
+    # second it costs when every 4th pixel gives the same answer
+    sample = dark[::4, ::4]
+    median = float(np.median(sample))
+    sigma = 1.4826 * float(np.median(np.abs(sample - median)))
+    if not sigma > 0:                      # a synthetic or perfectly flat dark
+        return np.zeros(dark.shape, dtype=bool)
+    return dark > median + sigmas * sigma
+
+
 def read_observation_date(file):
     """The DATE-OBS calendar date from a FITS header, as 'YYYY-MM-DD', or None.
 
@@ -127,6 +210,53 @@ def pointing_comment(header_pointing, solved_ra, solved_dec):
         verdict = ('nowhere near the telescope pointing -- the header, the frames or '
                    'the setup disagree; something is wrong upstream')
     return separation, verdict
+
+
+def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None):
+    """Write the stack in the input frames' own ADU, not stretched to fill the container.
+
+    This used to be
+
+        stacked16 = ((stacked - min) / (max - min) * 65535).astype(np.uint16)
+
+    which rescaled every output to fill 16 bits regardless of what went in: 12-bit data
+    came back 16-bit, the black point moved to wherever the darkest pixel happened to be,
+    and the numbers no longer meant ADU at all -- a display stretch saved as science data.
+    The gain is part of the measurement, so it is kept.
+
+    Dark subtraction can leave the background below zero, which an unsigned image cannot
+    hold. Rather than clip it away (a mismatched dark would silently flatten most of the
+    frame to zero) a pedestal is added and recorded in ``PEDESTAL``, so subtracting that
+    one number recovers the calibrated ADU exactly.
+
+    Returns the pedestal used, and how many pixels still had to be clipped at the top.
+    """
+    values = np.nan_to_num(np.asarray(stacked, dtype=np.float64), nan=0.0,
+                           posinf=0.0, neginf=0.0)
+    low = float(values.min())
+    pedestal = int(np.ceil(-low)) if low < 0 else 0
+    shifted = np.rint(values + pedestal)
+
+    header = fits.Header()
+    if bit_depth:
+        header['BITDEPTH'] = (int(bit_depth), 'ADC bits of the source frames')
+    if n_frames:
+        header['NCOMBINE'] = (int(n_frames), 'light frames stacked')
+    header['MEE2024'] = _version()
+    header['COMMENT'] = 'pixel values are the input frames ADU, not rescaled'
+
+    clipped = 0
+    if shifted.max() > 65535:
+        # too wide for the 16-bit container: keep the values rather than the dtype
+        data = shifted.astype(np.float32)
+        header['COMMENT'] = 'stored as float32: the values exceed a 16-bit container'
+    else:
+        clipped = int(np.sum(shifted > 65535))
+        data = np.clip(shifted, 0, 65535).astype(np.uint16)
+    if pedestal:
+        header['PEDESTAL'] = (pedestal, 'added to keep values non-negative; subtract it')
+    fits.writeto(path, data, header=header, overwrite=True)
+    return pedestal, clipped
 
 
 def save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, flat):
@@ -516,29 +646,40 @@ def show_scanlines(src_img, fig, ax):
             fig3.canvas.draw_idle()
     fig.canvas.mpl_connect('motion_notify_event', mouse_move)
 
-def add_img_to_stack(data, output_array=None, count_array=None):
+def add_img_to_stack(data, output_array=None, count_array=None, valid=None):
     img, shift = data # unpack tuple
     shift = (round(shift[0]), round(shift[1]))
-    a1 = np.ones(count_array.shape, dtype=int)
+    # `valid` excludes pixels that carry no measurement -- hot pixels, which are fixed to
+    # the detector. Dropping them from the count as well as the sum is what makes them
+    # disappear instead of being averaged in at reduced strength: each sky position simply
+    # loses whichever frames had a bad pixel under it, and keeps the rest.
+    contributes = np.ones(count_array.shape, dtype=int) if valid is None else valid.astype(int)
+    if valid is not None:
+        img = img * valid
     output_array += roll_fillzero(img, shift)
-    count_array += roll_fillzero(a1, shift)
+    count_array += roll_fillzero(contributes, shift)
 
-def open_img_and_preprocess(file, options = {}, dark=0, flat=1):
+def open_img_and_preprocess(file, options = {}, dark=0, flat=1, hot=None):
     img = open_image(file)
     desatblob_img, mask, mask2 = remove_saturated_blob(img, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], blob_saturation=options['blob_saturation_level']/100, perform=options['delete_saturated_blob'])
     reg_img = (desatblob_img - dark) / flat
+    if hot is not None and np.any(hot):
+        # flatten them into the background so they cannot be detected as stars; the stack
+        # excludes them outright via `valid`, but centroid finding runs on this array
+        reg_img = np.where(hot, np.median(reg_img[::8, ::8]), reg_img)
     return reg_img, mask, mask2
 
-def open_img_and_find_centroids(file, options = {}, dark=0, flat=1):
-    reg_img, mask, mask2 = open_img_and_preprocess(file, options, dark, flat)
+def open_img_and_find_centroids(file, options = {}, dark=0, flat=1, hot=None):
+    reg_img, mask, mask2 = open_img_and_preprocess(file, options, dark, flat, hot)
     centroids = get_centroids_blur((reg_img, mask, mask2), options=options)
     centroids_filtered = filter_bad_centroids(centroids, mask2, reg_img.shape)
     return centroids_filtered
 
-def open_img_and_add_to_stack(data, output_array=None, count_array=None, options = {}, dark=0, flat=1):
+def open_img_and_add_to_stack(data, output_array=None, count_array=None, options = {}, dark=0, flat=1, hot=None):
     file, shift = data # unpack tuple
-    reg_img, _, _ = open_img_and_preprocess(file, options, dark, flat)
-    add_img_to_stack((reg_img, shift), output_array, count_array)
+    reg_img, _, _ = open_img_and_preprocess(file, options, dark, flat, hot)
+    add_img_to_stack((reg_img, shift), output_array, count_array,
+                     valid=None if hot is None else ~hot)
     
 def do_stack(files, darkfiles, flatfiles, options, progress=None):
     """Stage 1: stack the light frames and find + platesolve centroids on the result.
@@ -573,18 +714,44 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
 
     
 
+    # a dark is subtracted pixel for pixel, so it has to be counting in the same units
+    bit_depth = assert_matching_bit_depth(files, darkfiles, flatfiles)
+    if bit_depth:
+        logger.info(f'bit depth: {bit_depth}')
+
     imgs_0 = open_image(files[0])
     _, masks_0, masks2_0 = remove_saturated_blob(imgs_0, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], blob_saturation=options['blob_saturation_level']/100, perform=options['delete_saturated_blob'])
     dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs_0.shape, dtype=imgs_0.dtype)
     flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs_0.shape, dtype=float)
+    if flatfiles:
+        # A flat corrects *relative* sensitivity, so it has to be about 1. Dividing by raw
+        # flat ADU (thousands) scaled the whole frame away; the old output stretch hid it,
+        # and now that the stack keeps its ADU it would not.
+        flat_level = float(np.median(flat[::8, ::8]))
+        if flat_level > 0:
+            flat = flat / flat_level
+            logger.info(f'flat normalised by its median level {flat_level:.1f}')
 
     print('image size:'+str(imgs_0.shape))
     logger.info('image size:'+str(imgs_0.shape))
-    
+
+    # Hot pixels survive dark subtraction -- they clip, and clipping is not linear -- and
+    # then smear across the stack as fake stars, because they are fixed to the detector
+    # while the field is dithered. Find them once from the master dark and drop them.
+    hot = hot_pixel_mask(dark, options['hot_pixel_sigmas']) if darkfiles else None
+    if hot is not None and np.any(hot):
+        n_hot = int(np.sum(hot))
+        message = (f'{n_hot} hot pixel(s) found in the master dark '
+                   f'({100 * n_hot / hot.size:.4f}% of the frame); excluded from the '
+                   f'stack rather than subtracted')
+        print(message)
+        logger.info(message)
+        events.log(message)
+
     if options['save_dark_flat']:
         save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, flat)
     t_start_c = time.time()
-    centroids_data = progress.loop(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)
+    centroids_data = progress.loop(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options, hot=hot)
     print("--- %s seconds for centroid finding---" % (time.time() - t_start_c))
     centroids = [np.array([x[2] for x in y]) for y in centroids_data]
     
@@ -670,12 +837,28 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     stack_array = np.zeros(imgs_0.shape)
     count_array = np.zeros(imgs_0.shape, dtype=int)
     progress.loop(list(zip(files, shifts)), open_img_and_add_to_stack, message='Stacking images...',
-                  output_array=stack_array, count_array=count_array, options = options, dark=dark, flat=flat)
-    stacked = stack_array / count_array
-    
-    # rescale stacked to 16 bit integers
-    stacked16 = ((stacked-np.min(stacked)) / (np.max(stacked) - np.min(stacked)) * 65535).astype(np.uint16)
-    fits.writeto(output_dir / ('STACKED'+starttime+'.fit'), stacked16)
+                  output_array=stack_array, count_array=count_array, options = options, dark=dark, flat=flat, hot=hot)
+    # a pixel can have no contributions at all: the dither leaves the frame edges uncovered,
+    # and a hot pixel is excluded everywhere it lands. 0/0 is nan, which then poisons the
+    # centroid pass, so those pixels are left at zero instead
+    stacked = np.divide(stack_array, count_array, out=np.zeros_like(stack_array),
+                        where=count_array > 0)
+
+    pedestal, clipped = write_stacked_fits(
+        output_dir / ('STACKED'+starttime+'.fit'), stacked,
+        bit_depth=bit_depth, n_frames=len(files))
+    if pedestal:
+        # a mismatched dark is the usual cause, and it is worth saying so out loud
+        message = (f'the calibrated stack runs {pedestal} ADU below zero, so the saved '
+                   f'image carries a PEDESTAL of {pedestal}. A background this far '
+                   f'negative usually means the darks do not match the lights '
+                   f'(different temperature or exposure).')
+        print(message)
+        logger.info(message)
+        events.log(message, level='warning')
+    if clipped:
+        events.log(f'{clipped} pixel(s) exceeded the 16-bit container and were clipped',
+                   level='warning')
     if options['float_fits']:
         fits.writeto(output_dir / ('STACKED_FLOAT'+starttime+'.fit'), stacked.astype(np.float32))
     # find centroids on the stacked image

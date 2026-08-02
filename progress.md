@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 568 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 590 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.2; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.2.3; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,69 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-02 — v1.2.3: the stack keeps its ADU, and hot pixels stop pretending to be stars
+
+Three defects found by working through `tests/data/fits/example_with_darks`, a 12-bit
+5644×8288 set with 7 lights and 13 darks. Each of them let a run complete without
+complaining, which is why they had survived.
+
+**The stacked FITS was a display stretch saved as science data.** The line was
+
+```python
+stacked16 = ((stacked - min) / (max - min) * 65535).astype(np.uint16)
+```
+
+so every output filled 16 bits regardless of what went in: 12-bit data came back 16-bit,
+the black point moved to wherever the darkest pixel happened to be, and the numbers stopped
+meaning ADU. The gain is part of the measurement, so it is kept now — the stack is written
+in the input frames' own units with `BITDEPTH`, `NCOMBINE` and the version in the header.
+**Measured on the example: the stack now spans −268…15846 ADU against a 12-bit-times-four
+full scale of 16380, where before it was stretched across 0…65535.**
+
+**Hot pixels survive dark subtraction, and the arithmetic says why.** They clip, and
+clipping is not linear: light and dark both sit at full scale and their difference says
+nothing about the sky. Measured on this data, the residual *after* subtracting the master
+dark was still **35 sigma above the background at the median hot site and 258 sigma at the
+worst**. Being fixed to the detector while the field is dithered, they then smear across
+the stack as a small constellation of fake stars — exactly what was reported. They are now
+found from the master dark's own distribution (bulk median 306 ADU, robust sigma 5,
+99.999th percentile 396, so a 20-sigma cut at ~406 sits far outside the honest pixels) and
+**excluded from the stack rather than subtracted**: 296 pixels of 46.8 million. Excluding
+them from the *count* as well as the sum is what removes them instead of diluting them —
+each sky position simply loses whichever frames had a bad pixel under it.
+
+Measured by running the example both ways and differencing the two stacks, which isolates
+the change exactly (counting "isolated spikes" was useless — at 1.15 arcsec/pixel a faint
+star is nearly a spike too, so that measure was dominated by real stars). The exclusion
+changed **1,731 sky positions** — 296 bad pixels seen at about six dither positions each —
+and of those, **761 had been contaminated by more than 10 sigma, 111 by more than 40, and
+9 by more than 100**, the worst by 1045 ADU or 176 sigma. That population of fake stars is
+the reported smudge. The cost is one frame of seven at those 1,731 positions.
+
+**These darks do not match these lights, and now the pipeline says so.** The master dark's
+median is 306 ADU against the lights' 116: they were taken 45–55 minutes later and are
+about three times hotter. Subtracting them drives the background to −190 ADU. The old
+min–max stretch hid this completely. The stack now carries a recorded `PEDESTAL` (subtract
+it to recover ADU, rather than clipping most of the frame to zero) and warns, naming the
+likely cause. That is a data problem, not a code one, but it should be visible.
+
+**Bit depths must now agree.** `BITDEPTH` where the camera writes it — the container's
+`BITPIX` describes neither the sensor nor the scaling — falling back to `BITPIX`, with
+frames that declare nothing skipped rather than assumed. Mixing depths subtracts numbers a
+fixed factor too large and looks like bad data rather than an error.
+
+**A fourth, found on the way:** the flat was used raw, so dividing by it scaled the frame
+by thousands. The output stretch had been renormalising that away. Flats are normalised to
+unit median now, which is what a flat is for.
+
+**The stacked image displays inverted by default** — dark stars on white, the way a plate
+is traditionally examined, and easier on faint stars. It is a composite over the drawn
+image rather than a change to the PNG, so the toggle is instant; markers and labels are
+drawn after the inversion and carry their own palette, since pale blue on white is
+unreadable.
 
 ---
 

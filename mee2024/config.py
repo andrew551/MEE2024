@@ -38,6 +38,11 @@ DEFAULT_OPTIONS = {
     'cutoff': 100,  # for stacking centroid matching, penalty saturation distance
     'delete_saturated_blob': True,
     'blob_saturation_level': 100,
+    # how far above the master dark's own noise a pixel must sit to be called hot and
+    # excluded from the stack. The bulk of a dark is tight, so 20 sigma is far outside it
+    # -- on the measured example it selects 299 pixels of 46.8 million. Raise it to keep
+    # more, or set it very high to disable the exclusion entirely.
+    'hot_pixel_sigmas': 20.0,
     'blob_radius_extra': 100,  # delete pixels near saturated moon/sun region
     'centroid_gap_blob': 30,  # ignore centroids within this distance of saturated region + radius_extra
     'centroid_gaussian_subtract': False,  # use the "sensitive mode" of custom centroid detection
