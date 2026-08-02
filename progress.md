@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 557 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 568 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.1; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.2.2; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,24 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-02 — v1.2.2: Clear clears everything, and master calibration frames are kept
+
+**"Clear" dropped only the light frames.** Darks and flats stayed selected, and stayed
+selected *silently* — the only trace of them is a line of small print under the buttons —
+so the next run could be calibrated with frames chosen for a different session. It now
+clears the card, and says so: the button reads **Clear all**.
+
+**The combined dark and flat are written to the output folder** as
+`DARK_STACK<timestamp>.fit` / `FLAT_STACK<timestamp>.fit`, with `NCOMBINE`, `COMBTYPE` and
+the program version in the header so a master frame reused months later can still say what
+it is. `save_dark_flat` already existed but defaulted off and fired on a single frame;
+it now defaults **on** and writes **only when two or more frames were actually combined** —
+one frame averaged is a copy of its input, and a copy under a new name reads like a product
+that it is not. Lifted out of `do_stack` into `save_calibration_stacks()` so the rule is
+testable, which it now is, at the boundary and either side of it.
 
 ---
 

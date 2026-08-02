@@ -129,6 +129,31 @@ def pointing_comment(header_pointing, solved_ra, solved_dec):
     return separation, verdict
 
 
+def save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, flat):
+    """Keep the combined dark and flat beside the results, for reuse.
+
+    A master dark or flat is worth more than the frames it came from: it can calibrate a
+    later session without hauling every original around. It is only written when there was
+    something to combine, though -- a single input copied back out under a new name is
+    clutter that looks like a product, and re-deriving it costs nothing.
+
+    Returns the paths written, so a caller can report them.
+    """
+    written = []
+    for label, frames, stack in (('DARK', darkfiles, dark), ('FLAT', flatfiles, flat)):
+        if len(frames or []) < 2:
+            continue
+        path = Path(output_dir) / f'{label}_STACK{starttime}.fit'
+        fits.writeto(path, np.asarray(stack, dtype=np.float32),
+                     header=fits.Header({'NCOMBINE': len(frames), 'COMBTYPE': 'mean',
+                                         'MEE2024': _version()}),
+                     overwrite=True)
+        events.log(f'saved the combined {label.lower()} of {len(frames)} frames '
+                   f'as {path.name}')
+        written.append(path)
+    return written
+
+
 def roll_fillzero(src, shift):
     rolled = np.roll(src, shift=shift, axis=(0,1))
     i, j = shift
@@ -557,10 +582,7 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     logger.info('image size:'+str(imgs_0.shape))
     
     if options['save_dark_flat']:
-        if darkfiles:
-            fits.writeto(output_dir / ('DARK_STACK'+starttime+'.fit'), dark.astype(np.float32))
-        if flatfiles:
-            fits.writeto(output_dir / ('FLAT_STACK'+starttime+'.fit'), flat.astype(np.float32))
+        save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, flat)
     t_start_c = time.time()
     centroids_data = progress.loop(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options)
     print("--- %s seconds for centroid finding---" % (time.time() - t_start_c))

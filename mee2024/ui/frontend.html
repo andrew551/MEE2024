@@ -283,7 +283,8 @@ canvas.plot.rot:active{cursor:grabbing}
         <div class="filebox" id="lights"></div>
         <div class="row" style="margin-top:10px">
           <button class="btn" id="pick-lights">Choose frames&hellip;</button>
-          <button class="btn" id="clear-lights">Clear</button>
+          <button class="btn" id="clear-lights"
+                  title="Forget the light frames and any darks and flats">Clear all</button>
           <div class="spacer"></div>
           <span class="pill" id="lights-count">0</span>
         </div>
@@ -1672,7 +1673,13 @@ $('pick-lights').onclick = () => choose('lights', false);
 $('pick-darks').onclick  = () => choose('darks', false);
 $('pick-flats').onclick  = () => choose('flats', false);
 $('pick-out').onclick    = () => choose(null, true);
-$('clear-lights').onclick = () => { state.lights=[]; renderFiles(); };
+// clears the whole card, darks and flats included. It used to drop only the lights,
+// which left calibration frames selected for a run they were never chosen for -- and
+// silently, since the only sign of them is a line of small print
+$('clear-lights').onclick = () => {
+  state.lights = []; state.darks = []; state.flats = [];
+  renderFiles();
+};
 $('pick-close').onclick = closePicker;
 $('pick-ok').onclick = confirmPicker;
 $('pick-all').onclick = () => {

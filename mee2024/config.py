@@ -16,7 +16,10 @@ DEFAULT_OPTIONS = {
     'flag_display': True,
     'flag_display2': True,
     'flag_debug': False,
-    'save_dark_flat': False,
+    # write the combined dark and flat alongside the results, so a master calibration
+    # frame can be reused without keeping every original. Only written when two or more
+    # frames were actually combined.
+    'save_dark_flat': True,
     'sensitive_mode_stack': True,
     'workDir': '',
     'workDir2': '',
