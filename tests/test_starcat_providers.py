@@ -79,7 +79,10 @@ def _fake_provider(table, offline=True, limit=12.0):
         def lookup(self, ra_range, dec_range, max_magnitude=12.0, epoch=2024.0):
             keep = table.mag < max_magnitude
             out = table.select(keep)
-            out.epoch = epoch
+            # epoch=None means "leave it at the catalogue's own epoch", which is what the
+            # proper-motion fill needs; honour that rather than storing a None
+            if epoch is not None:
+                out.epoch = epoch
             return out
     return Fake()
 

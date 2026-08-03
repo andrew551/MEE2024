@@ -70,7 +70,12 @@ class CatalogueProvider:
         return self.lookup(range_ra, range_dec, star_max_magnitude, time)
 
 
-def empty_table(epoch=2016.0, band='G'):
+#: Gaia DR3's reference epoch: every position in it is where the star was in early 2016,
+#: and getting from there to the observation needs a proper motion.
+GAIA_DR3_EPOCH = 2016.0
+
+
+def empty_table(epoch=GAIA_DR3_EPOCH, band='G'):
     return StarTable(ra=np.zeros(0), dec=np.zeros(0), mag=np.zeros(0),
                      ids=np.zeros(0, dtype=np.int64), epoch=epoch, band=band)
 
@@ -184,11 +189,13 @@ WHERE {ra_clause} AND dec BETWEEN {dec_lo} AND {dec_hi} AND {mag_clause}"""
             ra=np.radians(column('ra')), dec=np.radians(column('dec')),
             mag=column('phot_g_mean_mag'),
             ids=np.array(results['SOURCE_ID'], dtype=np.int64),  # never via float
-            epoch=float(np.median(ref_epoch)) if n else 2016.0,
+            epoch=float(np.median(ref_epoch)) if n else GAIA_DR3_EPOCH,
             origin=ORIGIN_GAIA, band='G',
             pmra=column('pmra'), pmdec=column('pmdec'),
             parallax=column('parallax'), radial_velocity=column('radial_velocity'))
-        return table.at_epoch(epoch)
+        # epoch=None leaves the positions at Gaia's own reference epoch; see
+        # GaiaOfflineProvider.lookup for why a caller would want that
+        return table if epoch is None else table.at_epoch(epoch)
 
     def lookup(self, ra_range, dec_range, max_magnitude=12.0, epoch=2024.0):
         if self.magnitude_limit is not None and max_magnitude > self.magnitude_limit:
@@ -369,11 +376,14 @@ class GaiaOfflineProvider(CatalogueProvider):
                  for c in self.catalogues]
         parts = [p for p in parts if len(p)]
         if not parts:
-            return empty_table(epoch=epoch)
+            return empty_table(epoch=GAIA_DR3_EPOCH if epoch is None else epoch)
         # each archive stores its own reference epoch; align before joining
         base_epoch = parts[0].epoch
         parts = [p if p.epoch == base_epoch else p.at_epoch(base_epoch) for p in parts]
-        return concat(parts).at_epoch(epoch)
+        joined = concat(parts)
+        # epoch=None means "leave the positions at the catalogue's own epoch", which is
+        # what lets a caller fill in a missing proper motion *before* propagation
+        return joined if epoch is None else joined.at_epoch(epoch)
 
     def lookup_neighbours(self, table, radius_arcsec, max_magnitude):
         """Uses the precomputed nn_sep/nn_mag columns rather than a fresh query.
@@ -410,7 +420,8 @@ class MergedProvider(CatalogueProvider):
     name = 'merged'
 
     def __init__(self, primary=None, fills=None, secondary=None,
-                 bright_fill_limit=BRIGHT_FILL_LIMIT, match_radius_arcsec=2.0):
+                 bright_fill_limit=BRIGHT_FILL_LIMIT, match_radius_arcsec=2.0,
+                 fill_proper_motions=True):
         """primary: the precision catalogue. fills: [(provider, magnitude ceiling), ...]
         tried in order.
 
@@ -429,6 +440,9 @@ class MergedProvider(CatalogueProvider):
                 fills.append((TychoProvider(), bright_fill_limit))
         self.fills = list(fills)
         self.match_radius_arcsec = match_radius_arcsec
+        #: also lend a proper motion to primary stars that have none -- see
+        #: fill_proper_motion for why the brightest stars need it
+        self.fill_proper_motions = fill_proper_motions
 
     @property
     def is_offline(self):
@@ -444,7 +458,8 @@ class MergedProvider(CatalogueProvider):
                 f'{self.primary.name} + [{fills}]')
 
     def lookup(self, ra_range, dec_range, max_magnitude=12.0, epoch=2024.0):
-        result = self.primary.lookup(ra_range, dec_range, max_magnitude, epoch)
+        result = self._primary_with_proper_motion(ra_range, dec_range, max_magnitude,
+                                                  epoch)
         for provider, ceiling in self.fills:
             limit = min(ceiling, max_magnitude)
             extra = provider.lookup(ra_range, dec_range, limit, epoch)
@@ -462,6 +477,34 @@ class MergedProvider(CatalogueProvider):
             result.band = 'G_mixed'
         return result
 
+    def _primary_with_proper_motion(self, ra_range, dec_range, max_magnitude, epoch):
+        """The primary catalogue, with missing proper motions filled before propagating.
+
+        Order matters: the fill has to happen while the positions are still at the
+        catalogue's own epoch, because propagation is what turns a missing proper motion
+        into a stale position. Providers that do not offer the unpropagated form fall back
+        to the plain lookup, so this can only improve on the previous behaviour.
+        """
+        if not self.fill_proper_motions or not self.fills:
+            return self.primary.lookup(ra_range, dec_range, max_magnitude, epoch)
+        try:
+            native = self.primary.lookup(ra_range, dec_range, max_magnitude, epoch=None)
+            if native.epoch is None:
+                # the provider took epoch=None literally instead of meaning "your own
+                # epoch"; without a reference epoch nothing can be propagated afterwards
+                raise ValueError('provider returned a table with no epoch')
+        except Exception:
+            return self.primary.lookup(ra_range, dec_range, max_magnitude, epoch)
+        filled = fill_proper_motion(native, self.fills, ra_range, dec_range)
+        if filled:
+            from mee2024 import events
+            message = (f'{filled} bright star(s) had no Gaia proper motion; took one from '
+                       f'the fill catalogue so they can be propagated to the observation '
+                       f'epoch')
+            print(message)
+            events.log(message)
+        return native.at_epoch(epoch)
+
     def lookup_neighbours(self, table, radius_arcsec, max_magnitude):
         return self.primary.lookup_neighbours(table, radius_arcsec, max_magnitude)
 
@@ -474,6 +517,87 @@ def _unmatched(candidates, reference, radius_arcsec):
     # chord length -> angular separation
     sep_arcsec = np.degrees(2 * np.arcsin(np.clip(chord[:, 0] / 2, 0, 1))) * 3600
     return sep_arcsec > radius_arcsec
+
+
+#: How far apart two catalogues' positions for the same star may be, at a common epoch,
+#: for the pair to be believed. Both sides are propagated to the same epoch first, so for
+#: a real match this is milliarcseconds; the allowance is for a poor Hipparcos solution.
+PM_FILL_RADIUS_ARCSEC = 2.0
+
+#: Hipparcos reports Hp/V and Gaia reports G, which differ by a few tenths for ordinary
+#: stars and more for very red ones. Loose enough not to reject a real pair, tight enough
+#: that a chance neighbour of quite different brightness is not adopted.
+PM_FILL_MAG_TOLERANCE = 2.0
+
+
+def fill_proper_motion(table, fills, ra_range, dec_range,
+                       radius_arcsec=PM_FILL_RADIUS_ARCSEC,
+                       mag_tolerance=PM_FILL_MAG_TOLERANCE):
+    """Give stars with no proper motion one from a fill catalogue, in place.
+
+    Gaia's brightest stars often get two-parameter solutions -- a position and nothing
+    else -- because they saturate its detectors: **21% of the catalogue brighter than G=4
+    has no proper motion**, against 0.8% at G=10-13. Those stars then cannot be propagated
+    to the observation epoch, so their positions go stale by the proper motion times the
+    epoch gap, and the distortion fit throws them out as outliers. Rasalhague, the
+    brightest star in its frame, missed by 1.845 arcsec after 6.6 years of unpropagated
+    motion, against 0.01-0.25 arcsec for every other star of the brightest fifteen.
+
+    Hipparcos has excellent proper motions for exactly these stars, and is already merged
+    in to fill the bright end. Taking its proper motion while keeping Gaia's position is
+    better than either alone: Gaia's position is good to about a milliarcsecond at its own
+    epoch, and Hipparcos' proper motion adds only a few mas over a decade, where a pure
+    Hipparcos position would carry thirty years of its own propagation error.
+
+    Must be called on a table still at its **catalogue epoch**, before propagation --
+    filling the motion in afterwards would leave the position where it already was.
+    Returns the number of stars filled.
+    """
+    if len(table) == 0 or not fills:
+        return 0
+    missing = ~table.has_proper_motion()
+    if not missing.any():
+        return 0
+
+    from sklearn.neighbors import NearestNeighbors
+    targets = table.select(missing)
+    target_index = np.nonzero(missing)[0]
+    target_mags = targets.get_mags()
+    filled = 0
+    for provider, ceiling in fills:
+        # Only where this source is trustworthy. Its ceiling is already the magnitude past
+        # which it does more harm than good -- Tycho's positions reach ~2.5 arcsec by V=11,
+        # so beyond that a 2-arcsec match radius would be picking neighbours at random.
+        still = (~table.has_proper_motion()[target_index]) & (target_mags < ceiling)
+        if not still.any():
+            continue
+        # brought to the same epoch as the table, so a real pair is milliarcseconds apart
+        try:
+            donor = provider.lookup(ra_range, dec_range, float(ceiling), epoch=table.epoch)
+        except Exception:
+            continue
+        donor = donor.select(donor.has_proper_motion())
+        if len(donor) == 0:
+            continue
+        chord, index = NearestNeighbors(n_neighbors=1).fit(
+            donor.get_vectors()).kneighbors(targets.get_vectors())
+        sep = np.degrees(2 * np.arcsin(np.clip(chord[:, 0] / 2, 0, 1))) * 3600
+        donor_mags = donor.get_mags()[index[:, 0]]
+        accept = (still & (sep <= radius_arcsec)
+                  & (np.abs(donor_mags - target_mags) <= mag_tolerance))
+        if not accept.any():
+            continue
+        rows = target_index[accept]
+        donor_rows = index[accept, 0]
+        table.pmra[rows] = donor.pmra[donor_rows]
+        table.pmdec[rows] = donor.pmdec[donor_rows]
+        # a parallax is only used to curve the propagation; take it when Gaia has none
+        no_parallax = np.isnan(table.parallax[rows])
+        if no_parallax.any():
+            table.parallax[rows[no_parallax]] = donor.parallax[donor_rows[no_parallax]]
+        table._skycoord = None            # the cached SkyCoord no longer matches
+        filled += int(accept.sum())
+    return filled
 
 
 # ------------------------------------------------------------------- registry

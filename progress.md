@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 615 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 634 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.4; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.2.5; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,73 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-03 — v1.2.5: the brightest stars stop being thrown away
+
+**Rasalhague, the brightest star in its frame, was being discarded — and not for any of the
+reasons that looked likely.** Traced through the whole pipeline on
+`tests/data/fits/rasalhague`:
+
+| stage | verdict |
+|---|---|
+| in the catalogue? | **yes** — `gaia:4493746564376875520`, G=2.11, precision-grade, no duplicate within 0.05° |
+| saturated-blob removal | doesn't touch it |
+| centroid detection | found, **flux rank 1 of 1801** |
+| `min_area`, sanity check | pass (65469 → 63560 → 55009 → 42629) |
+| stage-1 plate solve | **matched**, 0.00 px, to the mag 2.11 entry |
+| stage-2 distortion fit | **dropped**: `error(") = 1.845` against a 1.0 tolerance |
+
+Two guesses of mine were wrong on the way, which is worth recording. I expected the
+**saturated-blob remover** — but it needs ≥20000 connected saturated pixels *after* 8×8
+mean-downsampling, and this core is 4×4 (16 px at ≥99% of peak). It looks like a blob when
+stretched; numerically it is a compact star. Then I expected the **2× confusion filter**,
+α Ophiuchi being a close binary — but Gaia does not resolve the 0.5″ companion and the
+bright fill added no duplicate, so there was nothing for the ratio test to trip on.
+
+**The real cause is a Gaia data gap: `flag_missing_pm`.** `pmra`, `pmdec` and `parallax` are
+all NaN, because Gaia's brightest stars often get two-parameter solutions — they saturate
+its detectors. Without a proper motion the position cannot be propagated, so it stays at the
+2016.0 catalogue epoch while the frame is 2022.63: 6.6 years times ~250 mas/yr is ≈1.6″,
+essentially the whole 1.845″ residual. **It fails the outlier cut precisely because it is
+bright**, and nothing said so — `remove_missing_pm` is off by default, so it was swept up by
+the outlier test and reported as though the *measurement* were bad.
+
+That it is staleness and not saturation is unambiguous: every other star of the brightest
+fifteen sat at **0.01–0.25″**.
+
+**It is systematic.** Fraction of the catalogue with no proper motion: **21.2% at G<4**,
+8.7% at G 4–5, 7.1% at 5–6, 4.1% at 6–7, 1.2% at 8–10, 0.8% at 10–13. The brighter the
+star, the likelier it is discarded.
+
+**Fixed by borrowing the proper motion, on the fly.** Hipparcos has good motions for exactly
+these stars and is already merged in to fill the bright end, so `fill_proper_motion` lends
+one where Gaia has none. Merged at lookup time rather than baked into a unified archive:
+that keeps `gaia_online` working identically, keeps the data sources separable, and avoids
+re-packing and re-publishing a 320 MB asset with a pinned hash for something that costs
+microseconds. It is also where the bright *star* fill already happens.
+
+**Position from Gaia, motion from Hipparcos** — better than either alone. Gaia's position is
+good to about a milliarcsecond at its own epoch and Hipparcos' motion adds a few mas over a
+decade, where a pure Hipparcos position would carry thirty years of its own propagation
+error. **Measured: Rasalhague's residual falls from 1.845″ to 0.408″, it is no longer an
+outlier, and every other star is unchanged** (0.144 vs 0.147, 0.253 vs 0.254, …). The filled
+values — pmra 108.07, pmdec −221.57 mas/yr, parallax 67.13 mas — match the published ones
+for α Oph.
+
+Ordering matters and is the subtle part: the fill must happen while positions are still at
+the **catalogue** epoch, because propagation is what turns a missing motion into a stale
+position. So `lookup(epoch=None)` gained a meaning — "leave the positions where the
+catalogue has them" — and the merge fills, then propagates. Providers that do not implement
+it, including a table returned with no epoch at all, fall back to the plain lookup, so this
+can only improve on the previous behaviour; that fallback is pinned by a test, having been
+found by one.
+
+Each fill source is used only within **its own magnitude ceiling**: Tycho's positions reach
+~2.5″ by V=11, so past that a 2″ match radius would be adopting random neighbours rather
+than identifying the same star. A magnitude agreement of 2 mag is also required, since Gaia
+reports G and Hipparcos Hp/V.
 
 ---
 
