@@ -118,3 +118,123 @@ first level of the decomposition; to within the flagged ×2.5 white remainder at
 second), and the two datasets rank the terms differently in exactly the way their
 hardware differs — which is what a real decomposition, as opposed to a fitted
 narrative, should do.
+
+---
+
+# Follow-up: does the scatter track the FWHM, and how does the rms stack down?
+
+Two further questions, answered on the same footing (v1.3.3; the third dataset here
+is `zwo3` — Richard Berry's ASI1600 at 420 mm, 1.87 ″/px, 9 × **0.2 s** zenith
+frames plus 38 matching darks, header gain 4.96 e-/ADU, ~48 budget stars).
+
+## 1. Does spatial variation in rms track spatial variation in FWHM?
+
+Two different errors can track the PSF, and they need different tests.
+
+**The random (frame-to-frame) error: no detectable tracking.** Per-star scatter
+(affine-removed, so a rotation residual growing with field radius cannot masquerade
+as PSF tracking) against per-star fitted FWHM, bright half only:
+
+| dataset | PSF variation across field | Spearman ρ (scatter vs FWHM) | verdict |
+|---|---|---|---|
+| zenith | ~none (quadratic explains 2 %) | −0.02 (p 0.8) | null — the control behaves |
+| eclipse | mild (10 %) | +0.14 (p 0.053) | a hint, not significant |
+| zwo3 | unknown, 21 usable stars | −0.16 (p 0.49) | underpowered |
+
+The frame-to-frame scatter is atmosphere/mount dominated, and neither term cares
+about the local PSF — so a null here is the physically expected answer, not a
+failure of the test. (`fwhm_vs_scatter.png` in each budget directory.)
+
+**The static error: yes, clearly.** The dataset with real PSF variation
+(rasalhague, 44 % FWHM variation, tilt+coma) has no per-frame data, but its
+stage-2 residuals are static-dominated (50-frame stack: random ≈ 0.012 px ≪ the
+0.057 px total). Matching each stage-2 star to its PSF fit
+(`tools/residuals_vs_fwhm.py`, 547 stars):
+
+- Spearman residual vs FWHM: **ρ = +0.163 (p = 1.3×10⁻⁴)**
+- magnitude partialled: +0.158; **field-radius partialled: +0.186** — it is the
+  *local* PSF, not a shared radial trend (partialling radius strengthens it)
+- median residual, best third of FWHM: 0.065″; worst third: **0.085″** (+31 %)
+
+So the static term (item 2 of the ranking) does live where the PSF is bad —
+direct evidence for aberration-induced centroid bias, and for PSF-aware
+centroiding / focus–collimation as the lever on long stacks.
+
+## 2. What does stacking more frames buy? (rms vs N)
+
+**Track level** (`stack_scaling.png`): disjoint groups of N frames, scatter of the
+group-mean positions, bright stars, both alignment models, consecutive and
+shuffled frame order:
+
+- **zenith, translation-aligned: stacking barely helps.** 0.0895 px at N=1 →
+  0.0775 px at N=5, against 0.0400 px if it averaged as 1/√N. Shuffling the frame
+  order collapses it (0.0184 px at N=4) — the mount term is a temporally
+  correlated *drift*, not noise; time-adjacent frames share it, so consecutive
+  stacks cannot average it away.
+- **affine-aligned residuals follow 1/√N cleanly** on every dataset (zenith
+  0.0339 → 0.0134 px at N=5, prediction 0.0152) — after the affine, what is left
+  behaves like noise and stacks properly.
+- zwo3 (0.2 s frames) follows ~1/√N even translation-aligned: its floor is
+  atmosphere (uncorrelated between frames), not drift.
+
+One correction this forced to the earlier ranking: a *uniform* affine wander is
+absorbed by stage-2's linear terms anyway, so per-frame affine registration mostly
+buys back the per-frame scatter number and the stack's PSF sharpness — the part of
+the drift that survives into final astrometry is only its non-affine residue.
+The end-metric truth comes from the pipeline itself:
+
+**Pipeline level** (`tools/stage2_vs_frames.py`): the real stack → solve → stage-2
+ladder over the first N frames, fitted as rms(N)² = static² + random²/N:
+
+| dataset | rms(N) measured | static (never stacks away) | random at N=1 |
+|---|---|---|---|
+| eclipse (10 s frames, 235 stars/run) | 100.8 → 91.8 → 82.6 → 78.7 mas (N=2,3,5,7) | **67.9 mas** | 105.9 mas |
+| zwo3 (0.2 s frames, 69→183 stars)¹ | 301.0 → 262.0 → 202.2 → 168.2 mas (N=2,3,5,9) | **100.4 mas** | 405.4 mas |
+
+¹ deeper stacks admit fainter stars, so the zwo3 rungs are not at constant star
+population; treat its fit as indicative.
+
+This is the "more information" the question hoped for, and it closes the loop on
+the whole budget by an independent route: the fitted random-at-N=1 (105.9 mas =
+0.092 px eclipse; 405 mas = 0.217 px zwo3) reproduces the per-frame floors the
+track analysis measured (0.083 and 0.244 px), and the eclipse static asymptote
+(67.9 mas = 0.059 px) reproduces the stage-2 excess estimated earlier from a
+single stack (0.051 px). Stacking the eclipse field beyond ~10 frames buys almost
+nothing: the predicted rms at N=100 is 68.7 mas, 1 % above the wall. **The number
+of frames is not the limit; the static term is** — which section 1 just localised
+to where the PSF is worst.
+
+A pattern worth flagging: the static term is **~0.05 px on all three setups** —
+0.059 px (eclipse, ASI294 + 65 mm quad), 0.055 px (rasalhague), 0.054 px (zwo3,
+ASI1600 + 101 mm quad) — across different cameras, optics, platescales and
+exposures. A term set by the optics alone would not land on the same *pixel*
+value three times; one set in pixel units would. That points at the shared
+pixel-level ingredients — the centroid estimator's response to the real
+(asymmetric, field-varying) PSF, sub-pixel detector structure, or the
+distortion-model truncation expressed in pixels — and it makes the PSF-aware
+centroiding experiment (deliverable (d) follow-up) the sharpest next probe: it
+attacks exactly the term every setup shares.
+
+## A bug this hunt caught: fields near RA 0 could not solve
+
+The zwo3 ladder initially failed outright: both solvers *found* the correct
+solution (v2 with 259 non-redundant triangles of consensus) and then rejected it,
+because `get_bbox`'s RA-wrap handling returned the 0.35°-wide sliver between the
+corners nearest RA 0 instead of the field's true 3.8° extent — verification
+fetched 51 catalogue stars instead of ~1000 and starved (6 matched, threshold 11).
+Fixed in v1.3.3 (largest-gap wrap split; regression test with the exact corners);
+the field now blind-solves with 99 matched against a threshold of 12. Every field
+within ~2° of RA 0 was affected, in both solvers, silently.
+
+## The 0.2 s exposure lesson (zwo3)
+
+The per-frame floor at 0.2 s is 0.244 px = 0.46″ — three times the 10 s sets —
+and 70 % of its variance is spatially correlated: unaveraged atmospheric tip-tilt,
+exactly as the physics predicts (tip-tilt variance ∝ 1/T once T exceeds the
+turbulence timescale). Undersampled at FWHM ~1.8 px, its pixel-phase bias
+(0.034–0.069 px) is the largest seen yet but still subdominant. Short exposures
+also detect ~7× fewer stars (48 budget stars vs 383–455). At fixed total
+integration the atmosphere term is exposure-neutral, but the detection depth,
+saturation headroom and per-frame solve reliability are not — 10 s frames are the
+better operating point for this pipeline unless saturation of the target stars
+forces shorter.

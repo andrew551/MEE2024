@@ -239,6 +239,99 @@ def correlation_by_separation(fields, positions, bins):
         return sums / np.maximum(counts, 1), counts
 
 
+# --------------------------------------------------- does scatter track FWHM?
+
+def fwhm_tracking(rows, image_shape, grid=5, min_cell=4):
+    """Do stars with a locally worse PSF also centroid worse, frame to frame?
+
+    Uses the affine-removed scatter: a rotation residual grows with field radius and
+    optical FWHM usually does too, so translation-only scatter would correlate with
+    FWHM through the mount term alone. Returns per-star rank correlations and a pair of
+    grid maps (median FWHM, median scatter) with their cell-level correlation.
+    """
+    from scipy import stats
+
+    usable = [r for r in rows if r['fwhm'] is not None and r['scatter_a'] is not None]
+    result = {'n': len(usable)}
+    if len(usable) < 20:
+        return result, None
+    fwhm = np.array([r['fwhm'] for r in usable])
+    scatter = np.array([r['scatter_a'] for r in usable])
+    excess = scatter / np.array([r['cr_2d'] for r in usable])
+    flux = np.array([r['flux'] for r in usable])
+    bright = flux > np.percentile(flux, 50)
+
+    rho, p = stats.spearmanr(fwhm[bright], scatter[bright])
+    rho_x, p_x = stats.spearmanr(fwhm[bright], excess[bright])
+    result.update(n_bright=int(bright.sum()),
+                  spearman_scatter=(float(rho), float(p)),
+                  spearman_excess=(float(rho_x), float(p_x)))
+
+    ys = np.array([r['y'] for r in usable])
+    xs = np.array([r['x'] for r in usable])
+    cell_y = np.clip((ys / image_shape[0] * grid).astype(int), 0, grid - 1)
+    cell_x = np.clip((xs / image_shape[1] * grid).astype(int), 0, grid - 1)
+    map_fwhm = np.full((grid, grid), np.nan)
+    map_scatter = np.full((grid, grid), np.nan)
+    for cy in range(grid):
+        for cx in range(grid):
+            sel = (cell_y == cy) & (cell_x == cx)
+            if sel.sum() >= min_cell:
+                map_fwhm[cy, cx] = np.median(fwhm[sel])
+                map_scatter[cy, cx] = np.median(scatter[sel])
+    both = ~np.isnan(map_fwhm) & ~np.isnan(map_scatter)
+    if both.sum() >= 6:
+        r_cell, p_cell = stats.pearsonr(map_fwhm[both], map_scatter[both])
+        result.update(cell_r=(float(r_cell), float(p_cell)), n_cells=int(both.sum()))
+    return result, (map_fwhm, map_scatter)
+
+
+# ------------------------------------------- how does the rms stack down with N?
+
+def stack_scaling(fields, n_frames, bright_indices):
+    """2-D rms of N-frame-averaged positions, for every N with at least two groups.
+
+    Frames are split into disjoint groups of N; each star's group-mean positions are
+    scattered against each other (ddof=1, so the estimate is unbiased however few
+    groups there are) and the median over bright stars is the curve point. 'consecutive'
+    keeps frames in time order, so drift that a per-frame model missed shows up as a
+    departure from 1/sqrt(N); 'shuffled' breaks time order, so the comparison of the
+    two isolates temporal correlation from everything else.
+    """
+    series = {}
+    for f, field in enumerate(fields):
+        for i, dy, dx, *_ in field:
+            series.setdefault(i, {})[f] = (dy, dx)
+
+    orders = {'consecutive': np.arange(n_frames),
+              'shuffled': np.random.default_rng(1).permutation(n_frames)}
+    curves = {}
+    for name, order in orders.items():
+        curve = []
+        for n_in_group in range(1, n_frames // 2 + 1):
+            n_groups = n_frames // n_in_group
+            groups = [order[g * n_in_group:(g + 1) * n_in_group]
+                      for g in range(n_groups)]
+            per_star = []
+            for i in bright_indices:
+                s = series.get(i, {})
+                means = []
+                for group in groups:
+                    points = [s[f] for f in group if f in s]
+                    if len(points) == len(group):     # complete groups only
+                        means.append(np.mean(points, axis=0))
+                if len(means) >= 2:
+                    means = np.array(means)
+                    deviation = means - means.mean(axis=0)
+                    per_star.append(np.sqrt(np.sum(deviation ** 2)
+                                            / (len(means) - 1)))
+            if len(per_star) >= 10:
+                curve.append({'n': n_in_group, 'rms': float(np.median(per_star)),
+                              'stars': len(per_star)})
+        curves[name] = curve
+    return curves
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -246,6 +339,10 @@ def main():
     ap.add_argument('--darks', default=None)
     ap.add_argument('--out', type=Path, required=True)
     ap.add_argument('--platescale', type=float, default=None)
+    ap.add_argument('--gain', type=float, default=None,
+                    help='e-/ADU from the camera header, when photon transfer is '
+                         'degenerate (e.g. 0.2 s frames whose sky adds nothing '
+                         'above the dark level)')
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
@@ -261,8 +358,10 @@ def main():
     dark_frames = ([open_image(f) for f in sorted(glob.glob(args.darks))[:4]]
                    if args.darks else None)
 
-    # ---- gain, from the data itself
+    # ---- gain, from the data itself (or the header, when the data cannot say)
     gain, read_adu, points, gain_caveat = measure_gain(frames[:4], dark_frames)
+    if args.gain is not None:
+        gain, gain_caveat = args.gain, f'gain {args.gain} e-/ADU supplied (camera header)'
     print(f'photon transfer: gain {gain:.3f} e-/ADU, base noise {read_adu:.2f} ADU '
           f'({len(points)} frame pairs)'
           + (f'  [{gain_caveat}]' if gain_caveat else ''), flush=True)
@@ -301,7 +400,9 @@ def main():
         amplitude = cutout['peak']
         bound = cramer_rao_px(amplitude, sigma, cutout['noise'], gain)
         bound_bg = cramer_rao_px(amplitude, sigma, cutout['noise'], gain=None)
-        rows.append({'flux': cutout['flux'], 'scatter_t': scatter_t[i],
+        rows.append({'i': i, 'y': key[0], 'x': key[1],
+                     'fwhm': star['fwhm'] if star and star['fit_rms'] is not None else None,
+                     'flux': cutout['flux'], 'scatter_t': scatter_t[i],
                      'scatter_a': scatter_a.get(i),
                      'cr_2d': bound * np.sqrt(2),      # bound is per axis; scatter is 2-D
                      'cr_bg_2d': bound_bg * np.sqrt(2)})
@@ -345,6 +446,14 @@ def main():
         amplitude = float(np.nanmax(means) - np.nanmin(means)) / 2
         phase_bias[name] = amplitude
 
+    # ---- does the scatter track the FWHM across the field?
+    tracking, maps = fwhm_tracking(rows, frames[0].shape)
+
+    # ---- how does the rms average down with N stacked frames?
+    bright_i = [r['i'] for r, b in zip(rows, bright) if b]
+    scaling = {'translation': stack_scaling(fields_t, len(frames), bright_i),
+               'affine': stack_scaling(fields_a, len(frames), bright_i)}
+
     # ------------------------------------------------------------------ figures
     fig, ax = plt.subplots(figsize=(7.8, 5.4))
     ax.loglog(flux, measured, '.', ms=4, alpha=0.45, label='measured per-star scatter (2-D rms)')
@@ -368,6 +477,58 @@ def main():
     ax.set_title('correlated at short range = atmosphere; white = pixel noise')
     ax.grid(alpha=0.3)
     fig.tight_layout(); fig.savefig(args.out / 'residual_correlation.png', dpi=140)
+    plt.close(fig)
+
+    if maps is not None:
+        map_fwhm, map_scatter = maps
+        fig, axes = plt.subplots(1, 3, figsize=(13.5, 4.2))
+        for ax, grid_map, label in ((axes[0], map_fwhm, 'median FWHM (px)'),
+                                    (axes[1], map_scatter,
+                                     'median per-frame scatter, affine removed (px)')):
+            shown = ax.imshow(grid_map, origin='upper', cmap='viridis')
+            fig.colorbar(shown, ax=ax, shrink=0.85)
+            ax.set_title(label, fontsize=10)
+            ax.set_xticks([]); ax.set_yticks([])
+        usable = [r for r in rows if r['fwhm'] is not None and r['scatter_a'] is not None]
+        f_arr = np.array([r['fwhm'] for r in usable])
+        s_arr = np.array([r['scatter_a'] for r in usable])
+        fx = np.array([r['flux'] for r in usable])
+        b_arr = fx > np.percentile(fx, 50)
+        axes[2].plot(f_arr[~b_arr], s_arr[~b_arr], '.', ms=4, alpha=0.35,
+                     c='#aaa', label='faint half')
+        axes[2].plot(f_arr[b_arr], s_arr[b_arr], '.', ms=5, alpha=0.6,
+                     c='#1f77b4', label='bright half')
+        if 'spearman_scatter' in tracking:
+            rho, p = tracking['spearman_scatter']
+            axes[2].set_title(f'bright-star Spearman ρ = {rho:+.2f} (p = {p:.1g})',
+                              fontsize=10)
+        axes[2].set_xlabel('per-star FWHM (px)')
+        axes[2].set_ylabel('per-frame scatter (px)')
+        axes[2].legend(fontsize=8); axes[2].grid(alpha=0.3)
+        fig.tight_layout(); fig.savefig(args.out / 'fwhm_vs_scatter.png', dpi=140)
+        plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(7.4, 5.2))
+    styles = {('translation', 'consecutive'): ('o-', '#1f77b4'),
+              ('translation', 'shuffled'): ('o--', '#8ab8e0'),
+              ('affine', 'consecutive'): ('s-', '#d62728'),
+              ('affine', 'shuffled'): ('s--', '#e8a2a2')}
+    for (model, order), (style, colour) in styles.items():
+        curve = scaling[model][order]
+        if curve:
+            ns = [c['n'] for c in curve]
+            ax.loglog(ns, [c['rms'] for c in curve], style, c=colour,
+                      label=f'{model}, {order} groups')
+    reference = scaling['affine']['consecutive'] or scaling['translation']['consecutive']
+    if reference:
+        base = reference[0]['rms']
+        ns = np.array([c['n'] for c in reference])
+        ax.loglog(ns, base / np.sqrt(ns), 'k:', lw=1.5, label='1/√N from N=1')
+    ax.set_xlabel('frames averaged per group, N')
+    ax.set_ylabel('2-D rms of the N-frame mean position (px)')
+    ax.set_title('does stacking average the error down as 1/√N?')
+    ax.legend(fontsize=8); ax.grid(alpha=0.3, which='both')
+    fig.tight_layout(); fig.savefig(args.out / 'stack_scaling.png', dpi=140)
     plt.close(fig)
 
     # ------------------------------------------------------------------- budget
@@ -402,6 +563,35 @@ def main():
         'algorithm term: bounded separately (docs/bench/CENTROIDS.md) -- three unrelated',
         'estimators tie on these frames, so the estimator choice is not the limit.',
     ]
+
+    lines.append('')
+    lines.append('does the per-star scatter track the per-star FWHM? (affine removed)')
+    if 'spearman_scatter' in tracking:
+        rho, p = tracking['spearman_scatter']
+        rho_x, p_x = tracking['spearman_excess']
+        lines.append(f'  Spearman, bright half ({tracking["n_bright"]} stars)  : '
+                     f'rho {rho:+.2f} (p {p:.2g})')
+        lines.append(f'  same, scatter normalised by each CR bound: '
+                     f'rho {rho_x:+.2f} (p {p_x:.2g})')
+        if 'cell_r' in tracking:
+            r_cell, p_cell = tracking['cell_r']
+            lines.append(f'  cell-level map correlation ({tracking["n_cells"]} cells) '
+                         f': r {r_cell:+.2f} (p {p_cell:.2g})')
+    else:
+        lines.append(f'  too few stars with both a PSF fit and a track '
+                     f'({tracking["n"]})')
+
+    lines.append('')
+    lines.append('rms of the N-frame mean position (bright stars, disjoint groups):')
+    for model in ('translation', 'affine'):
+        for c in scaling[model]['consecutive']:
+            expected = scaling[model]['consecutive'][0]['rms'] / np.sqrt(c['n'])
+            shuffled = next((s['rms'] for s in scaling[model]['shuffled']
+                             if s['n'] == c['n']), None)
+            lines.append(f'  {model:<12} N={c["n"]}: {c["rms"]:.4f} px  '
+                         f'(1/sqrt(N) predicts {expected:.4f}'
+                         + (f'; shuffled groups {shuffled:.4f}' if shuffled else '')
+                         + f'; {c["stars"]} stars)')
     text = '\n'.join(lines)
     print('\n' + text)
     (args.out / 'summary.txt').write_text(text, encoding='utf-8')
@@ -413,6 +603,7 @@ def main():
                    'floor_affine_px': floor_affine, 'cr_bright_px': cr_bright,
                    'faint_ratio': faint_ratio, 'atmosphere_2d_px': atmosphere_2d,
                    'phase_bias': phase_bias,
+                   'fwhm_tracking': tracking, 'stack_scaling': scaling,
                    'correlation': {'bins': bins.tolist(), 'value': corr.tolist(),
                                    'counts': counts.tolist()}}, fp)
     print(f'\n{time.time() - t0:.0f}s; results in {args.out}')

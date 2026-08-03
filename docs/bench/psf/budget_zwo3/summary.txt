@@ -1,0 +1,32 @@
+frames               : 9 × (3520, 4656), 48 stars in the budget
+gain (measured)      : 4.960 e-/ADU; base noise 0.00 ADU
+
+per-frame 2-D rms centroid scatter, translation removed:
+  bright-star floor          : 0.2439 px
+  Cramér–Rao at those fluxes : 0.0053 px  (photon + pixel noise: 2% of the floor)
+  background-only bound      : 0.0000 px  (gain-free, most optimistic possible)
+  gain caveat                : gain 4.96 e-/ADU supplied (camera header)
+  faint stars vs their bound : ×20.26  (1.0 = at the noise limit)
+
+decomposition of the bright-star floor:
+  spatially correlated (atmosphere-like)   : 0.2038 px (70% of floor variance)
+  removed by affine over translation       : 0.1207 px (mount rotation/scale/refraction; floor 0.2439 -> 0.2120)
+  still correlated after affine            : 0.1333 px (anisoplanatic atmosphere)
+  pixel-phase bias amplitude (x, y)        : 0.0688, 0.0340 px
+
+algorithm term: bounded separately (docs/bench/CENTROIDS.md) -- three unrelated
+estimators tie on these frames, so the estimator choice is not the limit.
+
+does the per-star scatter track the per-star FWHM? (affine removed)
+  Spearman, bright half (21 stars)  : rho -0.16 (p 0.49)
+  same, scatter normalised by each CR bound: rho +0.01 (p 0.95)
+
+rms of the N-frame mean position (bright stars, disjoint groups):
+  translation  N=1: 0.2581 px  (1/sqrt(N) predicts 0.2581; shuffled groups 0.2581; 12 stars)
+  translation  N=2: 0.1902 px  (1/sqrt(N) predicts 0.1825; shuffled groups 0.1937; 12 stars)
+  translation  N=3: 0.1528 px  (1/sqrt(N) predicts 0.1490; shuffled groups 0.1502; 12 stars)
+  translation  N=4: 0.1465 px  (1/sqrt(N) predicts 0.1290; shuffled groups 0.1383; 12 stars)
+  affine       N=1: 0.2248 px  (1/sqrt(N) predicts 0.2248; shuffled groups 0.2248; 12 stars)
+  affine       N=2: 0.1462 px  (1/sqrt(N) predicts 0.1589; shuffled groups 0.1483; 12 stars)
+  affine       N=3: 0.0993 px  (1/sqrt(N) predicts 0.1298; shuffled groups 0.1392; 12 stars)
+  affine       N=4: 0.1349 px  (1/sqrt(N) predicts 0.1124; shuffled groups 0.1298; 12 stars)

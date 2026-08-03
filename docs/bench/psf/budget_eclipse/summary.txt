@@ -16,3 +16,16 @@ decomposition of the bright-star floor:
 
 algorithm term: bounded separately (docs/bench/CENTROIDS.md) -- three unrelated
 estimators tie on these frames, so the estimator choice is not the limit.
+
+does the per-star scatter track the per-star FWHM? (affine removed)
+  Spearman, bright half (180 stars)  : rho +0.14 (p 0.053)
+  same, scatter normalised by each CR bound: rho +0.08 (p 0.31)
+  cell-level map correlation (25 cells) : r +0.20 (p 0.35)
+
+rms of the N-frame mean position (bright stars, disjoint groups):
+  translation  N=1: 0.0899 px  (1/sqrt(N) predicts 0.0899; shuffled groups 0.0899; 96 stars)
+  translation  N=2: 0.0583 px  (1/sqrt(N) predicts 0.0636; shuffled groups 0.0609; 96 stars)
+  translation  N=3: 0.0584 px  (1/sqrt(N) predicts 0.0519; shuffled groups 0.0340; 96 stars)
+  affine       N=1: 0.0779 px  (1/sqrt(N) predicts 0.0779; shuffled groups 0.0779; 96 stars)
+  affine       N=2: 0.0536 px  (1/sqrt(N) predicts 0.0551; shuffled groups 0.0560; 96 stars)
+  affine       N=3: 0.0409 px  (1/sqrt(N) predicts 0.0450; shuffled groups 0.0323; 96 stars)

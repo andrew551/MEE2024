@@ -1,0 +1,6 @@
+stars matched               : 547
+Spearman residual vs FWHM   : rho +0.163 (p 0.00013)
+same, magnitude partialled  : rho +0.158
+same, field-radius partialled: rho +0.186
+median residual, best third of FWHM : 0.0646"
+median residual, worst third of FWHM: 0.0847"
