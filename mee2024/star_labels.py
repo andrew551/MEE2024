@@ -20,8 +20,16 @@ from mee2024 import events
 LABEL_TIERS = ('none', 'named', 'hip', 'bright', 'all')
 
 
-def build_labels(magnitudes, ids=None, bright_limit=9.0):
-    """A (label, tier) pair per star: a proper name if it has one, else HIP, else G mag."""
+def build_labels(magnitudes, ids=None, bright_limit=9.0, ra=None, dec=None, epoch=2024.0):
+    """A (label, tier) pair per star: a proper name if it has one, else HIP, else G mag.
+
+    ``ra``/``dec`` (radians) enable the positional fallback for proper names. It is worth
+    having: a Gaia source_id reaches a name only through Gaia's own crossmatch to
+    Hipparcos, and that crossmatch misses **46 of the 49 named stars** -- Vega, Sirius,
+    Betelgeuse and Polaris included -- because Gaia struggles with the brightest stars and
+    those are the ones with names. Without this, the brightest star in a frame is the one
+    least likely to be labelled.
+    """
     labels = [''] * len(magnitudes)
     tiers = ['all'] * len(magnitudes)
     index = None
@@ -40,6 +48,19 @@ def build_labels(magnitudes, ids=None, bright_limit=9.0):
                 labels[i], tiers[i] = str(name), 'named'
             elif hip:
                 labels[i], tiers[i] = f'HIP {int(hip)}', 'hip'
+        if ra is not None and dec is not None:
+            unresolved = [i for i, label in enumerate(labels)
+                          if not label or labels[i].startswith('HIP ')]
+            if unresolved:
+                try:
+                    found = index.names_by_position(np.asarray(ra)[unresolved],
+                                                   np.asarray(dec)[unresolved],
+                                                   epoch=epoch)
+                except Exception:
+                    found = []
+                for slot, name in zip(unresolved, found):
+                    if name:
+                        labels[slot], tiers[slot] = str(name), 'named'
     for i, magnitude in enumerate(magnitudes):
         if labels[i]:
             continue
@@ -49,13 +70,18 @@ def build_labels(magnitudes, ids=None, bright_limit=9.0):
 
 
 def emit(positions_yx, magnitudes, image_shape, ids=None, dropped=None,
-         bright_limit=9.0, stage='stack'):
-    """Emit a STARS event. ``dropped`` flags stars eliminated as double stars."""
+         bright_limit=9.0, stage='stack', ra=None, dec=None, epoch=2024.0):
+    """Emit a STARS event. ``dropped`` flags stars eliminated as double stars.
+
+    ``ra``/``dec`` (radians) let a proper name be found by position when the Gaia
+    identifier cannot reach one, which for named stars is the usual case.
+    """
     positions_yx = np.asarray(positions_yx, dtype=float)
     magnitudes = np.asarray(magnitudes, dtype=float)
     if not positions_yx.size:
         return None
-    labels, tiers = build_labels(magnitudes, ids, bright_limit)
+    labels, tiers = build_labels(magnitudes, ids, bright_limit, ra=ra, dec=dec,
+                                 epoch=epoch)
     if dropped is None:
         dropped = np.zeros(len(magnitudes), dtype=bool)
     return events.emit(events.STARS, stage=stage,
@@ -67,12 +93,15 @@ def emit(positions_yx, magnitudes, image_shape, ids=None, dropped=None,
                        dropped=[bool(v) for v in np.asarray(dropped)])
 
 
-def emit_from_solution(solution, image_shape, bright_limit=9.0):
+def emit_from_solution(solution, image_shape, bright_limit=9.0, epoch=2024.0):
     """Emit the plate solve's matched stars (stage 1 knows of no eliminations yet)."""
     stars = solution.get('matched_stars')
     centroids = solution.get('matched_centroids')
     if stars is None or centroids is None or not len(stars):
         return None
     stars = np.asarray(stars)
+    # columns 0 and 1 are the catalogue ra/dec in radians, which is what the positional
+    # name lookup needs
     return emit(np.asarray(centroids), stars[:, 5], image_shape,
-                ids=solution.get('matched_ids'), bright_limit=bright_limit)
+                ids=solution.get('matched_ids'), bright_limit=bright_limit,
+                ra=stars[:, 0], dec=stars[:, 1], epoch=epoch)

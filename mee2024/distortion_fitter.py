@@ -273,6 +273,34 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     flag_is_outlier = errors_arcseconds >= options['distortion_fit_tol']
     flag_unexplained_outlier = np.logical_and(np.logical_and(flag_is_outlier, np.logical_not(flag_missing_pm)), np.logical_not(flag_is_double))
     print(np.sum(flag_unexplained_outlier), ' unexplained outliers')
+
+    # Say *why* a star was dropped. A star with no catalogue proper motion cannot be
+    # propagated to the observation epoch, so its position is stale by however far it has
+    # moved -- for a bright star over a few years that is comfortably past the tolerance.
+    # It was then reported as an "outlier", which reads as a bad measurement and sends
+    # anyone investigating in the wrong direction. Gaia's brightest stars are the ones
+    # most often missing a proper motion (21% brighter than G=4), so this is exactly the
+    # population a user notices going absent.
+    stale = np.logical_and(flag_is_outlier, flag_missing_pm)
+    if stale.any():
+        mags = stardata.get_mags()
+        worst = float(np.max(errors_arcseconds[stale]))
+        message = (f'{int(np.sum(stale))} star(s) missed the '
+                   f'{options["distortion_fit_tol"]}" fit tolerance because the catalogue '
+                   f'has no proper motion for them, so their positions could not be '
+                   f'brought to the observation epoch (brightest G={float(np.min(mags[stale])):.2f}, '
+                   f'worst miss {worst:.2f}"). They are stale positions, not bad '
+                   f'measurements.')
+        print(message)
+        events.log(message, level='warning')
+    doubles_out = np.logical_and(flag_is_outlier, np.logical_and(flag_is_double, ~stale))
+    if doubles_out.any():
+        events.log(f'{int(np.sum(doubles_out))} star(s) missed the fit tolerance and have '
+                   f'a close companion, which pulls the measured centre off the catalogue '
+                   f'position')
+    if flag_unexplained_outlier.any():
+        events.log(f'{int(np.sum(flag_unexplained_outlier))} star(s) missed the fit '
+                   f'tolerance with no such explanation')
     # Two independent reasons to drop a star, each its own choice: a close companion
     # pulls the centroid off the catalogue position, and a star with no catalogue
     # proper motion cannot be propagated to the observation epoch. They used to be
@@ -388,6 +416,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                 observation_date=output_results['observation_date'],
                 observation_date_header=output_results['observation_date_header'],
                 date_guess_error_days=output_results['date_guess_error_days'],
+                # why stars were dropped, not just how many survived
+                n_dropped_no_proper_motion=int(np.sum(stale)),
+                n_dropped_double=int(np.sum(doubles_out)),
+                n_dropped_unexplained=int(np.sum(flag_unexplained_outlier)),
                 ra=float(np.degrees(result[1])), dec=float(np.degrees(result[2])))
 
     marker_colors = ['red' if is_missing_pm else 'orange' if is_double else '#1f77b4' for (is_missing_pm, is_double)

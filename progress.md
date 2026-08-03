@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 634 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 639 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.5; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.2.6; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,36 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-03 — v1.2.6: named stars get their names, and dropped stars say why
+
+**"Why is Rasalhague labelled G 2.1?" turned out to be a general failure, not one star.**
+The name is in the index — `names.txt` maps it to HIP 86032, and asking by HIP returns
+`Rasalhague`. But a Gaia source_id reaches a name only through **Gaia's own crossmatch to
+Hipparcos** (`gaiadr3.hipparcos2_best_neighbour`), and that table covers 99,525 of 117,955
+HIP stars. Which ones does it miss? Measured: **46 of the 49 named stars.** Vega, Sirius,
+Betelgeuse, Polaris, Arcturus, Rigel, Canopus, Antares — only three worked. Gaia struggles
+with the brightest stars, and the named stars are the brightest there are, so the label
+feature was broken for precisely its entire audience.
+
+**Fixed by resolving names from the sky instead.** Named stars are few and far apart, and
+their Hipparcos positions come from the catalogue already bundled for the bright fill, so
+`LabelIndex.names_by_position` is a brute-force match against about fifty candidates
+propagated to the observation epoch, cached per epoch. No index rebuild, no archive access,
+no new bundled data. **Verified against the real bundled index: 50 of 50 named stars
+resolve, where 3 did before.** It also upgrades a correct-but-worse `HIP 86032` to
+`Rasalhague`, and is a pure fallback — an id that already resolves is untouched, and a
+failure leaves the magnitude label.
+
+**And a star dropped from the fit now says why it was dropped.** A missing proper motion
+means a stale position, which is a different thing from a bad measurement — but it was
+reported as an `outlier`, which sends anyone investigating in exactly the wrong direction.
+The run now says so in words, with the brightest affected magnitude and the worst miss, and
+separates the three cases in `METRICS`: `n_dropped_no_proper_motion`, `n_dropped_double`,
+`n_dropped_unexplained`. The flags were always computed and written to the CSV; nothing had
+ever surfaced them.
 
 ---
 

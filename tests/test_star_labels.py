@@ -100,3 +100,78 @@ def test_emit_from_solution_ignores_a_failed_solve():
     with events.using(events.EventBus([sink])):
         assert star_labels.emit_from_solution({'matched_stars': None}, (50, 60)) is None
     assert sink.latest(events.STARS) is None
+
+
+# ------------------------------------------------- names found by position, not by id
+
+class _PositionIndex:
+    """A stand-in whose crossmatch is empty, as Gaia's largely is for named stars."""
+
+    def name_for(self, ids):
+        return [''] * len(list(ids))
+
+    def hip_for(self, ids):
+        return [0] * len(list(ids))
+
+    def __init__(self):
+        self.asked = []
+
+    def names_by_position(self, ra, dec, epoch=2024.0):
+        self.asked.append((list(np.atleast_1d(ra)), float(epoch)))
+        return ['Rasalhague'] + [None] * (len(np.atleast_1d(ra)) - 1)
+
+
+@pytest.fixture
+def position_index(monkeypatch):
+    import mee2024.starcat.labels as labels_module
+    index = _PositionIndex()
+    monkeypatch.setattr(labels_module.LabelIndex, 'try_bundled',
+                        classmethod(lambda cls: index))
+    return index
+
+
+def test_a_name_is_found_by_position_when_the_id_cannot_reach_one(position_index):
+    """Gaia's crossmatch to Hipparcos misses 46 of the 49 named stars, so without this
+    the brightest star in a frame is the one least likely to be labelled."""
+    labels, tiers = star_labels.build_labels(
+        [2.11, 8.0], ids=[4493746564376875520, 2], ra=[0.1, 0.2], dec=[0.3, 0.4])
+    assert labels[0] == 'Rasalhague' and tiers[0] == 'named'
+    assert labels[1] == 'G 8.0'
+
+
+def test_the_positional_lookup_is_given_the_observation_epoch(position_index):
+    """These stars move; comparing against the wrong epoch is what loses them."""
+    star_labels.build_labels([2.11], ids=[1], ra=[0.1], dec=[0.3], epoch=2022.63)
+    assert position_index.asked[0][1] == pytest.approx(2022.63)
+
+
+def test_without_positions_nothing_is_asked(position_index):
+    star_labels.build_labels([2.11], ids=[1])
+    assert position_index.asked == []
+
+
+def test_a_failing_positional_lookup_does_not_break_labelling(monkeypatch):
+    import mee2024.starcat.labels as labels_module
+
+    class _Broken(_PositionIndex):
+        def names_by_position(self, ra, dec, epoch=2024.0):
+            raise RuntimeError('no hipparcos')
+
+    monkeypatch.setattr(labels_module.LabelIndex, 'try_bundled',
+                        classmethod(lambda cls: _Broken()))
+    labels, _ = star_labels.build_labels([2.11], ids=[1], ra=[0.1], dec=[0.3])
+    assert labels == ['G 2.1']
+
+
+def test_a_hip_label_is_upgraded_to_a_proper_name(monkeypatch):
+    """'HIP 86032' is correct but 'Rasalhague' is better, so a position wins over it."""
+    import mee2024.starcat.labels as labels_module
+
+    class _HipOnly(_PositionIndex):
+        def hip_for(self, ids):
+            return [86032] * len(list(ids))
+
+    monkeypatch.setattr(labels_module.LabelIndex, 'try_bundled',
+                        classmethod(lambda cls: _HipOnly()))
+    labels, tiers = star_labels.build_labels([2.11], ids=[1], ra=[0.1], dec=[0.3])
+    assert labels == ['Rasalhague'] and tiers == ['named']

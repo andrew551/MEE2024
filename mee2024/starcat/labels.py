@@ -41,6 +41,8 @@ class LabelIndex:
         self.hip = np.load(self.directory / 'hip.npy', mmap_mode='r')
         self.hip_name_offset = np.load(self.directory / 'hip_name_offset.npy', mmap_mode='r')
         self._names_blob = (self.directory / 'names.txt').read_bytes()
+        self._named = None                 # named_stars(), built on first use
+        self._named_pos_cache = None       # (epoch, positions) for names_by_position()
 
     @classmethod
     def bundled(cls):
@@ -106,6 +108,87 @@ class LabelIndex:
             end = self._names_blob.find(b'\n', offset)
             names.append(self._names_blob[offset:end].decode('utf-8'))
         return names
+
+    def named_stars(self):
+        """Every star with a proper name, as (hip, name) pairs. Cached.
+
+        Only about fifty, which is what makes resolving them by position affordable.
+        """
+        if getattr(self, '_named', None) is None:
+            hip = np.asarray(self.hip)
+            offsets = np.asarray(self.hip_name_offset)
+            pairs = []
+            for hip_number, offset in zip(hip, offsets):
+                if offset < 0:
+                    continue
+                end = self._names_blob.find(b'\n', offset)
+                name = self._names_blob[offset:end].decode('utf-8')
+                if name:
+                    pairs.append((int(hip_number), name))
+            self._named = pairs
+        return self._named
+
+    def names_by_position(self, ra, dec, epoch=2024.0, radius_arcsec=10.0):
+        """Proper names for stars at the given sky positions (radians), by position.
+
+        A Gaia source_id resolves to a name through Gaia's own crossmatch to Hipparcos --
+        and that crossmatch omits almost exactly the stars that *have* names. Measured on
+        the bundled index: **46 of the 49 named stars cannot be reached from a Gaia id**,
+        Vega, Sirius, Betelgeuse, Polaris and Arcturus among them, because Gaia struggles
+        with the brightest stars and the named ones are the brightest there are.
+
+        So the last resort is the sky itself. Named stars are few and far apart, and their
+        Hipparcos positions come from the catalogue already bundled for the bright fill, so
+        this is a brute-force match against about fifty candidates propagated to the
+        observation epoch. Returns a list of names or None, one per input position.
+        """
+        out = [None] * len(np.atleast_1d(ra))
+        named = self.named_stars()
+        if not named:
+            return out
+        positions = self._named_positions(epoch)
+        if positions is None:
+            return out
+        hip_ids, cat_ra, cat_dec = positions
+        by_hip = dict(named)
+        ra = np.atleast_1d(np.asarray(ra, dtype=float))
+        dec = np.atleast_1d(np.asarray(dec, dtype=float))
+        limit = np.radians(radius_arcsec / 3600.0)
+        for i, (star_ra, star_dec) in enumerate(zip(ra, dec)):
+            if not (np.isfinite(star_ra) and np.isfinite(star_dec)):
+                continue
+            # small-angle separation is ample at ten arcseconds
+            dra = (cat_ra - star_ra) * np.cos(star_dec)
+            sep = np.hypot((dra + np.pi) % (2 * np.pi) - np.pi, cat_dec - star_dec)
+            nearest = int(np.argmin(sep))
+            if sep[nearest] <= limit:
+                out[i] = by_hip.get(int(hip_ids[nearest]))
+        return out
+
+    def _named_positions(self, epoch):
+        """(hip, ra, dec) for the named stars, propagated to ``epoch``. Cached per epoch."""
+        cache = getattr(self, '_named_pos_cache', None)
+        if cache is not None and abs(cache[0] - epoch) < 1e-6:
+            return cache[1]
+        try:
+            from mee2024.starcat.providers import HipparcosProvider
+            provider = HipparcosProvider.try_bundled()
+            if provider is None:
+                return None
+            table = provider.lookup((0.0, 360.0), (-90.0, 90.0),
+                                    max_magnitude=99.0, epoch=epoch)
+        except Exception:
+            return None
+        wanted = np.array([hip for hip, _ in self.named_stars()], dtype=np.int64)
+        keep = np.isin(np.asarray(table.ids, dtype=np.int64), wanted)
+        if not keep.any():
+            return None
+        chosen = table.select(keep)
+        result = (np.asarray(chosen.ids, dtype=np.int64),
+                  np.asarray(chosen.get_ra(), dtype=float),
+                  np.asarray(chosen.get_dec(), dtype=float))
+        self._named_pos_cache = (float(epoch), result)
+        return result
 
     def label_for(self, ids, origin=ORIGIN_GAIA, prefer_hip=True):
         """The best available human-readable label for each star.
