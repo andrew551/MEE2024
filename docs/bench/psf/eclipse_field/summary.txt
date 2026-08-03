@@ -1,0 +1,14 @@
+frame                : tests/data/fits/example_with_darks/070424_040415\040407_070424_0000.fits
+shape                : (5644, 8288)
+detections           : 388
+usable stars         : 375   excluded {'saturated': 8, 'crowded': 2, 'failed': 0, 'edge': 3}
+median FWHM          : 2.97 px = 3.42"
+FWHM scatter (robust): 0.17 px
+median ellipticity   : 0.094
+sampling             : adequately sampled (FWHM >= 2 px): windowed centroid ~ fits
+
+constant vs varying PSF (rms residual of each model):
+  FWHM (px) : constant 0.1935  linear 0.1781  quadratic 0.1747   (quadratic explains 10% of the constant-model scatter)
+  e1        : constant 0.0779  linear 0.0755  quadratic 0.0735   (quadratic explains 6% of the constant-model scatter)
+  e2        : constant 0.0779  linear 0.0779  quadratic 0.0724   (quadratic explains 7% of the constant-model scatter)
+stacked profile      : 40 stars; Moffat beta 2.77 (4.77 = pure seeing; lower = optics wings), FWHM 2.54 px; Gaussian-fit FWHM 2.97 px

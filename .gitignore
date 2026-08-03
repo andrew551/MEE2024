@@ -53,3 +53,5 @@ TripleTrianglePlatesolveDatabase3/TripleTriangle_pattern_data3.npz
 # exploratory figure output; regenerate with tools/hotpixel_explore.py
 docs/bench/hotpix/*.png
 docs/bench/hotpix/*.npz
+docs/bench/psf/*/*.png
+docs/bench/psf/*/stars.json

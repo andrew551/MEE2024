@@ -1,0 +1,14 @@
+frame                : tests/data/fits/rasalhague/Rasalhaguemean50.fit
+shape                : (3520, 4656)
+detections           : 1801
+usable stars         : 1664   excluded {'saturated': 2, 'crowded': 81, 'failed': 50, 'edge': 4}
+median FWHM          : 2.41 px = 3.98"
+FWHM scatter (robust): 0.27 px
+median ellipticity   : 0.152
+sampling             : adequately sampled (FWHM >= 2 px): windowed centroid ~ fits
+
+constant vs varying PSF (rms residual of each model):
+  FWHM (px) : constant 0.3640  linear 0.2607  quadratic 0.2043   (quadratic explains 44% of the constant-model scatter)
+  e1        : constant 0.2256  linear 0.2036  quadratic 0.1809   (quadratic explains 20% of the constant-model scatter)
+  e2        : constant 0.2134  linear 0.1941  quadratic 0.1716   (quadratic explains 20% of the constant-model scatter)
+stacked profile      : 40 stars; Moffat beta 2.96 (4.77 = pure seeing; lower = optics wings), FWHM 2.29 px; Gaussian-fit FWHM 2.55 px

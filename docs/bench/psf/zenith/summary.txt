@@ -1,0 +1,14 @@
+frame                : tests/data/fits/00_23_49\Zenith_00001.fits
+shape                : (3008, 3008)
+detections           : 469
+usable stars         : 437   excluded {'saturated': 4, 'crowded': 6, 'failed': 18, 'edge': 4}
+median FWHM          : 1.22 px
+FWHM scatter (robust): 0.06 px
+median ellipticity   : 0.070
+sampling             : UNDERSAMPLED (FWHM < 2 px): pixel-phase bias territory; ePSF is the honest centroider
+
+constant vs varying PSF (rms residual of each model):
+  FWHM (px) : constant 0.0716  linear 0.0715  quadratic 0.0702   (quadratic explains 2% of the constant-model scatter)
+  e1        : constant 0.1853  linear 0.1835  quadratic 0.1822   (quadratic explains 2% of the constant-model scatter)
+  e2        : constant 0.1716  linear 0.1711  quadratic 0.1684   (quadratic explains 2% of the constant-model scatter)
+stacked profile      : 40 stars; Moffat beta 1.62 (4.77 = pure seeing; lower = optics wings), FWHM 0.77 px; Gaussian-fit FWHM 1.37 px

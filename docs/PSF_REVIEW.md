@@ -163,6 +163,40 @@ both cases the saturated-star fit is a separate, likely-worthwhile add-on.
 
 ---
 
+## 6. Measured on our data (deliverable b)
+
+`tools/psf_explore.py`, run on all three bundled datasets; figures and per-star JSON under
+`docs/bench/psf/`. The summary table:
+
+| dataset | FWHM (px) | FWHM (″) | ellipticity | Moffat β | constant PSF? |
+|---|---|---|---|---|---|
+| zenith 2026-07-19 (3008², 14-bit) | **1.22** ± 0.06 | — | 0.070 | (unreliable: undersampled) | **yes** — quadratic explains 2% |
+| Rasalhague 50-stack (3520×4656) | 2.41 ± 0.27 | 3.98 | 0.152 | 2.96 | **no** — quadratic explains 44% of FWHM scatter |
+| eclipse field (5644×8288, 12-bit) | 2.97 ± 0.17 | 3.42 | 0.094 | 2.77 | mostly — quadratic explains 10% |
+
+What the measurements settle:
+
+* **Sampling is not a property of "our data" — it is a property of each setup, and it
+  spans the entire decision table in §4.** The newest dataset (the zenith set, likely the
+  current instrument) sits at **FWHM 1.22 px, severely undersampled**, exactly where plain
+  COM suffers pixel-phase bias and where the ePSF is the honest tool. The other two sit at
+  2.4–3.0 px, where a windowed centroid ≈ a fit. The pipeline must therefore *measure*
+  FWHM per run and warn — it cannot assume a regime. (This is now the strongest argument
+  for deliverable (c)'s sampling metric.)
+* **The wings are real and the profile is Moffat, β ≈ 2.8–3.0** on both well-sampled sets —
+  heavier wings than pure seeing (β 4.77), i.e. the optics contribute, and a Gaussian
+  overestimates FWHM by ~15% here. Centroid-wise the symmetric wings are harmless; for any
+  future PSF *photometry* they are not.
+* **PSF variation across the field is real where it matters least and absent where it
+  would matter most.** The Rasalhague optic shows a textbook tilt+coma signature — FWHM
+  rising from 2.3 to ~3.5 px toward one edge, ellipticity whiskers pointing radially from a
+  decentre — and a quadratic surface captures 44% of the FWHM scatter. The zenith set is
+  uniform to 2%. Since a *static* asymmetry pattern is absorbed by the distortion
+  polynomial (§3), the immediate value of the maps is diagnostic: they tell the observer
+  their focuser is tilted before a night is spent, which is exactly what a UI panel is for.
+* Ellipticity medians of 0.07–0.15 are honest optics-quality numbers, worth showing beside
+  FWHM as the second score-card figure.
+
 ### Sources
 
 - [Anderson & King 2000, PASP 112, 1360 — toward high-precision astrometry with WFPC2 (the ePSF)](https://iopscience.iop.org/article/10.1086/316632)
