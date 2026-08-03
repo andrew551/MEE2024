@@ -165,7 +165,7 @@ a deeper archive can reproduce.
 ## Check before shipping
 
 ```bash
-dist/MEE_2024_v1.2.2.exe --version
+dist/MEE_2024_v1.3.1.exe --version
 ```
 
 **Actually run it.** A broken bundle builds perfectly and dies on the first import —
@@ -173,7 +173,7 @@ PyInstaller 6.12 against numpy 2.5 produced an exe that failed with `No module n
 'numpy._core._exceptions'`, and nothing in the build log hinted at it.
 
 ```bash
-python tools/inspect_exe.py dist/MEE_2024_v1.2.2.exe
+python tools/inspect_exe.py dist/MEE_2024_v1.3.1.exe
 ```
 
 This reads the archive and gates the release on it: the bundled catalogue, the UI frontend,
@@ -183,14 +183,27 @@ proves nothing on a build machine, because that catalogue is installed in its ow
 directory, which is exactly where the runtime looks first.
 
 Then double-click it: the app window opens
-(the default since v1.0.0), and `MEE_2024_v1.2.2.exe gui` still opens the classic
+(the default since v1.0.0), and `MEE_2024_v1.3.1.exe gui` still opens the classic
 interface. Run a small dataset through it and confirm the plate solve succeeds on a machine
 with no catalogue in its data directory — that is the whole point of the bundle.
 
 ## Publish
 
 ```bash
-gh release create v1.2.2 "dist/MEE_2024_v1.2.2.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.2.2" --notes "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still available with: MEE_2024_v1.2.2.exe gui. This build bundles the compact Gaia catalogue (G < 10) and so plate-solves offline immediately -- the standard G < 13 archive downloads on first use. Since v1.2.0: identified stars are labelled over the stacked image, with a slider for how many names to show and a red cross on double stars the fit discarded; the stacked image gained a zoom and a darker stretch; one settings panel instead of simple/advanced modes, with Auto or Custom; every plot now shares the image's orientation and aspect ratio, and the 3-D surfaces are no longer drawn upside down; a magnitude-of-displacement surface joins the x and y ones; the combined dark and flat are saved for reuse."
+gh release create v1.3.1 "dist/MEE_2024_v1.3.1.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.3.1" --notes "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still available with: MEE_2024_v1.3.1.exe gui. This build bundles the compact Gaia catalogue (G < 10) and so plate-solves offline immediately -- the standard G < 13 archive downloads on first use.
+
+New: recursive batch folder processing. Tick \"Batch folders\", pick the folder above a night's captures, and every folder of frames beneath it is processed as its own field, with the results written to a matching folder under the output. A failing field does not abandon the rest, each row reports its rms and star count, and there is a Stop button.
+
+Also since v1.2.0:
+- The stacked image displays inverted by default (dark stars on white), with a zoom and a toggle. Identified stars are labelled over it, with a slider for how many names to show and a red cross on double stars the fit discarded.
+- Bright stars are no longer thrown away. Gaia has no proper motion for 21% of stars brighter than G=4, so their positions could not be brought to the observation epoch and the distortion fit discarded them as outliers; the motion is now borrowed from Hipparcos. Named stars are also labelled properly -- Gaia's crossmatch reaches only 3 of the 49, so names are resolved by position instead.
+- The stacked FITS keeps the input's bit depth and ADU instead of being stretched to fill 16 bits, with a recorded PEDESTAL if dark subtraction drives the background negative.
+- Hot pixels are excluded from the stack rather than subtracted (saturation clips, so a dark cannot remove them), found from the darks or, when there are none, from the dither.
+- Flats are normalised, master darks and flats are saved for reuse, and lights, darks and flats must share a bit depth.
+- One settings panel instead of simple/advanced modes, with Auto or Custom, and a three-way date choice.
+- Every plot now shares the image's orientation and aspect ratio, and the 3-D surfaces are no longer drawn upside down. A magnitude-of-displacement surface joins the x and y ones.
+- Stacking gives up after two frames when the first two cannot be matched, instead of centroiding every frame first.
+- A catalogue bundled in the executable can now actually be opened (it was offered and then failed), and Clear clears the darks and flats too."
 ```
 
 ---
