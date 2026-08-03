@@ -14,7 +14,7 @@ from pathlib import Path
 from platformdirs import user_data_dir, user_config_dir
 
 def _version():
-    return 'v1.3.2'
+    return 'v1.3.3'
 
 
 AUTHORS = 'Andrew Smith and Douglas Smith'
@@ -172,10 +172,18 @@ def date_from_float(x):
 
 def get_bbox(corners):
     def one_dim(q):
-        t = (np.min(q), np.max(q))
-        if t[1] - t[0] > 180:
-            t = (t[1], t[0])
-        return t
+        lo, hi = np.min(q), np.max(q)
+        if hi - lo <= 180:
+            return (lo, hi)
+        # The range wraps through 0/360. Swapping min and max only describes the arc
+        # between the two values nearest the wrap, which silently drops any corner
+        # further along -- a field centred at RA 1.7 spans 359.8..3.6, not 359.8..0.2,
+        # and verifying against the sliver starves the plate solve of catalogue stars.
+        # The true extent is the complement of the largest gap between sorted values.
+        ordered = np.sort(np.asarray(q, dtype=float))
+        gaps = np.diff(np.concatenate([ordered, [ordered[0] + 360.0]]))
+        widest = int(np.argmax(gaps))
+        return (ordered[(widest + 1) % len(ordered)], ordered[widest])
     return one_dim(corners[:, 1]), one_dim(corners[:, 0])
 
 '''

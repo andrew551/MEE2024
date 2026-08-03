@@ -36,6 +36,20 @@ def test_get_bbox_wraps_across_ra_zero():
     assert ra_range == (359.0, 1.0)
 
 
+def test_get_bbox_wrap_keeps_corners_away_from_zero():
+    """Regression: the zwo3 Zenith-Center2 field, centred at RA 1.7.
+
+    The old min/max swap returned (359.82, 0.166) -- the sliver between the two
+    corners nearest the wrap -- silently dropping the corners at RA 3.1 and 3.6.
+    Verification then fetched ~51 catalogue stars instead of ~1000 and the plate
+    solve rejected its own correct solution (6 matched against a threshold of 11).
+    """
+    corners = np.array([[45.6, 3.595], [44.2, 359.820], [46.0, 0.166], [43.8, 3.146]])
+    ra_range, dec_range = MEE2024util.get_bbox(corners)
+    assert ra_range == (359.820, 3.595)
+    assert dec_range == (43.8, 46.0)
+
+
 def test_output_path_uses_output_dir_when_set(tmp_path):
     options = {'output_dir': str(tmp_path)}
     result = MEE2024util.output_path('/somewhere/else/thing.fit', options)
