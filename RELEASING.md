@@ -190,7 +190,15 @@ with no catalogue in its data directory — that is the whole point of the bundl
 ## Publish
 
 ```bash
-gh release create v1.3.1 "dist/MEE_2024_v1.3.1.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.3.1" --notes "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still available with: MEE_2024_v1.3.1.exe gui. This build bundles the compact Gaia catalogue (G < 10) and so plate-solves offline immediately -- the standard G < 13 archive downloads on first use.
+gh release create v1.3.1 "dist/MEE_2024_v1.3.1.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.3.1" --notes "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still there with: MEE_2024_v1.3.1.exe gui.
+
+The headline changes since v1.0.1:
+
+- **A rebuilt plate solver**, on by default. Solves blind from 1 to 18 degrees at about a second a field, poles included, from the Gaia catalogue rather than Tycho.
+- **Works offline out of the box.** The compact Gaia catalogue is bundled in the executable, the standard G < 13 archive downloads on first use, and the plate-solving database builds itself.
+- **Batch folder processing.** Point it at a night of captures and every folder of frames is processed as its own field, with results mirrored into the output. One bad field does not stop the rest.
+- **The stacked FITS keeps its numbers.** Input bit depth and ADU are preserved instead of being stretched to fill 16 bits; hot pixels are excluded rather than subtracted; and bright stars are no longer discarded just because Gaia has no proper motion for them.
+- **A rebuilt interface**: one settings panel, native file dialogs, named stars labelled over the stacked image, and distortion views that finally share the image's orientation."
 
 New: recursive batch folder processing. Tick \"Batch folders\", pick the folder above a night's captures, and every folder of frames beneath it is processed as its own field, with the results written to a matching folder under the output. A failing field does not abandon the rest, each row reports its rms and star count, and there is a Stop button.
 
