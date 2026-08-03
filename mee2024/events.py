@@ -44,12 +44,13 @@ STARS = 'stars'                      # identified stars over the stacked preview
 BATCH_STARTED = 'batch_started'      # n_fields, root
 BATCH_FIELD = 'batch_field'          # index, of, name, n_frames, status, error
 BATCH_FINISHED = 'batch_finished'    # n_done, n_failed, n_fields
+PSF = 'psf'                          # summary, radial, moffat, stars (columns), image_size
 LOG = 'log'                          # level, text
 ERROR = 'error'                      # text, traceback
 
 ALL_TYPES = (STAGE_STARTED, STAGE_FINISHED, PROGRESS, FRAME_ALIGNED, CENTROIDS_FOUND,
              SOLVE_CANDIDATE, SOLVE_RESULT, METRICS, IMAGE, ANALYSIS, STARS,
-             BATCH_STARTED, BATCH_FIELD, BATCH_FINISHED, LOG, ERROR)
+             BATCH_STARTED, BATCH_FIELD, BATCH_FINISHED, PSF, LOG, ERROR)
 
 
 # --------------------------------------------------------------------- sinks

@@ -28,23 +28,19 @@ SATURATION_FRACTION = 0.9
 # ---------------------------------------------------------------------- cutouts
 
 def full_scale_of(image):
-    """The detector's full-scale value, inferred from the data.
+    """The clipping level of the frame, or None when nothing in it clips.
 
-    The stored maximum is the full scale only if something actually clips there; a frame
-    with headroom would understate it. Take the max when several pixels share it (clipping
-    plateau), else the next power-of-two-ish ADC ceiling above the max.
+    Saturation is only *detectable* as a plateau: several pixels sharing the frame's top
+    value. Guessing an ADC ceiling instead was tried and misfires — a frame whose
+    brightest star merely comes near a plausible ceiling gets its best stars flagged as
+    saturated, which is exactly backwards.
     """
     peak = float(np.max(image))
     if peak <= 0:
-        return 1.0
-    if int(np.sum(image >= peak * 0.999)) >= 4:      # a plateau: genuine clipping
+        return None
+    if int(np.sum(np.asarray(image) >= peak * 0.999)) >= 4:
         return peak
-    for bits in (8, 10, 12, 14, 16):
-        ceiling = float(2 ** bits - 1)
-        for scale in (1.0, 4.0, 16.0, 64.0):          # 12-bit data is often stored <<4
-            if peak <= ceiling * scale:
-                return ceiling * scale
-    return peak
+    return None
 
 
 def extract_cutouts(image, positions, cut=CUT, isolation_px=None):
@@ -57,7 +53,8 @@ def extract_cutouts(image, positions, cut=CUT, isolation_px=None):
     image = np.asarray(image, dtype=np.float64)
     height, width = image.shape
     isolation = isolation_px if isolation_px is not None else 1.5 * cut
-    saturation = SATURATION_FRACTION * full_scale_of(image)
+    full_scale = full_scale_of(image)
+    saturation = SATURATION_FRACTION * full_scale if full_scale else np.inf
 
     rounded = np.round(np.asarray(positions, dtype=float)).astype(int)
     out = []
@@ -261,20 +258,124 @@ def fit_radial_moffat(radii, values):
     return float(np.exp(log_i0)), float(alpha), float(beta), float(fwhm)
 
 
+# -------------------------------------------------- the stacked high-SNR profile
+
+def stacked_profile(image, stars, cut=CUT, top_n=40):
+    """A high-SNR mean PSF from the brightest clean stars, recentred to subpixel accuracy.
+
+    Shifting by the *fitted* centres before averaging is what makes the wings believable:
+    averaging integer-aligned cutouts convolves the profile with the centroid scatter.
+    Returns (profile, n_used); profile is None when too few clean bright stars exist.
+    """
+    from scipy.ndimage import shift as subpixel_shift
+
+    bright = [s for s in stars if s.get('fit_rms') is not None]
+    bright.sort(key=lambda s: -s['flux'])
+    chosen = bright[:top_n]
+    if len(chosen) < 5:
+        return None, 0
+    image = np.asarray(image)
+    size = 2 * cut + 1
+    accumulated = np.zeros((size, size))
+    used = 0
+    for star in chosen:
+        row, col = int(round(star['y'])), int(round(star['x']))
+        if not (cut <= row < image.shape[0] - cut and cut <= col < image.shape[1] - cut):
+            continue
+        cutout = np.asarray(
+            image[row - cut:row + cut + 1, col - cut:col + cut + 1], dtype=float)
+        ring = np.concatenate([cutout[0, :], cutout[-1, :], cutout[1:-1, 0],
+                               cutout[1:-1, -1]])
+        cutout = cutout - np.median(ring)
+        total = cutout.sum()
+        if total <= 0:
+            continue
+        recentred = subpixel_shift(cutout / total,
+                                   ((row - star['y']), (col - star['x'])), order=3)
+        accumulated += recentred
+        used += 1
+    return (accumulated / used if used else None), used
+
+
+def radial_of(profile):
+    """(radii, values) of a square profile about its centre, sorted by radius."""
+    centre = (profile.shape[0] - 1) / 2
+    ys, xs = np.indices(profile.shape)
+    radii = np.hypot(ys - centre, xs - centre).ravel()
+    values = profile.ravel()
+    order = np.argsort(radii)
+    return radii[order], values[order]
+
+
+def event_payload(image, positions, platescale_arcsec=None, fit_top_n=80):
+    """Everything the UI's PSF panel draws, as plain JSON-able columns.
+
+    Per-star columns (position, FWHM, ellipticity components) let the frontend draw the
+    field map and whiskers at any binning without another run; the binned radial profile
+    plus the Moffat and Gaussian parameters draw the wings plot. Kept deliberately cheap:
+    moments for every star, fits only for the brightest ``fit_top_n`` (which also feed the
+    stacked profile). Returns None when there is nothing worth showing.
+    """
+    stars, summary = measure_field(image, positions,
+                                   platescale_arcsec=platescale_arcsec,
+                                   fit_top_n=fit_top_n)
+    if not stars or summary['n_stars'] < 5:
+        return None
+    profile, n_stacked = stacked_profile(image, stars)
+    moffat = None
+    radial = None
+    if profile is not None:
+        radii, values = radial_of(profile)
+        fit = fit_radial_moffat(radii, values)
+        if fit:
+            i0, alpha, beta, fwhm_moffat = fit
+            moffat = {'alpha': alpha, 'beta': beta, 'fwhm': fwhm_moffat}
+            summary['moffat_beta'] = beta
+        # binned to ~80 points: the scatter cloud is the tool's job, not the UI's
+        bins = np.linspace(0, radii.max(), 81)
+        which = np.digitize(radii, bins)
+        radial = {'r': [], 'value': []}
+        for b in range(1, len(bins)):
+            sel = which == b
+            if sel.any():
+                radial['r'].append(float(radii[sel].mean()))
+                radial['value'].append(float(np.median(values[sel])))
+
+    def col(name):
+        return [round(float(s[name]), 4) for s in stars]
+
+    return {
+        'summary': summary,
+        'n_stacked': n_stacked,
+        'radial': radial,
+        'moffat': moffat,
+        'stars': {'x': col('x'), 'y': col('y'), 'fwhm': col('fwhm'),
+                  'e1': col('e1'), 'e2': col('e2')},
+        'image_size': [int(image.shape[0]), int(image.shape[1])],
+    }
+
+
 # ---------------------------------------------------------- the survey of a frame
 
-def measure_field(image, positions, platescale_arcsec=None, max_stars=2000):
+def measure_field(image, positions, platescale_arcsec=None, max_stars=2000,
+                  fit_top_n=None):
     """PSF measurements for every usable star on a frame.
 
     Returns (stars, summary): per-star dicts with position, flux, SNR, moments shape and
     Gaussian-fit shape; and a summary with the constant-PSF numbers the UI shows — median
     FWHM (px and arcsec), median ellipticity, the sampling verdict, and counts of what was
-    excluded and why. This is the cheap subset safe to run inside stage 1.
+    excluded and why.
+
+    ``fit_top_n`` bounds the least-squares fits to the N brightest stars, with windowed
+    moments (a few ms each) covering the rest: a dense field can hold 1500+ usable stars,
+    and 1500 fits is tens of seconds a live run should not pay when moments agree with the
+    fits to a few percent. The exploration tool fits everything; stage 1 passes a cap.
     """
     cutouts = extract_cutouts(image, positions)
     stars = []
     excluded = {'saturated': 0, 'crowded': 0, 'failed': 0, 'edge':
                 len(positions) - len(cutouts)}
+    usable = []
     for cutout in cutouts[:max_stars]:
         if cutout['saturated']:
             excluded['saturated'] += 1
@@ -282,6 +383,12 @@ def measure_field(image, positions, platescale_arcsec=None, max_stars=2000):
         if not cutout['isolated']:
             excluded['crowded'] += 1
             continue
+        usable.append(cutout)
+    fit_worthy = set()
+    if fit_top_n is not None:
+        by_flux = sorted(range(len(usable)), key=lambda i: -usable[i]['flux'])
+        fit_worthy = set(by_flux[:fit_top_n])
+    for rank, cutout in enumerate(usable):
         moments = windowed_moments(cutout['data'])
         if moments is None:
             excluded['failed'] += 1
@@ -292,7 +399,8 @@ def measure_field(image, positions, platescale_arcsec=None, max_stars=2000):
             excluded['failed'] += 1
             continue
         fwhm_m, ell_m, angle_m, e1, e2 = shape
-        fit = fit_gaussian(cutout['data'], noise=cutout['noise'])
+        fit = (fit_gaussian(cutout['data'], noise=cutout['noise'])
+               if fit_top_n is None or rank in fit_worthy else None)
         row0, col0 = cutout['origin']
         stars.append({
             'y': row0 + (fit['cy'] if fit else cy),
@@ -310,12 +418,20 @@ def measure_field(image, positions, platescale_arcsec=None, max_stars=2000):
     summary = {'n_stars': len(stars), 'excluded': excluded,
                'platescale_arcsec': platescale_arcsec}
     if stars:
-        fwhms = np.array([s['fwhm'] for s in stars])
-        ells = np.array([s['ellipticity'] for s in stars])
+        # Summary numbers come from the *fitted* stars when enough exist: windowed
+        # moments run ~15% wide on Moffat wings, so a median over a fit/moments mixture
+        # would depend on where the fit cap happened to fall — measured as 2.93 px
+        # against 2.41 px on the same frame. The fitted subset is the brightest stars,
+        # which are also the best-measured ones.
+        fitted = [s for s in stars if s['fit_rms'] is not None]
+        basis = fitted if len(fitted) >= 20 else stars
+        fwhms = np.array([s['fwhm'] for s in basis])
+        ells = np.array([s['ellipticity'] for s in basis])
         summary['fwhm_px'] = float(np.median(fwhms))
         summary['fwhm_px_scatter'] = 1.4826 * float(
             np.median(np.abs(fwhms - np.median(fwhms))))
         summary['ellipticity'] = float(np.median(ells))
+        summary['n_fitted'] = len(fitted)
         if platescale_arcsec:
             summary['fwhm_arcsec'] = summary['fwhm_px'] * platescale_arcsec
         # the number that decides which centroiding algorithm is honest (PSF_REVIEW.md §4)

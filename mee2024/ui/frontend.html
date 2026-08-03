@@ -572,6 +572,37 @@ under a chosen folder, mirroring its layout into the output">
           <div class="tip" id="analysis-tip"></div>
         </div>
 
+        <div class="card" id="psf-card" style="display:none;margin-top:16px">
+          <div class="row">
+            <h3 style="margin:0">Point spread function</h3>
+            <div class="spacer"></div>
+            <button class="btn" id="psf-toggle">Show</button>
+          </div>
+          <p class="faint" id="psf-hint" style="margin:0;max-width:70ch">
+            The shape of a star on the detector: how sharp, how round, and whether one
+            answer holds across the whole field. For judging the optics and the night
+            rather than the analysis.
+          </p>
+          <div id="psf-body" style="display:none">
+            <div class="faint" id="psf-numbers" style="margin:4px 0 10px"></div>
+            <canvas class="plot" id="psf-profile-canvas" height="300"></canvas>
+            <div class="faint" style="margin-top:6px;max-width:74ch">
+              The average star, brightest-first, on a logarithmic scale. Ground-based star
+              images carry wings a Gaussian lacks; the Moffat curve models them, and its
+              &beta; says whose wings they are (&asymp;4.8 is pure atmosphere, lower means
+              the optics contribute).
+            </div>
+            <canvas class="plot" id="psf-map-canvas" height="360" style="margin-top:14px">
+            </canvas>
+            <div class="faint" style="margin-top:6px;max-width:74ch">
+              Star size across the field, with sticks showing the direction stars are
+              stretched. Uniform colour and short sticks mean one PSF describes the whole
+              frame; size growing toward a corner is focal-plane tilt, sticks pointing at
+              a common centre is coma from decentred optics.
+            </div>
+          </div>
+        </div>
+
         <div class="card" id="details-card" style="display:none;margin-top:16px">
           <h3>Solution</h3>
           <dl class="kv" id="details"></dl>
@@ -627,7 +658,7 @@ const state = {
   since:0, status:'idle', stages:new Map(), metrics:{}, solve:null, advanced:false,
   tab:'run', watch:null, watchFolder:null, keepPolling:false, settingsOpen:true,
   analysis:null, analysisOpen:false, analysisView:'dx', catalogueLimits:{},
-  stars:null, previewImage:null,
+  stars:null, previewImage:null, psf:null, psfOpen:false,
   batchMode:false, batchFolder:null, batchFields:[], batchStatus:new Map(),
 };
 
@@ -953,6 +984,28 @@ function renderScores(){
   if(m.stack && m.stack.n_centroids !== undefined){
     host.appendChild(scoreCard('Centroids', m.stack.n_centroids.toLocaleString(), '',
       `measured on a stack of ${m.stack.n_frames} frames`));
+  }
+  // The two PSF numbers worth a card. FWHM is the seeing figure every observer knows;
+  // the grade is about *sampling*, because under 2 px per FWHM the centroids carry
+  // pixel-phase bias no averaging removes (docs/PSF_REVIEW.md §4). Ellipticity is the
+  // focus/tracking diagnostic: round stars are the sign everything upstream was right.
+  if(m.stack && m.stack.fwhm_px !== undefined && m.stack.fwhm_px !== null){
+    const arcsec = m.stack.fwhm_arcsec;
+    const shown = arcsec ? arcsec.toFixed(2) : m.stack.fwhm_px.toFixed(2);
+    const unit = arcsec ? '″' : 'px';
+    const caption = m.stack.undersampled
+      ? `only ${m.stack.fwhm_px.toFixed(1)} px per star: undersampled, centroid accuracy limited`
+      : `${m.stack.fwhm_px.toFixed(1)} px per star — adequately sampled`;
+    host.appendChild(scoreCard('Star size (FWHM)', shown, unit, caption,
+      m.stack.undersampled ? 'g-warn' : 'g-ok'));
+  }
+  if(m.stack && m.stack.psf_ellipticity !== undefined && m.stack.psf_ellipticity !== null){
+    const e = m.stack.psf_ellipticity;
+    host.appendChild(scoreCard('Star roundness', (1 - e).toFixed(2), '',
+      e < 0.1 ? 'stars are round: focus and tracking look good'
+      : e < 0.25 ? 'slightly elongated stars — focus, tracking or optics'
+      : 'strongly elongated stars: check focus and tracking',
+      e < 0.1 ? 'g-ok' : e < 0.25 ? 'g-warn' : 'g-bad'));
   }
   const d = m.distortion;
   if(d){
@@ -1342,6 +1395,140 @@ function drawCorrelation(){
   legend.style.color = thin ? 'var(--warn)' : '';
 }
 
+/* ------------------------------------------------------ the point spread function */
+function drawPsf(){
+  const p = state.psf;
+  if(!p) return;
+  const s = p.summary || {};
+  const bits = [];
+  if(s.fwhm_px) bits.push(`median FWHM ${s.fwhm_px.toFixed(2)} px`
+    + (s.fwhm_arcsec ? ` = ${s.fwhm_arcsec.toFixed(2)}″` : ''));
+  if(s.ellipticity !== undefined) bits.push(`ellipticity ${s.ellipticity.toFixed(3)}`);
+  if(p.moffat) bits.push(`Moffat β ${p.moffat.beta.toFixed(2)}`);
+  bits.push(`${s.n_stars} stars` + (p.n_stacked ? `, profile from ${p.n_stacked}` : ''));
+  if(s.undersampled) bits.push('UNDERSAMPLED (FWHM < 2 px)');
+  $('psf-numbers').textContent = bits.join('  ·  ');
+  drawPsfProfile();
+  drawPsfMap();
+}
+
+function drawPsfProfile(){
+  const p = state.psf, canvas = $('psf-profile-canvas');
+  if(!p || !p.radial || !canvas.clientWidth) return;
+  const {ctx, w, h} = fitCanvas(canvas);
+  const rs = p.radial.r, vs = p.radial.value;
+  const peak = Math.max(...vs.filter(v => v > 0));
+  const floor = Math.max(peak * 1e-5, 1e-12);
+  const pad = {l:46, r:12, t:12, b:30};
+  const rMax = Math.max(...rs);
+  const X = r => pad.l + (r / rMax) * (w - pad.l - pad.r);
+  const Y = v => {
+    const clamped = Math.max(v, floor);
+    return pad.t + (Math.log10(peak / clamped) / Math.log10(peak / floor))
+                 * (h - pad.t - pad.b);
+  };
+  // decade gridlines, because the whole point of this plot is the log scale
+  ctx.strokeStyle = '#1c2334'; ctx.fillStyle = '#66708a';
+  ctx.font = '10px ui-monospace, monospace'; ctx.lineWidth = 1;
+  for(let decade = 0; decade <= Math.log10(peak / floor); decade++){
+    const y = Y(peak / Math.pow(10, decade));
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillText(decade === 0 ? 'peak' : `10⁻${decade}`, 4, y + 3);
+  }
+  ctx.fillText('radius (px)', w / 2 - 24, h - 6);
+  for(let r = 0; r <= rMax; r += 2){
+    ctx.fillText(String(r), X(r) - 3, h - 16);
+  }
+  // measured profile
+  ctx.fillStyle = '#6dc4ff';
+  for(let i = 0; i < rs.length; i++){
+    if(vs[i] > 0) { ctx.beginPath(); ctx.arc(X(rs[i]), Y(vs[i]), 2, 0, 6.2832); ctx.fill(); }
+  }
+  // the Gaussian with the measured core: where it dives under the points, wings are real
+  if(p.summary && p.summary.fwhm_px){
+    const sigma = p.summary.fwhm_px / 2.3548;
+    ctx.strokeStyle = '#6acc65'; ctx.setLineDash([5, 4]); ctx.beginPath();
+    for(let i = 0; i <= 200; i++){
+      const r = rMax * i / 200, v = peak * Math.exp(-r * r / (2 * sigma * sigma));
+      i === 0 ? ctx.moveTo(X(r), Y(v)) : ctx.lineTo(X(r), Y(v));
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  if(p.moffat){
+    ctx.strokeStyle = '#f7b955'; ctx.beginPath();
+    for(let i = 0; i <= 200; i++){
+      const r = rMax * i / 200;
+      const v = peak * Math.pow(1 + (r / p.moffat.alpha) ** 2, -p.moffat.beta);
+      i === 0 ? ctx.moveTo(X(r), Y(v)) : ctx.lineTo(X(r), Y(v));
+    }
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#6acc65'; ctx.fillText('- - Gaussian', w - 150, pad.t + 12);
+  ctx.fillStyle = '#f7b955';
+  ctx.fillText('— Moffat' + (p.moffat ? ` β=${p.moffat.beta.toFixed(1)}` : ''),
+               w - 150, pad.t + 26);
+}
+
+function drawPsfMap(){
+  const p = state.psf, canvas = $('psf-map-canvas');
+  if(!p || !p.stars || !canvas.clientWidth) return;
+  const {ctx, w, h} = fitCanvas(canvas);
+  const [H, W] = p.image_size;
+  const scale = Math.min((w - 70) / W, (h - 20) / H);
+  const ox = 10, oy = 10;
+  const st = p.stars;
+  const fwhms = st.fwhm.slice().sort((a, b) => a - b);
+  const median = fwhms[fwhms.length >> 1];
+  const lo = fwhms[Math.floor(fwhms.length * 0.05)];
+  const hi = fwhms[Math.floor(fwhms.length * 0.95)];
+  const span = Math.max(hi - lo, 1e-6);
+  // frame outline, image orientation (top-left origin, like every other view)
+  ctx.strokeStyle = '#242c3d'; ctx.strokeRect(ox, oy, W * scale, H * scale);
+  for(let i = 0; i < st.x.length; i++){
+    // blue = sharper than the median, red = softer: a *diverging* ramp because the
+    // question is departure from one PSF, not absolute size
+    ctx.fillStyle = diverging(2 * (st.fwhm[i] - median) / span);
+    ctx.beginPath();
+    ctx.arc(ox + st.x[i] * scale, oy + st.y[i] * scale, 2.2, 0, 6.2832);
+    ctx.fill();
+  }
+  // ellipticity whiskers from binned medians of (e1, e2)
+  const nbin = 6;
+  ctx.strokeStyle = '#e6e9f0'; ctx.lineWidth = 1.6;
+  for(let j = 0; j < nbin; j++){
+    for(let i = 0; i < nbin; i++){
+      const members = [];
+      for(let k = 0; k < st.x.length; k++){
+        if(Math.floor(st.y[k] / H * nbin) === j && Math.floor(st.x[k] / W * nbin) === i)
+          members.push(k);
+      }
+      if(members.length < 3) continue;
+      const med = arr => { const v = members.map(k => arr[k]).sort((a, b) => a - b);
+                           return v[v.length >> 1]; };
+      const e1 = med(st.e1), e2 = med(st.e2);
+      const strength = Math.hypot(e1, e2);
+      const angle = 0.5 * Math.atan2(e2, e1);
+      const cx = ox + (i + 0.5) * W / nbin * scale;
+      const cy = oy + (j + 0.5) * H / nbin * scale;
+      const len = strength * (W / nbin) * scale * 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - len * Math.cos(angle), cy - len * Math.sin(angle));
+      ctx.lineTo(cx + len * Math.cos(angle), cy + len * Math.sin(angle));
+      ctx.stroke();
+    }
+  }
+  // the ramp legend
+  const bx = ox + W * scale + 16, bh = Math.min(H * scale, 180), by = oy;
+  for(let k = 0; k < bh; k++){
+    ctx.fillStyle = diverging(1 - 2 * k / bh);
+    ctx.fillRect(bx, by + k, 12, 1);
+  }
+  ctx.fillStyle = '#66708a'; ctx.font = '10px ui-monospace, monospace';
+  ctx.fillText(hi.toFixed(1), bx + 16, by + 8);
+  ctx.fillText(median.toFixed(1) + ' px', bx + 16, by + bh / 2 + 3);
+  ctx.fillText(lo.toFixed(1), bx + 16, by + bh);
+}
+
 function drawAnalysis(){
   if(!state.analysis) return;
   const corr = state.analysisView === 'corr';
@@ -1397,6 +1584,13 @@ function setupAnalysis(){
   });
   cc.addEventListener('mouseleave', () => { tip.style.display='none'; });
 
+  $('psf-toggle').onclick = () => {
+    state.psfOpen = !state.psfOpen;
+    $('psf-body').style.display = state.psfOpen ? '' : 'none';
+    $('psf-hint').style.display = state.psfOpen ? 'none' : '';
+    $('psf-toggle').textContent = state.psfOpen ? 'Hide' : 'Show';
+    if(state.psfOpen) drawPsf();
+  };
   $('analysis-toggle').onclick = () => {
     state.analysisOpen = !state.analysisOpen;
     $('analysis-body').style.display = state.analysisOpen ? '' : 'none';
@@ -1630,6 +1824,11 @@ function handleEvent(e){
       state.stars = e;
       if(state.previewImage && state.previewImage.complete) drawPreview();
       break;
+    case 'psf':
+      state.psf = e;
+      $('psf-card').style.display = '';
+      if(state.psfOpen) drawPsf();
+      break;
     case 'analysis':
       state.analysis = e;
       state.analysis.nn = null;   // computed on first use, then cached
@@ -1726,6 +1925,7 @@ function resetRunView(keepBatch){
   $('field-card').style.display='none'; $('analysis-card').style.display='none';
   $('label-controls').style.display='none'; $('labels-legend').textContent='';
   $('zoom').value = 100;
+  state.psf=null; $('psf-card').style.display='none';
   $('open-out').style.display='none';
   // a batch clears these between fields, but its own field list must survive that
   if(!keepBatch){ state.batchStatus.clear(); $('batch-card').style.display='none'; }

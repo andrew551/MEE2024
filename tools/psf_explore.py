@@ -35,6 +35,9 @@ from mee2024.stacker_implementation import (                # noqa: E402
     get_centroids_blur, open_image)
 
 
+from mee2024.psf import radial_of as radial, stacked_profile   # noqa: E402
+
+
 def detect(image, options):
     blank = np.zeros(image.shape, dtype=bool)
     found = get_centroids_blur((image, blank, blank), options=options)
@@ -63,51 +66,6 @@ def polynomial_maps(stars, shape, quantity):
         coeff, *_ = np.linalg.lstsq(design, values, rcond=None)
         out[name] = float(np.sqrt(np.mean((values - design @ coeff) ** 2)))
     return out
-
-
-def stacked_profile(image, stars, cut=psf.CUT):
-    """A high-SNR mean PSF from the brightest clean stars, recentred to subpixel accuracy.
-
-    Shifting by the *fitted* centres before averaging is what makes the wings believable:
-    averaging integer-aligned cutouts convolves the profile with the centroid scatter.
-    """
-    from scipy.ndimage import shift as subpixel_shift
-
-    bright = [s for s in stars if s.get('fit_rms') is not None]
-    bright.sort(key=lambda s: -s['flux'])
-    chosen = bright[:40]
-    if len(chosen) < 5:
-        return None, 0
-    size = 2 * cut + 1
-    accumulated = np.zeros((size, size))
-    used = 0
-    for star in chosen:
-        row, col = int(round(star['y'])), int(round(star['x']))
-        if not (cut <= row < image.shape[0] - cut and cut <= col < image.shape[1] - cut):
-            continue
-        cutout = np.asarray(
-            image[row - cut:row + cut + 1, col - cut:col + cut + 1], dtype=float)
-        ring = np.concatenate([cutout[0, :], cutout[-1, :], cutout[1:-1, 0],
-                               cutout[1:-1, -1]])
-        cutout = cutout - np.median(ring)
-        total = cutout.sum()
-        if total <= 0:
-            continue
-        offset = (cut - (star['y'] - row) - cut, cut - (star['x'] - col) - cut)
-        recentred = subpixel_shift(cutout / total,
-                                   ((row - star['y']), (col - star['x'])), order=3)
-        accumulated += recentred
-        used += 1
-    return (accumulated / used if used else None), used
-
-
-def radial(profile):
-    centre = (profile.shape[0] - 1) / 2
-    ys, xs = np.indices(profile.shape)
-    radii = np.hypot(ys - centre, xs - centre).ravel()
-    values = profile.ravel()
-    order = np.argsort(radii)
-    return radii[order], values[order]
 
 
 def main():

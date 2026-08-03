@@ -1074,12 +1074,37 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
         results_dict.update({'sigma threshold detection':options['centroid_gaussian_thresh'], 'min_area':options['min_area'], 'sigma_subtract':options['sigma_subtract']})
     with open(data_dir / 'results.txt', 'w', encoding="utf-8") as fp:
             json.dump(results_dict, fp, sort_keys=False, indent=4)
+    # The PSF of the stacked image, for the UI: median FWHM (the seeing number), the
+    # sampling verdict that decides which centroiding algorithm is honest, ellipticity as
+    # the optics/tracking diagnostic, and the columns behind the panel's maps. Measured on
+    # every run because sampling is a property of the setup, not of the software: the three
+    # bundled datasets span FWHM 1.2 to 3.0 px (docs/PSF_REVIEW.md §6). Never fatal.
+    psf_metrics = {}
+    try:
+        from mee2024 import psf as psf_module
+        psf_payload = psf_module.event_payload(
+            stacked, centroids_stacked, platescale_arcsec=solution['platescale/arcsec'])
+        if psf_payload:
+            events.emit(events.PSF, **psf_payload)
+            psf_summary = psf_payload['summary']
+            psf_metrics = {'fwhm_px': psf_summary.get('fwhm_px'),
+                           'fwhm_arcsec': psf_summary.get('fwhm_arcsec'),
+                           'psf_ellipticity': psf_summary.get('ellipticity'),
+                           'undersampled': psf_summary.get('undersampled')}
+            if psf_summary.get('undersampled'):
+                events.log(
+                    f'the star images are undersampled (FWHM '
+                    f'{psf_summary["fwhm_px"]:.1f} px, under 2): centroid positions '
+                    f'carry pixel-phase bias no averaging can remove', level='warning')
+    except Exception as exc:
+        events.log(f'PSF measurement skipped: {exc}', level='warning')
+
     events.emit(events.METRICS, stage='stack', n_centroids=int(centroids_stacked.shape[0]),
                 n_frames=len(files), platesolved=bool(flag_found_IDs),
                 ra=solution['ra'], dec=solution['dec'], roll=solution['roll'],
                 platescale=solution['platescale/arcsec'],
                 stack_rms_px=[None if r is None else float(r) for r in rms_errors],
-                **pointing_metrics)
+                **psf_metrics, **pointing_metrics)
     
     print('making archive', output_dir, Path(output_dir).parent)
     shutil.make_archive(data_dir, 'zip', Path(data_dir))
