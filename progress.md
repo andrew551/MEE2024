@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 640 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 645 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.7; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.2.8; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,38 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-03 — v1.2.8: a bundled catalogue the app offered but could not open
+
+Reported from the executable: selecting `gaia_dr3_g10` plate-solved fine and then died in
+stage 2 with `FileNotFoundError: 'gaia_dr3_g10'` out of the *legacy Tycho reader*, which had
+been handed a catalogue name and tried to `open()` it as a CSV file.
+
+**The cause was two functions disagreeing about where a catalogue may live.**
+
+| | user's data directory | bundled inside the exe |
+|---|---|---|
+| `CatalogueRelease.is_installed()` — feeds the app's catalogue list | yes | **yes** |
+| `database_cache._installed_catalogue_dir()` — opens it | yes | **no** |
+
+So the executable advertised the archive it ships inside itself, and then could not find it:
+the lookup fell through every branch to the legacy reader, whose error message named a
+catalogue rather than a path and pointed nowhere useful. Only the exe build could hit it,
+since only there is a catalogue bundled rather than downloaded. Availability and location
+now consult the same candidates, installed copy first, since a downloaded archive is the
+deeper one. Verified by copying g10 to a bundled-only location: it resolves, opens as
+`gaia_offline (offline, G<10.0) [gaia_dr3_g10]`, and serves a lookup.
+
+**A second, quieter wrong thing in the same report.** The log said
+
+> gaia_dr3_g10 only contains stars to G<10 … **Install gaia_dr3_g13** to reach G<13.
+
+two lines above *building the pattern database from gaia_dr3_g13*. The advice was telling
+the user to install what they already had, which wastes their time and makes the rest of the
+message look untrustworthy too. When the deeper archive is present the problem is the
+*choice* of catalogue, so it now says so instead.
 
 ---
 

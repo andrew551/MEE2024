@@ -314,9 +314,19 @@ def magnitude_warning(catalogue, requested, limit):
     """
     if limit is None or requested is None or requested <= limit:
         return None
-    advice = (f'Install {RECOMMENDED_SETUP[0]} to reach G<13.' if limit < 13
-              else 'Deeper needs the gaia_dr3_g15 archive, or the online '
-                   '"gaia_online" catalogue.')
+    if limit < 13:
+        # Telling someone to install what they already have wastes their time and makes
+        # the rest of the message look wrong too. If the deeper archive is on the machine,
+        # the problem is the *choice* of catalogue, so say that instead.
+        recommended = RELEASES.get(RECOMMENDED_SETUP[0])
+        if recommended is not None and recommended.is_installed():
+            advice = (f'{RECOMMENDED_SETUP[0]} is already installed -- choose it, or '
+                      f'"gaia", as the star catalogue to reach G<13.')
+        else:
+            advice = f'Install {RECOMMENDED_SETUP[0]} to reach G<13.'
+    else:
+        advice = ('Deeper needs the gaia_dr3_g15 archive, or the online '
+                  '"gaia_online" catalogue.')
     return (f'{catalogue} only contains stars to G<{limit:g}, but stars to magnitude '
             f'{requested:g} were requested: nothing fainter than G={limit:g} can be '
             f'matched. {advice}')

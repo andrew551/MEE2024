@@ -130,14 +130,27 @@ def _installed_catalogue_dir(path):
 
     Accepts both a registered release name and the name of a locally built catalogue,
     so a catalogue produced by tools/build_gaia_offline.py is usable immediately.
+
+    **Bundled copies count.** The executable ships the compact archive inside itself, and
+    `CatalogueRelease.is_installed` says so, which is what puts it in the app's catalogue
+    list. This only looked in the user's data directory, so a catalogue the app offered
+    could not then be opened: selecting the bundled `gaia_dr3_g10` fell through to the
+    legacy Tycho reader and died on `open('gaia_dr3_g10')`. Availability and location have
+    to agree about where a catalogue may live.
     """
     if not isinstance(path, str):
         return None
     from mee2024.MEE2024util import get_catalogue_root
-    from mee2024.starcat import store
-    directory = get_catalogue_root() / path
-    try:
-        store.read_manifest(directory)
-        return directory
-    except (FileNotFoundError, ValueError, OSError):
-        return None
+    from mee2024.starcat import download, store
+    candidates = []
+    release = download.RELEASES.get(path)
+    if release is not None:
+        candidates += [release.directory(), release.bundled_directory()]
+    candidates.append(get_catalogue_root() / path)   # locally built, not a release
+    for directory in candidates:
+        try:
+            store.read_manifest(directory)
+            return directory
+        except (FileNotFoundError, ValueError, OSError):
+            continue
+    return None

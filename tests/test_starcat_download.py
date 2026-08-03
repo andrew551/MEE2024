@@ -189,3 +189,78 @@ def test_every_published_archive_carries_a_checksum_and_size():
         assert release.sha256 and len(release.sha256) == 64
         assert release.size_bytes and release.size_bytes > 0
         assert release.url.endswith(f'/{release.name}.zip')
+
+
+# ------------------------------------------------ opening a bundled catalogue by name
+
+def _fake_manifests(monkeypatch):
+    """Treat any directory holding a manifest.json as a readable catalogue.
+
+    database_cache imports `store` inside the function, so the real module is what has to
+    be patched rather than an attribute of database_cache.
+    """
+    from mee2024.starcat import store
+
+    def read_manifest(directory):
+        from pathlib import Path
+        if (Path(directory) / 'manifest.json').exists():
+            return {}
+        raise FileNotFoundError(str(directory))
+
+    monkeypatch.setattr(store, 'read_manifest', read_manifest)
+
+
+def test_a_bundled_catalogue_can_be_opened_by_name(monkeypatch, tmp_path):
+    """The executable ships gaia_dr3_g10 inside itself and lists it as installed, so it
+    must also be openable. It was not: only the user's data directory was searched, so
+    selecting the bundled archive fell through to the legacy Tycho reader and died on
+    open('gaia_dr3_g10')."""
+    from mee2024 import database_cache
+    from mee2024.starcat import download as dl
+
+    bundled = tmp_path / 'bundled' / 'gaia_dr3_g10'
+    bundled.mkdir(parents=True)
+    (bundled / 'manifest.json').write_text('{}', encoding='utf-8')
+    monkeypatch.setattr(dl.RELEASES['gaia_dr3_g10'], 'bundled_directory',
+                        lambda: bundled)
+    monkeypatch.setattr(dl.RELEASES['gaia_dr3_g10'], 'directory',
+                        lambda: tmp_path / 'absent')
+    _fake_manifests(monkeypatch)
+    assert database_cache._installed_catalogue_dir('gaia_dr3_g10') == bundled
+
+
+def test_an_installed_copy_wins_over_a_bundled_one(monkeypatch, tmp_path):
+    """A downloaded archive is the deeper one, so it should be preferred."""
+    from mee2024 import database_cache
+    from mee2024.starcat import download as dl
+
+    for name in ('installed', 'bundled'):
+        (tmp_path / name / 'gaia_dr3_g10').mkdir(parents=True)
+        (tmp_path / name / 'gaia_dr3_g10' / 'manifest.json').write_text('{}',
+                                                                       encoding='utf-8')
+    monkeypatch.setattr(dl.RELEASES['gaia_dr3_g10'], 'directory',
+                        lambda: tmp_path / 'installed' / 'gaia_dr3_g10')
+    monkeypatch.setattr(dl.RELEASES['gaia_dr3_g10'], 'bundled_directory',
+                        lambda: tmp_path / 'bundled' / 'gaia_dr3_g10')
+    _fake_manifests(monkeypatch)
+    assert database_cache._installed_catalogue_dir('gaia_dr3_g10') == \
+        tmp_path / 'installed' / 'gaia_dr3_g10'
+
+
+def test_an_unknown_name_is_still_none():
+    from mee2024 import database_cache
+    assert database_cache._installed_catalogue_dir('not_a_catalogue_at_all') is None
+
+
+def test_the_depth_advice_does_not_tell_you_to_install_what_you_have(monkeypatch):
+    """The reported log advised installing gaia_dr3_g13 while it was installed and being
+    used to build the pattern database."""
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g13'], 'is_installed', lambda: True)
+    text = download.magnitude_warning('gaia_dr3_g10', 13.0, 10.0)
+    assert 'already installed' in text and 'Install gaia_dr3_g13' not in text
+
+
+def test_the_depth_advice_says_install_when_it_really_is_missing(monkeypatch):
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g13'], 'is_installed', lambda: False)
+    text = download.magnitude_warning('gaia_dr3_g10', 13.0, 10.0)
+    assert 'Install gaia_dr3_g13' in text
