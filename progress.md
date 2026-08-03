@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 639 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 640 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.6; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.2.7; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,36 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-03 — v1.2.7: the name fix, actually wired up
+
+**v1.2.6's positional name lookup did nothing in the app, and I reported it as working.**
+The resolver was correct and I verified it against the real bundled index — 50 of 50 named
+stars — but I verified it *in isolation*, not on the path the UI reads. Positions were
+wired into stage 1's `emit_from_solution` and **not** into stage 2's `star_labels.emit`.
+The frontend deliberately lets the stage-2 event supersede stage 1's, because that one knows
+which stars the fit discarded as doubles — so the event that reaches the screen carried no
+`ra`/`dec`, the positional lookup was never called, and every label fell back to a
+magnitude. Reported by the user still seeing `G 2.1`.
+
+Both call sites now pass sky positions, and stage 1 passes the real observation epoch rather
+than defaulting to 2024.0 — that was breaking nothing here, a year or two of drift being
+well inside the 10″ match radius, but naming stars *by position* against the wrong epoch is
+a trap set for the first fast-moving star to come along.
+
+**Verified through the real pipeline this time**, `do_stack` → `match_and_fit_distortion`,
+checking both events:
+
+```
+stage      stack:  93 stars, 1 named -> 'Rasalhague', tier 'named', mag 2.11
+stage distortion: 248 stars, 1 named -> 'Rasalhague', tier 'named', mag 2.11
+```
+
+A unit test on the resolver could not have caught this, so the wiring itself is now pinned:
+`test_both_star_label_emitters_pass_sky_positions` parses the argument list of every
+`star_labels.emit*` call in both modules and fails if `ra`/`dec`/`epoch` are missing.
 
 ---
 

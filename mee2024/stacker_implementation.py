@@ -10,7 +10,7 @@ import scipy.ndimage
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import time
-from mee2024.MEE2024util import output_path, _version, setup_logger
+from mee2024.MEE2024util import output_path, _version, setup_logger, date_string_to_float
 from mee2024 import events
 from mee2024 import hotpixels
 from mee2024 import star_labels
@@ -946,7 +946,12 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
         df_identification.to_csv(data_dir / ('STACKED_CENTROIDS_MATCHED_ID'+'.csv'))
         flag_found_IDs = True
 
-        star_labels.emit_from_solution(solution, stacked.shape)
+        # the epoch matters for naming by position: these are the fastest-moving stars
+        try:
+            label_epoch = date_string_to_float(options['observation_date'])
+        except Exception:
+            label_epoch = 2024.0
+        star_labels.emit_from_solution(solution, stacked.shape, epoch=label_epoch)
 
         header_pointing = read_pointing(files[0])
         separation, verdict = pointing_comment(header_pointing, solution['ra'],

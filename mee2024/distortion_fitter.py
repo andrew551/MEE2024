@@ -505,9 +505,15 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         # the frame was transposed for the solve; the preview image was not
         positions = positions[:, [1, 0]]
         preview_shape = (image_size[1], image_size[0])
+    # ra/dec as well as the pixel positions: a proper name is usually only reachable by
+    # position, since Gaia's crossmatch to Hipparcos misses most named stars. This event
+    # supersedes stage 1's in the frontend, so omitting them here undid the whole thing.
     star_labels.emit(positions, stardata_unfiltered.get_mags()[shown], preview_shape,
                      ids=np.asarray(stardata_unfiltered.ids)[shown],
-                     dropped=eliminated_double[shown], stage='distortion')
+                     dropped=eliminated_double[shown], stage='distortion',
+                     ra=stardata_unfiltered.get_ra()[shown],
+                     dec=stardata_unfiltered.get_dec()[shown],
+                     epoch=stardata_unfiltered.epoch)
 
     df_identification.to_csv(data_dir / 'CATALOGUE_MATCHED_ERRORS.csv')
     shutil.make_archive(data_dir, 'zip', Path(data_dir))

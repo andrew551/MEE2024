@@ -193,3 +193,41 @@ def test_config_migration_is_version_targeted():
     current = {'__version__': 'v1.0.0', 'rough_match_threshhold': 120.0}
     assert migrate_config(current) == []
     assert current['rough_match_threshhold'] == 120.0, 'must not touch a current config'
+
+
+def test_both_star_label_emitters_pass_sky_positions():
+    """A proper name is usually only reachable by position: Gaia's crossmatch to Hipparcos
+    misses 46 of the 49 named stars. The resolver was added and unit-tested, but the
+    stage-2 call site was not updated -- and since that event supersedes stage 1's in the
+    frontend, every label fell back to a magnitude and the fix looked like it had failed.
+
+    Testing the resolver in isolation cannot catch this; testing the wiring can.
+    """
+    import inspect
+
+    from mee2024 import distortion_fitter, stacker_implementation
+
+    for module in (distortion_fitter, stacker_implementation):
+        source = inspect.getsource(module)
+        for call in ('star_labels.emit(', 'star_labels.emit_from_solution('):
+            start = source.find(call)
+            while start != -1:
+                # the argument list ends at the matching close bracket
+                depth, i = 0, start + len(call) - 1
+                while i < len(source):
+                    if source[i] == '(':
+                        depth += 1
+                    elif source[i] == ')':
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    i += 1
+                args = source[start:i]
+                assert 'epoch=' in args, (
+                    f'{module.__name__}: {call} without an epoch -- naming by position '
+                    f'against the wrong epoch loses the fastest-moving stars')
+                if call == 'star_labels.emit(':
+                    assert 'ra=' in args and 'dec=' in args, (
+                        f'{module.__name__}: {call} without ra/dec, so no proper name can '
+                        f'be resolved by position')
+                start = source.find(call, i)
