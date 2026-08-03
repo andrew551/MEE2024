@@ -1,0 +1,422 @@
+"""
+Where does the centroid error actually come from? An error budget, measured.
+
+    python tools/error_budget.py "tests/data/fits/example_with_darks/070424_040415/*.fits" \
+        --darks "tests/data/fits/example_with_darks/070424_050036 darks 10s/*.fits" \
+        --out docs/bench/psf/budget_eclipse
+    python tools/error_budget.py "tests/data/fits/00_23_49/Zenith_*.fits" --out docs/bench/psf/budget_zenith
+
+Each candidate limit has its own signature, so each gets its own measurement:
+
+* **photon + pixel noise** — the Cramér–Rao bound per star, computed from its own fitted
+  profile, the measured background noise, and a gain measured from the frames themselves
+  (photon transfer on frame differences). Faint stars must ride this curve; a bright-star
+  plateau *above* it is, by construction, everything that is not pixel noise.
+* **atmosphere** — differential tip-tilt is *spatially correlated* between stars; pixel
+  noise is white. The two-point correlation of the per-frame residual fields splits the
+  plateau into a correlated (atmospheric) part and a white part.
+* **mount / field rotation** — remove a translation per frame, then a full affine; the
+  scatter the affine removes on top of translation is rotation/scale wobble.
+* **pixel size (undersampling)** — bin residuals against subpixel phase; a systematic
+  dependence is pixel-phase bias, the undersampling signature.
+* **algorithm** — bounded separately in docs/bench/CENTROIDS.md: three unrelated
+  estimators tie on these frames, so the estimator choice contributes ~nothing.
+* **optics (static)** — absent from frame-to-frame scatter entirely; it lives in the
+  stage-2 fit residual, compared against the stacked centroid noise elsewhere.
+"""
+
+import argparse
+import glob
+import json
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt   # noqa: E402
+
+from mee2024 import psf  # noqa: E402
+
+CUT = psf.CUT
+
+
+# ------------------------------------------------------------- gain measurement
+
+def measure_gain(frames, dark_frames=None):
+    """(gain e-/ADU, read-ish noise ADU), from photon transfer on frame differences.
+
+    Two frames of the same scene differ only by noise; var(A-B)/2 at mean level m obeys
+    sigma^2 = m/g + r^2. Star pixels are sigma-clipped away so only the sky participates.
+    With darks available there is a second, different mean level, which separates g from
+    r; without them the fit assumes r is small at sky level (true of modern CMOS) and the
+    result carries that caveat.
+    """
+    def level_and_variance(a, b):
+        difference = (a - b).ravel()
+        mean = ((a + b) / 2).ravel()
+        # sigma-clip in the difference: stars, hot pixels and cosmic hits all leave
+        centre = np.median(difference)
+        spread = 1.4826 * np.median(np.abs(difference - centre))
+        keep = np.abs(difference - centre) < 5 * spread
+        return float(np.median(mean[keep])), float(np.var(difference[keep]) / 2)
+
+    points = []
+    for a, b in zip(frames[:-1], frames[1:]):
+        points.append(level_and_variance(a, b))
+    if dark_frames and len(dark_frames) >= 2:
+        for a, b in zip(dark_frames[:-1], dark_frames[1:]):
+            points.append(level_and_variance(a, b))
+    points = np.array(points)
+    caveat = ''
+    if len(np.unique(np.round(points[:, 0]))) >= 2:
+        slope, intercept = np.polyfit(points[:, 0], points[:, 1], 1)
+        gain = 1.0 / max(slope, 1e-9)
+        read = float(np.sqrt(max(intercept, 0.0)))
+        if not 0.05 <= gain <= 20:
+            # A negative or absurd slope means the level axis is corrupted -- typically a
+            # bias pedestal, or darks whose level exceeds the sky (ours run hot). A wrong
+            # gain silently miscalibrates the bright-star bound, so refuse instead.
+            caveat = (f'photon-transfer fit implausible (gain {gain:.3g}); levels are '
+                      f'pedestal-corrupted. Shot-noise bound uses an assumed 1 e-/ADU.')
+            gain = 1.0
+            read = float(np.sqrt(points[:, 1].mean()))
+    else:
+        level, variance = points.mean(axis=0)
+        gain = level / max(variance, 1e-9)
+        read = 0.0
+        caveat = ('single sky level only: gain assumes no read noise and an unknown bias '
+                  'pedestal inflates it; treat the shot term as indicative')
+        if not 0.05 <= gain <= 20:
+            gain, caveat = 1.0, caveat + ' (clamped to 1 e-/ADU)'
+    return float(gain), read, points, caveat
+
+
+# --------------------------------------------------------- Cramér–Rao per star
+
+def cramer_rao_px(amplitude_adu, sigma_px, sky_noise_adu, gain=None):
+    """The per-axis position bound for a Gaussian star, evaluated numerically.
+
+    Fisher information per axis: sum over pixels of (d mu/dx)^2 / var, with mu in
+    electrons and var = mu + (g*sigma_sky)^2. No closed form needed; the pixel grid is
+    tiny. This is the floor no estimator may beat, and three estimators tying just above
+    it is what 'the algorithm is not the limit' looks like.
+    """
+    half = 3 * max(sigma_px, 0.8)
+    grid = np.arange(-int(np.ceil(half)), int(np.ceil(half)) + 1)
+    xs, ys = np.meshgrid(grid, grid)
+    # gain=None gives the background-only bound, in which the gain cancels exactly: it is
+    # the most optimistic pixel-noise floor possible, fully measured, no calibration
+    # required. The gain-aware version adds the star shot noise on top.
+    profile = np.exp(-(xs ** 2 + ys ** 2) / (2 * sigma_px ** 2))
+    if gain is None:
+        dmu_dx = amplitude_adu * profile * (-xs / sigma_px ** 2)
+        fisher = np.sum(dmu_dx ** 2) / max(sky_noise_adu, 1e-9) ** 2
+    else:
+        mu = gain * amplitude_adu * profile
+        dmu_dx = mu * (-xs / sigma_px ** 2)
+        variance = mu + (gain * sky_noise_adu) ** 2
+        fisher = np.sum(dmu_dx ** 2 / np.maximum(variance, 1e-9))
+    return float(1.0 / np.sqrt(max(fisher, 1e-12)))
+
+
+# ------------------------------------------------------------ track collection
+
+def collect_tracks(frames, shifts, reference_cutouts):
+    """Windowed-centroid positions of every clean star on every frame.
+
+    The windowed centroid is used because deliverable (d) measured it indistinguishable
+    from the pipeline's own estimator, and it runs standalone on a cutout.
+    """
+    tracks = []
+    for cutout in reference_cutouts:
+        ref_y = cutout['origin'][0] + CUT
+        ref_x = cutout['origin'][1] + CUT
+        track = []
+        for image, (sy, sx) in zip(frames, shifts):
+            row = int(round(ref_y - sy))
+            col = int(round(ref_x - sx))
+            if not (CUT <= row < image.shape[0] - CUT and
+                    CUT <= col < image.shape[1] - CUT):
+                track.append(None)
+                continue
+            data = np.asarray(image[row - CUT:row + CUT + 1,
+                                    col - CUT:col + CUT + 1], dtype=float)
+            ring = np.concatenate([data[0, :], data[-1, :],
+                                   data[1:-1, 0], data[1:-1, -1]])
+            data = data - np.median(ring)
+            got = psf.windowed_moments(data)
+            track.append(None if got is None else
+                         (row + got[0] + sy, col + got[1] + sx))
+        tracks.append(track)
+    return tracks
+
+
+def residual_fields(tracks, model='translation'):
+    """Per-frame residuals after removing a per-frame alignment model.
+
+    Returns (residuals[frame] -> list of (star_index, dy, dx), per_star_scatter).
+    'translation' removes the median offset; 'affine' also removes rotation, scale and
+    shear, fitted to the same stars — the difference between the two *is* the mount term.
+    """
+    n_frames = max(len(t) for t in tracks)
+    means = []
+    for track in tracks:
+        points = [p for p in track if p is not None]
+        means.append(np.mean(np.array(points), axis=0) if len(points) >= 3 else None)
+
+    fields = []
+    for f in range(n_frames):
+        deltas, positions, indices = [], [], []
+        for i, track in enumerate(tracks):
+            if means[i] is None or f >= len(track) or track[f] is None:
+                continue
+            deltas.append(np.array(track[f]) - means[i])
+            positions.append(means[i])
+            indices.append(i)
+        deltas = np.array(deltas)
+        positions = np.array(positions)
+        if len(deltas) < 8:
+            fields.append([])
+            continue
+        if model == 'translation':
+            fitted = np.tile(np.median(deltas, axis=0), (len(deltas), 1))
+        else:
+            design = np.c_[positions, np.ones(len(positions))]
+            fitted = np.empty_like(deltas)
+            for axis in range(2):
+                coeff, *_ = np.linalg.lstsq(design, deltas[:, axis], rcond=None)
+                fitted[:, axis] = design @ coeff
+        residual = deltas - fitted
+        fields.append([(i, r[0], r[1], p[0], p[1])
+                       for i, r, p in zip(indices, residual, positions)])
+
+    scatter = {}
+    per_star = {}
+    for field in fields:
+        for i, dy, dx, *_ in field:
+            per_star.setdefault(i, []).append((dy, dx))
+    for i, rs in per_star.items():
+        rs = np.array(rs)
+        if len(rs) >= 3:
+            scatter[i] = float(np.sqrt(np.mean(np.sum(rs ** 2, axis=1))))
+    return fields, scatter
+
+
+def correlation_by_separation(fields, positions, bins):
+    """<r_i . r_j>/2 for star pairs, binned by their separation, averaged over frames.
+
+    Atmospheric tip-tilt gives positive short-range correlation decaying with distance;
+    pixel noise gives zero everywhere off zero. The units are px^2 per axis.
+    """
+    sums = np.zeros(len(bins) - 1)
+    counts = np.zeros(len(bins) - 1, dtype=int)
+    for field in fields:
+        if len(field) < 2:
+            continue
+        arr = np.array([(dy, dx, py, px_) for _, dy, dx, py, px_ in field])
+        residual = arr[:, :2]
+        position = arr[:, 2:]
+        n = len(arr)
+        if n > 400:                        # pair count control
+            chosen = np.random.default_rng(0).choice(n, 400, replace=False)
+            residual, position = residual[chosen], position[chosen]
+            n = 400
+        diff = position[:, None, :] - position[None, :, :]
+        separation = np.hypot(diff[..., 0], diff[..., 1])
+        dot = (residual[:, None, :] * residual[None, :, :]).sum(axis=2) / 2
+        upper = np.triu_indices(n, k=1)
+        which = np.digitize(separation[upper], bins) - 1
+        for b in range(len(bins) - 1):
+            sel = which == b
+            sums[b] += dot[upper][sel].sum()
+            counts[b] += int(sel.sum())
+    with np.errstate(invalid='ignore'):
+        return sums / np.maximum(counts, 1), counts
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('pattern')
+    ap.add_argument('--darks', default=None)
+    ap.add_argument('--out', type=Path, required=True)
+    ap.add_argument('--platescale', type=float, default=None)
+    args = ap.parse_args()
+    args.out.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+
+    from mee2024.config import get_default_options
+    from mee2024.stacker_implementation import attempt_align, open_image
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from centroid_eval import pipeline_positions
+
+    files = sorted(glob.glob(args.pattern))
+    frames = [open_image(f) for f in files]
+    print(f'{len(frames)} frames of {frames[0].shape}', flush=True)
+    dark_frames = ([open_image(f) for f in sorted(glob.glob(args.darks))[:4]]
+                   if args.darks else None)
+
+    # ---- gain, from the data itself
+    gain, read_adu, points, gain_caveat = measure_gain(frames[:4], dark_frames)
+    print(f'photon transfer: gain {gain:.3f} e-/ADU, base noise {read_adu:.2f} ADU '
+          f'({len(points)} frame pairs)'
+          + (f'  [{gain_caveat}]' if gain_caveat else ''), flush=True)
+
+    # ---- tracks
+    options = get_default_options()
+    options.update(flag_display=False)
+    detections = [pipeline_positions(image) for image in frames]
+    reference = detections[0]
+    shifts = [(0.0, 0.0)]
+    for i in range(1, len(frames)):
+        _, _, _, shift, _ = attempt_align(reference, detections[i], options, framenum=i)
+        shifts.append((float(shift[0]), float(shift[1])))
+    cutouts = psf.extract_cutouts(frames[0], reference)
+    clean = [c for c in cutouts if c['isolated'] and not c['saturated']]
+    print(f'{len(clean)} clean stars', flush=True)
+    tracks = collect_tracks(frames, shifts, clean)
+
+    # ---- per-star Cramér–Rao from each star's own fit
+    stars, summary = psf.measure_field(frames[0], reference, fit_top_n=None)
+    by_position = {}
+    for s in stars:
+        by_position[(int(round(s['y'])), int(round(s['x'])))] = s
+    sigma_med = summary['fwhm_px'] / 2.3548
+
+    fields_t, scatter_t = residual_fields(tracks, 'translation')
+    fields_a, scatter_a = residual_fields(tracks, 'affine')
+
+    rows = []
+    for i, cutout in enumerate(clean):
+        if i not in scatter_t:
+            continue
+        key = (cutout['origin'][0] + CUT, cutout['origin'][1] + CUT)
+        star = by_position.get(key)
+        sigma = (star['fwhm'] / 2.3548) if star else sigma_med
+        amplitude = cutout['peak']
+        bound = cramer_rao_px(amplitude, sigma, cutout['noise'], gain)
+        bound_bg = cramer_rao_px(amplitude, sigma, cutout['noise'], gain=None)
+        rows.append({'flux': cutout['flux'], 'scatter_t': scatter_t[i],
+                     'scatter_a': scatter_a.get(i),
+                     'cr_2d': bound * np.sqrt(2),      # bound is per axis; scatter is 2-D
+                     'cr_bg_2d': bound_bg * np.sqrt(2)})
+
+    flux = np.array([r['flux'] for r in rows])
+    measured = np.array([r['scatter_t'] for r in rows])
+    measured_a = np.array([r['scatter_a'] or np.nan for r in rows])
+    bound2d = np.array([r['cr_2d'] for r in rows])
+
+    bound_bg2d = np.array([r['cr_bg_2d'] for r in rows])
+    bright = flux > np.percentile(flux, 75)
+    faint = flux < np.percentile(flux, 25)
+    floor = float(np.median(measured[bright]))
+    floor_affine = float(np.nanmedian(measured_a[bright]))
+    cr_bright = float(np.median(bound2d[bright]))
+    cr_bg_bright = float(np.median(bound_bg2d[bright]))
+    faint_ratio = float(np.median(measured[faint] / bound2d[faint]))
+
+    # ---- spatial correlation
+    bins = np.array([0, 200, 500, 1000, 2000, 4000, 8000], dtype=float)
+    corr, counts = correlation_by_separation(fields_t, None, bins)
+    short_range = corr[0]
+    atmosphere_2d = float(np.sqrt(max(short_range, 0.0) * 2))  # per-axis^2 -> 2-D rms
+    # the same correlation after affine removal: an affine field is itself spatially
+    # correlated, so this is what separates mount/refraction terms from anisoplanatism
+    corr_a, counts_a = correlation_by_separation(fields_a, None, bins)
+    atmosphere_after_affine_2d = float(np.sqrt(max(corr_a[0], 0.0) * 2))
+
+    # ---- pixel phase
+    phase_bias = {}
+    for axis, name in ((0, 'y'), (1, 'x')):
+        bins_p = np.linspace(0, 1, 9)
+        accumulator = [[] for _ in range(8)]
+        for f, field in enumerate(fields_t):
+            sy, sx = shifts[f]
+            for i, dy, dx, py, px_ in field:
+                position = (py, px_)[axis] - (sy, sx)[axis]
+                b = min(int((position % 1.0) * 8), 7)
+                accumulator[b].append((dy, dx)[axis])
+        means = [np.mean(a) if len(a) > 20 else np.nan for a in accumulator]
+        amplitude = float(np.nanmax(means) - np.nanmin(means)) / 2
+        phase_bias[name] = amplitude
+
+    # ------------------------------------------------------------------ figures
+    fig, ax = plt.subplots(figsize=(7.8, 5.4))
+    ax.loglog(flux, measured, '.', ms=4, alpha=0.45, label='measured per-star scatter (2-D rms)')
+    order = np.argsort(flux)
+    ax.loglog(flux[order], bound2d[order], '-', lw=2, c='#d62728',
+              label='Cramér–Rao bound (photon + pixel noise)')
+    ax.axhline(floor, color='#6acc65', ls='--',
+               label=f'bright-star floor {floor:.3f} px')
+    ax.set_xlabel('star flux (ADU)'); ax.set_ylabel('per-frame scatter (px)')
+    ax.set_title('faint stars ride the noise bound; the bright plateau is everything else')
+    ax.legend(); ax.grid(alpha=0.3, which='both')
+    fig.tight_layout(); fig.savefig(args.out / 'scatter_vs_bound.png', dpi=140)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.6))
+    centres = 0.5 * (bins[1:] + bins[:-1])
+    ax.plot(centres[counts > 0], corr[counts > 0], 'o-')
+    ax.axhline(0, color='#888', lw=1)
+    ax.set_xlabel('separation between stars (px)')
+    ax.set_ylabel('residual correlation (px² per axis)')
+    ax.set_title('correlated at short range = atmosphere; white = pixel noise')
+    ax.grid(alpha=0.3)
+    fig.tight_layout(); fig.savefig(args.out / 'residual_correlation.png', dpi=140)
+    plt.close(fig)
+
+    # ------------------------------------------------------------------- budget
+    lines = [
+        f'frames               : {len(frames)} × {frames[0].shape}, '
+        f'{len(rows)} stars in the budget',
+        f'gain (measured)      : {gain:.3f} e-/ADU; base noise {read_adu:.2f} ADU',
+        '',
+        'per-frame 2-D rms centroid scatter, translation removed:',
+        f'  bright-star floor          : {floor:.4f} px',
+        f'  Cramér–Rao at those fluxes : {cr_bright:.4f} px  '
+        f'(photon + pixel noise: {100*cr_bright/floor:.0f}% of the floor)',
+        f'  background-only bound      : {cr_bg_bright:.4f} px  '
+        f'(gain-free, most optimistic possible)',
+        f'  gain caveat                : {gain_caveat or "none"}',
+        f'  faint stars vs their bound : ×{faint_ratio:.2f}  '
+        f'(1.0 = at the noise limit)',
+        '',
+        'decomposition of the bright-star floor:',
+        f'  spatially correlated (atmosphere-like)   : {atmosphere_2d:.4f} px '
+        f'({100*(atmosphere_2d/floor)**2:.0f}% of floor variance)'
+        if short_range > 0 else
+        '  spatially correlated (atmosphere-like)   : not detected',
+        f'  removed by affine over translation       : '
+        f'{np.sqrt(max(floor**2 - floor_affine**2, 0)):.4f} px '
+        f'(mount rotation/scale/refraction; floor {floor:.4f} -> {floor_affine:.4f})',
+        f'  still correlated after affine            : '
+        f'{atmosphere_after_affine_2d:.4f} px (anisoplanatic atmosphere)',
+        f'  pixel-phase bias amplitude (x, y)        : '
+        f'{phase_bias["x"]:.4f}, {phase_bias["y"]:.4f} px',
+        '',
+        'algorithm term: bounded separately (docs/bench/CENTROIDS.md) -- three unrelated',
+        'estimators tie on these frames, so the estimator choice is not the limit.',
+    ]
+    text = '\n'.join(lines)
+    print('\n' + text)
+    (args.out / 'summary.txt').write_text(text, encoding='utf-8')
+    with open(args.out / 'budget.json', 'w', encoding='utf-8') as fp:
+        json.dump({'gain': gain, 'gain_caveat': gain_caveat, 'read_adu': read_adu,
+                   'cr_bg_bright_px': cr_bg_bright,
+                   'atmosphere_after_affine_2d_px': atmosphere_after_affine_2d,
+                   'floor_px': floor,
+                   'floor_affine_px': floor_affine, 'cr_bright_px': cr_bright,
+                   'faint_ratio': faint_ratio, 'atmosphere_2d_px': atmosphere_2d,
+                   'phase_bias': phase_bias,
+                   'correlation': {'bins': bins.tolist(), 'value': corr.tolist(),
+                                   'counts': counts.tolist()}}, fp)
+    print(f'\n{time.time() - t0:.0f}s; results in {args.out}')
+
+
+if __name__ == '__main__':
+    main()

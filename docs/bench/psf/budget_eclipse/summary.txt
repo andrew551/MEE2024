@@ -1,0 +1,18 @@
+frames               : 7 × (5644, 8288), 383 stars in the budget
+gain (measured)      : 1.000 e-/ADU; base noise 11.56 ADU
+
+per-frame 2-D rms centroid scatter, translation removed:
+  bright-star floor          : 0.0832 px
+  Cramér–Rao at those fluxes : 0.0143 px  (photon + pixel noise: 17% of the floor)
+  background-only bound      : 0.0065 px  (gain-free, most optimistic possible)
+  gain caveat                : photon-transfer fit implausible (gain 1e+09); levels are pedestal-corrupted. Shot-noise bound uses an assumed 1 e-/ADU.
+  faint stars vs their bound : ×2.06  (1.0 = at the noise limit)
+
+decomposition of the bright-star floor:
+  spatially correlated (atmosphere-like)   : 0.0729 px (77% of floor variance)
+  removed by affine over translation       : 0.0416 px (mount rotation/scale/refraction; floor 0.0832 -> 0.0721)
+  still correlated after affine            : 0.0614 px (anisoplanatic atmosphere)
+  pixel-phase bias amplitude (x, y)        : 0.0069, 0.0095 px
+
+algorithm term: bounded separately (docs/bench/CENTROIDS.md) -- three unrelated
+estimators tie on these frames, so the estimator choice is not the limit.
