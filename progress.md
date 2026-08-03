@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 671 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 688 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.3.1; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.3.2; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,57 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-03 — v1.3.2: the point spread function, measured, surfaced, and used to judge the centroider
+
+Four deliverables, in the order the evidence had to flow: a literature review to know what
+good looks like (`docs/PSF_REVIEW.md`), measurement of our actual data to know where we are
+(§6 of the review + `docs/bench/psf/`), the decision-grade numbers surfaced in the UI, and a
+two-protocol evaluation of whether a PSF-aware centroider beats the pipeline's centre of
+mass (`docs/bench/CENTROIDS.md`).
+
+**What the literature settles:** the decision hinge is FWHM in pixels against the 2 px
+sampling line — below it plain estimators carry pixel-phase bias and the Anderson & King
+effective PSF is the honest tool; above it a Gaussian-windowed centroid reaches nearly
+PSF-fit accuracy at trivial cost. Ground-based profiles are Moffat (β 2.5–4.5), not
+Gaussian. A *static* PSF asymmetry pattern is absorbed by our distortion polynomial; what
+would bite is a pattern that changes between nights.
+
+**What the data says:** the three bundled datasets span the whole table — the newest
+(zenith) is severely undersampled at FWHM 1.22 px with a uniform PSF; Rasalhague's optic is
+well-sampled at 2.41 px with textbook tilt+coma (quadratic explains 44% of its FWHM
+scatter, whiskers pointing at a decentre); the eclipse field sits at 2.97 px, mostly
+uniform. Both well-sampled sets are Moffat β≈2.8–3.0. Sampling is a property of the *setup*
+— it must be measured per run, never assumed.
+
+**In the UI:** stage 1 measures the stacked image's PSF every run (~1.4 s on a 1664-star
+frame). Two new score cards — Star size (FWHM) in arcsec graded by sampling with an
+undersampling warning, and Star roundness as the focus/tracking diagnostic — plus a
+collapsible panel with the log-scale radial profile against Gaussian and Moffat overlays
+and an FWHM field map with ellipticity whiskers, the plot that shows a tilted focuser
+before a night is spent on it.
+
+**The centroider verdict is a validated negative, which is worth as much as a win.**
+Against exact synthetic truth in all three FWHM regimes and as repeatability across the
+real 7-frame dither, the current centre-of-mass path is best or tied-best everywhere — it
+is *not* plain COM: its variance normalisation and thresholding act as a matched window,
+the same mechanism behind SExtractor's near-optimal windowed centroid. Plain COM is
+confirmed as bad as the literature says (0.19 vs 0.11 px on real frames). The ePSF loses
+even on its undersampled home turf here: it wants a star budget and a PSF stability this
+data does not offer. The 0.11 px real-frame floor is shared by three unrelated estimators,
+i.e. it is atmospheric — the way past it is more frames, not a better estimator, which
+directly supports current observing practice.
+
+Two of my own bugs were caught by the measurements rather than by review: saturation
+inference by guessed ADC ceiling flagged the best stars of unclipped frames (now requires
+an actual clipping plateau), and the first ePSF run was built on non-background-subtracted
+cutouts, costing 0.3 px (the misuse the photutils docs warn about — fixed and documented).
+
+Left deliberately on the table: fitting saturated stars from their unsaturated wings
+(Rasalhague's clipped core biases its COM today) — a different problem from precision and
+a likely win as its own piece of work.
 
 ---
 
