@@ -12,6 +12,7 @@ from scipy.optimize import minimize
 import time
 from mee2024.MEE2024util import output_path, _version, setup_logger
 from mee2024 import events
+from mee2024 import hotpixels
 from mee2024 import star_labels
 from mee2024.progress import NullProgress
 import datetime
@@ -106,33 +107,9 @@ def assert_matching_bit_depth(lights, darks=(), flats=()):
         f'the calibration frames at the same depth as the lights, or leave them out.')
 
 
-def hot_pixel_mask(dark, sigmas=20.0):
-    """Detector pixels whose dark level puts them outside the population of real pixels.
-
-    A hot pixel reads high no matter what the sky is doing, and the worst of them saturate.
-    Subtracting a dark does *not* remove those: saturation clips, so the light and the dark
-    both sit at full scale and their difference says nothing about the sky -- on the
-    measured example the residual after subtraction was still 35 to 258 sigma above the
-    background at these sites. Because they are fixed to the detector while the field is
-    dithered, they then smear across the stack as a little constellation of fake stars.
-
-    They are found from the master dark's own distribution rather than an absolute level,
-    which would depend on the camera. The bulk of a dark is tight -- on the example, a
-    median of 306 ADU with a robust sigma of 5, and a 99.999th percentile of 396 -- so a
-    threshold 20 sigma out sits far beyond the honest pixels and still catches the whole
-    tail: 299 pixels of 46.8 million, which is nothing to lose.
-    """
-    dark = np.asarray(dark)
-    if dark.ndim != 2:
-        return None
-    # strided for the statistics: a full-frame median of 47 M pixels is not worth the
-    # second it costs when every 4th pixel gives the same answer
-    sample = dark[::4, ::4]
-    median = float(np.median(sample))
-    sigma = 1.4826 * float(np.median(np.abs(sample - median)))
-    if not sigma > 0:                      # a synthetic or perfectly flat dark
-        return np.zeros(dark.shape, dtype=bool)
-    return dark > median + sigmas * sigma
+#: Hot pixels from a master dark. Lives in mee2024.hotpixels alongside the dark-free
+#: search; re-exported here because this is where callers have always found it.
+hot_pixel_mask = hotpixels.dark_mask
 
 
 def read_observation_date(file):
@@ -257,6 +234,42 @@ def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None):
         header['PEDESTAL'] = (pedestal, 'added to keep values non-negative; subtract it')
     fits.writeto(path, data, header=header, overwrite=True)
     return pedestal, clipped
+
+
+def _align_frames(centroids, files, options):
+    """Fit every frame's offset against the first. Extracted so it can be run twice.
+
+    The dark-free hot-pixel search needs the shifts, and cleaning the centroid lists
+    afterwards invalidates the alignment those shifts came from -- so this runs, the lists
+    are filtered, and it runs again. It is cheap: an optimisation over about thirty points.
+
+    Returns the shifts, per-frame rms and deltas, a tally of which stars were used, and the
+    FRAME_ALIGNED payloads *without emitting them*, so a discarded first pass does not
+    report frames the run did not end up using.
+    """
+    shifts = [(0, 0)]
+    rms_errors = []
+    deltas = []
+    aligned = []
+    prev = (0, 0)
+    used_stars_stacking = Counter()
+    for i in range(1, len(files)):
+        shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options, guess=prev, framenum=i)
+        print(shift, shift2, fun2)
+        shifts.append(shift2)
+        if shift2 is None:
+            print(f'NOTE: failure to find centroid match on frame # {i}')
+            rms_errors.append(None)
+            deltas.append(None)
+            continue
+        prev = shift2
+        rms_errors.append(fun2)
+        deltas.append(np.array([centroids[0][j] - centroids[i][matches1[j]] for j in matches1 if j < options['n']]))
+        aligned.append({'frame': i, 'shift': [float(shift2[0]), float(shift2[1])],
+                        'rms': float(fun2), 'n_matched': len(matches1)})
+        used_stars_stacking.update(matches1.keys())
+        print(matches1)
+    return shifts, rms_errors, deltas, used_stars_stacking, aligned
 
 
 def save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, flat):
@@ -754,29 +767,50 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     centroids_data = progress.loop(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options, hot=hot)
     print("--- %s seconds for centroid finding---" % (time.time() - t_start_c))
     centroids = [np.array([x[2] for x in y]) for y in centroids_data]
-    
-    # simple stacking: use the first image as the "key" and fit all others to it
-    shifts = [(0,0)]
-    rms_errors = []
-    deltas = []
-    prev = (0, 0)
-    used_stars_stacking = Counter()
-    for i in range(1, len(files)):
-        shift, matches1, matches2, shift2, fun2 = attempt_align(centroids[0], centroids[i], options, guess=prev, framenum=i)
-        print(shift, shift2, fun2)
-        shifts.append(shift2)
-        if shift2 is None:
-            print(f'NOTE: failure to find centroid match on frame # {i}')
-            rms_errors.append(None)
-            deltas.append(None)
-            continue
-        prev = shift2
-        rms_errors.append(fun2)
-        deltas.append(np.array([centroids[0][j] - centroids[i][matches1[j]] for j in matches1 if j < options['n']]))
-        events.emit(events.FRAME_ALIGNED, frame=i, shift=[float(shift2[0]), float(shift2[1])],
-                    rms=float(fun2), n_matched=len(matches1))
-        used_stars_stacking.update(matches1.keys())
-        print(matches1)
+
+    shifts, rms_errors, deltas, used_stars_stacking, aligned = _align_frames(
+        centroids, files, options)
+
+    # Without darks, hot pixels can now be found from the dither itself: a star is fixed to
+    # the sky, a hot pixel to the detector. That needs the shifts, which is why it happens
+    # here rather than before centroid finding -- and why the centroid lists are *filtered*
+    # afterwards rather than detected again, which would cost more than everything else in
+    # this function put together. The alignment above is good enough to derive shifts from:
+    # centroids rank by integrated flux and a hot pixel has almost no area, so on the
+    # measured example the one hot centroid of 388 ranked 106th, far outside the brightest
+    # 30 the aligner uses. That is circumstantial, though -- a hot cluster or a sparse field
+    # would put one in reach -- so the lists are cleaned and the alignment redone.
+    if hot is None and options['hot_pixel_dark_free']:
+        hot, info = hotpixels.persistence_mask(files, shifts, blob_mask=masks2_0)
+        if info['declined']:
+            message = f'no dark-free hot-pixel search: {info["declined"]}'
+            print(message)
+            logger.info(message)
+        else:
+            message = (f'{info["n_flagged"]} hot pixel(s) identified from the dither '
+                       f'({info["dither_px"]:.1f} px) out of {info["n_candidates"]} bright '
+                       f'candidates, without a dark frame')
+            print(message)
+            logger.info(message)
+            events.log(message)
+        if hot is not None and hot.any():
+            spoiled = hotpixels.spoiled_by(hot)
+            dropped_total = 0
+            for i, data in enumerate(centroids_data):
+                centroids_data[i], dropped = hotpixels.drop_masked_centroids(data, spoiled)
+                dropped_total += dropped
+            if dropped_total:
+                centroids = [np.array([x[2] for x in y]) for y in centroids_data]
+                message = (f'{dropped_total} centroid(s) dropped as hot pixels; '
+                           f'realigning without them')
+                print(message)
+                logger.info(message)
+                events.log(message)
+                shifts, rms_errors, deltas, used_stars_stacking, aligned = _align_frames(
+                    centroids, files, options)
+    # emitted once, from whichever alignment turned out to be the final one
+    for event in aligned:
+        events.emit(events.FRAME_ALIGNED, **event)
     print(rms_errors)
     print(shifts)
     # show stars used in stacking

@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 590 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 615 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.3; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.2.4; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,66 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-03 — v1.2.4: hot pixels found without a dark frame
+
+Darks are not always taken, and when they are they are not always usable — the ones in the
+bundled example were shot 45 minutes late and run three times hotter than the lights. So
+`mee2024/hotpixels.py` now finds hot pixels from the dither instead: **a star is fixed to
+the sky, a hot pixel to the detector**, so asking whether a bright site persists at a fixed
+detector pixel or at a fixed sky position separates them with no dark anywhere in the
+statistic. The exploration, the rules that did worse, and the figures are in
+`docs/bench/HOTPIX.md`.
+
+**Measured end to end, with the darks withheld from the run:** 161 hot pixels found from
+the dither alone out of 5237 bright candidates, of which **160 are confirmed by the
+dark-based mask the run never saw — 99.4% precision**. One centroid was dropped and the
+alignment redone. The plate solve landed at RA 155.4052978**49**°, against
+155.4052978**17**° for the run that did use darks: the same answer to 3×10⁻⁸ degrees.
+Stage 1 went from 138 s to **142 s**, matching the 4.8 s the search was measured to cost.
+
+**Darks are still better when they are good.** The dark mask holds 296 pixels; only 161 of
+those were bright enough in the lights to be candidates at all, so the dark-free path found
+essentially every one it could see but not the 136 milder ones. Those contaminate less, but
+they are not nothing — this is a fallback, not a replacement.
+
+**The combination matters more than the measurement.** The obvious discriminant, detector
+persistence *minus* sky persistence, manages 0.962 average precision and only 21.7% recall
+at zero false positives, because an absolute gap conflates a faint hot pixel with a bright
+star. The **log ratio** reaches 0.996 and 96.3%. The threshold sits mid-plateau — anything
+from 1.0 to 3.5 gives 98–100% precision — so it is not tuned to an edge.
+
+**Can a hot pixel reach the aligner?** In principle yes, on this data no, and the reason is
+circumstantial rather than structural: centroids rank by *integrated* flux and `min_area` is
+4, so the one hot centroid among 388 ranked **106th**, far outside the brightest 30 the
+aligner uses — a saturated pixel at 16380 ADU integrates to 280 against 11127 for the
+brightest star. That protection fails for hot clusters or hot columns, and in sparse fields
+where the brightest 30 is most of the list. Hot pixels vote for shift (0,0) because they do
+not move, so with a large dither enough of them could pull the alignment onto zero. Hence
+cleaning the lists and realigning rather than trusting the first pass.
+
+**Ordering, and why it is not the obvious one.** The dark path masks *before* centroid
+finding, so a hot pixel never becomes a centroid. The dark-free path cannot: it needs the
+shifts, which need the centroids. So it aligns, searches, **filters the existing centroid
+lists**, and realigns — re-detecting would cost more than everything else here put together,
+and a bad centroid only has to be dropped. `_align_frames` was extracted to run twice, and
+`FRAME_ALIGNED` events moved out of it so they are emitted **once, from whichever alignment
+turned out to be final**; otherwise a discarded first pass would report shifts the run never
+used.
+
+**Guards, each because it can bite.** Fewer than three frames, or dither under 3 px, is
+declined *with the reason logged* — with no dither the two measures are identical by
+construction and every star would be flagged, so silent nonsense is the real risk. The
+saturated-blob mask is excluded from candidates and the list is capped at 200k: a lunar or
+solar disc would otherwise contribute ~10⁶ sites which classify correctly but waste the work,
+and an uncapped allocation on unseen data is not something to ship. `hot_pixel_dark_free`
+turns the path off.
+
+Still open: using it as a cross-check when darks *are* present. It found at least one real
+hot pixel the dark's own 20σ cut had missed (row 3219, col 4195: 27σ detector persistence,
+−1.3σ sky, 63 px from any star).
 
 ---
 

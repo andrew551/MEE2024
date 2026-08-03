@@ -84,10 +84,54 @@ Also worth stating: 161 of the dark's 296 hot pixels were bright enough in the l
 candidates at all. The other 135 are the mild ones, which contaminate less; a lower
 candidate threshold reaches them at the cost of more pixels to test.
 
-## Where this would go
+## What it costs
 
-The dark-based path stays as it is when darks are supplied and match. This becomes the
-fallback when they are absent — and arguably a cross-check when they are present, since it
-disagreed with the dark mask in the direction of finding real hot pixels the dark's own
-20σ cut had missed (e.g. row 3219 col 4195: 27σ detector persistence, −1.3σ sky
-persistence, 63 px from any star).
+Measured on the same 7 × 46.8 Mpixel frames:
+
+| step | per frame |
+|---|---|
+| `open_image` (warm cache) | 0.10 s |
+| `uniform_filter(64)` background | **0.67 s** ← nearly all of it |
+| threshold + `nonzero` | 0.11 s |
+| sampling the sites, all frames | ~0.00 s |
+| *`get_centroids_blur`, which stage 1 already does* | *3.89 s* |
+
+**4.8 s for the whole search against 138 s for stage 1** — about 4%, and a fifth of the
+centroid pass alone. Cheap enough that the tempting shortcut of only examining centroid
+neighbourhoods is not needed for cost reasons.
+
+## Can a hot pixel reach the aligner?
+
+In principle yes; on this data no, and the reason is worth knowing. Only **1 of 388**
+centroids sat on a hot pixel, and it ranked **106th** by flux — far outside the brightest 30
+that `attempt_align` uses. Centroids rank by *integrated* flux and `min_area` is 4, so a
+single hot pixel, even a saturated one at 16380 ADU, integrates to 280 against 11127 for the
+brightest star.
+
+That protection is circumstantial rather than structural. It fails for **hot clusters or hot
+columns** (area grows, flux ranks high) and in **sparse fields** — the aligner takes
+`min(len(c1), len(c2), 30)`, so rank 106 of 388 is safe while the same pixel in a 40-centroid
+field is not. The failure mode is specific: hot pixels vote for shift **(0,0)** because they
+do not move, so with a large dither enough of them could pull the alignment onto zero.
+
+## As implemented
+
+`mee2024/hotpixels.py`, used by `do_stack`:
+
+* **darks supplied** → `dark_mask`, applied *before* centroid finding, so a hot pixel never
+  becomes a centroid at all. Unchanged.
+* **no darks** → `persistence_mask` after the first alignment (it needs the shifts), then
+  the existing centroid lists are **filtered** rather than re-detected, and the alignment is
+  redone. Re-detection would cost more than everything else here put together; a bad
+  centroid only has to be dropped.
+* Either way the mask is excluded from the stack — from the *count* as well as the sum, so
+  hot pixels are removed rather than diluted.
+
+Guards, each of which exists because it can bite: fewer than three frames, or dither under
+`MIN_DITHER_PX`, is **declined with the reason logged** rather than guessed at; the saturated
+blob mask is excluded from candidates; the candidate list is capped. `hot_pixel_dark_free`
+turns the whole path off.
+
+Still open: using it as a **cross-check when darks are present**. It disagreed with the dark
+mask in the direction of finding real hot pixels the dark's own 20σ cut had missed — e.g.
+row 3219 col 4195, 27σ detector persistence, −1.3σ sky persistence, 63 px from any star.

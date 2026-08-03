@@ -43,6 +43,11 @@ DEFAULT_OPTIONS = {
     # -- on the measured example it selects 299 pixels of 46.8 million. Raise it to keep
     # more, or set it very high to disable the exclusion entirely.
     'hot_pixel_sigmas': 20.0,
+    # With no darks, find hot pixels from the dither instead: a star is fixed to the sky, a
+    # hot pixel to the detector (docs/bench/HOTPIX.md -- 96.3% of the dark-confirmed hot
+    # pixels, no false positives, about 4% of stage 1's runtime). Declines and says so when
+    # the field barely moved between frames, since then the two are indistinguishable.
+    'hot_pixel_dark_free': True,
     'blob_radius_extra': 100,  # delete pixels near saturated moon/sun region
     'centroid_gap_blob': 30,  # ignore centroids within this distance of saturated region + radius_extra
     'centroid_gaussian_subtract': False,  # use the "sensitive mode" of custom centroid detection
