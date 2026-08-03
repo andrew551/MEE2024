@@ -263,6 +263,46 @@ class Api:
     def cancel(self):
         return {'ok': self.runner.cancel()}
 
+    def scan_fields(self, spec=None):
+        """Preview the fields a batch would process, without starting anything.
+
+        Separate from starting the run so the user sees what a folder actually contains --
+        and, more to the point, sees the refusal *before* twenty runs begin rather than
+        after. Returns the field list, the frame counts, and any reason the walk stopped.
+        """
+        from mee2024.ui import batch
+
+        spec = spec or {}
+        folder = spec.get('folder')
+        if not folder:
+            return {'fields': [], 'info': {'truncated': 'no folder chosen'}}
+        limit = int(spec.get('max_fields') or batch.DEFAULT_MAX_FIELDS)
+        fields, info = batch.find_fields(folder, max_fields=limit)
+        return {
+            # the frame lists themselves are not sent: for twenty fields of a few hundred
+            # frames that is a lot of JSON to render a count from
+            'fields': [{'name': f['name'], 'relative': f['relative'],
+                        'folder': f['folder'], 'n_frames': len(f['frames'])}
+                       for f in fields],
+            'info': info,
+            'summary': batch.describe(fields, info),
+        }
+
+    def start_batch(self, spec):
+        """Discover the fields under a folder and run each of them."""
+        from mee2024.ui import batch
+
+        folder = (spec or {}).get('folder')
+        if not folder:
+            raise ValueError('choose a folder of fields to process')
+        limit = int(spec.get('max_fields') or batch.DEFAULT_MAX_FIELDS)
+        fields, info = batch.find_fields(folder, max_fields=limit)
+        if info.get('truncated'):
+            raise ValueError(info['truncated'])
+        self.runner.start(dict(spec, fields=fields, batch_root=str(folder)))
+        return {'ok': True, 'n_fields': len(fields),
+                'summary': batch.describe(fields, info)}
+
     def state(self, since=0):
         return self.runner.snapshot(since=int(since))
 
@@ -421,6 +461,10 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_json(self.api.start(payload))
             elif parsed.path == '/api/cancel':
                 self._send_json(self.api.cancel())
+            elif parsed.path == '/api/batch/scan':
+                self._send_json(self.api.scan_fields(payload))
+            elif parsed.path == '/api/batch/run':
+                self._send_json(self.api.start_batch(payload))
             elif parsed.path == '/api/reveal':
                 self._send_json(self.api.reveal(payload.get('path')))
             elif parsed.path == '/api/watch/start':

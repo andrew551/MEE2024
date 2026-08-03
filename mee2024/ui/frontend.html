@@ -264,7 +264,13 @@ canvas.plot.rot:active{cursor:grabbing}
     <!-- Watch mode is built and tested but not exposed: it is an advanced workflow that
          wants more thought before it earns a permanent tab. Restoring it means putting
          the two-tab group back here and dropping the display:none on #watch-card. -->
+    <label class="check" style="margin:0 4px 0 0" title="Process every folder of frames
+under a chosen folder, mirroring its layout into the output">
+      <input type="checkbox" id="batch-mode">
+      <span>Batch folders</span>
+    </label>
     <button class="btn primary" id="run-top">Run analysis</button>
+    <button class="btn danger" id="cancel-top" style="display:none">Stop</button>
   </header>
 
   <main>
@@ -279,20 +285,47 @@ canvas.plot.rot:active{cursor:grabbing}
       </div>
 
       <div class="card">
-        <h3>1 &middot; Light frames</h3>
-        <div class="filebox" id="lights"></div>
-        <div class="row" style="margin-top:10px">
-          <button class="btn" id="pick-lights">Choose frames&hellip;</button>
-          <button class="btn" id="clear-lights"
-                  title="Forget the light frames and any darks and flats">Clear all</button>
-          <div class="spacer"></div>
-          <span class="pill" id="lights-count">0</span>
+        <h3 id="input-heading">1 &middot; Light frames</h3>
+        <div id="single-input">
+          <div class="filebox" id="lights"></div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="pick-lights">Choose frames&hellip;</button>
+            <button class="btn" id="clear-lights"
+                    title="Forget the light frames and any darks and flats">Clear all</button>
+            <div class="spacer"></div>
+            <span class="pill" id="lights-count">0</span>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="pick-darks" style="flex:1">Darks&hellip;</button>
+            <button class="btn" id="pick-flats" style="flex:1">Flats&hellip;</button>
+          </div>
+          <div class="faint" id="calib-note" style="margin-top:7px"></div>
         </div>
-        <div class="row" style="margin-top:10px">
-          <button class="btn" id="pick-darks" style="flex:1">Darks&hellip;</button>
-          <button class="btn" id="pick-flats" style="flex:1">Flats&hellip;</button>
+        <!-- batch mode: one folder in, every folder of frames beneath it processed -->
+        <div id="batch-input" style="display:none">
+          <p class="faint" style="margin:0 0 10px;max-width:60ch">
+            Every folder of frames beneath this one is treated as its own field, and its
+            results are written to a matching folder under the output. Capture software
+            usually nests them as
+            <span style="font-family:var(--mono)">session / field / time / frames</span>.
+          </p>
+          <div class="row">
+            <span class="faint" id="batchdir" style="flex:1;font-family:var(--mono);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              (no folder chosen)</span>
+            <button class="btn" id="pick-batch">Choose&hellip;</button>
+          </div>
+          <div class="adv" style="margin-top:12px">
+            <label for="batch-limit">Most fields to accept</label>
+            <input id="batch-limit" value="20">
+          </div>
+          <div class="faint" style="margin-top:7px">
+            A safety catch, not a quota: if a folder holds more fields than this, nothing
+            starts. Picking a drive root by accident would otherwise walk the whole disk
+            and launch hundreds of runs.
+          </div>
+          <div id="batch-scan" style="margin-top:12px"></div>
         </div>
-        <div class="faint" id="calib-note" style="margin-top:7px"></div>
       </div>
 
       <div class="card">
@@ -427,6 +460,17 @@ canvas.plot.rot:active{cursor:grabbing}
         <div class="card">
           <h3>Progress</h3>
           <div id="stages"></div>
+        </div>
+        <div class="card" id="batch-card" style="display:none;margin-top:16px">
+          <div class="row">
+            <h3 style="margin:0;flex:1">Fields</h3>
+            <span class="pill" id="batch-count"></span>
+          </div>
+          <div id="batch-list" style="margin-top:10px"></div>
+          <div class="faint" id="batch-note" style="margin-top:9px">
+            The cards below show whichever field is running; every field's own results are
+            written to its folder under the output.
+          </div>
         </div>
         <div class="scores" id="scores" style="margin-top:16px"></div>
         <div class="card preview" id="preview-card" style="display:none;margin-top:16px">
@@ -584,6 +628,7 @@ const state = {
   tab:'run', watch:null, watchFolder:null, keepPolling:false, settingsOpen:true,
   analysis:null, analysisOpen:false, analysisView:'dx', catalogueLimits:{},
   stars:null, previewImage:null,
+  batchMode:false, batchFolder:null, batchFields:[], batchStatus:new Map(),
 };
 
 /* ------------------------------------------------------------------ helpers */
@@ -653,8 +698,104 @@ function renderFiles(){
   if(state.darks.length) bits.push(state.darks.length+' dark'+(state.darks.length>1?'s':''));
   if(state.flats.length) bits.push(state.flats.length+' flat'+(state.flats.length>1?'s':''));
   $('calib-note').textContent = bits.length ? bits.join(', ')+' selected' : '';
-  $('run').disabled = $('run-top').disabled =
-    state.lights.length===0 || state.status==='running';
+  updateRunEnabled();
+}
+
+/* ------------------------------------------------------------ batch folders */
+/* Capture software writes a folder per field, so the useful unit of work is often a tree
+   rather than a list of frames. Batch mode takes the tree, finds every folder that
+   directly holds frames, and mirrors that layout into the output. */
+function applyBatchMode(){
+  const on = state.batchMode;
+  $('batch-mode').checked = on;
+  $('single-input').style.display = on ? 'none' : '';
+  $('batch-input').style.display = on ? '' : 'none';
+  $('input-heading').innerHTML = on ? '1 &middot; Folder of fields' : '1 &middot; Light frames';
+  updateRunEnabled();
+}
+
+function updateRunEnabled(){
+  // in batch mode the frames are discovered, so what gates the run is a folder and an
+  // output folder to mirror into -- not a list of files
+  const ready = state.batchMode
+    ? Boolean(state.batchFolder && state.outputDir && state.batchFields.length)
+    : state.lights.length > 0;
+  const running = state.status === 'running';
+  $('run').disabled = $('run-top').disabled = !ready || running;
+}
+
+async function scanBatchFolder(){
+  const host = $('batch-scan');
+  if(!state.batchFolder){ host.innerHTML = ''; state.batchFields = []; return; }
+  host.innerHTML = '<div class="faint">looking&hellip;</div>';
+  try{
+    const r = await api('batch/scan', {folder: state.batchFolder,
+                                       max_fields: parseInt($('batch-limit').value, 10) || 20});
+    state.batchFields = r.fields || [];
+    const blocked = r.info && r.info.truncated;
+    host.innerHTML = '';
+    const summary = document.createElement('div');
+    summary.className = blocked ? 'warnline' : 'faint';
+    summary.style.display = 'block';
+    summary.textContent = r.summary || '';
+    host.appendChild(summary);
+    if(!blocked && state.batchFields.length){
+      const list = document.createElement('div');
+      list.style.marginTop = '8px';
+      state.batchFields.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'dl';
+        row.innerHTML = '<div class="grow"><div class="nm"></div>'
+                      + '<div class="sub"></div></div><span class="pill"></span>';
+        row.querySelector('.nm').textContent = f.name;
+        row.querySelector('.sub').textContent = f.relative || '(the chosen folder)';
+        row.querySelector('.pill').textContent = f.n_frames + ' frame'
+                                              + (f.n_frames === 1 ? '' : 's');
+        list.appendChild(row);
+      });
+      host.appendChild(list);
+    }
+  }catch(err){
+    state.batchFields = [];
+    host.innerHTML = '';
+    const line = document.createElement('div');
+    line.className = 'warnline';
+    line.style.display = 'block';
+    line.textContent = err.message;
+    host.appendChild(line);
+  }
+  updateRunEnabled();
+}
+
+const BATCH_MARK = {running:'…', done:'✓', failed:'✗', cancelled:'—'};
+
+function renderBatch(){
+  const host = $('batch-list');
+  const fields = state.batchFields;
+  if(!fields.length){ $('batch-card').style.display = 'none'; return; }
+  $('batch-card').style.display = '';
+  host.innerHTML = '';
+  let done = 0;
+  fields.forEach(f => {
+    const key = f.relative || f.name;
+    const entry = state.batchStatus.get(key) || {};
+    if(entry.status === 'done' || entry.status === 'failed') done++;
+    const row = document.createElement('div');
+    row.className = 'dl';
+    row.innerHTML = '<div class="grow"><div class="nm"></div><div class="sub"></div></div>'
+                  + '<span class="pill"></span>';
+    row.querySelector('.nm').textContent = f.name;
+    const sub = row.querySelector('.sub');
+    sub.textContent = entry.error || f.relative || '';
+    if(entry.error) sub.style.color = 'var(--bad)';
+    const pill = row.querySelector('.pill');
+    pill.textContent = (BATCH_MARK[entry.status] || '') + ' '
+                     + (entry.status || 'waiting');
+    if(entry.status === 'failed') pill.style.color = 'var(--bad)';
+    if(entry.status === 'done') pill.style.color = 'var(--ok)';
+    host.appendChild(row);
+  });
+  $('batch-count').textContent = `${done} / ${fields.length}`;
 }
 
 /* ---------------------------------------------------------------- presets */
@@ -1426,6 +1567,21 @@ function handleEvent(e){
           `<img alt="distortion field" src="data:image/png;base64,${e.png}">`;
       }
       break;
+    case 'batch_started':
+      state.batchStatus.clear(); renderBatch(); break;
+    case 'batch_field':
+      state.batchStatus.set(e.name, {status: e.status, error: e.error || ''});
+      renderBatch();
+      // each field is a fresh run of the pipeline, so clear the single-field views as it
+      // starts rather than leaving the previous field's numbers on screen
+      if(e.status === 'running') resetRunView(true);
+      break;
+    case 'batch_finished':
+      renderBatch();
+      appendLog(`${e.n_done} of ${e.n_fields} field(s) succeeded`
+              + (e.n_failed ? `, ${e.n_failed} failed` : ''),
+              e.n_failed ? 'w' : null);
+      break;
     case 'stars':
       // may arrive before or after the preview image; whichever is last draws
       state.stars = e;
@@ -1484,7 +1640,8 @@ function onStatusChange(s){
   $('run').style.display = idle ? '' : 'none';
   $('run-top').style.display = idle ? '' : 'none';
   $('cancel').style.display = running ? '' : 'none';
-  $('run').disabled = $('run-top').disabled = running || state.lights.length===0;
+  $('cancel-top').style.display = running ? '' : 'none';
+  updateRunEnabled();
   if(!running){
     // keep polling while a folder watch or a download is live: more work is coming
     if(!state.keepPolling) stopPolling();
@@ -1518,7 +1675,7 @@ function showLive(){
   startPolling();
 }
 
-function resetRunView(){
+function resetRunView(keepBatch){
   state.stages.clear(); state.metrics={}; state.solve=null; state.analysis=null;
   state.stars=null; state.previewImage=null;
   $('scores').innerHTML='';
@@ -1527,6 +1684,8 @@ function resetRunView(){
   $('label-controls').style.display='none'; $('labels-legend').textContent='';
   $('zoom').value = 100;
   $('open-out').style.display='none';
+  // a batch clears these between fields, but its own field list must survive that
+  if(!keepBatch){ state.batchStatus.clear(); $('batch-card').style.display='none'; }
 }
 
 /* The run specification, shared by the one-shot Run button and by watch mode.
@@ -1575,7 +1734,16 @@ async function run(){
   resetRunView();
   showLive();
   try{
-    await api('run', buildSpec());
+    if(state.batchMode){
+      const spec = buildSpec();
+      spec.folder = state.batchFolder;
+      spec.max_fields = parseInt($('batch-limit').value, 10) || 20;
+      const r = await api('batch/run', spec);
+      appendLog(r.summary || `${r.n_fields} field(s) queued`);
+      renderBatch();
+    }else{
+      await api('run', buildSpec());
+    }
     state.status='running'; onStatusChange({status:'running'});
   }catch(err){ banner(err.message); }
 }
@@ -1603,9 +1771,14 @@ function applyChoice(target, dirsOnly, paths){
     if(target === 'watch'){
       state.watchFolder = paths[0];
       $('watchdir').textContent = paths[0];
+    }else if(target === 'batch'){
+      state.batchFolder = paths[0];
+      $('batchdir').textContent = paths[0];
+      scanBatchFolder();
     }else{
       state.outputDir = paths[0];
       $('outdir').textContent = paths[0];
+      updateRunEnabled();
     }
   }else{
     state[target] = paths.slice().sort();
@@ -1681,9 +1854,14 @@ function confirmPicker(){
     if(picker.target === 'watch'){
       state.watchFolder = picker.cwd;
       $('watchdir').textContent = picker.cwd;
+    }else if(picker.target === 'batch'){
+      state.batchFolder = picker.cwd;
+      $('batchdir').textContent = picker.cwd;
+      scanBatchFolder();
     }else{
       state.outputDir = picker.cwd;
       $('outdir').textContent = picker.cwd;
+      updateRunEnabled();
     }
   }else{
     const chosen = [...picker.chosen].sort();
@@ -1734,6 +1912,14 @@ function setTab(name){
   $('run').style.display = name === 'watch' ? 'none' : '';
 }
 $('run-top').onclick = run;
+$('cancel-top').onclick = () => api('cancel', {}).catch(e => banner(e.message));
+$('batch-mode').onchange = () => {
+  state.batchMode = $('batch-mode').checked;
+  applyBatchMode();
+  if(state.batchMode && state.batchFolder) scanBatchFolder();
+};
+$('pick-batch').onclick = () => choose('batch', true);
+$('batch-limit').onchange = () => { if(state.batchFolder) scanBatchFolder(); };
 
 $('settings-toggle').onclick = () => {
   state.settingsOpen = !state.settingsOpen;

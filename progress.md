@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 645 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 668 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.2.8; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.3.0; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,50 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-03 — v1.3.0: recursive batch folder processing
+
+Capture software writes a folder per field — `session / field / time / frames` — so the
+useful unit of work is often a tree, not a list of frames. **Batch folders** (a checkbox
+top-right) switches the input to a single folder, treats every folder beneath it that
+*directly* holds frames as its own field, and mirrors that layout into the output.
+
+On a replica of the reported layout: `5 field(s), 18 frame(s), from 11 folder(s)`, with the
+`.CameraSettings.txt` sidecars ignored and a folder of frames ending the descent, so a stray
+`thumbnails/` inside a capture folder cannot become a sixth field. Output mirrors rather than
+flattens, because capture software reuses timestamps across nights and two `22_02_22` folders
+would otherwise collide.
+
+**Two limits, because one is not enough.** The requested cap on fields is there — 20 by
+default, editable in the UI — but a field count alone does not protect anyone: a drive root
+is an enormous *nearly empty* tree, where the walk itself is the cost rather than the runs.
+So there is also a cap on directories examined (2000). Both **refuse outright rather than
+truncating**: quietly processing the first twenty of two hundred would leave the user
+believing the job had finished, which is worse than stopping.
+
+**A failing field does not abandon the batch.** A night of observing is too expensive to lose
+to one bad folder, so each field is caught, recorded and reported and the run continues;
+cancellation is different and stops at the next field boundary, which is what Stop should
+mean here. The **Stop button** now sits beside Run in the header, visible only while running.
+
+The catalogue and the pattern database are prepared **once** rather than per field, which is
+why `_run_one` was factored out of `_work` instead of looping the existing entry point.
+
+**Verified both ways round on real data.** Five synthetic fields with no stars: every field
+attempted, each row `✗ failed` with its reason, summary `0 of 5 succeeded, 5 failed`, and the
+batch itself finishing `done` rather than aborting — the isolation exercised for real, not
+just in a test. Then two genuine fields (the Rasalhague frame, and three of the eclipse
+lights) through **both stages** in 160 s:
+
+```
+A_rasalhague_28_47     done   1 frame   centroid + distortion zip
+B_eclipse_field_04_15  done   3 frames  centroid + distortion zip
+```
+
+each written to its own mirrored folder. 41 new tests over the bounds, the refusals, the
+mirroring, name collisions, per-field failure isolation and cancellation.
 
 ---
 
