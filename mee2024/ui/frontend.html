@@ -769,6 +769,11 @@ async function scanBatchFolder(){
 
 const BATCH_MARK = {running:'…', done:'✓', failed:'✗', cancelled:'—'};
 
+/* One line per field: what it is, where it came from, how it went and how well.
+
+   The path stays on screen whichever way a field ended -- when it fails, the *first* thing
+   wanted is which folder to go and look at, and an error message that replaced the path
+   made that the one thing missing. */
 function renderBatch(){
   const host = $('batch-list');
   const fields = state.batchFields;
@@ -782,20 +787,54 @@ function renderBatch(){
     if(entry.status === 'done' || entry.status === 'failed') done++;
     const row = document.createElement('div');
     row.className = 'dl';
-    row.innerHTML = '<div class="grow"><div class="nm"></div><div class="sub"></div></div>'
+    row.innerHTML = '<div class="grow"><div class="nm"></div><div class="sub"></div>'
+                  + '<div class="sub err" style="display:none"></div></div>'
                   + '<span class="pill"></span>';
     row.querySelector('.nm').textContent = f.name;
+    // the full source folder, always, and the whole thing on hover for a long path
     const sub = row.querySelector('.sub');
-    sub.textContent = entry.error || f.relative || '';
-    if(entry.error) sub.style.color = 'var(--bad)';
+    sub.textContent = entry.folder || f.folder || f.relative || '';
+    sub.style.fontFamily = 'var(--mono)';
+    row.title = (entry.folder || f.folder || '')
+              + (entry.output_dir ? '\n→ ' + entry.output_dir : '');
+    if(entry.error){
+      const err = row.querySelector('.err');
+      err.textContent = entry.error;
+      err.style.display = '';
+      err.style.color = 'var(--bad)';
+    }
     const pill = row.querySelector('.pill');
     pill.textContent = (BATCH_MARK[entry.status] || '') + ' '
                      + (entry.status || 'waiting');
     if(entry.status === 'failed') pill.style.color = 'var(--bad)';
     if(entry.status === 'done') pill.style.color = 'var(--ok)';
+    // the numbers that say whether a finished field is any good, beside the tick
+    const summary = batchSummary(entry);
+    if(summary){
+      const numbers = document.createElement('span');
+      numbers.className = 'pill';
+      numbers.style.marginRight = '6px';
+      numbers.textContent = summary;
+      row.insertBefore(numbers, pill);
+    }
     host.appendChild(row);
   });
   $('batch-count').textContent = `${done} / ${fields.length}`;
+}
+
+/* rms and star count are what a glance down the list should answer: did this field
+   measure well? Reported in mas, as everywhere else in the app. */
+function batchSummary(entry){
+  if(entry.status !== 'done') return '';
+  const bits = [];
+  if(entry.rms_mas !== null && entry.rms_mas !== undefined)
+    bits.push(`${entry.rms_mas.toFixed(0)} mas`);
+  if(entry.n_stars !== null && entry.n_stars !== undefined)
+    bits.push(`${entry.n_stars} stars`);
+  if(!bits.length && entry.n_centroids !== null && entry.n_centroids !== undefined)
+    bits.push(`${entry.n_centroids} centroids`);
+  if(entry.platesolved === false) bits.push('not solved');
+  return bits.join(' · ');
 }
 
 /* ---------------------------------------------------------------- presets */
@@ -1570,7 +1609,11 @@ function handleEvent(e){
     case 'batch_started':
       state.batchStatus.clear(); renderBatch(); break;
     case 'batch_field':
-      state.batchStatus.set(e.name, {status: e.status, error: e.error || ''});
+      state.batchStatus.set(e.name, {
+        status: e.status, error: e.error || '', folder: e.folder || '',
+        output_dir: e.output_dir || '', rms_mas: e.rms_mas, n_stars: e.n_stars,
+        nn_corr: e.nn_corr, n_centroids: e.n_centroids, platesolved: e.platesolved,
+      });
       renderBatch();
       // each field is a fresh run of the pipeline, so clear the single-field views as it
       // starts rather than leaving the previous field's numbers on screen

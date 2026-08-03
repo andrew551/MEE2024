@@ -303,6 +303,33 @@ class PipelineRunner:
             events.log(f'stage 2 complete: {Path(distortion_zip).name}')
         return centroid_zip, distortion_zip
 
+    def _field_metrics(self, since_seq):
+        """The few numbers worth showing beside a finished field.
+
+        Read from this field's own slice of the event stream rather than from the zips: the
+        pipeline already reports them, and re-opening two archives to recover numbers that
+        just went past would be work for nothing. Scoped by sequence number because in a
+        batch the previous field's metrics are still in the sink.
+        """
+        found = {}
+        for event in self.sink.since(since_seq):
+            if event['type'] == events.METRICS:
+                found[event.get('stage')] = event
+        out = {}
+        stack = found.get('stack') or {}
+        distortion = found.get('distortion') or {}
+        if stack.get('n_centroids') is not None:
+            out['n_centroids'] = int(stack['n_centroids'])
+        if stack.get('platesolved') is not None:
+            out['platesolved'] = bool(stack['platesolved'])
+        if distortion.get('rms_mas') is not None:
+            out['rms_mas'] = float(distortion['rms_mas'])
+        if distortion.get('n_stars') is not None:
+            out['n_stars'] = int(distortion['n_stars'])
+        if distortion.get('nn_corr') is not None:
+            out['nn_corr'] = float(distortion['nn_corr'])
+        return out
+
     def _run_fields(self, spec, options, progress):
         """Run every discovered field, one after another.
 
@@ -335,13 +362,19 @@ class PipelineRunner:
             if output_root:
                 field_options['output_dir'] = batch.output_dir_for(field, output_root)
             entry = {'name': label, 'folder': field['folder'],
-                     'n_frames': len(field['frames'])}
+                     'n_frames': len(field['frames']),
+                     'output_dir': field_options.get('output_dir', '')}
+            # where this field's events begin, so its numbers are not confused with the
+            # previous field's when they are collected below
+            with self._lock:
+                mark = self.sink.events[-1]['seq'] if self.sink.events else 0
             try:
                 field_spec = dict(spec, lights=field['frames'], centroid_zip=None)
                 centroid_zip, distortion_zip = self._run_one(
                     field_spec, field_options, progress)
                 entry.update(status='done', centroid_zip=str(centroid_zip or ''),
-                             distortion_zip=str(distortion_zip or ''))
+                             distortion_zip=str(distortion_zip or ''),
+                             **self._field_metrics(mark))
             except Cancelled:
                 entry.update(status='cancelled')
                 results.append(entry)
@@ -358,7 +391,11 @@ class PipelineRunner:
             results.append(entry)
             events.emit(events.BATCH_FIELD, index=number, of=len(fields), name=label,
                         n_frames=len(field['frames']), status=entry['status'],
-                        error=entry.get('error', ''))
+                        error=entry.get('error', ''), folder=field['folder'],
+                        output_dir=entry.get('output_dir', ''),
+                        rms_mas=entry.get('rms_mas'), n_stars=entry.get('n_stars'),
+                        nn_corr=entry.get('nn_corr'),
+                        n_centroids=entry.get('n_centroids'))
         with self._lock:
             self.batch_results = results
         done = sum(1 for r in results if r['status'] == 'done')

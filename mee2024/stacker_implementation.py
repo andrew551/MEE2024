@@ -236,6 +236,19 @@ def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None):
     return pedestal, clipped
 
 
+def _stopped_early(message, files):
+    """A centroid-phase failure, with what the early exit saved.
+
+    Worth saying: someone watching a hundred-frame run die two frames in should know that
+    is deliberate and that the remaining frames were not silently skipped for some other
+    reason.
+    """
+    return Exception(
+        f'{message}\n\nStopped after two frames rather than centroiding the other '
+        f'{max(0, len(files) - 2)} first: every frame is aligned against frame 0, so a set '
+        f'whose first two frames do not match cannot be stacked at all.')
+
+
 def _align_frames(centroids, files, options):
     """Fit every frame's offset against the first. Extracted so it can be run twice.
 
@@ -764,7 +777,37 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     if options['save_dark_flat']:
         save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, flat)
     t_start_c = time.time()
-    centroids_data = progress.loop(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options, hot=hot)
+    # Fail fast. Centroid finding is the expensive part -- seconds per frame on a full
+    # sensor -- and if frames 0 and 1 cannot be matched then nothing downstream can work:
+    # every later frame is aligned against frame 0, so the run was going to die anyway,
+    # just after paying for every frame first. Doing the first pair up front costs nothing
+    # on good data (each frame is still centroided exactly once) and turns a doomed
+    # hundred-frame run into a two-frame one.
+    if len(files) > 1:
+        pair = progress.loop(files[:2], open_img_and_find_centroids,
+                             message='Checking the first two frames...',
+                             dark=dark, flat=flat, options=options, hot=hot)
+        first_two = [np.array([x[2] for x in y]) for y in pair]
+        for index, found in enumerate(first_two):
+            if not len(found):
+                raise _stopped_early(
+                    f'No star centroids were found on frame {index} '
+                    f'({Path(files[index]).name}). Nothing can be stacked or solved from '
+                    f'it. Check the frame is not blank or wildly out of focus, and that '
+                    f'the centroid detection threshold suits this data.', files)
+        try:
+            attempt_align(first_two[0], first_two[1], options, framenum=1)
+        except Exception as exc:
+            # attempt_align already says what went wrong; what it cannot know is that this
+            # was the early probe, so add what was skipped and why the run stopped here
+            raise _stopped_early(str(exc), files) from exc
+        rest = (progress.loop(files[2:], open_img_and_find_centroids,
+                              message='Finding all centroids...',
+                              dark=dark, flat=flat, options=options, hot=hot)
+                if len(files) > 2 else [])
+        centroids_data = list(pair) + list(rest)
+    else:
+        centroids_data = progress.loop(files, open_img_and_find_centroids, message='Finding all centroids...', dark = dark, flat=flat, options=options, hot=hot)
     print("--- %s seconds for centroid finding---" % (time.time() - t_start_c))
     centroids = [np.array([x[2] for x in y]) for y in centroids_data]
 

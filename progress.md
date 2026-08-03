@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 668 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 671 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.3.0; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.3.1; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -156,6 +156,38 @@ so and names duplicate catalogue entries as the likely reason.
 
 **Verified on the reported data**: the field now fits **185 stars at 0.092″ rms with
 nn_corr 0.039** — a better fit than either ZWO reference field.
+
+---
+
+## 2026-08-03 — v1.3.1: batch rows say how well, and a doomed run stops in two frames
+
+**Each finished field now carries its numbers.** `rms mas · n stars` beside the tick, so a
+glance down twenty fields answers "did these measure well?" without opening any of them.
+Taken from that field's own slice of the event stream — scoped by sequence number, because in
+a batch the previous field's metrics are still in the sink — rather than by re-opening two
+zips to recover numbers that had just gone past. Falls back to the centroid count when a
+field stopped after stage 1, and says `not solved` when the plate solve failed.
+
+**The source folder stays on screen whichever way a field ended.** It used to be replaced by
+the error text, which removed the one thing wanted first: which folder to go and look at. Path
+and error are now separate lines, and the row's tooltip carries the full source path and the
+output path it was written to.
+
+**Fail fast on unmatchable frames.** Centroid finding is the expensive part — seconds per
+frame on a full sensor — and it ran over *every* frame before the first alignment was
+attempted. Since every frame is aligned against frame 0, a set whose first two frames cannot
+be matched was always going to fail, just after paying for all of them. The first pair is now
+done up front and checked; on good data this costs nothing at all (each frame is still
+centroided exactly once, which is pinned by a test), and on bad data a hundred-frame run
+becomes a two-frame one. Measured on ten noise frames: **2 centroided instead of 10**.
+
+The failure message names the offending frame and says what was skipped and why, so a run
+dying two frames in reads as deliberate rather than as frames being silently dropped for
+some other reason.
+
+One thing found while writing it: `attempt_align` *raises* rather than returning `None` for a
+failed match, so the first version's `if probe is None` was dead code — and the same `shift2
+is None` branch in `_align_frames` is defensive-only for the same reason.
 
 ---
 

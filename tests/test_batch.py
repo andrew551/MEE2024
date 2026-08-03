@@ -272,3 +272,102 @@ def test_a_batch_without_an_output_folder_is_refused(session, runner):
     fields, _ = batch.find_fields(session)
     with pytest.raises(ValueError, match='output folder'):
         runner.start({'fields': fields, 'preset': 'auto'})
+
+
+# ------------------------------------------------------------------ fail fast
+
+def _count_centroid_calls(monkeypatch):
+    """Count how many frames get centroided, so the saving can be measured not assumed."""
+    from mee2024 import stacker_implementation as si
+
+    calls = []
+    real = si.open_img_and_find_centroids
+
+    def counting(file, options=None, dark=0, flat=1, hot=None):
+        calls.append(file)
+        return real(file, options or {}, dark, flat, hot)
+
+    monkeypatch.setattr(si, 'open_img_and_find_centroids', counting)
+    return calls
+
+
+def test_unmatchable_frames_stop_after_two(tmp_path, monkeypatch):
+    """Every frame is aligned against frame 0, so if the first two do not match the run was
+    always going to die -- the point is not paying for the other frames first."""
+    import numpy as np
+    from mee2024 import stacker_implementation as si
+    from mee2024.config import get_default_options
+
+    # ten frames of pure noise: no centroids anywhere, so nothing can be matched
+    rng = np.random.default_rng(0)
+    files = []
+    for i in range(10):
+        path = tmp_path / f'noise_{i:03d}.fits'
+        fits.writeto(path, rng.normal(100, 3, (64, 64)).astype(np.float32))
+        files.append(str(path))
+
+    calls = _count_centroid_calls(monkeypatch)
+    options = get_default_options()
+    options.update(flag_display=False, flag_display2=False, output_dir=str(tmp_path / 'o'),
+                   centroid_gaussian_subtract=True)
+    with pytest.raises(Exception) as exc:
+        si.do_stack(files, [], [], options)
+    assert len(calls) == 2, f'centroided {len(calls)} frames before giving up, wanted 2'
+    assert 'Stopped after two frames' in str(exc.value)
+    assert '8 first' in str(exc.value), 'should say how many frames it skipped'
+
+
+def test_a_blank_first_frame_names_the_frame(tmp_path, monkeypatch):
+    import numpy as np
+    from mee2024 import stacker_implementation as si
+    from mee2024.config import get_default_options
+
+    files = []
+    for i in range(4):
+        path = tmp_path / f'flat_{i:03d}.fits'
+        fits.writeto(path, np.full((64, 64), 100.0, dtype=np.float32))
+        files.append(str(path))
+    calls = _count_centroid_calls(monkeypatch)
+    options = get_default_options()
+    options.update(flag_display=False, flag_display2=False, output_dir=str(tmp_path / 'o'),
+                   centroid_gaussian_subtract=True)
+    with pytest.raises(Exception) as exc:
+        si.do_stack(files, [], [], options)
+    assert 'flat_000.fits' in str(exc.value), 'should name the offending frame'
+    assert len(calls) == 2
+
+
+def test_good_data_still_centroids_every_frame_exactly_once(tmp_path, monkeypatch):
+    """The early probe must not cost anything on data that works: frames 0 and 1 are done
+    in the probe and must not be done again in the main pass."""
+    import numpy as np
+    from mee2024 import stacker_implementation as si
+
+    calls = []
+
+    def fake(file, options=None, dark=0, flat=1, hot=None):
+        calls.append(file)
+        # a fixed pattern of 'centroids' that aligns with itself
+        return [(100.0, 9.0, (10.0 + i, 20.0 + 2 * i)) for i in range(8)]
+
+    monkeypatch.setattr(si, 'open_img_and_find_centroids', fake)
+    files = [str(tmp_path / f'f{i}.fits') for i in range(6)]
+    # only the centroid phase matters here, so stop before anything reads a file
+    monkeypatch.setattr(si, 'attempt_align',
+                        lambda c1, c2, options, guess=(0, 0), framenum=-1:
+                        ((0, 0), {0: 0}, {0: 0}, (0.0, 0.0), 0.1))
+    monkeypatch.setattr(si, 'open_image',
+                        lambda f: np.zeros((32, 32), dtype=np.float32))
+    with pytest.raises(Exception):
+        # it will fail later (no real frames to stack), but the centroid count is the point
+        si.do_stack(files, [], [], _stack_options(tmp_path))
+    assert sorted(calls) == sorted(files), 'every frame exactly once, none twice'
+    assert len(calls) == len(files)
+
+
+def _stack_options(tmp_path):
+    from mee2024.config import get_default_options
+    options = get_default_options()
+    options.update(flag_display=False, flag_display2=False,
+                   output_dir=str(tmp_path / 'out'), centroid_gaussian_subtract=True)
+    return options
