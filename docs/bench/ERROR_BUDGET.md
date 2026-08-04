@@ -226,6 +226,61 @@ Fixed in v1.3.3 (largest-gap wrap split; regression test with the exact corners)
 the field now blind-solves with 99 matched against a threshold of 12. Every field
 within ~2° of RA 0 was affected, in both solvers, silently.
 
+## Removable vs pixel-level: the actionable split
+
+The decomposition the two scaling laws make possible: at each dataset's current
+frame count, how much of the final stage-2 rms is *removable* (keeps averaging
+down with more frames) versus stuck at the static wall — and, within the wall,
+how much is pixel-discreteness error that a better PSF-aware centroid method
+could remove.
+
+| dataset (current N) | total rms | removable by more frames | static wall |
+|---|---|---|---|
+| eclipse (N=7) | 78.7 mas | 40.0 mas — **26 %** of variance | 67.9 mas (74 %) |
+| zwo3 (N=9, 0.2 s) | 168.2 mas | 135.1 mas — **65 %** of variance | 100.4 mas (36 %) |
+| rasalhague (N=50) | 107 mas | 19 mas — **3 %** of variance | 106 mas (97 %) |
+
+Reading: zwo3 should simply take more frames (still noise-dominated); the eclipse
+set gains ~14 % rms at most from infinite further frames; rasalhague's 50-stack
+gains nothing — it *is* the static wall.
+
+**Inside the wall, pixel discreteness is measured ≈ zero.** The one error source
+a PSF-aware fit uniquely removes — centroid bias from pixel sampling — has a
+signature nothing else shares: dependence on subpixel phase, which a distortion
+polynomial (period: thousands of px) cannot absorb (period: 1 px).
+`tools/static_phase_bias.py` bins the signed stage-2 residuals (pixel frame,
+recovered convention-free from the matched pairs) by subpixel phase, against a
+permutation null:
+
+| stack | per-frame phase bias | phase bias left in the *stacked* static error | p |
+|---|---|---|---|
+| eclipse n7 | 0.007–0.010 px | ≤ 0.010 px, indistinguishable from null | 0.76–0.88 |
+| zwo3 n9 (FWHM 1.8 px!) | 0.034–**0.069** px | ≤ 0.018 px, excess 0.005 px | 0.42–0.96 |
+| rasalhague n50 | — | ≤ 0.008 px, indistinguishable from null | 0.66–0.80 |
+
+The undersampled set is the acid test: its per-frame discreteness bias
+(0.069 px) would be ~half the static wall if it survived — and it doesn't.
+**Dithered stacking already does the job an ePSF fit would do for pixel
+discreteness**: each star lands at many phases, the bias averages out, and the
+static wall that remains is *not* phase-locked (< 4 % of static variance,
+bounded by the null sensitivity). This is also consistent with the deliverable-d
+result that no estimator swap moved the random floor.
+
+What the wall actually is, by elimination and by its measured signatures: it
+tracks the local PSF (rasalhague: ρ +0.163, +31 % residual in the worst-FWHM
+third) but not subpixel phase — i.e. **PSF-asymmetry bias** (an asymmetric PSF
+pulls any centroid off the catalogue position in a field-dependent way that a
+cubic polynomial only partly absorbs), plus whatever distortion-model truncation
+and colour terms (chromatic refraction/dispersion) contribute. A PSF-aware
+method can still attack the *asymmetry* part — by modelling the field-varying
+kernel shape, not by fixing discreteness — with a realistic ceiling of roughly
+10–15 % of the wall (the best-vs-worst-FWHM spread), not the 2× a naive reading
+of "0.05 px ≈ pixel effects" would suggest. The earlier speculation that the
+common ~0.05 px wall is pixel-*discreteness*-native is hereby measured down;
+its pixel-unit universality across three setups still wants an explanation
+(estimator response to asymmetric PSFs is itself pixel-native, as is sub-pixel
+QE structure — but the phase-locked part of the latter is excluded too).
+
 ## The 0.2 s exposure lesson (zwo3)
 
 The per-frame floor at 0.2 s is 0.244 px = 0.46″ — three times the 10 s sets —

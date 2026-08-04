@@ -1,0 +1,3 @@
+y-axis: bias amplitude 0.0048 px, curve rms 0.0035 px (null 0.0045, p 0.804) -> genuine pixel-level bias 0.0000 px
+x-axis: bias amplitude 0.0076 px, curve rms 0.0046 px (null 0.0052, p 0.660) -> genuine pixel-level bias 0.0000 px
+combined pixel-level bias 0.0000 px = 0.0% of the static variance
