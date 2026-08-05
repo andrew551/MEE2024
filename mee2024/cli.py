@@ -16,6 +16,7 @@ Options are resolved in this order, later winning:
 
 import argparse
 import contextlib
+import glob
 import json
 import sys
 from pathlib import Path
@@ -88,6 +89,49 @@ def make_progress(args):
     return NullProgress() if getattr(args, 'quiet', False) else TextProgress()
 
 
+_GLOB_CHARS = '*?['
+
+
+def resolve_input_files(entries, kind, *, required=False):
+    """Expand the frame paths from the command line, and refuse a list we cannot stack.
+
+    Two jobs. First, expand wildcards ourselves: cmd.exe does no globbing at all and
+    PowerShell only globs for cmdlets, so on Windows ``stack lights/*.fits`` arrives
+    here as the unexpanded pattern and there is no file by that name to open.
+
+    Second, fail here rather than deep inside the pipeline. A path that matches nothing
+    reaches ``cv2.imread``, which reports every failure by returning None, and the run
+    dies in ``cvtColor`` with an assertion about an empty matrix that names neither the
+    file nor the reason -- after the pattern database has been prepared, which is minutes.
+
+    Unlike ``main.precheck_files``, which drops bad frames and stacks the rest because a
+    GUI user can see the list they picked, this refuses the whole run: a headless run has
+    nobody watching, and silently stacking a subset is a wrong answer rather than an error.
+    """
+    resolved = []
+    for entry in entries:
+        raw = str(entry)
+        if not raw:
+            raise RuntimeError(f'{kind} path is empty')
+        # a plain path globs to itself when it exists, and to nothing when it does not,
+        # so patterns and ordinary paths take the same route through here
+        matches = sorted(glob.glob(raw))
+        if not matches and Path(raw).exists():
+            matches = [raw]  # a real name that happens to contain * ? or [
+        files = [match for match in matches if Path(match).is_file()]
+        if not files:
+            if any(char in raw for char in _GLOB_CHARS):
+                reason = 'matched only directories' if matches else 'matched no files'
+                raise RuntimeError(f'{kind} pattern {reason}: {raw}')
+            if matches:
+                raise RuntimeError(f'{kind} is a directory, not a file: {raw}')
+            raise RuntimeError(f'no such {kind}: {raw}')
+        resolved.extend(files)
+    if required and not resolved:
+        raise RuntimeError(f'no {kind}s given')
+    return resolved
+
+
 @contextlib.contextmanager
 def event_bus(args):
     """An ambient event bus for the run, wired to whatever the flags asked for."""
@@ -141,14 +185,16 @@ def _prepare_pattern_db(args, options):
 
 def cmd_stack(args):
     options = resolve_options(args)
+    # before the pattern database is prepared: checking the inputs is instant, and
+    # preparing the database is not
+    lights = resolve_input_files(args.lights, 'light frame', required=True)
+    darks = resolve_input_files(args.dark or [], 'dark frame')
+    flats = resolve_input_files(args.flat or [], 'flat frame')
     _use_headless_backend(options)
     # stage 1 plate-solves too, so the solver's database must exist before it starts
     _prepare_pattern_db(args, options)
     from mee2024 import database_cache, stacker_implementation
     try:
-        lights = [str(p) for p in args.lights]
-        darks = [str(p) for p in (args.dark or [])]
-        flats = [str(p) for p in (args.flat or [])]
         with event_bus(args):
             zip_path = stacker_implementation.do_stack(lights, darks, flats, options,
                                                        progress=make_progress(args))
@@ -185,14 +231,14 @@ def cmd_eclipse(args):
 def cmd_run(args):
     """Stage 1 then stage 2, and stage 3 too if --eclipse was given."""
     options = resolve_options(args)
+    lights = resolve_input_files(args.lights, 'light frame', required=True)
+    darks = resolve_input_files(args.dark or [], 'dark frame')
+    flats = resolve_input_files(args.flat or [], 'flat frame')
     _use_headless_backend(options)
     # before stage 1, so a missing catalogue is not discovered after minutes of stacking
     _prepare_catalogue(args, options)
     from mee2024 import database_cache, distortion_fitter, stacker_implementation
     try:
-        lights = [str(p) for p in args.lights]
-        darks = [str(p) for p in (args.dark or [])]
-        flats = [str(p) for p in (args.flat or [])]
         progress = make_progress(args)
         with event_bus(args):
             centroid_zip = stacker_implementation.do_stack(lights, darks, flats, options,
@@ -499,7 +545,8 @@ def build_parser():
     p.set_defaults(func=cmd_gui)
 
     p = sub.add_parser('stack', help='stage 1: stack frames, find centroids, platesolve')
-    p.add_argument('lights', nargs='+', type=Path, help='light frames')
+    p.add_argument('lights', nargs='+', type=Path,
+                   help='light frames; wildcards are expanded here if the shell did not')
     p.add_argument('--dark', nargs='*', type=Path, help='dark frames')
     p.add_argument('--flat', nargs='*', type=Path, help='flat frames')
     _add_pipeline_common(p)
@@ -522,7 +569,8 @@ def build_parser():
     p.set_defaults(func=cmd_eclipse)
 
     p = sub.add_parser('run', help='stages 1 and 2 back to back')
-    p.add_argument('lights', nargs='+', type=Path, help='light frames')
+    p.add_argument('lights', nargs='+', type=Path,
+                   help='light frames; wildcards are expanded here if the shell did not')
     p.add_argument('--dark', nargs='*', type=Path, help='dark frames')
     p.add_argument('--flat', nargs='*', type=Path, help='flat frames')
     p.add_argument('--order', choices=['linear', 'cubic', 'quintic', 'septic'], default=None)

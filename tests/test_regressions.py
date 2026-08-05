@@ -260,3 +260,26 @@ def test_erfa_ld_is_restored_when_correct_ra_dec_raises():
         assert erfa.ld is original, 'erfa.ld left patched after an exception'
     finally:
         erfa.ld = original  # never poison the rest of the suite, even if this fails
+
+
+def test_open_image_names_a_missing_file(tmp_path):
+    """open_image blamed cvtColor for a path that was never openable.
+
+    A path matching no file falls out of the FITS branch, and cv2.imread reports that
+    by returning None; the None went straight into cv2.cvtColor, so the run died with
+    '(-215:Assertion failed) !_src.empty() in function cv::cvtColor', naming neither
+    the file nor the reason. An unexpanded shell glob is the usual way to get here.
+    """
+    missing = tmp_path / 'zwo3' / 'not_a_real_frame.fits'
+    with pytest.raises(FileNotFoundError, match='not_a_real_frame'):
+        si.open_image(str(missing))
+
+
+def test_open_image_names_a_file_it_cannot_decode(tmp_path):
+    """The other half: the file is there, but is neither FITS nor a readable image."""
+    junk = tmp_path / 'truncated.fits'
+    junk.write_bytes(b'this is not a FITS header')
+    with pytest.raises(ValueError, match='truncated') as caught:
+        si.open_image(str(junk))
+    assert 'FITS reader said' in str(caught.value), (
+        'the swallowed astropy error is the only clue to what is wrong with the file')

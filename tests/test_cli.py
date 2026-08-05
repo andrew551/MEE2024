@@ -1,6 +1,7 @@
 """Argument parsing and option resolution for the command-line interface."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -38,6 +39,113 @@ def test_a_subcommand_is_required():
 def test_unknown_distortion_order_is_rejected():
     with pytest.raises(SystemExit):
         parse(['distortion', 'd.zip', '--order', 'octic'])
+
+
+# ------------------------------------------------------- input file resolution
+
+def _frames(directory, *names):
+    directory.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        (directory / name).write_bytes(b'')
+    return directory
+
+
+def test_a_missing_light_frame_is_named_and_the_run_refused(tmp_path, capsys):
+    """The whole point: no run starts, and the message says which path was wrong."""
+    missing = tmp_path / 'nope.fits'
+    assert cli.main(['stack', str(missing), '--no-config']) == 1
+    error = capsys.readouterr().err
+    assert 'no such light frame' in error
+    assert str(missing) in error
+
+
+def test_an_empty_light_frame_list_is_refused():
+    """argparse's nargs='+' cannot see a glob that expanded to nothing, so check here."""
+    with pytest.raises(RuntimeError, match='no light frames given'):
+        cli.resolve_input_files([], 'light frame', required=True)
+
+
+def test_cmd_stack_refuses_an_empty_light_frame_list_before_doing_any_work():
+    args = parse(['stack', 'a.fits', '--no-config'])
+    args.lights = []
+    with pytest.raises(RuntimeError, match='no light frames given'):
+        cli.cmd_stack(args)
+
+
+def test_a_pattern_matching_only_subfolders_is_refused(tmp_path):
+    """The reported reproduction: tests/data/fits/zwo3 holds only darks/ and field/.
+
+    The shell passes the pattern through unexpanded because nothing matches it, and
+    every frame path in the run is then that literal pattern.
+    """
+    zwo3 = tmp_path / 'zwo3'
+    (zwo3 / 'darks').mkdir(parents=True)
+    (zwo3 / 'field').mkdir(parents=True)
+    with pytest.raises(RuntimeError, match='matched no files'):
+        cli.resolve_input_files([str(zwo3 / '*.fits')], 'light frame', required=True)
+
+
+def test_a_pattern_matching_directories_says_so(tmp_path):
+    zwo3 = tmp_path / 'zwo3'
+    (zwo3 / 'darks').mkdir(parents=True)
+    with pytest.raises(RuntimeError, match='matched only directories'):
+        cli.resolve_input_files([str(zwo3 / '*')], 'light frame')
+
+
+def test_a_directory_given_as_a_frame_is_refused(tmp_path):
+    with pytest.raises(RuntimeError, match='is a directory, not a file'):
+        cli.resolve_input_files([str(tmp_path)], 'light frame')
+
+
+def test_the_cli_expands_a_glob_the_shell_left_alone(tmp_path):
+    """cmd.exe never globs, so on Windows this is the normal path, not a corner case."""
+    directory = _frames(tmp_path / 'lights', 'b.fits', 'a.fits')
+    (directory / 'subfolder').mkdir()
+    resolved = cli.resolve_input_files([str(directory / '*.fits')], 'light frame',
+                                       required=True)
+    assert [Path(p).name for p in resolved] == ['a.fits', 'b.fits'], (
+        'expanded frames must be sorted, so a stack is reproducible run to run')
+
+
+def test_an_already_expanded_list_survives_resolution(tmp_path):
+    """The POSIX case: the shell globbed, and these are ordinary paths."""
+    directory = _frames(tmp_path / 'lights', 'a.fits', 'b.fits')
+    given = [directory / 'a.fits', directory / 'b.fits']
+    assert cli.resolve_input_files(given, 'light frame') == [str(p) for p in given]
+
+
+def test_darks_and_flats_are_checked_too(tmp_path):
+    _frames(tmp_path, 'light.fits')
+    with pytest.raises(RuntimeError, match='no such dark frame'):
+        cli.resolve_input_files([tmp_path / 'missing_dark.fits'], 'dark frame')
+    with pytest.raises(RuntimeError, match='no such flat frame'):
+        cli.resolve_input_files([tmp_path / 'missing_flat.fits'], 'flat frame')
+
+
+def test_no_darks_or_flats_is_not_an_error():
+    assert cli.resolve_input_files([], 'dark frame') == []
+
+
+def test_frames_are_checked_before_the_pattern_database_is_prepared(tmp_path, monkeypatch):
+    """Preparing the database takes minutes; checking a path takes none of them."""
+    def fail(*args, **kwargs):
+        raise AssertionError('the pattern database was prepared before the inputs '
+                             'were checked')
+
+    monkeypatch.setattr(cli, '_prepare_pattern_db', fail)
+    args = parse(['stack', str(tmp_path / 'nope.fits'), '--no-config'])
+    with pytest.raises(RuntimeError, match='no such light frame'):
+        cli.cmd_stack(args)
+
+
+def test_run_checks_its_frames_before_preparing_the_catalogue(tmp_path, monkeypatch):
+    def fail(*args, **kwargs):
+        raise AssertionError('the catalogue was prepared before the inputs were checked')
+
+    monkeypatch.setattr(cli, '_prepare_catalogue', fail)
+    args = parse(['run', str(tmp_path / 'nope.fits'), '--no-config'])
+    with pytest.raises(RuntimeError, match='no such light frame'):
+        cli.cmd_run(args)
 
 
 # ------------------------------------------------------------- type coercion

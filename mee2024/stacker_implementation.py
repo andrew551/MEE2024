@@ -38,8 +38,17 @@ def open_image(file):
                 image = hdul['PRIMARY'].data
             else:
                 image = hdul[0].data
-    except Exception:
-        img_bgr = cv2.imread(file)
+    except Exception as fits_error:
+        # not a FITS file, or not a readable file at all: try the ordinary image formats
+        img_bgr = cv2.imread(str(file))
+        if img_bgr is None:
+            # cv2.imread signals every failure by returning None, and passing that to
+            # cvtColor only yields an assertion about an empty matrix that names
+            # neither the file nor the reason. Say which it was instead.
+            if not os.path.exists(file):
+                raise FileNotFoundError(f'no such image file: {file}') from fits_error
+            raise ValueError(f'could not read {file} as FITS or as an ordinary image '
+                             f'(the FITS reader said: {fits_error})') from fits_error
         # (Optional) Convert BGR to RGB if needed for compatibility with other libraries like Matplotlib
         image = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
