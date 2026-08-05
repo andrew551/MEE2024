@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 688 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 700 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.3.2; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.3.4; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -50,6 +50,65 @@ zwo3-quintic "−1 d" was a lucky 0.06 σ draw):
 | zwo1 | septic | 104.2 mas | 1565 | 2023-09-23 | −37 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-08-05 — v1.3.4: a monkey-patch that outlived its exception, and four names on the wrong stars
+
+Three unrelated defects, arriving by three different routes: an external review of the
+v1.3.1 source, a daily-use complaint, and one mislabelled star in a real field.
+
+**`erfa.ld` was only reverted on the success path.** `correct_ra_dec` patches the
+module-global `erfa.ld` to disable or rescale astropy's gravitational light deflection,
+and restored it at the end of the body. Any exception in between left the patch installed
+for the rest of the process, silently zeroing the deflection of every later astropy
+computation — for an experiment that exists to measure that deflection, the worst
+available failure mode. A malformed observation date reaches it, because `Time()` is
+called inside the patched region. The body moved into a helper and the restore into a
+`finally`; the regression test feeds a bad date and asserts the restore, and fails
+against the old code.
+
+**The file and folder dialogs shared one memory.** The native dialog was opened with no
+initial directory, so Windows fell back to its own per-process last-visited folder — one
+cache serving both dialogs. Choosing an output folder re-aimed the next input dialog and
+vice versa, so the operator re-navigated on every run. Each purpose (lights, darks, flats,
+output, batch, watch) now remembers its own folder, seeded from the saved config. The
+in-page picker used in browser mode had the identical bug.
+
+**Four of the fifty proper names sat on the wrong stars.** The report was one star:
+Gaia 2193192137376175488, Alderamin, labelled `G 2.4`. Alderamin was simply absent — the
+bundled list was an explicit 50-star stopgap — but checking the other forty-nine against
+the bundled Hipparcos positions found Schedar on γ Cas (HIP 4427, not 3179), Castor on
+Miaplacidus (45238, not 36850), Alphard on Suhail (44816, not 46390) and Thuban on Kochab
+(72607, not 68756). Labelling a real star with another star's name is worse than leaving
+it unlabelled, and nothing in the pipeline could have caught it: a HIP number is a HIP
+number.
+
+So the check is now positional and mechanical. Every name must sit within 0.3° of its
+star's J2000 position in the bundled catalogue, which is how the four surfaced; the list
+is corrected, the four displaced stars get their own names, and it grows to **128 IAU
+names**, each verified the same way. `tools/build_hipparcos.py --names-only` regenerates
+the name files offline, because the name list changes far more often than the catalogue
+and needs no network.
+
+Alderamin resolves through the positional path, as it must: **96 of the 128 named stars
+cannot be reached from a Gaia id at all**, because Gaia saturates on exactly the stars
+that have names. That fallback (v1.2.6, wired up in v1.2.7) was doing its job; it just had
+nothing to find.
+
+Also recorded, from the same review: the claim that nothing reads the FITS header date is
+no longer true (`read_observation_date`, the app's three-way date choice, and the
+guess-vs-header score in stage 2), and neither is the claim that no dark-derived defect
+map exists (`hotpixels.dark_mask` plus the dark-free dither search). The reviewer
+baselined the `v1.3.1` *tag*, which points at a commit predating this branch's whole
+feature line — worth retagging before the next external read.
+
+Still open from that review, in priority order: refraction/aberration corrections are
+implemented but default off and fed only by hand (every real fit examined ran with them
+off); coefficient repeatability across the three FRA500 runs per configuration is
+unmeasured, and it is the number that prices the distortion-zone framework; and RTS
+telegraph pixels escape both hot-pixel tests, since one flags the mean and the other takes
+the minimum across frames.
 
 ---
 
