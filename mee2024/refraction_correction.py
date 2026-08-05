@@ -55,8 +55,16 @@ class AstroCorrect:
             erfa.ld = self.no_ld
         if not var_grav is None:
             erfa.ld = self.variable_ld(var_grav)
-            
-        observing_location = EarthLocation(lat=options['observation_lat'], lon=options['observation_long'], height=options['observation_height']*u.m)  
+        try:
+            return self._correct_ra_dec_body(stardata, options)
+        finally:
+            # revert erfa to normal even if the body raises (a malformed date is enough):
+            # a patch left in place silently corrupts the light deflection of every
+            # astropy computation for the rest of the process
+            erfa.ld = self.origin_ld
+
+    def _correct_ra_dec_body(self, stardata, options):
+        observing_location = EarthLocation(lat=options['observation_lat'], lon=options['observation_long'], height=options['observation_height']*u.m)
         observing_time = Time(options['observation_date'] + ' ' + options['observation_time'])
         icrs_v = stardata.get_vectors()
         if options['enable_corrections_ref']:
@@ -88,7 +96,6 @@ class AstroCorrect:
         ret.haspm = False
         ret.c = c_app
         ret._update_vectors()
-        erfa.ld = self.origin_ld # revert erfa to normal once we are done with it
         return ret, np.mean(local.alt.degree), np.mean(local.az.degree)
         
 

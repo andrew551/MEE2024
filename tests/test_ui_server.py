@@ -724,12 +724,44 @@ def test_pick_reports_whether_a_native_dialog_exists(api):
     from 'the user cancelled' -- the frontend falls back only for the first."""
     assert api.pick({'multiple': True}) == {'available': False, 'paths': []}
 
-    api.native_dialog = lambda multiple=True, directory=False: ['/frames/a.fits']
+    api.native_dialog = lambda multiple=True, directory=False, start=None: \
+        ['/frames/a.fits']
     assert api.pick({'multiple': True}) == {'available': True,
                                            'paths': ['/frames/a.fits']}
 
-    api.native_dialog = lambda multiple=True, directory=False: None
+    api.native_dialog = lambda multiple=True, directory=False, start=None: None
     assert api.pick({}) == {'available': True, 'paths': []}
+
+
+def test_pick_dialogs_remember_folders_per_purpose(api, tmp_path, monkeypatch):
+    """Choosing an output folder must not re-aim the next input dialog, or vice versa.
+
+    Left unseeded, the OS dialog falls back to its own per-process last-visited
+    folder, which the file and folder dialogs share -- the reported symptom. The
+    server therefore seeds each purpose with the folder that purpose last used.
+    """
+    from mee2024 import MEE2024util
+
+    # a config path that does not exist, so the saved-options fallback is empty
+    monkeypatch.setattr(MEE2024util, 'get_config_path',
+                        lambda: tmp_path / 'no_config.txt')
+    lights_dir = tmp_path / 'lights'
+    lights_dir.mkdir()
+    out_dir = tmp_path / 'out'
+    out_dir.mkdir()
+    seen = []
+
+    def dialog(multiple=True, directory=False, start=None):
+        seen.append(start)
+        return [str(out_dir)] if directory else [str(lights_dir / 'a.fits')]
+
+    api.native_dialog = dialog
+    api.pick({'multiple': True, 'kind': 'lights'})
+    api.pick({'directory': True, 'kind': 'output'})
+    api.pick({'multiple': True, 'kind': 'lights'})
+    api.pick({'directory': True, 'kind': 'output'})
+    assert seen[2] == str(lights_dir), 'input dialog must reopen in the input folder'
+    assert seen[3] == str(out_dir), 'output dialog must reopen in the output folder'
 
 
 def test_hello_offers_where_the_last_session_left_off(api):

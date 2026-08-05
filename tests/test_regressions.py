@@ -6,6 +6,7 @@ Each of these fails against the code as it was before the fix.
 import inspect
 
 import numpy as np
+import pytest
 
 from mee2024 import distortion_fitter, eclipse_analysis, gaia_search, transforms
 from mee2024 import stacker_implementation as si
@@ -231,3 +232,31 @@ def test_both_star_label_emitters_pass_sky_positions():
                         f'{module.__name__}: {call} without ra/dec, so no proper name can '
                         f'be resolved by position')
                 start = source.find(call, i)
+
+
+def test_erfa_ld_is_restored_when_correct_ra_dec_raises():
+    """The erfa.ld monkey-patch was only reverted on the success path.
+
+    correct_ra_dec disables (or rescales) astropy's gravitational light deflection by
+    patching the module-global erfa.ld, and restored the original at the end of its
+    body. Any exception in between -- a malformed observation date is enough -- left
+    the patch installed, silently zeroing the deflection of every later astropy
+    computation in the process. For a deflection experiment that is the worst
+    available failure mode, so the restore must survive the error path too.
+    """
+    import erfa
+
+    from mee2024.refraction_correction import AstroCorrect
+
+    original = erfa.ld
+    corrector = AstroCorrect()
+    options = {'enable_gravitational_def': False,
+               'observation_lat': 51.5, 'observation_long': 0.0,
+               'observation_height': 0.0,
+               'observation_date': 'not-a-date', 'observation_time': '99:99:99'}
+    try:
+        with pytest.raises(Exception):
+            corrector.correct_ra_dec(None, options)
+        assert erfa.ld is original, 'erfa.ld left patched after an exception'
+    finally:
+        erfa.ld = original  # never poison the rest of the suite, even if this fails

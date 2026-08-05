@@ -85,9 +85,14 @@ def _run_native(server):
 
     # The platform's own file dialog, which the frontend asks for through /api/pick.
     # Browser mode has no equivalent, so the built-in picker stays as the fallback.
-    def native_dialog(multiple=True, directory=False):
+    # `start` seeds where the dialog opens. Without it the OS falls back to its own
+    # per-process last-visited folder, which is *shared* between the file and folder
+    # dialogs -- so choosing an output folder re-aimed the next input dialog and
+    # vice versa. The server passes a per-purpose folder instead (see Api.pick).
+    def native_dialog(multiple=True, directory=False, start=None):
         return window.create_file_dialog(
             webview.FOLDER_DIALOG if directory else webview.OPEN_DIALOG,
+            directory=start or '',
             allow_multiple=bool(multiple) and not directory,
             file_types=() if directory else (
                 'Image frames (*.fit;*.fits;*.fts;*.tif;*.tiff;*.png;*.jpg;*.jpeg)',

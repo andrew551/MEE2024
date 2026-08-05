@@ -40,6 +40,9 @@ class Api:
         #: when the page said goodbye, if it has; any later request clears it
         self.closing_since = None
         self.native_dialog = None
+        #: last folder used per pick purpose ('lights', 'output', ...), so the input
+        #: and output dialogs each reopen where *they* were, not where the other was
+        self._pick_dirs = {}
 
     # ------------------------------------------------------------------ meta
 
@@ -329,13 +332,43 @@ class Api:
         no such thing, so the answer is ``{'available': False}`` and the frontend
         falls back to its own picker. Cancelling returns no paths, which is different
         from being unavailable and must stay distinguishable.
+
+        The dialog is seeded per purpose (``spec['kind']``: lights, darks, flats,
+        output, batch, watch): the folder this purpose last used in this session,
+        else the one saved from the last run. Left unseeded, the OS dialog falls back
+        to its own last-visited folder, which is shared between the input and output
+        dialogs -- choosing an output folder re-aimed the next input dialog.
         """
         spec = spec or {}
         if self.native_dialog is None:
             return {'available': False, 'paths': []}
+        directory = bool(spec.get('directory'))
+        kind = str(spec.get('kind') or ('output' if directory else 'lights'))
         chosen = self.native_dialog(multiple=bool(spec.get('multiple', True)),
-                                    directory=bool(spec.get('directory')))
-        return {'available': True, 'paths': [str(p) for p in (chosen or [])]}
+                                    directory=directory,
+                                    start=self._pick_start(kind))
+        paths = [str(p) for p in (chosen or [])]
+        if paths:
+            folder = paths[0] if directory else str(Path(paths[0]).parent)
+            self._pick_dirs[kind] = folder
+        return {'available': True, 'paths': paths}
+
+    def _pick_start(self, kind):
+        """Where a pick dialog should open, or None to let the OS decide."""
+        remembered = self._pick_dirs.get(kind)
+        if not remembered:
+            from mee2024.config import get_default_options
+            from mee2024.MEE2024util import read_ini
+            saved = get_default_options()
+            read_ini(saved)
+            key = {'output': 'output_dir', 'watch': 'watch_folder'}.get(kind, 'workDir')
+            remembered = saved.get(key) or ''
+        try:
+            if remembered and Path(remembered).is_dir():
+                return str(remembered)
+        except OSError:
+            pass
+        return None
 
     def ping(self):
         """The page is still here. Cheapest possible call; cancels a pending close.

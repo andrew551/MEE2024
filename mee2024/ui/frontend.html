@@ -1992,7 +1992,11 @@ async function run(){
 }
 
 /* ------------------------------------------------------------ file picker */
-const picker = {target:null, dirsOnly:false, cwd:null, chosen:new Set(), files:[]};
+// cwds: the last folder used per purpose, so the input and output pickers each
+// reopen where *they* were rather than wherever the other one went last
+const picker = {target:null, dirsOnly:false, cwd:null, cwds:{}, chosen:new Set(), files:[]};
+
+function pickKind(target){ return target || 'output'; }
 
 /* The platform's own dialog when the session has one (the native window), this
    page's picker otherwise (a browser cannot open a file dialog without a real user
@@ -2000,7 +2004,8 @@ const picker = {target:null, dirsOnly:false, cwd:null, chosen:new Set(), files:[
 async function choose(target, dirsOnly){
   let answer = null;
   try{
-    answer = await api('pick', {multiple: !dirsOnly, directory: dirsOnly});
+    answer = await api('pick', {multiple: !dirsOnly, directory: dirsOnly,
+                                kind: pickKind(target)});
   }catch(err){ answer = null; }
   if(answer && answer.available){
     if(answer.paths && answer.paths.length) applyChoice(target, dirsOnly, answer.paths);
@@ -2037,8 +2042,10 @@ async function openPicker(target, dirsOnly){
        : target==='darks' ? 'Choose dark frames' : 'Choose flat frames');
   $('pick-all').style.display = dirsOnly ? 'none' : '';
   $('modal').classList.add('on');
+  // this purpose's own last folder first; only then the generic fallbacks
+  const remembered = picker.cwds[pickKind(target)];
   const start = picker.cwd || (state.lights.length ? state.lights[0] : null);
-  await navigate(start ? start.replace(/[\\/][^\\/]*$/,'') : null);
+  await navigate(remembered || (start ? start.replace(/[\\/][^\\/]*$/,'') : null));
 }
 
 async function navigate(path){
@@ -2093,6 +2100,7 @@ function updatePickStatus(){
 function closePicker(){ $('modal').classList.remove('on'); }
 
 function confirmPicker(){
+  picker.cwds[pickKind(picker.target)] = picker.cwd;
   if(picker.dirsOnly){
     if(picker.target === 'watch'){
       state.watchFolder = picker.cwd;
@@ -2339,14 +2347,16 @@ document.addEventListener('keydown', e => {
     };
     // pick up where the last session left off (saved when a run starts)
     const last = hello.last || {};
-    if(last.output_dir){ state.outputDir = last.output_dir; $('outdir').textContent = last.output_dir; }
+    if(last.output_dir){ state.outputDir = last.output_dir; $('outdir').textContent = last.output_dir;
+                         picker.cwds.output = last.output_dir; }
     // a config saved by an older version may name a preset that no longer exists
     // ('quick', 'deep'); the server still honours those, but there is no button for
     // them, so an unselectable preset would leave the panel showing nothing chosen
     if(last.preset && hello.presets[last.preset]){ state.preset = last.preset; }
     renderPresets(hello.presets);
     if(last.distortion_order){ $('order').value = last.distortion_order; }
-    if(last.work_dir){ picker.cwd = last.work_dir; }
+    if(last.work_dir){ picker.cwd = last.work_dir;
+                       picker.cwds.lights = last.work_dir; }
     state.version = hello.version;
     state.platform = hello.platform;
     state.solverInfo = hello.solver_info;

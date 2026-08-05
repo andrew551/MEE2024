@@ -88,6 +88,47 @@ def test_hip_numbers_stay_integral():
     assert index.hip_for([VEGA], ORIGIN_HIPPARCOS).dtype == np.int64
 
 
+@bundled_labels
+@bundled_hipparcos
+@pytest.mark.parametrize('hip,name,ra_deg,dec_deg', [
+    (105199, 'Alderamin', 319.64, 62.59),   # reported labelled 'G 2.4' in the field
+    (3179, 'Schedar', 10.13, 56.54),        # carried by HIP 4427 (gamma Cas) before
+    (36850, 'Castor', 113.65, 31.89),       # carried by HIP 45238 (Miaplacidus)
+    (46390, 'Alphard', 141.90, -8.66),      # carried by HIP 44816 (Suhail)
+    (68756, 'Thuban', 211.10, 64.38),       # carried by HIP 72607 (Kochab)
+    (44816, 'Suhail', 137.00, -43.43),      # ...and the displaced stars, named right
+    (45238, 'Miaplacidus', 138.30, -69.72),
+    (72607, 'Kochab', 222.68, 74.16),
+])
+def test_names_point_at_the_right_stars(hip, name, ra_deg, dec_deg):
+    """Each name must sit on the star it belongs to, checked against the sky.
+
+    The original 50-entry name list carried four names on the wrong stars. Pinning
+    each name to the true star's J2000 position makes that class of error fail
+    loudly: a misassigned HIP number lands degrees away, not arcseconds.
+    """
+    index = LabelIndex.bundled()
+    assert index.name_for([hip], ORIGIN_HIPPARCOS) == [name]
+    found = index.names_by_position([np.radians(ra_deg)], [np.radians(dec_deg)],
+                                    epoch=2024.0, radius_arcsec=120.0)
+    assert found == [name], f'{name} not found at its own position'
+
+
+@bundled_labels
+@bundled_hipparcos
+def test_a_bright_gaia_star_the_crossmatch_misses_is_named_by_position():
+    """The reported failure, end to end: Gaia 2193192137376175488 is Alderamin, but
+    the Gaia-Hipparcos crossmatch cannot reach it, so it was labelled 'G 2.4'. The
+    positional fallback must name it."""
+    from mee2024.star_labels import build_labels
+
+    labels, tiers = build_labels([2.43], ids=[2193192137376175488],
+                                 ra=[np.radians(319.647)], dec=[np.radians(62.586)],
+                                 epoch=2026.5)
+    assert labels == ['Alderamin']
+    assert tiers == ['named']
+
+
 # ------------------------------------------------------- the Hipparcos filler
 
 @bundled_hipparcos

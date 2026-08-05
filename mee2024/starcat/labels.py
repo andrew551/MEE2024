@@ -112,7 +112,7 @@ class LabelIndex:
     def named_stars(self):
         """Every star with a proper name, as (hip, name) pairs. Cached.
 
-        Only about fifty, which is what makes resolving them by position affordable.
+        Only about 130, which is what makes resolving them by position affordable.
         """
         if getattr(self, '_named', None) is None:
             hip = np.asarray(self.hip)
@@ -133,13 +133,13 @@ class LabelIndex:
 
         A Gaia source_id resolves to a name through Gaia's own crossmatch to Hipparcos --
         and that crossmatch omits almost exactly the stars that *have* names. Measured on
-        the bundled index: **46 of the 49 named stars cannot be reached from a Gaia id**,
+        the bundled index: **96 of the 128 named stars cannot be reached from a Gaia id**,
         Vega, Sirius, Betelgeuse, Polaris and Arcturus among them, because Gaia struggles
         with the brightest stars and the named ones are the brightest there are.
 
         So the last resort is the sky itself. Named stars are few and far apart, and their
         Hipparcos positions come from the catalogue already bundled for the bright fill, so
-        this is a brute-force match against about fifty candidates propagated to the
+        this is a brute-force match against about 130 candidates propagated to the
         observation epoch. Returns a list of names or None, one per input position.
         """
         out = [None] * len(np.atleast_1d(ra))

@@ -183,6 +183,30 @@ def build_label_index(crossmatch, hip_rows, out_dir):
     all_hip = np.sort(column(hip_rows, 'hip', np.int64))
     np.save(out_dir / 'hip.npy', all_hip.astype(np.int32))
 
+    n_named = write_name_files(out_dir, all_hip)
+
+    manifest = {
+        'format': 'mee2024-star-labels',
+        'format_version': 1,
+        'n_gaia_crossmatches': int(len(source_id)),
+        'n_hip': int(len(all_hip)),
+        'n_named': n_named,
+        'sources': ['gaiadr3.hipparcos2_best_neighbour',
+                    'public.hipparcos_newreduction',
+                    'IAU Catalog of Star Names (bundled subset)'],
+        'built': time.strftime('%Y-%m-%d'),
+    }
+    (out_dir / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+    return manifest
+
+
+def write_name_files(out_dir, all_hip):
+    """Write names.txt and hip_name_offset.npy for a sorted HIP key array.
+
+    Shared by the full build and by --names-only, so the two cannot drift.
+    Returns the number of names that found their HIP row.
+    """
+    out_dir = Path(out_dir)
     names = load_proper_names()
     name_offsets = np.full(len(all_hip), -1, dtype=np.int32)
     blob = bytearray()
@@ -193,42 +217,79 @@ def build_label_index(crossmatch, hip_rows, out_dir):
             blob += name.encode('utf-8') + b'\n'
     np.save(out_dir / 'hip_name_offset.npy', name_offsets)
     (out_dir / 'names.txt').write_bytes(bytes(blob))
+    return int(np.sum(name_offsets >= 0))
 
-    manifest = {
-        'format': 'mee2024-star-labels',
-        'format_version': 1,
-        'n_gaia_crossmatches': int(len(source_id)),
-        'n_hip': int(len(all_hip)),
-        'n_named': int(np.sum(name_offsets >= 0)),
-        'sources': ['gaiadr3.hipparcos2_best_neighbour',
-                    'public.hipparcos_newreduction',
-                    'IAU Catalog of Star Names (bundled subset)'],
-        'built': time.strftime('%Y-%m-%d'),
-    }
-    (out_dir / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+
+def rebuild_label_names(labels_dir):
+    """Rewrite only the proper-name files of an already-built label index.
+
+    The name list changes far more often than the catalogue, and unlike the catalogue
+    it needs no network: the sorted HIP key array is already on disk. Loading through
+    LabelIndex first guarantees the target really is a label index.
+    """
+    from mee2024.starcat.labels import LabelIndex
+
+    labels_dir = Path(labels_dir)
+    index = LabelIndex(labels_dir)
+    all_hip = np.array(index.hip, dtype=np.int64)   # a copy, not the mmap
+    manifest = dict(index.manifest)
+    # Windows refuses to overwrite a file that is still memory-mapped, and the
+    # index holds hip_name_offset.npy mapped -- release it before rewriting
+    del index
+    n_named = write_name_files(labels_dir, all_hip)
+    manifest['n_named'] = n_named
+    manifest['built'] = time.strftime('%Y-%m-%d')
+    (labels_dir / 'manifest.json').write_text(json.dumps(manifest, indent=2),
+                                              encoding='utf-8')
     return manifest
 
 
 def load_proper_names():
-    """HIP number to proper name.
+    """HIP number to proper name (IAU Catalog of Star Names, bundled subset).
 
-    A compact built-in list of the brightest named stars. The full IAU Catalog of Star
-    Names can be dropped in later; this covers the stars anyone is likely to point at.
+    Every entry here has been verified against the bundled Hipparcos-2 positions:
+    the star found at the entry's HIP number sits within 0.3 degrees of the named
+    star's J2000 position. That check exists because the original 50-entry list
+    carried four names on the wrong stars -- Schedar on gamma Cas (HIP 4427, not
+    3179), Castor on Miaplacidus (45238, not 36850), Alphard on Suhail (44816, not
+    46390) and Thuban on Kochab (72607, not 68756). A wrong pair here labels a real
+    star with another star's name, which is worse than no label at all.
     """
     return {
-        32349: 'Sirius', 30438: 'Canopus', 71683: 'Rigil Kentaurus', 69673: 'Arcturus',
-        91262: 'Vega', 24608: 'Capella', 24436: 'Rigel', 37279: 'Procyon',
-        7588: 'Achernar', 27989: 'Betelgeuse', 68702: 'Hadar', 97649: 'Altair',
-        21421: 'Aldebaran', 65474: 'Spica', 80763: 'Antares', 37826: 'Pollux',
-        113368: 'Fomalhaut', 62434: 'Mimosa', 102098: 'Deneb', 49669: 'Regulus',
-        33579: 'Adhara', 45238: 'Castor', 25336: 'Bellatrix', 26311: 'Alnilam',
-        109268: 'Alnair', 26727: 'Alnitak', 3419: 'Diphda', 100751: 'Peacock',
-        677: 'Alpheratz', 9884: 'Hamal', 14576: 'Algol', 11767: 'Polaris',
-        54061: 'Dubhe', 62956: 'Alioth', 67301: 'Alkaid', 65378: 'Mizar',
-        746: 'Caph', 4427: 'Schedar', 85927: 'Shaula', 44816: 'Alphard',
-        57632: 'Denebola', 76267: 'Alphecca', 86032: 'Rasalhague',
-        84345: 'Rasalgethi', 95947: 'Albireo', 92420: 'Sheliak',
-        87833: 'Eltanin', 72607: 'Thuban', 5447: 'Mirach', 8903: 'Sheratan',
+        677: 'Alpheratz', 746: 'Caph', 1067: 'Algenib', 2081: 'Ankaa',
+        3179: 'Schedar', 3419: 'Diphda', 3821: 'Achird', 5447: 'Mirach',
+        6686: 'Ruchbah', 7588: 'Achernar', 8886: 'Segin', 8903: 'Sheratan',
+        9640: 'Almach', 9884: 'Hamal', 11767: 'Polaris', 13847: 'Acamar',
+        14135: 'Menkar', 14576: 'Algol', 15863: 'Mirfak', 16537: 'Ran',
+        18543: 'Zaurak', 21421: 'Aldebaran', 23875: 'Cursa', 24436: 'Rigel',
+        24608: 'Capella', 25336: 'Bellatrix', 25428: 'Elnath', 25606: 'Nihal',
+        25930: 'Mintaka', 25985: 'Arneb', 26207: 'Meissa', 26241: 'Hatysa',
+        26311: 'Alnilam', 26634: 'Phact', 26727: 'Alnitak', 27366: 'Saiph',
+        27989: 'Betelgeuse', 28360: 'Menkalinan', 30324: 'Mirzam', 30343: 'Tejat',
+        30438: 'Canopus', 31681: 'Alhena', 32349: 'Sirius', 33579: 'Adhara',
+        34444: 'Wezen', 35904: 'Aludra', 36188: 'Gomeisa', 36850: 'Castor',
+        37279: 'Procyon', 37826: 'Pollux', 39429: 'Naos', 41037: 'Avior',
+        42913: 'Alsephina', 44816: 'Suhail', 45238: 'Miaplacidus',
+        45556: 'Aspidiske', 45941: 'Markeb', 46390: 'Alphard', 49669: 'Regulus',
+        50583: 'Algieba', 53910: 'Merak', 54061: 'Dubhe', 54872: 'Zosma',
+        57632: 'Denebola', 58001: 'Phecda', 59747: 'Imai', 59774: 'Megrez',
+        60260: 'Ginan', 60718: 'Acrux', 61084: 'Gacrux', 61932: 'Muhlifain',
+        61941: 'Porrima', 62434: 'Mimosa', 62956: 'Alioth', 63125: 'Cor Caroli',
+        63608: 'Vindemiatrix', 65378: 'Mizar', 65474: 'Spica', 67301: 'Alkaid',
+        68702: 'Hadar', 68756: 'Thuban', 68933: 'Menkent', 69673: 'Arcturus',
+        71683: 'Rigil Kentaurus', 72607: 'Kochab', 72622: 'Zubenelgenubi',
+        74785: 'Zubeneschamali', 75097: 'Pherkad', 76267: 'Alphecca',
+        77070: 'Unukalhai', 78401: 'Dschubba', 78820: 'Acrab',
+        80763: 'Antares', 80816: 'Kornephoros', 82273: 'Atria', 82396: 'Larawag',
+        84012: 'Sabik', 84345: 'Rasalgethi', 85670: 'Rastaban', 85696: 'Lesath',
+        85927: 'Shaula', 86032: 'Rasalhague', 86228: 'Sargas', 86742: 'Cebalrai',
+        87833: 'Eltanin', 88635: 'Alnasl', 89931: 'Kaus Media',
+        90185: 'Kaus Australis', 91262: 'Vega', 92420: 'Sheliak', 92855: 'Nunki',
+        93506: 'Ascella', 95947: 'Albireo', 97278: 'Tarazed', 97649: 'Altair',
+        100453: 'Sadr', 100751: 'Peacock', 102098: 'Deneb', 102488: 'Aljanah',
+        105199: 'Alderamin', 106278: 'Sadalsuud', 107315: 'Enif',
+        109074: 'Sadalmelik', 109268: 'Alnair', 112122: 'Tiaki', 113368: 'Fomalhaut',
+        113881: 'Scheat', 113963: 'Markab',
     }
 
 
@@ -239,7 +300,15 @@ def main():
     ap.add_argument('--labels-out', type=Path, default=DEFAULT_LABELS_OUT)
     ap.add_argument('--order', type=int, default=2,
                     help='polynomial order for the Hp->G colour term (default 2)')
+    ap.add_argument('--names-only', action='store_true',
+                    help='rewrite the proper-name files of the existing label index '
+                         'from load_proper_names(), without any network access')
     args = ap.parse_args()
+
+    if args.names_only:
+        manifest = rebuild_label_names(args.labels_out)
+        print(f'rewrote names in {args.labels_out}: {manifest["n_named"]} proper names')
+        return
 
     print('fetching Hipparcos-2...')
     rows = fetch_hipparcos()

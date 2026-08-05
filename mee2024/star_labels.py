@@ -25,7 +25,7 @@ def build_labels(magnitudes, ids=None, bright_limit=9.0, ra=None, dec=None, epoc
 
     ``ra``/``dec`` (radians) enable the positional fallback for proper names. It is worth
     having: a Gaia source_id reaches a name only through Gaia's own crossmatch to
-    Hipparcos, and that crossmatch misses **46 of the 49 named stars** -- Vega, Sirius,
+    Hipparcos, and that crossmatch misses **96 of the 128 named stars** -- Vega, Sirius,
     Betelgeuse and Polaris included -- because Gaia struggles with the brightest stars and
     those are the ones with names. Without this, the brightest star in a frame is the one
     least likely to be labelled.
