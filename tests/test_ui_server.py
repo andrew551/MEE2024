@@ -514,13 +514,18 @@ def test_superseded_archives_are_not_offered_for_download(api, monkeypatch):
     assert 'gaia_dr3_g12' not in {c['name'] for c in api.hello()['catalogues']}
 
 
-def test_a_superseded_archive_still_shows_while_it_is_installed(api, monkeypatch):
-    """It can be selected as the catalogue for a run; hiding one in use would be worse."""
+def test_a_superseded_archive_is_hidden_even_while_it_is_installed(api, monkeypatch):
+    """Reversed deliberately. This used to keep an installed g12 listed, on the grounds
+    that hiding something in use is worse than the clutter. With g10, g13, g15, Gaia and
+    the online archive already on the menu, the clutter won: g12 and the 12<G<13
+    extension are exactly the stars g13 holds, so they are never the right pick. They
+    still work if a config names one, and _superseded_installed reports the disk."""
     from mee2024.starcat import download
 
     monkeypatch.setattr(download.RELEASES['gaia_dr3_g12'], 'is_installed', lambda: True)
-    entries = {c['name']: c for c in api.hello()['catalogues']}
-    assert entries['gaia_dr3_g12']['role'] == 'legacy'
+    hello = api.hello()
+    assert 'gaia_dr3_g12' not in {c['name'] for c in hello['catalogues']}
+    assert 'gaia_dr3_g12' in {s['name'] for s in hello['superseded_installed']}
 
 
 def test_hello_reports_how_deep_each_catalogue_reaches(api):
@@ -769,3 +774,73 @@ def test_hello_offers_where_the_last_session_left_off(api):
     for key in ('work_dir', 'output_dir', 'catalogue', 'preset', 'distortion_order'):
         assert key in last
     assert api.hello()['config_path'].endswith('MEE_config.txt')
+
+
+# --------------------------------------------- what the interface offers as a choice
+
+def test_superseded_archives_are_hidden_even_when_installed(api, monkeypatch):
+    """Six catalogue choices where three would do is a usability bug, not a feature.
+
+    g12 and the 12<G<13 extension hold exactly the stars g13 holds, so once g13 exists
+    they are never the right pick -- but they used to stay listed for as long as they
+    were installed, and an installed archive is also selectable for a run.
+    """
+    from mee2024.starcat import download
+
+    for name in ('gaia_dr3_g12', 'gaia_dr3_g12_13', 'gaia_dr3_g13', 'gaia_dr3_g15'):
+        monkeypatch.setattr(download.RELEASES[name], 'is_installed', lambda: True)
+
+    offered = {c['name'] for c in api._catalogues()}
+    assert 'gaia_dr3_g12' not in offered and 'gaia_dr3_g12_13' not in offered
+    assert {'gaia_dr3_g10', 'gaia_dr3_g13', 'gaia_dr3_g15'} <= offered
+
+    # ...but the disk they occupy is still accounted for somewhere
+    hidden = {s['name'] for s in api._superseded_installed()}
+    assert hidden == {'gaia_dr3_g12', 'gaia_dr3_g12_13'}
+
+
+def test_g13_stays_the_recommended_choice(api, monkeypatch):
+    from mee2024.starcat import download
+
+    recommended = [c['name'] for c in api._catalogues() if c['recommended']]
+    assert recommended == ['gaia_dr3_g13']
+    assert download.DEFAULT_RELEASE == 'gaia_dr3_g13'
+
+
+def test_a_hidden_archive_is_not_reported_as_installed_clutter_when_absent(api,
+                                                                          monkeypatch):
+    from mee2024.starcat import download
+
+    for name in ('gaia_dr3_g12', 'gaia_dr3_g12_13'):
+        monkeypatch.setattr(download.RELEASES[name], 'is_installed', lambda: False)
+    assert api._superseded_installed() == []
+
+
+def test_fetching_a_large_archive_asks_before_it_starts(api, monkeypatch):
+    """The size check is server-side, so calling the API directly cannot skip it."""
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g15'], 'is_installed', lambda: False)
+
+    def explode(*a, **k):
+        raise AssertionError('the download started before the user was asked')
+
+    monkeypatch.setattr(download, 'ensure_available', explode)
+    answer = api.fetch_catalogue('gaia_dr3_g15')
+    assert answer['needs_confirmation'] is True
+    assert answer['size_bytes'] == download.RELEASES['gaia_dr3_g15'].size_bytes
+    assert f"{answer['size_bytes']:,}" in answer['message']
+    assert 'gaia_dr3_g13' in answer['message']
+    assert api._fetching is None, 'no download thread should have been started'
+
+
+def test_fetching_the_standard_archive_is_not_gated(api, monkeypatch):
+    """Gating the 320 MB archive people actually need would just train them to click yes."""
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g13'], 'is_installed', lambda: False)
+    monkeypatch.setattr(download, 'ensure_available', lambda *a, **k: 'somewhere')
+    answer = api.fetch_catalogue('gaia_dr3_g13')
+    assert not answer.get('needs_confirmation')
+    if api._fetching:
+        api._fetching.join(timeout=5)

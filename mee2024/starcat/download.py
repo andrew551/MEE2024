@@ -21,6 +21,27 @@ from mee2024.MEE2024util import get_catalogue_root
 from mee2024.starcat import store
 
 
+#: A download at or above this size is not started without the user agreeing to it
+#: first. The standard archive (320 MB) is well under; the deep one (1.57 GB) is not,
+#: and it also wants several gigabytes of free disk while it unpacks.
+LARGE_DOWNLOAD_BYTES = 1_000_000_000
+
+
+class ConfirmationRequired(RuntimeError):
+    """A download big enough that it has to be agreed to, not merely triggered.
+
+    Raised by :func:`ensure_available` instead of quietly spending an hour of someone's
+    connection and several GB of their disk. Every front end catches it and asks in
+    whatever way suits it -- a dialog, a terminal prompt -- then calls again with
+    ``confirm``. Carries the release so the caller can quote the exact size.
+    """
+
+    def __init__(self, release, message):
+        super().__init__(message)
+        self.release = release
+        self.size_bytes = release.size_bytes
+
+
 class CatalogueRelease:
     """A downloadable catalogue archive.
 
@@ -29,12 +50,16 @@ class CatalogueRelease:
     """
 
     def __init__(self, name, description, url=None, sha256=None, size_bytes=None,
-                 doi=None, magnitude_limit=None, n_stars=None, role='base'):
+                 doi=None, magnitude_limit=None, n_stars=None, role='base',
+                 installed_bytes=None):
         self.name = name
         self.description = description
         self.url = url
         self.sha256 = sha256
         self.size_bytes = size_bytes
+        #: measured size once unpacked, where it is known. The download and the unpacked
+        #: copy exist at the same time, so the disk needed to install is the sum
+        self.installed_bytes = installed_bytes
         self.doi = doi
         self.magnitude_limit = magnitude_limit
         self.n_stars = n_stars
@@ -42,8 +67,55 @@ class CatalogueRelease:
         self.role = role
 
     @property
+    def needs_confirmation(self):
+        """Is this big enough that it should be agreed to before it starts?"""
+        return bool(self.size_bytes and self.size_bytes >= LARGE_DOWNLOAD_BYTES)
+
+    def disk_needed_bytes(self):
+        """Peak free disk to install: the archive and its unpacked copy coexist."""
+        if not self.size_bytes:
+            return None
+        # where the unpacked size has not been measured, the archives seen so far unpack
+        # to about 1.2x their compressed size -- stated as approximate either way
+        unpacked = self.installed_bytes or int(self.size_bytes * 1.2)
+        return self.size_bytes + unpacked
+
+    def size_warning(self):
+        """What to tell someone before committing them to this download, or None.
+
+        Exact bytes, not a rounded headline: "1.6 GB" reads as a detail, whereas the
+        real number reads as a decision. Names the cheaper alternative too, because for
+        almost everyone it is the right answer.
+        """
+        if not self.needs_confirmation:
+            return None
+        disk = self.disk_needed_bytes()
+        default = RELEASES.get(DEFAULT_RELEASE)
+        lines = [
+            f'{self.name} is a large download: {self.size_bytes:,} bytes '
+            f'({self.size_bytes / 1e9:.2f} GB)'
+            + (f', {self.n_stars:,} stars.' if self.n_stars else '.'),
+            f'It needs roughly {disk / 1e9:.1f} GB of free disk while it installs '
+            f'(the archive and its unpacked copy exist at the same time), and on a '
+            f'typical connection it takes tens of minutes.',
+        ]
+        if default is not None and default.name != self.name:
+            lines.append(
+                f'Most work does not need it: {default.name} '
+                f'({default.human_size()}, G < {default.magnitude_limit:g}) is the '
+                f'recommended archive and is enough for ordinary plate solving and '
+                f'distortion fitting. Choose this one only if you specifically need '
+                f'stars fainter than G = {default.magnitude_limit:g}.')
+        return ' '.join(lines)
+
+    @property
     def recommended(self):
         return self.name in RECOMMENDED_SETUP
+
+    @property
+    def superseded(self):
+        """Replaced by a later archive, and no longer part of the user's choices."""
+        return self.role in ('legacy', 'extension')
 
     @property
     def offered(self):
@@ -55,7 +127,19 @@ class CatalogueRelease:
         download 327 MB of the same stars twice, or worse, to install the extension
         alone and end up with a catalogue containing nothing brighter than G=12.
         """
-        return self.role not in ('legacy', 'extension')
+        return not self.superseded
+
+    @property
+    def shown_in_ui(self):
+        """Should this appear in the interface at all -- even already installed?
+
+        It should not. Showing every archive anyone ever installed turns a three-way
+        choice into a six-way one, and the extra options are all worse than the ones
+        beside them: g12 and the 12<G<13 extension are exactly the stars g13 already
+        holds. They keep working if a config names one, and `--remove` still finds
+        them; they are simply not offered as a choice any more.
+        """
+        return not self.superseded
 
     @property
     def is_published(self):
@@ -172,6 +256,7 @@ RELEASES = {
         magnitude_limit=15.0,
         n_stars=36_909_335,
         size_bytes=1_566_363_365,
+        installed_bytes=1_919_290_665,     # measured, not estimated
         doi=None,               # a Zenodo DOI replaces the GitHub URL at publication
         url=_github_asset('gaia_dr3_g15.zip'),
         sha256='fb0711a6cf4e084129b401c493412fbef31ab1af74acca8c21dfc3307f35b29b',
@@ -284,6 +369,17 @@ def prepare_catalogue(catalogue, options=None, progress_for=None, allow_download
         needed = []
     for name in needed:
         release = get_release(name, options=options)
+        # a run must never start a multi-gigabyte download on the user's behalf: say what
+        # it would cost and carry on without it, rather than asking mid-run or just going
+        if release.needs_confirmation:
+            message = (f'{catalogue} would need the {name} archive, and it is too large '
+                       f'to fetch automatically. {release.size_warning()} '
+                       f'Install it deliberately with `mee2024 catalogue --fetch {name}` '
+                       f'if you do want it.')
+            if not soft:
+                raise RuntimeError(message)
+            warnings.append(message)
+            continue
         note(f'{catalogue} needs the {name} archive ({release.human_size()}); '
              f'downloading it now')
         try:
@@ -469,12 +565,24 @@ def _download(url, destination, expected_sha256=None, progress=None):
 
 
 def ensure_available(name=DEFAULT_RELEASE, progress=None, allow_download=True,
-                     options=None):
-    """Return the local directory for a catalogue, downloading it if necessary."""
+                     options=None, confirm=False):
+    """Return the local directory for a catalogue, downloading it if necessary.
+
+    ``confirm`` gates downloads over :data:`LARGE_DOWNLOAD_BYTES`: pass True once the
+    user has agreed, or a callable taking the release and returning a bool to be asked
+    only if it turns out to be needed. Left False, a large download raises
+    :class:`ConfirmationRequired` rather than starting -- so no code path, including an
+    automatic one during a run, can commit someone to gigabytes without being asked.
+    """
     release = get_release(name, options=options)
     directory = release.directory()
     if release.is_installed():
         return directory
+
+    if release.needs_confirmation and release.is_published:
+        agreed = confirm(release) if callable(confirm) else bool(confirm)
+        if not agreed:
+            raise ConfirmationRequired(release, release.size_warning())
 
     if not release.is_published:
         raise RuntimeError(

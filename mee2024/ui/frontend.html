@@ -2281,9 +2281,20 @@ $('watch-stop').onclick = () => api('watch/stop', {}).catch(e => banner(e.messag
 $('watch-flush').onclick = () => api('watch/flush', {}).catch(e => banner(e.message));
 
 /* ------------------------------------------------- catalogue downloads */
-function renderCatalogueDownloads(catalogues){
+function renderCatalogueDownloads(catalogues, superseded){
   const host = $('cat-downloads');
   host.innerHTML = '';
+  // archives that are installed but no longer offered. Hidden from every choice, but
+  // saying so once beats silently sitting on a few hundred MB the user cannot see
+  for(const s of (superseded || [])){
+    const note = document.createElement('div');
+    note.className = 'faint';
+    note.style.marginBottom = '4px';
+    note.textContent = `${s.name} (${s.size}) is installed but superseded by `
+      + `gaia_dr3_g13, which already holds those stars. Remove it with: `
+      + `mee2024 catalogue --remove ${s.name}`;
+    host.appendChild(note);
+  }
   const missing = catalogues.filter(c => !c.installed);
   if(!missing.length) return;
   const title = document.createElement('div');
@@ -2320,7 +2331,18 @@ function renderCatalogueDownloads(catalogues){
     btn.disabled = !c.downloadable;
     btn.onclick = async () => {
       btn.disabled = true;
-      try{ await api('catalogue/fetch', {name: c.name}); showLive(); }
+      try{
+        // a large archive answers with its size instead of starting; ask, then repeat
+        let r = await api('catalogue/fetch', {name: c.name});
+        if(r && r.needs_confirmation){
+          if(!confirm(r.message + '\n\nStart this download?')){
+            btn.disabled = false;      // cancelled: nothing was fetched
+            return;
+          }
+          r = await api('catalogue/fetch', {name: c.name, confirmed: true});
+        }
+        showLive();
+      }
       catch(e){ banner(e.message); btn.disabled = false; }
     };
     row.appendChild(btn);
@@ -2370,13 +2392,13 @@ document.addEventListener('keydown', e => {
       if(name === hello.default_catalogue) o.selected = true;
       sel.appendChild(o);
     });
+    // superseded archives are filtered out server-side, so an installed g12 or the
+    // 12<G<13 extension no longer appears here: the choice is Gaia, the online archive,
+    // and whichever of g10/g13/g15 are installed
     hello.catalogues.filter(c => c.installed).forEach(c => {
       const o = document.createElement('option');
       o.value = c.name;
-      // an extension archive on its own contains nothing brighter than its lower bound,
-      // which is a genuine footgun: say so in the option rather than let it be picked blind
-      o.textContent = c.name + ' (offline' + depth(c.name) + ')'
-        + (c.role === 'extension' ? ' — extension only, no bright stars' : '');
+      o.textContent = c.name + ' (offline' + depth(c.name) + ')';
       if(c.name === hello.default_catalogue) o.selected = true;
       sel.appendChild(o);
     });
@@ -2391,7 +2413,7 @@ document.addEventListener('keydown', e => {
       b.onclick = () => navigate(r.path);
       roots.appendChild(b);
     });
-    renderCatalogueDownloads(hello.catalogues);
+    renderCatalogueDownloads(hello.catalogues, hello.superseded_installed);
     if(hello.watch_defaults){
       $('w-settle').value = hello.watch_defaults.settle_seconds;
       $('w-batch').value  = hello.watch_defaults.batch_size;

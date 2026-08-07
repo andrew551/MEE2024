@@ -264,3 +264,78 @@ def test_the_depth_advice_says_install_when_it_really_is_missing(monkeypatch):
     monkeypatch.setattr(download.RELEASES['gaia_dr3_g13'], 'is_installed', lambda: False)
     text = download.magnitude_warning('gaia_dr3_g10', 13.0, 10.0)
     assert 'Install gaia_dr3_g13' in text
+
+
+# ------------------------------------------------- large downloads need agreeing to
+
+def test_only_the_multi_gigabyte_archive_needs_confirming():
+    """The threshold has to separate the standard archive from the deep one, or it is
+    either useless (everything gated) or pointless (nothing gated)."""
+    assert not download.RELEASES['gaia_dr3_g13'].needs_confirmation, \
+        'the recommended 320 MB archive must download without ceremony'
+    assert download.RELEASES['gaia_dr3_g15'].needs_confirmation, \
+        'a 1.57 GB download must be agreed to first'
+
+
+def test_the_size_warning_gives_the_exact_size_and_names_the_alternative():
+    """Vague warnings get clicked through. An exact byte count is a decision."""
+    release = download.RELEASES['gaia_dr3_g15']
+    message = release.size_warning()
+    assert f'{release.size_bytes:,}' in message, 'the exact size must be quoted'
+    assert '1.57 GB' in message
+    assert 'gaia_dr3_g13' in message, 'must name the archive most users should take'
+    # the archive and its unpacked copy coexist, so the disk cost is the sum of both
+    assert release.disk_needed_bytes() > release.size_bytes
+    assert download.RELEASES['gaia_dr3_g13'].size_warning() is None
+
+
+def test_a_large_download_does_not_start_without_confirmation(monkeypatch):
+    """The guard lives at the choke point, so no caller can bypass it by accident."""
+    release = download.RELEASES['gaia_dr3_g15']
+    monkeypatch.setattr(release, 'is_installed', lambda: False)
+
+    def explode(*a, **k):
+        raise AssertionError('the download started without being agreed to')
+
+    monkeypatch.setattr(download, '_download', explode)
+    with pytest.raises(download.ConfirmationRequired) as caught:
+        download.ensure_available('gaia_dr3_g15')
+    assert caught.value.size_bytes == release.size_bytes
+    assert 'gaia_dr3_g13' in str(caught.value)
+
+    # declining through a callback is the same as never agreeing
+    with pytest.raises(download.ConfirmationRequired):
+        download.ensure_available('gaia_dr3_g15', confirm=lambda r: False)
+
+
+def test_confirming_lets_the_large_download_proceed(monkeypatch):
+    """...and the same guard must not stand in the way once the user has said yes."""
+    release = download.RELEASES['gaia_dr3_g15']
+    monkeypatch.setattr(release, 'is_installed', lambda: False)
+    started = []
+
+    def record(url, destination, expected_sha256=None, progress=None):
+        started.append(url)
+        raise RuntimeError('stop here: the guard is what is under test, not the network')
+
+    monkeypatch.setattr(download, '_download', record)
+    for agreement in (True, lambda r: True):
+        started.clear()
+        with pytest.raises(RuntimeError, match='stop here'):
+            download.ensure_available('gaia_dr3_g15', confirm=agreement)
+        assert started, 'confirming did not let the download through'
+
+
+def test_a_run_never_starts_a_multi_gigabyte_download_by_itself(monkeypatch):
+    """Auto-download exists so a run does not fail for want of the standard archive.
+    Silently spending an hour and 3.5 GB mid-run is a different thing entirely."""
+    monkeypatch.setattr(download, 'releases_needed', lambda *a, **k: ['gaia_dr3_g15'])
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g15'], 'is_installed', lambda: False)
+
+    def explode(*a, **k):
+        raise AssertionError('a run started a 1.57 GB download on its own')
+
+    monkeypatch.setattr(download, 'ensure_available', explode)
+    warnings = download.prepare_catalogue('gaia', options={})
+    assert any('too large to fetch automatically' in w for w in warnings), warnings
+    assert any('--fetch gaia_dr3_g15' in w for w in warnings), 'must say how to opt in'

@@ -286,6 +286,28 @@ def cmd_ui(args):
     return 0
 
 
+def _confirm_large_download(release):
+    """Ask, at a terminal, before starting a multi-gigabyte download.
+
+    Declines rather than blocks when there is no terminal to ask at -- a scripted or
+    headless run must not hang on a prompt nobody can see. ``--yes`` is the way through
+    in that case, which keeps the decision the user's either way.
+    """
+    print()
+    print(release.size_warning())
+    try:
+        answer = input(f'Download {release.name} anyway? [y/N] ').strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        # no one there to answer -- a scripted run must decline, not block. The isatty
+        # check this replaces is unreliable here: on Windows the null device reports as
+        # a character device, so `< /dev/null` still looks interactive
+        print(f'\nnot running interactively, so not starting a '
+              f'{release.size_bytes / 1e9:.2f} GB download. Re-run with --yes to agree '
+              f'to it in advance.')
+        return False
+    return answer in ('y', 'yes')
+
+
 def cmd_catalogue(args):
     """Inspect, verify, fetch, pack or install the offline star catalogues."""
     from mee2024.MEE2024util import get_catalogue_root
@@ -434,8 +456,15 @@ def cmd_catalogue(args):
         if args.url:      # a one-off URL, without saving it to the config
             options.setdefault('catalogue_sources', {})[args.fetch] = {
                 'url': args.url, 'sha256': args.sha256}
-        directory = download.ensure_available(args.fetch, progress=make_progress(args),
-                                             options=options)
+        try:
+            directory = download.ensure_available(
+                args.fetch, progress=make_progress(args), options=options,
+                confirm=args.yes or _confirm_large_download)
+        except download.ConfirmationRequired:
+            # _confirm_large_download has already shown the size and asked; repeating
+            # the whole paragraph here just buries the one line that matters
+            print('cancelled: nothing was downloaded.')
+            return 1
         print(f'{args.fetch} ready at {directory}')
         return 0
 
@@ -616,6 +645,8 @@ def build_parser():
                         'proceed with an unreadable or faint-only source')
     p.add_argument('--check-remote', action='store_true',
                    help='check the published archives are reachable, without downloading them')
+    p.add_argument('--yes', '-y', action='store_true',
+                   help='agree in advance to a large download, instead of being asked')
     p.add_argument('--quiet', action='store_true', help='suppress the progress bar')
     _add_common(p)
     p.set_defaults(func=cmd_catalogue)

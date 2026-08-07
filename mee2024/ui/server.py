@@ -73,6 +73,8 @@ class Api:
             'authors': AUTHORS,
             'presets': self.runner.PRESETS,
             'catalogues': self._catalogues(),
+            # installed but hidden: shown as a note, not as another choice
+            'superseded_installed': self._superseded_installed(),
             'default_catalogue': self._default_catalogue(),
             # the curated pair, not every registered provider: Tycho and Hipparcos
             # alone are building blocks, and 'merged' is what 'gaia' now means
@@ -116,11 +118,11 @@ class Api:
         out = []
         for name in download.RELEASES:
             release = download.get_release(name, options=options)
-            # a superseded archive is still listed if it is installed -- it can be
-            # selected as the catalogue for a run, and hiding an archive someone is
-            # actually using would be worse than the clutter -- but it is never offered
-            # as a download
-            if not (release.offered or release.is_installed()):
+            # superseded archives are hidden even when installed: g12 and the 12<G<13
+            # extension hold exactly the stars g13 holds, so offering all of them turns
+            # one decision into three, each worse than the one beside it. They still
+            # work if named, and superseded_installed() below says how to reclaim them
+            if not release.shown_in_ui:
                 continue
             out.append({'name': release.name, 'description': release.description,
                         'installed': release.is_installed(),
@@ -128,8 +130,28 @@ class Api:
                         'downloadable': release.is_published,
                         'magnitude_limit': release.magnitude_limit,
                         'role': release.role,
+                        'needs_confirmation': release.needs_confirmation,
+                        'size_bytes': release.size_bytes,
                         'recommended': release.recommended})
         return out
+
+    def _superseded_installed(self):
+        """Hidden archives the user still has on disk, so the space is not just lost.
+
+        Hiding them from the choices is the point, but silently sitting on a few hundred
+        megabytes the user can no longer see would be its own bug.
+        """
+        from mee2024.config import get_default_options
+        from mee2024.MEE2024util import read_ini
+        from mee2024.starcat import download
+        options = get_default_options()
+        read_ini(options)
+        found = []
+        for name in download.RELEASES:
+            release = download.get_release(name, options=options)
+            if release.superseded and release.is_installed():
+                found.append({'name': release.name, 'size': release.human_size()})
+        return found
 
     def _catalogue_limits(self):
         """How deep each selectable catalogue reaches, so the UI can warn as you type.
@@ -149,8 +171,14 @@ class Api:
             limits[name] = download.get_release(name, options=options).magnitude_limit
         return limits
 
-    def fetch_catalogue(self, name):
-        """Download a prebuilt catalogue. Runs in a thread so the UI stays responsive."""
+    def fetch_catalogue(self, name, confirmed=False):
+        """Download a prebuilt catalogue. Runs in a thread so the UI stays responsive.
+
+        A download over the large-archive threshold is not started on the first call:
+        it answers ``needs_confirmation`` with the exact size, and the page asks. The
+        check lives here rather than only in the page so that the size cannot be
+        skipped by calling the API directly.
+        """
         from mee2024.config import get_default_options
         from mee2024.MEE2024util import read_ini
         from mee2024.starcat import download
@@ -167,6 +195,11 @@ class Api:
                 f'no download URL is configured for {name}. Set one with '
                 f'"mee2024 catalogue --set-source {name} --url URL --sha256 HASH", '
                 f'or build it locally with tools/build_gaia_offline.py.')
+        if release.needs_confirmation and not confirmed:
+            return {'ok': True, 'needs_confirmation': True, 'name': name,
+                    'size_bytes': release.size_bytes,
+                    'disk_bytes': release.disk_needed_bytes(),
+                    'message': release.size_warning()}
 
         def work():
             from mee2024.progress import EventProgress
@@ -176,7 +209,7 @@ class Api:
                     progress = EventProgress(stage=f'download:{name}',
                                              label=f'Downloading {name}', unit='bytes')
                     directory = download.ensure_available(
-                        name, progress=progress, options=options)
+                        name, progress=progress, options=options, confirm=True)
                     events.log(f'{name} installed at {directory}')
                 except Exception as exc:
                     events.emit(events.ERROR, text=f'{type(exc).__name__}: {exc}')
