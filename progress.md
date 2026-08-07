@@ -11,13 +11,13 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 700 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 716 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.3.4; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.3.5; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
@@ -50,6 +50,44 @@ zwo3-quintic "−1 d" was a lucky 0.06 σ draw):
 | zwo1 | septic | 104.2 mas | 1565 | 2023-09-23 | −37 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-08-07 — v1.3.5: a log file nobody let go of, and a deep catalogue missing a million stars
+
+**The run's log stayed locked until the program exited.** Reported from use: the txt files
+a run writes cannot be moved or deleted while the app is still open. `setup_logger`
+attaches a `logging.FileHandler` to a *named* logger, and `logging` keeps named loggers in
+a process-global registry — so nothing ever dropped the handler and nothing ever closed
+the file. One leaked descriptor per run, and on Windows an exclusive lock on the user's own
+log. `do_stack` is now a thin wrapper that owns the log file and releases it in a `finally`,
+so a *failed* run lets go of it too — which is exactly when someone wants to read it.
+
+**`gaia_dr3_g15` was built, and was missing 992,251 stars.** Every file matched its
+checksum, every column was the right length, the ordering and index were sound — and the
+archive was 2.69% short, all of it in three declination bands between −70° and −40°. Ten of
+193 cached chunks had come back truncated from the Gaia archive, without an error, all in
+the densest sky there is: the southern galactic plane through Carina, Centaurus and Crux.
+The worst returned 45% of its rows and simply stopped at RA 251° instead of 260°.
+
+Checksums cannot catch this — a hash over truncated data is a perfectly valid hash. What
+caught it was an external reference: cross-checking the G<13 overlap against the `g13`
+archive found 167,296 stars present there and absent here, and zero the other way; the
+Gaia archive then confirmed a sample of them, positions matching to four decimals. The ten
+chunks were deleted, refetched, and the archive now matches Gaia's own `COUNT(*)` exactly
+in all 18 bands, with the `g13` overlap agreeing star for star in both directions.
+
+The builder still cannot detect this class of failure, and that is the real lesson.
+`plan_chunks` already obtains a server-side `COUNT(*)` per stripe and returns it as
+`expected` — which is then never used. The build prints its total and exits happily. The
+atomic-write comment in `_save_chunk`, "a chunk is either absent or whole", is true of the
+*file* and not of the *query*, and that gap is exactly where this fell through.
+
+Also: the release tags were all wrong. `v1.0.1`, `v1.3.1` and `v1.3.4` every one pointed at
+`0d294a6`, the tip of `main` — a README commit whose `_version()` returns **v0.6.0**. Any
+`git checkout v1.3.4` got code predating v1.0.0. Retagged to the commits that actually
+carry those versions. `main` itself is still 60 commits behind this branch, which is the
+underlying cause and is not yet addressed.
 
 ---
 
