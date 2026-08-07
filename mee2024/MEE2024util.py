@@ -192,9 +192,12 @@ logging setup
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 
 def setup_logger(name, log_file, level=logging.INFO):
-    """To setup as many loggers as you want"""
+    """To setup as many loggers as you want.
 
-    handler = logging.FileHandler(log_file)        
+    Pair every call with :func:`close_logger`, or the log file stays open -- see there.
+    """
+
+    handler = logging.FileHandler(log_file)
     handler.setFormatter(formatter)
 
     logger = logging.getLogger(name)
@@ -202,3 +205,29 @@ def setup_logger(name, log_file, level=logging.INFO):
     logger.addHandler(handler)
 
     return logger
+
+
+def close_logger(logger):
+    """Release a logger's file: flush, close and detach every handler.
+
+    ``logging.FileHandler`` holds the file open for the lifetime of the handler, and the
+    handler is attached to a *named* logger -- which ``logging`` keeps in a process-global
+    registry. So without this the LOG file of every run stayed open until the program
+    exited: one leaked descriptor per run, and on Windows an exclusive lock, so the user
+    could not move, rename or delete their own log while the app was still running.
+
+    Safe to call twice, and never raises: releasing the file must not be able to fail a
+    run that has otherwise finished.
+    """
+    if logger is None:
+        return
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)      # detach first, so a failing close still frees it
+        try:
+            handler.flush()
+            handler.close()
+        except Exception:
+            traceback.print_exc()
+    # the logger itself would otherwise linger in the logging manager for the life of the
+    # process, one per run, each still named after the run that made it
+    logging.Logger.manager.loggerDict.pop(logger.name, None)

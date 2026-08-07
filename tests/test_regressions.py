@@ -65,7 +65,8 @@ def test_residual_plot_guards_the_right_frame_index():
     shifts has one entry per frame (including frame 0); deltas and rms_errors have one
     per *aligned* frame. Checking shifts[i-1] tested the previous frame's success.
     """
-    source = inspect.getsource(si.do_stack)
+    # _do_stack holds the body; do_stack is the wrapper that releases the log file
+    source = inspect.getsource(si._do_stack)
     assert 'if shifts[i-1] is None' not in source
     assert 'if deltas[i-1] is None' in source
 
@@ -148,7 +149,8 @@ def test_stack_preview_plot_downsamples_before_the_colormap():
     The plot must therefore stride the image and use `extent` to keep the star overlay in
     original pixel coordinates.
     """
-    source = inspect.getsource(si.do_stack)
+    # _do_stack holds the body; do_stack is the wrapper that releases the log file
+    source = inspect.getsource(si._do_stack)
     assert 'display_step' in source, 'the stack preview no longer downsamples'
     assert 'extent=' in source, 'downsampling without extent would misplace the overlay'
     assert 'plt.imshow(stacked,' not in source, 'full-resolution imshow is back'
@@ -174,7 +176,8 @@ def test_extent_keeps_overlay_coordinates_after_striding():
 
 def test_observation_date_is_recorded_for_the_guess_check():
     """Stage 1 must record the header date, or stage 2 cannot score its blind guess."""
-    source = inspect.getsource(si.do_stack)
+    # _do_stack holds the body; do_stack is the wrapper that releases the log file
+    source = inspect.getsource(si._do_stack)
     assert 'observation_date_header' in source
     assert 'read_observation_date' in source
 
@@ -232,6 +235,50 @@ def test_both_star_label_emitters_pass_sky_positions():
                         f'{module.__name__}: {call} without ra/dec, so no proper name can '
                         f'be resolved by position')
                 start = source.find(call, i)
+
+
+def test_close_logger_releases_the_log_file(tmp_path):
+    """The run's LOG file was held open until the program exited.
+
+    setup_logger attaches a logging.FileHandler to a *named* logger, which logging keeps
+    in a process-global registry, so nothing ever closed it: one leaked descriptor per
+    run, and on Windows an exclusive lock -- the user could not move or delete their own
+    log while the app was still open. Deleting the file is the honest test of the lock;
+    on Windows it raises PermissionError while a handle is open.
+    """
+    import logging
+
+    from mee2024.MEE2024util import close_logger, setup_logger
+
+    path = tmp_path / 'LOG20260807000000.txt'
+    logger = setup_logger('test-logger-release', path)
+    logger.info('a line, so the file is really written to')
+    assert path.exists()
+
+    close_logger(logger)
+
+    assert logger.handlers == [], 'handlers still attached'
+    assert 'test-logger-release' not in logging.Logger.manager.loggerDict, \
+        'the named logger lingers in the registry, one per run'
+    assert path.read_text(encoding='utf-8').strip(), 'the log lost its contents'
+    path.unlink()                      # PermissionError here on Windows if still open
+    close_logger(logger)               # idempotent: must not raise on a second call
+
+
+def test_do_stack_releases_its_log_file_even_when_the_run_fails(tmp_path):
+    """A failed run must let go of its log too -- that is when you want to read it."""
+    from mee2024 import stacker_implementation
+    from mee2024.config import get_default_options
+
+    options = get_default_options()
+    options['output_dir'] = str(tmp_path)
+    with pytest.raises(Exception):
+        stacker_implementation.do_stack([str(tmp_path / 'no_such_frame.fits')], [], [],
+                                        options)
+    logs = list(tmp_path.glob('CENTROID_OUTPUT*/LOG*.txt'))
+    assert logs, 'the run left no log to check'
+    for log in logs:
+        log.unlink()                   # fails with PermissionError if the handle leaked
 
 
 def test_erfa_ld_is_restored_when_correct_ra_dec_raises():

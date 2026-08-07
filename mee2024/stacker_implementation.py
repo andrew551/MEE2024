@@ -10,7 +10,8 @@ import scipy.ndimage
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import time
-from mee2024.MEE2024util import output_path, _version, setup_logger, date_string_to_float
+from mee2024.MEE2024util import (output_path, _version, setup_logger, close_logger,
+                                 date_string_to_float)
 from mee2024 import events
 from mee2024 import hotpixels
 from mee2024 import star_labels
@@ -721,6 +722,11 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
 
     progress: a mee2024.progress.ProgressReporter. Defaults to NullProgress, so the
     pipeline runs headless unless a caller explicitly asks for progress reporting.
+
+    A thin wrapper around :func:`_do_stack`, so the run's log file is released the moment
+    the run ends rather than when the program exits -- including when the run raises. The
+    handler is attached to a process-global named logger, so nothing else would ever let
+    go of it, and on Windows that left the user unable to move or delete their own log.
     """
     if progress is None:
         progress = NullProgress()
@@ -735,6 +741,15 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     os.makedirs(data_dir, exist_ok=True)
     print(f'logpath {logpath}')
     logger = setup_logger('logger'+starttime, logpath)
+    try:
+        return _do_stack(files, darkfiles, flatfiles, options, progress,
+                         starttime, output_dir, data_dir, logger)
+    finally:
+        close_logger(logger)
+
+
+def _do_stack(files, darkfiles, flatfiles, options, progress,
+              starttime, output_dir, data_dir, logger):
     logger.info('start time: ' + str(datetime.datetime.now()) + '\n')
     logger.info('using version:'+_version())
     logger.info('using options:'+str(options))

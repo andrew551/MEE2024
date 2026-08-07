@@ -170,11 +170,11 @@ RELEASES = {
         name='gaia_dr3_g15',
         description='Gaia DR3, G < 15 -- very deep, several GB, for special needs',
         magnitude_limit=15.0,
-        n_stars=None,
-        size_bytes=None,
-        doi=None,
-        url=None,
-        sha256=None,
+        n_stars=36_909_335,
+        size_bytes=1_566_363_365,
+        doi=None,               # a Zenodo DOI replaces the GitHub URL at publication
+        url=_github_asset('gaia_dr3_g15.zip'),
+        sha256='fb0711a6cf4e084129b401c493412fbef31ab1af74acca8c21dfc3307f35b29b',
         role='deep',
     ),
     # The original pair. Kept downloadable so an existing install keeps working and so
