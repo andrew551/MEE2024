@@ -9,6 +9,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import pytest
 
@@ -844,3 +845,76 @@ def test_fetching_the_standard_archive_is_not_gated(api, monkeypatch):
     assert not answer.get('needs_confirmation')
     if api._fetching:
         api._fetching.join(timeout=5)
+
+
+# ------------------------------------------- reclaiming the disk, without a restart
+
+def _fake_installed(monkeypatch, tmp_path, name, n_bytes=4096):
+    """An installed-looking archive on disk, with a real file to reclaim."""
+    from mee2024.starcat import download
+    directory = tmp_path / name
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / 'ra.npy').write_bytes(b'x' * n_bytes)
+    release = download.RELEASES[name]
+    monkeypatch.setattr(release, 'is_installed', lambda: True)
+    monkeypatch.setattr(release, 'directory', lambda: directory)
+    return directory
+
+
+def test_an_installed_archive_can_be_removed_from_the_app(api, tmp_path, monkeypatch):
+    """The app offers a one-click 1.57 GB download; it has to offer the way back too."""
+    directory = _fake_installed(monkeypatch, tmp_path, 'gaia_dr3_g15', n_bytes=5000)
+    answer = api.remove_catalogue('gaia_dr3_g15')
+    assert not directory.exists(), 'the archive is still on disk'
+    assert answer['freed_bytes'] == 5000
+    # the reply carries the refreshed lists, so the page redraws without asking again
+    assert 'catalogues' in answer and 'superseded_installed' in answer
+
+
+def test_removing_releases_the_memory_maps_first(api, tmp_path, monkeypatch):
+    """A mapped file cannot be deleted on Windows, so the cache must be dropped first.
+
+    Without this the only way to reclaim the disk was to close the whole program --
+    which is precisely the complaint this feature exists to answer.
+    """
+    from mee2024 import database_cache
+    from mee2024.starcat import download
+
+    _fake_installed(monkeypatch, tmp_path, 'gaia_dr3_g15')
+    released = []
+    monkeypatch.setattr(database_cache, 'release_catalogues',
+                        lambda: released.append(True) or [])
+    download.remove('gaia_dr3_g15')
+    assert released, 'deleted without releasing the mapped copy first'
+
+
+def test_removing_something_that_is_not_installed_says_so(api):
+    with pytest.raises(ValueError, match='not installed'):
+        api.remove_catalogue('gaia_dr3_g12')
+
+
+def test_a_bundled_archive_reports_that_there_is_nothing_to_reclaim(api, monkeypatch):
+    """g10 ships inside the executable, so 'remove' cannot mean anything for it."""
+    from mee2024.starcat import download
+
+    release = download.RELEASES['gaia_dr3_g10']
+    monkeypatch.setattr(release, 'is_bundled', lambda: True)
+    monkeypatch.setattr(release, 'directory', lambda: Path('/no/such/place'))
+    with pytest.raises(ValueError, match='bundled inside the program'):
+        api.remove_catalogue('gaia_dr3_g10')
+
+
+def test_the_catalogue_list_can_be_re_read_without_restarting(api, tmp_path,
+                                                              monkeypatch):
+    """A download used to stay invisible until the program was restarted, because the
+    page learned the catalogue list once, from hello(), at startup."""
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g15'], 'is_installed',
+                        lambda: False)
+    before = {c['name']: c['installed'] for c in api.catalogues()['catalogues']}
+    assert before['gaia_dr3_g15'] is False
+
+    _fake_installed(monkeypatch, tmp_path, 'gaia_dr3_g15')
+    after = {c['name']: c['installed'] for c in api.catalogues()['catalogues']}
+    assert after['gaia_dr3_g15'] is True, 'a second call must see the new archive'

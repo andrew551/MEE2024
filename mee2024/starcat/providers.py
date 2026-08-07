@@ -363,6 +363,11 @@ class GaiaOfflineProvider(CatalogueProvider):
         limits = [c.magnitude_limit for c in self.catalogues if c.magnitude_limit]
         return max(limits) if limits else None
 
+    def close(self):
+        """Let go of every archive this provider has mapped, so they can be deleted."""
+        for catalogue in self.catalogues:
+            catalogue.close()
+
     def describe(self):
         parts = ', '.join(c.manifest['name'] for c in self.catalogues)
         return f'{self.name} (offline, G<{self.magnitude_limit}) [{parts}]'

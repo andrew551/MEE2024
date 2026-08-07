@@ -253,6 +253,24 @@ class OfflineCatalogue:
             self._mmap[attribute] = np.load(self.directory / entry['file'], mmap_mode='r')
         return self._mmap[attribute]
 
+    def close(self):
+        """Release every memory-mapped column.
+
+        A mapping is an open handle, and Windows will not delete a mapped file -- so
+        without this an archive the running program has read cannot be removed until
+        the program exits. Safe to call more than once; the catalogue re-opens lazily
+        if anything asks for a column afterwards.
+        """
+        for array in list(self._mmap.values()):
+            mapping = getattr(array, '_mmap', None)
+            if mapping is not None:
+                try:
+                    mapping.close()
+                except Exception:
+                    pass
+        self._mmap.clear()
+        self.dec_index = None
+
     # ------------------------------------------------------------- properties
 
     @property

@@ -352,22 +352,18 @@ def cmd_catalogue(args):
         return 0
 
     if args.remove:
-        directory = _resolve_catalogue_dir(args.remove)
-        if directory is None:
+        if _resolve_catalogue_dir(args.remove) is None:
             print(f'{args.remove} is not installed; nothing to remove')
             return 1
-        import shutil
         try:
-            shutil.rmtree(directory)
-        except PermissionError as exc:
-            # a running MEE2024 holds the catalogue memory-mapped, and Windows will
-            # not delete a mapped file. Say which program to close rather than
-            # showing a traceback about one .npy file.
-            print(f'cannot remove {directory}: {exc.strerror or exc}.\n'
-                  f'Close any running MEE2024 window (it keeps the catalogue open) '
-                  f'and try again.', file=sys.stderr)
+            # shared with the app's Remove button: it releases this process's own
+            # memory-mapped copy first, since Windows will not delete a mapped file
+            removed = download.remove(args.remove)
+        except RuntimeError as exc:
+            print(str(exc), file=sys.stderr)
             return 1
-        print(f'removed {directory}')
+        print(f'removed {removed["path"]}, reclaiming '
+              f'{removed["freed_bytes"] / 1e9:.2f} GB')
         return 0
 
     if args.set_source:

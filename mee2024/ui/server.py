@@ -171,6 +171,38 @@ class Api:
             limits[name] = download.get_release(name, options=options).magnitude_limit
         return limits
 
+    def catalogues(self):
+        """The catalogue panel's data, re-read from disk.
+
+        The page used to learn this once, at startup, from hello() -- so an archive
+        downloaded during the session did not appear until the program was restarted,
+        and the user reasonably concluded the download had not worked. Everything here
+        is cheap and read from disk each time, so the page can just ask again.
+        """
+        return {'catalogues': self._catalogues(),
+                'superseded_installed': self._superseded_installed(),
+                'limits': self._catalogue_limits(),
+                'default': self._default_catalogue(),
+                'recommended': self._recommended_catalogue()}
+
+    def remove_catalogue(self, name):
+        """Delete an installed archive and report the disk reclaimed."""
+        from mee2024.config import get_default_options
+        from mee2024.MEE2024util import read_ini
+        from mee2024.starcat import download
+
+        if self._fetching:
+            raise ValueError('a download is in progress; wait for it to finish')
+        options = get_default_options()
+        read_ini(options)
+        try:
+            removed = download.remove(name, options=options)
+        except RuntimeError as exc:
+            raise ValueError(str(exc)) from exc
+        events.log(f'removed {name}, reclaiming '
+                   f'{removed["freed_bytes"] / 1e9:.2f} GB')
+        return {'ok': True, **removed, **self.catalogues()}
+
     def fetch_catalogue(self, name, confirmed=False):
         """Download a prebuilt catalogue. Runs in a thread so the UI stays responsive.
 
@@ -540,7 +572,14 @@ class _Handler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/watch/flush':
                 self._send_json(self.api.watch_flush())
             elif parsed.path == '/api/catalogue/fetch':
-                self._send_json(self.api.fetch_catalogue(payload.get('name')))
+                # confirmed must be forwarded: without it the page's "yes" is dropped
+                # and the size prompt comes straight back, forever
+                self._send_json(self.api.fetch_catalogue(
+                    payload.get('name'), confirmed=bool(payload.get('confirmed'))))
+            elif parsed.path == '/api/catalogue/remove':
+                self._send_json(self.api.remove_catalogue(payload.get('name')))
+            elif parsed.path == '/api/catalogues':
+                self._send_json(self.api.catalogues())
             elif parsed.path == '/api/goodbye':
                 self._send_json(self.api.goodbye())
             elif parsed.path == '/api/pick':

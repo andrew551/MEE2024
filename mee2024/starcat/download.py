@@ -655,6 +655,38 @@ def check_remote(name=None, options=None):
     return results
 
 
+def remove(name, options=None):
+    """Delete an installed catalogue and return the freed path and bytes.
+
+    Releases the process's own cached, memory-mapped copy first: the app reads archives
+    through a mmap, and Windows refuses to delete a mapped file, so without this the
+    only way to reclaim the disk was to close the program. A bundled archive is not
+    removable -- it lives inside the executable -- and says so rather than appearing to
+    succeed while leaving the catalogue readable.
+    """
+    from mee2024 import database_cache
+
+    release = get_release(name, options=options)
+    directory = release.directory()
+    if not directory.exists():
+        if release.is_bundled():
+            raise RuntimeError(
+                f'{name} is bundled inside the program, not installed separately, '
+                f'so there is nothing to remove and no disk to reclaim.')
+        raise RuntimeError(f'{name} is not installed at {directory}')
+
+    freed = sum(p.stat().st_size for p in directory.rglob('*') if p.is_file())
+    database_cache.release_catalogues()
+    try:
+        shutil.rmtree(directory)
+    except PermissionError as exc:
+        raise RuntimeError(
+            f'cannot remove {directory}: {exc.strerror or exc}. Something still has '
+            f'the catalogue open -- close any other MEE2024 window and try again.'
+        ) from exc
+    return {'name': name, 'path': str(directory), 'freed_bytes': freed}
+
+
 def installed_catalogues():
     """Every catalogue release currently present on disk."""
     return [release for release in RELEASES.values() if release.is_installed()]

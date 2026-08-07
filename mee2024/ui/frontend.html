@@ -2281,19 +2281,96 @@ $('watch-stop').onclick = () => api('watch/stop', {}).catch(e => banner(e.messag
 $('watch-flush').onclick = () => api('watch/flush', {}).catch(e => banner(e.message));
 
 /* ------------------------------------------------- catalogue downloads */
+/* Watch for a download to land, then redraw. The fetch runs in a server-side thread,
+   so the only honest signal that it finished is the archive turning up as installed.
+   Gives up after a while rather than polling for ever: the log still reports the
+   outcome, and a stale panel is better than a page that never stops asking. */
+async function awaitDownload(name, tries = 600){
+  for(let i = 0; i < tries; i++){
+    await new Promise(r => setTimeout(r, 1000));
+    try{
+      const c = await api('catalogues');
+      const entry = c.catalogues.find(x => x.name === name);
+      if(entry && entry.installed){ await refreshCatalogues(); return true; }
+    }catch(e){ /* transient: keep waiting */ }
+  }
+  return false;
+}
+
+/* Re-read the catalogue state from disk and redraw. Called after a download finishes
+   and after a removal, because the page used to learn this once at startup: an archive
+   downloaded during the session stayed invisible until the program was restarted. */
+async function refreshCatalogues(){
+  try{
+    const c = await api('catalogues');
+    renderCatalogueDownloads(c.catalogues, c.superseded_installed);
+    if(c.limits) state.catalogueLimits = c.limits;
+    const sel = $('catalogue');
+    const chosen = sel.value;
+    // rebuild only the archive entries; the named providers above them do not change
+    [...sel.options].forEach(o => { if(o.value.startsWith('gaia_dr3_')) o.remove(); });
+    c.catalogues.filter(x => x.installed).forEach(x => {
+      const o = document.createElement('option');
+      o.value = x.name;
+      const l = state.catalogueLimits[x.name];
+      o.textContent = x.name + ' (offline'
+        + ((l === null || l === undefined) ? '' : ` — G<${l}`) + ')';
+      sel.appendChild(o);
+    });
+    if([...sel.options].some(o => o.value === chosen)) sel.value = chosen;
+    checkMagnitude();
+    showCatalogueNote();
+  }catch(e){ /* a failed refresh must not break the page */ }
+}
+
+function removeCatalogue(name, size){
+  return async () => {
+    if(!confirm(`Delete ${name} from this machine?\n\nThis frees ${size}. `
+                + `You can download it again later.`)) return;
+    try{
+      const r = await api('catalogue/remove', {name});
+      appendLog(`removed ${name}, reclaiming `
+                + (r.freed_bytes/1e9).toFixed(2) + ' GB');
+      renderCatalogueDownloads(r.catalogues, r.superseded_installed);
+      await refreshCatalogues();
+    }catch(e){ banner(e.message); }
+  };
+}
+
 function renderCatalogueDownloads(catalogues, superseded){
   const host = $('cat-downloads');
   host.innerHTML = '';
-  // archives that are installed but no longer offered. Hidden from every choice, but
-  // saying so once beats silently sitting on a few hundred MB the user cannot see
+  // installed archives get a way out: the deep one is 1.9 GB on disk, and offering a
+  // one-click download with no one-click undo is not a fair trade
+  for(const c of catalogues.filter(x => x.installed && x.downloadable)){
+    const row = document.createElement('div');
+    row.className = 'dl';
+    row.innerHTML = `<div class="grow"><div class="nm"></div><div class="sub"></div></div>`;
+    row.querySelector('.nm').textContent = c.name + ' — installed';
+    row.querySelector('.sub').textContent = c.size + ' · ' + c.description;
+    const del = document.createElement('button');
+    del.className = 'btn';
+    del.textContent = 'Remove';
+    del.title = 'Delete this archive and free the disk';
+    del.onclick = removeCatalogue(c.name, c.size, host);
+    row.appendChild(del);
+    host.appendChild(row);
+  }
+  // installed but no longer offered: hidden from every choice, but saying so once
+  // beats silently sitting on a few hundred MB the user cannot see
   for(const s of (superseded || [])){
-    const note = document.createElement('div');
-    note.className = 'faint';
-    note.style.marginBottom = '4px';
-    note.textContent = `${s.name} (${s.size}) is installed but superseded by `
-      + `gaia_dr3_g13, which already holds those stars. Remove it with: `
-      + `mee2024 catalogue --remove ${s.name}`;
-    host.appendChild(note);
+    const row = document.createElement('div');
+    row.className = 'dl';
+    row.innerHTML = `<div class="grow"><div class="nm"></div><div class="sub"></div></div>`;
+    row.querySelector('.nm').textContent = s.name + ' — superseded';
+    row.querySelector('.sub').textContent = s.size
+      + ' · gaia_dr3_g13 already holds these stars; this archive is no longer offered';
+    const del = document.createElement('button');
+    del.className = 'btn';
+    del.textContent = 'Remove';
+    del.onclick = removeCatalogue(s.name, s.size, host);
+    row.appendChild(del);
+    host.appendChild(row);
   }
   const missing = catalogues.filter(c => !c.installed);
   if(!missing.length) return;
@@ -2342,6 +2419,8 @@ function renderCatalogueDownloads(catalogues, superseded){
           r = await api('catalogue/fetch', {name: c.name, confirmed: true});
         }
         showLive();
+        // and redraw once it lands, so the new archive appears without a restart
+        awaitDownload(c.name);
       }
       catch(e){ banner(e.message); btn.disabled = false; }
     };

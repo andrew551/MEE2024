@@ -8,7 +8,9 @@ blocks until it is ready. Callers that never called ``prepare_triangles()`` -- t
 and the tests -- fall back to loading it synchronously.
 """
 
+import gc
 import time
+import traceback
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -115,6 +117,32 @@ def open_catalogue(path, debug_folder=None, **kwargs):
                 path, debug_folder=debug_folder, star_max_magnitude=12)
 
     return _cache.catalogue_cache[path]
+
+
+def release_catalogues():
+    """Drop every cached star catalogue, closing the files they hold mapped.
+
+    The cache exists so a second run does not re-open the archive, which is the right
+    default and the wrong one when the user is trying to delete that archive: a mapped
+    file cannot be removed on Windows. Called before a deletion, so the app can free
+    the disk without being restarted. The triangle database is deliberately left alone
+    -- it is not a catalogue and reloading it is expensive.
+    """
+    released = []
+    for path, cached in list(_cache.catalogue_cache.items()):
+        if isinstance(cached, TriangleData):
+            continue
+        closer = getattr(cached, 'close', None)
+        if callable(closer):
+            try:
+                closer()
+            except Exception:
+                traceback.print_exc()
+        del _cache.catalogue_cache[path]
+        released.append(str(path))
+    # a memmap is only really gone once nothing refers to it
+    gc.collect()
+    return released
 
 
 def _is_starcat_name(path):
