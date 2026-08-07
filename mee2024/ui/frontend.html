@@ -365,8 +365,8 @@ under a chosen folder, mirroring its layout into the output">
             <label for="datemode">Observation date</label>
             <div class="row">
               <select id="datemode" style="flex:1">
-                <option value="guess" selected>Recover it from proper motions</option>
-                <option value="header">Read it from the FITS header</option>
+                <option value="header" selected>Read it from the FITS header</option>
+                <option value="guess">Recover it from proper motions</option>
                 <option value="manual">Set it myself</option>
               </select>
               <input id="obsdate" placeholder="YYYY-MM-DD" size="10"
@@ -385,7 +385,7 @@ under a chosen folder, mirroring its layout into the output">
             <span>Sensitive centroid finder (slower, finds fainter stars)</span>
           </label>
           <label class="check">
-            <input type="checkbox" id="rm-double">
+            <input type="checkbox" id="rm-double" checked>
             <span>Drop stars with a close companion (double stars)</span>
           </label>
           <label class="check">
@@ -2187,7 +2187,8 @@ function dateMode(){
       ? 'The date is recovered from the stars’ own proper motions, which also '
         + 'checks the FITS header independently. Honest precision is two to four weeks.'
     : mode === 'header'
-      ? 'Taken from the first frame’s DATE-OBS. Right for ordinary data; the '
+      ? 'Taken from the first frame’s DATE-OBS. Right for ordinary data, and the '
+        + 'default; falls back to recovering it if the frames carry no date. The '
         + 'recovered date is the better check if you suspect the header.'
       : 'Used exactly as given. Format YYYY-MM-DD.';
 }
@@ -2281,6 +2282,36 @@ $('watch-stop').onclick = () => api('watch/stop', {}).catch(e => banner(e.messag
 $('watch-flush').onclick = () => api('watch/flush', {}).catch(e => banner(e.message));
 
 /* ------------------------------------------------- catalogue downloads */
+/* Offer, once, to clear out the archives gaia_dr3_g13 replaced. Asked at startup
+   because that is when someone upgrading has them and does not know it -- they are no
+   longer listed as choices, so nothing else would ever mention the disk they hold.
+   Either answer is remembered, so this is a one-time question, not a nag: declining
+   leaves the Remove buttons in the catalogue panel. */
+async function offerCatalogueCleanup(superseded){
+  const names = (superseded || []).map(s => `${s.name} (${s.size})`).join('\n  ');
+  const total = (superseded || []).length;
+  const ok = confirm(
+    `Old star catalogues found\n\n`
+    + `These were replaced by gaia_dr3_g13, which already contains the same stars:\n\n`
+    + `  ${names}\n\n`
+    + `They are no longer offered as choices and nothing uses them. `
+    + `Delete ${total > 1 ? 'them' : 'it'} and free the disk?`);
+  if(!ok){
+    api('catalogue/cleanup/dismiss', {}).catch(() => {});
+    return;
+  }
+  try{
+    const r = await api('catalogue/cleanup', {});
+    if(r.removed.length){
+      appendLog(`removed ${r.removed.join(', ')}, reclaiming `
+                + (r.freed_bytes/1e9).toFixed(2) + ' GB');
+    }
+    for(const f of (r.failed || [])) banner(f.error);
+    renderCatalogueDownloads(r.catalogues, r.superseded_installed);
+    await refreshCatalogues();
+  }catch(e){ banner(e.message); }
+}
+
 /* Watch for a download to land, then redraw. The fetch runs in a server-side thread,
    so the only honest signal that it finished is the archive turning up as installed.
    Gives up after a while rather than polling for ever: the log still reports the
@@ -2493,6 +2524,7 @@ document.addEventListener('keydown', e => {
       roots.appendChild(b);
     });
     renderCatalogueDownloads(hello.catalogues, hello.superseded_installed);
+    if(hello.suggest_cleanup) offerCatalogueCleanup(hello.superseded_installed);
     if(hello.watch_defaults){
       $('w-settle').value = hello.watch_defaults.settle_seconds;
       $('w-batch').value  = hello.watch_defaults.batch_size;

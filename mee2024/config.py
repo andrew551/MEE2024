@@ -91,11 +91,18 @@ DEFAULT_OPTIONS = {
     'crop_circle': False,
     'crop_circle_thresh': 1.0,
     # drop stars with a close companion from the distortion fit: the companion pulls
-    # the measured centroid away from the catalogue position
-    'remove_double_tab2': False,
+    # the measured centroid away from the catalogue position. On by default -- a blended
+    # pair is a systematically wrong position, not a noisy one, so keeping it costs more
+    # than the star is worth. Matches the app's default, so the CLI and the window do
+    # not quietly disagree about what a fit of the same frames means
+    'remove_double_tab2': True,
     # drop stars the catalogue has no proper motion for: they cannot be propagated to
-    # the observation epoch, so their position carries the catalogue epoch's error
+    # the observation epoch, so their position carries the catalogue epoch's error.
+    # Off by default: the motion is now borrowed from Hipparcos where Gaia lacks it, and
+    # the stars this would drop are disproportionately the bright ones worth keeping
     'remove_missing_pm': False,
+    # having offered to tidy away the superseded g12 archives once, do not keep asking
+    'catalogue_cleanup_dismissed': False,
     'eclipse_method': 'Method 1 & 2',
     # draw the fitted distortion field (arrows + magnitude map) and emit it as an event
     'distortion_field_plot': True,

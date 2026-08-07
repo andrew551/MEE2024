@@ -73,8 +73,11 @@ class Api:
             'authors': AUTHORS,
             'presets': self.runner.PRESETS,
             'catalogues': self._catalogues(),
-            # installed but hidden: shown as a note, not as another choice
+            # installed but hidden: shown as a row with a Remove button, not as a choice
             'superseded_installed': self._superseded_installed(),
+            # offer to tidy them away once, and remember having asked
+            'suggest_cleanup': bool(self._superseded_installed())
+            and not saved.get('catalogue_cleanup_dismissed'),
             'default_catalogue': self._default_catalogue(),
             # the curated pair, not every registered provider: Tycho and Hipparcos
             # alone are building blocks, and 'merged' is what 'gaia' now means
@@ -184,6 +187,51 @@ class Api:
                 'limits': self._catalogue_limits(),
                 'default': self._default_catalogue(),
                 'recommended': self._recommended_catalogue()}
+
+    def cleanup_catalogues(self):
+        """Remove every superseded archive at once, and say what that freed.
+
+        The tidy-up the startup prompt offers. Each is attempted independently: one
+        that will not delete -- another program holding it open, most likely -- must
+        not strand the others.
+        """
+        from mee2024.config import get_default_options
+        from mee2024.MEE2024util import read_ini
+        from mee2024.starcat import download
+
+        options = get_default_options()
+        read_ini(options)
+        removed, failed, freed = [], [], 0
+        for entry in self._superseded_installed():
+            try:
+                result = download.remove(entry['name'], options=options)
+            except RuntimeError as exc:
+                failed.append({'name': entry['name'], 'error': str(exc)})
+                continue
+            removed.append(entry['name'])
+            freed += result['freed_bytes']
+        if removed:
+            events.log(f'removed {", ".join(removed)}, reclaiming {freed / 1e9:.2f} GB')
+        for problem in failed:
+            events.log(f'could not remove {problem["name"]}: {problem["error"]}',
+                       level='warning')
+        self.dismiss_cleanup_prompt()
+        return {'ok': True, 'removed': removed, 'failed': failed,
+                'freed_bytes': freed, **self.catalogues()}
+
+    def dismiss_cleanup_prompt(self):
+        """Remember that the tidy-up was offered, so it is not asked at every launch."""
+        from mee2024.config import get_default_options
+        from mee2024.MEE2024util import read_ini, write_ini
+
+        try:
+            options = get_default_options()
+            read_ini(options)
+            options['catalogue_cleanup_dismissed'] = True
+            write_ini(options)
+        except Exception as exc:          # never let bookkeeping break the session
+            events.log(f'could not save the setting: {exc}', level='warning')
+        return {'ok': True}
 
     def remove_catalogue(self, name):
         """Delete an installed archive and report the disk reclaimed."""
@@ -578,6 +626,10 @@ class _Handler(BaseHTTPRequestHandler):
                     payload.get('name'), confirmed=bool(payload.get('confirmed'))))
             elif parsed.path == '/api/catalogue/remove':
                 self._send_json(self.api.remove_catalogue(payload.get('name')))
+            elif parsed.path == '/api/catalogue/cleanup':
+                self._send_json(self.api.cleanup_catalogues())
+            elif parsed.path == '/api/catalogue/cleanup/dismiss':
+                self._send_json(self.api.dismiss_cleanup_prompt())
             elif parsed.path == '/api/catalogues':
                 self._send_json(self.api.catalogues())
             elif parsed.path == '/api/goodbye':

@@ -850,13 +850,18 @@ def test_fetching_the_standard_archive_is_not_gated(api, monkeypatch):
 # ------------------------------------------- reclaiming the disk, without a restart
 
 def _fake_installed(monkeypatch, tmp_path, name, n_bytes=4096):
-    """An installed-looking archive on disk, with a real file to reclaim."""
+    """An installed-looking archive on disk, with a real file to reclaim.
+
+    is_installed tracks the directory rather than being pinned True, so a test can see
+    it stop being installed once it is removed -- which is the whole point of the
+    tests below, and a fixture that lied about it would pass them regardless.
+    """
     from mee2024.starcat import download
     directory = tmp_path / name
     directory.mkdir(parents=True, exist_ok=True)
     (directory / 'ra.npy').write_bytes(b'x' * n_bytes)
     release = download.RELEASES[name]
-    monkeypatch.setattr(release, 'is_installed', lambda: True)
+    monkeypatch.setattr(release, 'is_installed', lambda: directory.is_dir())
     monkeypatch.setattr(release, 'directory', lambda: directory)
     return directory
 
@@ -918,3 +923,81 @@ def test_the_catalogue_list_can_be_re_read_without_restarting(api, tmp_path,
     _fake_installed(monkeypatch, tmp_path, 'gaia_dr3_g15')
     after = {c['name']: c['installed'] for c in api.catalogues()['catalogues']}
     assert after['gaia_dr3_g15'] is True, 'a second call must see the new archive'
+
+
+# ------------------------------------------- offering to clear out the old archives
+
+@pytest.fixture
+def own_config(tmp_path, monkeypatch):
+    """A config file of this test's own, so the developer's real one is not read."""
+    from mee2024 import MEE2024util
+    path = tmp_path / 'MEE_config.txt'
+    monkeypatch.setattr(MEE2024util, 'get_config_path', lambda: path)
+    return path
+
+
+def test_the_cleanup_is_offered_when_an_old_archive_is_found(api, own_config,
+                                                             monkeypatch):
+    """Someone upgrading has g12 and does not know it: it is no longer listed as a
+    choice, so without asking, nothing would ever mention the disk it holds."""
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g12'], 'is_installed', lambda: True)
+    assert api.hello()['suggest_cleanup'] is True
+
+
+def test_the_cleanup_is_not_offered_when_there_is_nothing_to_clean(api, own_config,
+                                                                   monkeypatch):
+    from mee2024.starcat import download
+
+    for name in ('gaia_dr3_g12', 'gaia_dr3_g12_13'):
+        monkeypatch.setattr(download.RELEASES[name], 'is_installed', lambda: False)
+    assert api.hello()['suggest_cleanup'] is False
+
+
+def test_declining_the_cleanup_is_remembered(api, own_config, monkeypatch):
+    """A one-time question, not a nag: the Remove buttons stay for anyone who says no."""
+    from mee2024.starcat import download
+
+    monkeypatch.setattr(download.RELEASES['gaia_dr3_g12'], 'is_installed', lambda: True)
+    assert api.hello()['suggest_cleanup'] is True
+    api.dismiss_cleanup_prompt()
+    assert api.hello()['suggest_cleanup'] is False, 'asked again after being declined'
+    # ...but the archive is still there, and still removable by hand
+    assert [s['name'] for s in api.hello()['superseded_installed']] == ['gaia_dr3_g12']
+
+
+def test_the_cleanup_removes_every_old_archive_and_reports_the_disk(api, own_config,
+                                                                    tmp_path,
+                                                                    monkeypatch):
+    a = _fake_installed(monkeypatch, tmp_path, 'gaia_dr3_g12', n_bytes=1500)
+    b = _fake_installed(monkeypatch, tmp_path, 'gaia_dr3_g12_13', n_bytes=2500)
+
+    answer = api.cleanup_catalogues()
+    assert sorted(answer['removed']) == ['gaia_dr3_g12', 'gaia_dr3_g12_13']
+    assert answer['freed_bytes'] == 4000
+    assert not a.exists() and not b.exists()
+    assert answer['superseded_installed'] == []
+    # having acted on it, do not ask again either
+    assert api.hello()['suggest_cleanup'] is False
+
+
+def test_one_stubborn_archive_does_not_strand_the_others(api, own_config, tmp_path,
+                                                         monkeypatch):
+    """A file another program holds open must not abandon the rest of the tidy-up."""
+    from mee2024.starcat import download
+
+    good = _fake_installed(monkeypatch, tmp_path, 'gaia_dr3_g12', n_bytes=1000)
+    _fake_installed(monkeypatch, tmp_path, 'gaia_dr3_g12_13')
+    real_remove = download.remove
+
+    def stubborn(name, options=None):
+        if name == 'gaia_dr3_g12_13':
+            raise RuntimeError('cannot remove: still open')
+        return real_remove(name, options=options)
+
+    monkeypatch.setattr(download, 'remove', stubborn)
+    answer = api.cleanup_catalogues()
+    assert answer['removed'] == ['gaia_dr3_g12'], 'the removable one was skipped'
+    assert [f['name'] for f in answer['failed']] == ['gaia_dr3_g12_13']
+    assert not good.exists()
