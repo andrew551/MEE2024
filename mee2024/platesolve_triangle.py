@@ -291,9 +291,13 @@ def platesolve(centroids, image_shape, options={'flag_display':False, 'rough_mat
         from mee2024 import platesolve2
         ok, reason = platesolve2.preflight(options)
         if ok:
-            return platesolve2.platesolve(centroids, image_shape, options,
-                                          output_dir=output_dir,
-                                          try_mirror_also=try_mirror_also)
+            result = platesolve2.platesolve(centroids, image_shape, options,
+                                            output_dir=output_dir,
+                                            try_mirror_also=try_mirror_also)
+            # which solver ran is not recoverable afterwards otherwise, and the fallback
+            # below is silent in the results file
+            result.setdefault('solver', 'v2')
+            return result
         # a fresh install has no pattern database or offline catalogue yet: keep
         # solving with the classic solver instead of failing several stages deep
         events.log(f'v2 solver unavailable ({reason}); using the classic solver',

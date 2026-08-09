@@ -1000,6 +1000,23 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
     df_identification = None
     pointing_metrics = {}
     solution = platesolve_triangle.platesolve(centroids_stacked, stacked.shape, options = options, output_dir = output_dir)
+    # how the solve went, not just whether: a failure that records nothing cannot be
+    # diagnosed afterwards, and the interesting failures are the marginal ones
+    _diag = solution.get('diagnostics') or {}
+    solve_provenance = {
+        'solver': solution.get('solver'),
+        'pattern_db': solution.get('pattern_db'),
+        'verify_catalogue': solution.get('verify_catalogue'),
+        'n_candidates': _diag.get('n_candidates'),
+        'n_clusters_checked': _diag.get('n_clusters_checked'),
+        'threshold': _diag.get('threshold'),
+        'anchor_rounds_used': _diag.get('anchor_rounds_used'),
+        'layers_used': _diag.get('layers_used'),
+        'noise_px_used': _diag.get('noise_px_used'),
+        'time_s': _diag.get('time_s'),
+        'mirror': solution.get('mirror'),
+        'n_centroids_offered': int(centroids_stacked.shape[0]),
+    }
     print(solution)
     logger.info(str(solution))
     if not solution['ra'] is None:
@@ -1071,6 +1088,7 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
     results_dict = {
                          'MEE2024 version': _version(),
                          'platesolved' : flag_found_IDs,
+                         'solve': solve_provenance,
                          'n_centroids' : centroids_stacked.shape[0],
                          'img_shape' : imgs_0.shape,
                          'RA' : solution['ra'],
@@ -1079,6 +1097,31 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
                          'platescale/arcsec' : solution['platescale/arcsec'],#solution['FOV'] / max(imgs_0.shape) if flag_found_IDs else None,
                          '#frames stacked':len(files),
                          'source_files' : str(files),
+                         # the folder the frames came from, as its own key: collating a
+                         # batch afterwards should not mean parsing a stringified list
+                         'source_folder': str(Path(files[0]).parent) if files else None,
+                         # what was actually applied, so two runs can be compared rather
+                         # than assumed identical. Recovering this from the log meant
+                         # opening every archive; several of these change the star set
+                         'calibration': {
+                             'darks': [str(p) for p in (darkfiles or [])],
+                             'flats': [str(p) for p in (flatfiles or [])],
+                             'n_darks': len(darkfiles or []),
+                             'n_flats': len(flatfiles or []),
+                         },
+                         'effective_options': {k: v for k, v in options.items()
+                                               if not k.startswith('_')},
+                         # per-frame alignment: the drift, the residual scatter and the
+                         # dither span. All three were computed and then reached only a
+                         # print() and a plot, so drift could not be recovered afterwards
+                         'alignment': {
+                             'shifts_px': [None if s is None else [float(s[0]), float(s[1])]
+                                           for s in shifts],
+                             'rms_px': [None if r is None else float(r) for r in rms_errors],
+                             'dither_span_px': float(hotpixels.dither_span(shifts)),
+                             'frames': [e['frame'] for e in aligned],
+                             'n_matched': [e['n_matched'] for e in aligned],
+                         },
                          'starttime':starttime,
                          # from the first frame's FITS header; lets stage 2 score a blind
                          # date guess against the truth. None for inputs without a header.
@@ -1125,6 +1168,8 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
 
     events.emit(events.METRICS, stage='stack', n_centroids=int(centroids_stacked.shape[0]),
                 n_frames=len(files), platesolved=bool(flag_found_IDs),
+                dither_span_px=float(hotpixels.dither_span(shifts)),
+                solver=solve_provenance.get('solver'),
                 ra=solution['ra'], dec=solution['dec'], roll=solution['roll'],
                 platescale=solution['platescale/arcsec'],
                 stack_rms_px=[None if r is None else float(r) for r in rms_errors],

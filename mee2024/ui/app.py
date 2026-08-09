@@ -81,6 +81,9 @@ def _run_native(server):
     window = webview.create_window(
         WINDOW_TITLE, server.url,
         width=DEFAULT_SIZE[0], height=DEFAULT_SIZE[1],
+        # pywebview disables text selection by default, which made the activity log
+        # impossible to select or copy -- so bug reports arrived as screenshots
+        text_select=True,
         min_size=MIN_SIZE, background_color='#0b0e14')
 
     # The platform's own file dialog, which the frontend asks for through /api/pick.

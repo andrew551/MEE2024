@@ -4,11 +4,13 @@ Runs the pipeline for the UI, in a worker thread, reporting through the event bu
 Kept free of any HTTP or window concern so it can be driven directly from a test.
 """
 
+import json
 import threading
 import traceback
 from pathlib import Path
 
 from mee2024 import events
+from mee2024.MEE2024util import _version
 from mee2024.config import get_default_options
 from mee2024.progress import EventProgress, ProgressReporter
 
@@ -36,6 +38,23 @@ class CancellableProgress(ProgressReporter):
     def update(self, completed):
         if self.cancel_event.is_set():
             raise Cancelled()
+
+
+class _NarrativeSink(events.JsonlSink):
+    """The run log, minus the pixels.
+
+    IMAGE events carry a base64 PNG each, which is 97% of the bytes and none of the
+    story: two fields alone produced a 3.9 MB log, so a full batch would be tens of
+    megabytes of preview nobody greps. The previews still reach the page live; what goes
+    to disk is what someone would read afterwards to find out what happened.
+    """
+
+    SKIP = {events.IMAGE, events.PROGRESS}
+
+    def handle(self, event):
+        if event.get('type') in self.SKIP:
+            return
+        super().handle(event)
 
 
 class PipelineRunner:
@@ -138,6 +157,7 @@ class PipelineRunner:
             self.cancel_event = threading.Event()
 
         self.remember(spec)
+        self.attach_log_sink(spec.get('output_dir'))
         self.thread = threading.Thread(target=self._work, args=(dict(spec),), daemon=True)
         self.thread.start()
         return True
@@ -172,6 +192,41 @@ class PipelineRunner:
         except Exception as exc:      # never let bookkeeping break a run
             events.log(f'could not save settings: {exc}', level='warning')
 
+    def attach_log_sink(self, output_dir):
+        """Write this run's events to disk beside its results.
+
+        The bus previously had one sink, in memory, cleared at the start of every run --
+        so the batch-level narrative (which field failed, and why) existed nowhere once
+        the window closed, and bug reports arrived as screenshots. The CLI has had
+        `--events-jsonl` all along; the app simply never wired it up.
+        """
+        self.detach_log_sink()
+        if not output_dir:
+            return None
+        try:
+            path = Path(output_dir) / 'activity.jsonl'
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._log_sink = _NarrativeSink(path)
+            self.bus.sinks.append(self._log_sink)
+            return path
+        except Exception as exc:      # a log is never worth failing a run for
+            events.log(f'could not open the run log: {exc}', level='warning')
+            return None
+
+    def detach_log_sink(self):
+        sink = getattr(self, '_log_sink', None)
+        if sink is None:
+            return
+        try:
+            self.bus.sinks.remove(sink)
+        except ValueError:
+            pass
+        try:
+            sink.close()
+        except Exception:
+            pass
+        self._log_sink = None
+
     def build_options(self, spec):
         options = get_default_options()
         preset = spec.get('preset', 'auto')
@@ -200,20 +255,41 @@ class PipelineRunner:
             options['observation_date'] = spec['observation_date']
             options['guess_date'] = False
         elif spec.get('date_from_header'):
-            # take it from the frames themselves rather than guessing or asking
-            from mee2024.stacker_implementation import read_observation_date
-            lights = [str(p) for p in spec.get('lights') or []]
-            header_date = read_observation_date(lights[0]) if lights else None
-            if header_date:
-                options['observation_date'] = header_date
-                options['guess_date'] = False
-                events.log(f'observation date {header_date} read from the FITS header')
+            # In batch mode the frames are not known yet -- they are discovered per
+            # field -- so resolve the date there instead. Leave a marker rather than
+            # silently guessing, which is what this branch used to do.
+            if spec.get('fields'):
+                options['guess_date'] = True          # until the field resolves it
+                options['_date_from_header'] = True
             else:
-                options['guess_date'] = True
-                events.log('no date in the FITS header; recovering it from proper '
-                           'motions instead', level='warning')
+                self.resolve_header_date(options, spec.get('lights') or [])
         options.update(spec.get('options') or {})
         return options
+
+    @staticmethod
+    def resolve_header_date(options, lights):
+        """Set the observation date from the first frame's header, if it has one.
+
+        Called once for a single run, and once per field for a batch. It has to be per
+        field because a batch's frames are discovered after the options are assembled:
+        reading `spec['lights']` there found an empty list, so header mode silently fell
+        back to the guesser and reported 'no date in the FITS header' about frames that
+        had one. Every field of a folder run was therefore fitted at its own guessed
+        epoch -- measured at 38 days mean error, 140 days worst, on real data.
+        """
+        from mee2024.stacker_implementation import read_observation_date
+
+        lights = [str(p) for p in lights or []]
+        header_date = read_observation_date(lights[0]) if lights else None
+        if header_date:
+            options['observation_date'] = header_date
+            options['guess_date'] = False
+            events.log(f'observation date {header_date} read from the FITS header')
+        else:
+            options['guess_date'] = True
+            events.log('no date in the FITS header; recovering it from proper '
+                       'motions instead', level='warning')
+        return header_date
 
     def prepare_catalogue(self, options):
         """Fetch a missing catalogue and report depth problems, onto the event bus."""
@@ -277,6 +353,7 @@ class PipelineRunner:
                     database_cache.shutdown_triangles()
                 except Exception:
                     pass
+                self.detach_log_sink()   # flush and release the run log
 
     def _run_one(self, spec, options, progress, stages=None):
         """Stage 1 and stage 2 for one field. Returns the two output paths."""
@@ -322,13 +399,75 @@ class PipelineRunner:
             out['n_centroids'] = int(stack['n_centroids'])
         if stack.get('platesolved') is not None:
             out['platesolved'] = bool(stack['platesolved'])
+        # measured and then discarded until now: these are what say whether a finished
+        # field is any good, and the batch table had nowhere to get them
+        for key in ('fwhm_px', 'fwhm_arcsec', 'psf_ellipticity', 'undersampled',
+                    'dither_span_px', 'solver', 'header_pointing_separation_deg'):
+            if stack.get(key) is not None:
+                out[key] = stack[key]
+        if stack.get('platescale') is not None:
+            out['platescale'] = float(stack['platescale'])
         if distortion.get('rms_mas') is not None:
             out['rms_mas'] = float(distortion['rms_mas'])
         if distortion.get('n_stars') is not None:
             out['n_stars'] = int(distortion['n_stars'])
         if distortion.get('nn_corr') is not None:
             out['nn_corr'] = float(distortion['nn_corr'])
+        for key in ('observation_date', 'observation_date_header',
+                    'date_guess_error_days', 'distortion_order'):
+            if distortion.get(key) is not None:
+                out[key] = distortion[key]
         return out
+
+    #: columns of batch_summary.csv, in the order they answer "is this field any good?"
+    SUMMARY_COLUMNS = ('name', 'status', 'error', 'platesolved', 'n_frames',
+                       'n_centroids', 'rms_mas', 'n_stars', 'nn_corr', 'fwhm_arcsec',
+                       'psf_ellipticity', 'platescale', 'dither_span_px',
+                       'observation_date', 'folder', 'output_dir')
+
+    def write_batch_summary(self, results, spec, options, output_root):
+        """One row per field, beside the results, as CSV and JSON.
+
+        Without this the only way to learn which fields failed was to open every
+        archive and notice which had no stage-2 output -- and once the window closed
+        the activity log was gone too. The run-constant settings go in the JSON header
+        rather than repeating down every row.
+        """
+        import csv
+
+        if not output_root:
+            return None
+        try:
+            root = Path(output_root)
+            root.mkdir(parents=True, exist_ok=True)
+            header = {
+                'mee2024_version': _version(),
+                'batch_root': spec.get('batch_root', ''),
+                'n_fields': len(results),
+                'n_done': sum(1 for r in results if r.get('status') == 'done'),
+                'n_failed': sum(1 for r in results if r.get('status') == 'failed'),
+                'distortion_order': options.get('distortionOrder'),
+                'max_star_mag_dist': options.get('max_star_mag_dist'),
+                'distortion_fit_tol': options.get('distortion_fit_tol'),
+                'remove_double_tab2': options.get('remove_double_tab2'),
+                'remove_missing_pm': options.get('remove_missing_pm'),
+                'catalogue': options.get('catalogue'),
+                'platesolver': options.get('platesolver'),
+            }
+            (root / 'batch_summary.json').write_text(
+                json.dumps({'run': header, 'fields': results}, indent=2, default=str),
+                encoding='utf-8')
+            with open(root / 'batch_summary.csv', 'w', newline='', encoding='utf-8') as fp:
+                writer = csv.DictWriter(fp, fieldnames=self.SUMMARY_COLUMNS,
+                                        extrasaction='ignore')
+                writer.writeheader()
+                for row in results:
+                    writer.writerow({k: row.get(k, '') for k in self.SUMMARY_COLUMNS})
+            events.log(f'wrote batch_summary.csv ({len(results)} field(s)) to {root}')
+            return root / 'batch_summary.csv'
+        except Exception as exc:      # a summary must never lose a finished batch
+            events.log(f'could not write the batch summary: {exc}', level='warning')
+            return None
 
     def _run_fields(self, spec, options, progress):
         """Run every discovered field, one after another.
@@ -361,6 +500,9 @@ class PipelineRunner:
             field_options = dict(options)
             if output_root:
                 field_options['output_dir'] = batch.output_dir_for(field, output_root)
+            # the frames are only known now, which is why the date is resolved here
+            if field_options.pop('_date_from_header', False):
+                self.resolve_header_date(field_options, field['frames'])
             entry = {'name': label, 'folder': field['folder'],
                      'n_frames': len(field['frames']),
                      'output_dir': field_options.get('output_dir', '')}
@@ -398,6 +540,7 @@ class PipelineRunner:
                         n_centroids=entry.get('n_centroids'))
         with self._lock:
             self.batch_results = results
+        self.write_batch_summary(results, spec, options, output_root)
         done = sum(1 for r in results if r['status'] == 'done')
         failed = sum(1 for r in results if r['status'] == 'failed')
         events.emit(events.BATCH_FINISHED, n_done=done, n_failed=failed,

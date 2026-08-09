@@ -1001,3 +1001,118 @@ def test_one_stubborn_archive_does_not_strand_the_others(api, own_config, tmp_pa
     assert answer['removed'] == ['gaia_dr3_g12'], 'the removable one was skipped'
     assert [f['name'] for f in answer['failed']] == ['gaia_dr3_g12_13']
     assert not good.exists()
+
+
+# ------------------------------- the header date, and the record a batch leaves behind
+
+def test_header_date_is_resolved_per_field_in_a_batch(tmp_path, monkeypatch):
+    """Header date mode never worked in folder mode.
+
+    build_options runs once, before any field is discovered, so it read an empty
+    spec['lights'], found no date, and silently fell back to the guesser -- logging
+    "no date in the FITS header" about frames that had one. Every field of a folder run
+    was therefore fitted at its own guessed epoch: 38 days mean error on real data.
+    """
+    from mee2024.ui.runner import PipelineRunner
+
+    runner = PipelineRunner()
+    options = runner.build_options({'preset': 'custom', 'date_from_header': True,
+                                    'fields': [{'frames': []}]})
+    assert options.get('_date_from_header') is True, \
+        'a batch must defer the lookup rather than resolving it against no frames'
+
+    seen = {}
+    monkeypatch.setattr('mee2024.stacker_implementation.read_observation_date',
+                        lambda p: seen.setdefault('path', p) and '2026-08-05')
+    field_options = dict(options)
+    field_options.pop('_date_from_header')
+    PipelineRunner.resolve_header_date(field_options, ['/frames/a.fits'])
+    assert field_options['observation_date'] == '2026-08-05'
+    assert field_options['guess_date'] is False
+    assert seen['path'] == '/frames/a.fits', 'the field\'s own frames must be read'
+
+
+def test_a_single_run_still_resolves_the_date_immediately(monkeypatch):
+    """The non-batch path must keep working exactly as before."""
+    from mee2024.ui.runner import PipelineRunner
+
+    monkeypatch.setattr('mee2024.stacker_implementation.read_observation_date',
+                        lambda p: '2026-08-05')
+    options = PipelineRunner().build_options(
+        {'preset': 'custom', 'date_from_header': True, 'lights': ['/frames/a.fits']})
+    assert options['observation_date'] == '2026-08-05'
+    assert options['guess_date'] is False
+    assert '_date_from_header' not in options
+
+
+def test_a_batch_writes_a_summary_naming_the_fields_that_failed(tmp_path):
+    """Finding which fields failed previously meant opening every archive and noticing
+    which had no stage-2 output -- and the activity log was gone once the window closed."""
+    import csv
+
+    from mee2024.ui.runner import PipelineRunner
+
+    results = [
+        {'name': 'P1_Z1', 'status': 'done', 'platesolved': True, 'n_frames': 10,
+         'rms_mas': 61.6, 'n_stars': 448, 'folder': '/data/P1_Z1'},
+        {'name': 'P2_Z9', 'status': 'failed', 'error': 'BAD DATA - platesolve failed!',
+         'platesolved': False, 'n_frames': 10, 'folder': '/data/P2_Z9'},
+    ]
+    options = {'distortionOrder': 'cubic', 'max_star_mag_dist': 13,
+               'remove_double_tab2': True, 'catalogue': 'gaia'}
+    path = PipelineRunner().write_batch_summary(
+        results, {'batch_root': '/data'}, options, tmp_path)
+    assert path and path.exists()
+
+    with open(path, newline='', encoding='utf-8') as fp:
+        rows = list(csv.DictReader(fp))
+    failed = [r for r in rows if r['status'] == 'failed']
+    assert [r['name'] for r in failed] == ['P2_Z9']
+    assert 'platesolve failed' in failed[0]['error']
+
+    payload = json.loads((tmp_path / 'batch_summary.json').read_text(encoding='utf-8'))
+    # the run-constant settings belong in a header, not repeated down every row
+    assert payload['run']['distortion_order'] == 'cubic'
+    assert payload['run']['remove_double_tab2'] is True
+    assert payload['run']['n_failed'] == 1
+    assert len(payload['fields']) == 2
+
+
+def test_a_summary_failure_never_loses_a_finished_batch(tmp_path):
+    from mee2024.ui.runner import PipelineRunner
+
+    blocker = tmp_path / 'blocked'
+    blocker.write_text('I am a file, not a folder')
+    assert PipelineRunner().write_batch_summary([{'name': 'x'}], {}, {}, blocker) is None
+
+
+def test_the_run_log_is_written_to_disk_without_the_pixels(tmp_path):
+    """The bus had one sink, in memory, cleared at the start of every run -- so the
+    record of what happened was gone once the window closed. But an IMAGE event carries
+    a base64 PNG, and two fields alone made a 3.9 MB log, so the previews stay off disk."""
+    from mee2024 import events
+    from mee2024.ui.runner import PipelineRunner
+
+    runner = PipelineRunner()
+    path = runner.attach_log_sink(tmp_path)
+    assert path and path.name == 'activity.jsonl'
+    with events.using(runner.bus):
+        events.log('field 1 of 2')
+        events.emit(events.IMAGE, name='stack_preview', png='A' * 5000,
+                    width=10, height=10)
+        events.emit(events.METRICS, stage='stack', n_centroids=1234)
+    runner.detach_log_sink()
+
+    lines = [json.loads(x) for x in path.read_text(encoding='utf-8').splitlines()]
+    kinds = [e['type'] for e in lines]
+    assert events.LOG in kinds and events.METRICS in kinds
+    assert events.IMAGE not in kinds, 'the preview PNG must not reach the log'
+    assert path.stat().st_size < 5000, 'the log should not carry image payloads'
+
+
+def test_the_log_sink_never_fails_a_run(tmp_path):
+    from mee2024.ui.runner import PipelineRunner
+
+    blocker = tmp_path / 'blocked'
+    blocker.write_text('I am a file, not a folder')
+    assert PipelineRunner().attach_log_sink(blocker / 'sub') is None

@@ -18,6 +18,9 @@ PACKAGE = Path(__file__).parent.parent / 'mee2024'
 RUNTIME_ONLY = {
     'no_plot',        # gravity_sweep sets this to silence plotting during its sweep
     '__version__',    # stamped into the saved config by read_ini
+    # set by the UI runner to defer the header-date lookup to per-field resolution in a
+    # batch, where the frames are known. Never saved: the leading underscore marks it
+    '_date_from_header',
 }
 
 # Options that are read only by the GUI/CLI plumbing, or reserved for a stage that

@@ -107,6 +107,19 @@ def platesolve(centroids, image_shape, options=None, output_dir=None,
     if catalogue is None:
         catalogue = verify.open_verify_catalogue(db.manifest.get('verify') or {})
 
+    def _tag(result):
+        """Name the databases the solve actually used, for the results file."""
+        result.setdefault('solver', 'v2')
+        try:
+            result.setdefault('pattern_db', db.manifest.get('name') or str(db.directory))
+        except Exception:
+            pass
+        try:
+            result.setdefault('verify_catalogue', catalogue.describe())
+        except Exception:
+            pass
+        return result
+
     if db.invariant == pattern_db.INVARIANT_KENDALL:
         # mirror coverage is part of the single query pass (S2); additional FOV
         # layers extend blind coverage through the failure ladder (S6)
@@ -114,14 +127,14 @@ def platesolve(centroids, image_shape, options=None, output_dir=None,
                                      options, output_dir=output_dir,
                                      try_mirror_also=try_mirror_also)
         _emit_solve_result(result)
-        return result
+        return _tag(result)
 
     result = solve.solve_helper(db, catalogue, centroids, image_shape, options,
                                 output_dir=output_dir)
     result['mirror'] = False
     if result['success'] or not try_mirror_also:
         _emit_solve_result(result)
-        return result
+        return _tag(result)
 
     print('platesolve failed ... trying mirror image of field')
     mirrored = np.copy(centroids)
@@ -134,7 +147,7 @@ def platesolve(centroids, image_shape, options=None, output_dir=None,
         result['mirror'] = True
         result['matched_centroids'][:, [0, 1]] = result['matched_centroids'][:, [1, 0]]
     _emit_solve_result(result)
-    return result
+    return _tag(result)
 
 
 def _emit_solve_result(result):
