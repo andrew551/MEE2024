@@ -452,13 +452,73 @@ class PipelineRunner:
                        'psf_ellipticity', 'platescale', 'dither_span_px',
                        'observation_date', 'folder', 'output_dir')
 
+    @staticmethod
+    def run_header(spec, options, results=None):
+        """The settings a run held constant, for the record files."""
+        header = {
+            'mee2024_version': _version(),
+            'batch_root': spec.get('batch_root', ''),
+            'distortion_order': options.get('distortionOrder'),
+            'max_star_mag_dist': options.get('max_star_mag_dist'),
+            'distortion_fit_tol': options.get('distortion_fit_tol'),
+            'remove_double_tab2': options.get('remove_double_tab2'),
+            'remove_missing_pm': options.get('remove_missing_pm'),
+            'catalogue': options.get('catalogue'),
+            'platesolver': options.get('platesolver'),
+        }
+        if results is not None:
+            header.update(
+                n_fields=len(results),
+                n_done=sum(1 for r in results if r.get('status') == 'done'),
+                n_failed=sum(1 for r in results if r.get('status') == 'failed'))
+        return header
+
+    def write_field_record(self, entry, spec, options, since_seq):
+        """This field's own summary and log, inside this field's own output folder.
+
+        A field folder that travels -- copied to a second drive, sent to whoever is
+        reducing, opened a month later -- should be able to say what produced it without
+        the folder above it. The batch roll-up cannot do that: it lives one level up, it
+        describes fifty other fields, and it is the file most likely to be left behind.
+
+        The log written here is this field's slice of the event stream, not the whole
+        batch's: fifty copies of a fifty-field log is fifty times the bytes to say the
+        same thing, and none of it about the field you are looking at.
+        """
+        out = entry.get('output_dir')
+        if not out:
+            return None
+        try:
+            folder = Path(out)
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / 'field_summary.json').write_text(
+                json.dumps({'run': self.run_header(spec, options), 'field': entry},
+                           indent=2, default=str),
+                encoding='utf-8')
+            with self._lock:
+                slice_ = self.sink.since(since_seq)
+            with open(folder / 'activity.jsonl', 'w', encoding='utf-8') as fp:
+                for event in slice_:
+                    if event.get('type') in _NarrativeSink.SKIP:
+                        continue
+                    fp.write(json.dumps(event, default=str) + '\n')
+            return folder / 'field_summary.json'
+        except Exception as exc:      # a record must never lose a finished field
+            events.log(f'could not write the field record for '
+                       f'{entry.get("name", "")}: {exc}', level='warning')
+            return None
+
     def write_batch_summary(self, results, spec, options, output_root):
         """One row per field, beside the results, as CSV and JSON.
 
-        Without this the only way to learn which fields failed was to open every
-        archive and notice which had no stage-2 output -- and once the window closed
-        the activity log was gone too. The run-constant settings go in the JSON header
-        rather than repeating down every row.
+        Kept **as well as** the per-field records of `write_field_record`, not instead of
+        them. It is the only file that can answer "which of the fifty-one is missing" --
+        the question that took eighteen opened archives to answer on the London set, and
+        the reason F3 exists. A per-field record cannot answer it, because a field that
+        never ran leaves no folder to look in.
+
+        The run-constant settings go in the JSON header rather than repeating down every
+        row.
         """
         import csv
 
@@ -467,20 +527,7 @@ class PipelineRunner:
         try:
             root = Path(output_root)
             root.mkdir(parents=True, exist_ok=True)
-            header = {
-                'mee2024_version': _version(),
-                'batch_root': spec.get('batch_root', ''),
-                'n_fields': len(results),
-                'n_done': sum(1 for r in results if r.get('status') == 'done'),
-                'n_failed': sum(1 for r in results if r.get('status') == 'failed'),
-                'distortion_order': options.get('distortionOrder'),
-                'max_star_mag_dist': options.get('max_star_mag_dist'),
-                'distortion_fit_tol': options.get('distortion_fit_tol'),
-                'remove_double_tab2': options.get('remove_double_tab2'),
-                'remove_missing_pm': options.get('remove_missing_pm'),
-                'catalogue': options.get('catalogue'),
-                'platesolver': options.get('platesolver'),
-            }
+            header = self.run_header(spec, options, results)
             (root / 'batch_summary.json').write_text(
                 json.dumps({'run': header, 'fields': results}, indent=2, default=str),
                 encoding='utf-8')
@@ -518,6 +565,11 @@ class PipelineRunner:
                            level='warning')
                 break
             label = field.get('relative') or field.get('name') or field['folder']
+            # two marks, deliberately: the field's *log* should open with the line that
+            # names it, while its *metrics* must start after, or they would pick up the
+            # previous field's numbers, which are still in the sink
+            with self._lock:
+                log_mark = self.sink.events[-1]['seq'] if self.sink.events else 0
             events.emit(events.BATCH_FIELD, index=number, of=len(fields), name=label,
                         n_frames=len(field['frames']), status='running')
             events.log(f'[{number}/{len(fields)}] {label}: '
@@ -556,6 +608,9 @@ class PipelineRunner:
                 events.log(f'[{number}/{len(fields)}] {label} FAILED: {entry["error"]}',
                            level='warning')
             results.append(entry)
+            # written per field rather than only at the root, so a field folder that
+            # gets copied somewhere carries its own account of what made it
+            self.write_field_record(entry, spec, options, log_mark)
             events.emit(events.BATCH_FIELD, index=number, of=len(fields), name=label,
                         n_frames=len(field['frames']), status=entry['status'],
                         error=entry.get('error', ''), folder=field['folder'],

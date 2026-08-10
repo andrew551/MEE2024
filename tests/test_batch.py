@@ -302,6 +302,88 @@ def test_the_remembered_folder_is_the_one_the_user_picked(session, tmp_path, run
     assert runner.spec['output_dir'] == str(out / '2026-07-27')
 
 
+def test_every_field_folder_carries_its_own_record(session, tmp_path, runner, monkeypatch):
+    """A field folder that travels -- copied to a second drive, sent to whoever is
+    reducing -- should say what produced it without the folder above it."""
+    import json
+    from mee2024 import stacker_implementation as si
+
+    monkeypatch.setattr(si, 'do_stack', lambda *a, **k: tmp_path / 'fake.zip')
+    fields, _ = batch.find_fields(session)
+    out = tmp_path / 'results'
+    runner.start({'fields': fields, 'output_dir': str(out), 'preset': 'auto',
+                  'stages': ['stack'], 'batch_root': str(session)})
+    assert _wait(runner) == 'done'
+
+    for entry in runner.batch_results:
+        folder = Path(entry['output_dir'])
+        record = json.loads((folder / 'field_summary.json').read_text(encoding='utf-8'))
+        assert record['field']['name'] == entry['name']
+        assert record['run']['batch_root'] == str(session)
+        assert record['run']['distortion_order']          # the settings, not just the row
+        assert (folder / 'activity.jsonl').exists()
+
+    # and the roll-up survives beside them: it is the only file that can say which of the
+    # fields is *missing*, because a field that never ran leaves no folder to look in
+    root = Path(runner.spec['output_dir'])
+    assert (root / 'batch_summary.csv').exists()
+    assert (root / 'batch_summary.json').exists()
+
+
+def test_a_field_log_holds_that_field_and_not_its_neighbours(session, tmp_path, runner,
+                                                             monkeypatch):
+    """Fifty copies of a fifty-field log is fifty times the bytes to say the same thing,
+    and none of it about the field you are looking at."""
+    import json
+    from mee2024 import stacker_implementation as si
+
+    monkeypatch.setattr(si, 'do_stack', lambda *a, **k: tmp_path / 'fake.zip')
+    fields, _ = batch.find_fields(session)
+    runner.start({'fields': fields, 'output_dir': str(tmp_path / 'out'), 'preset': 'auto',
+                  'stages': ['stack'], 'batch_root': str(session)})
+    assert _wait(runner) == 'done'
+
+    names = [e['name'] for e in runner.batch_results]
+    for entry in runner.batch_results:
+        text = (Path(entry['output_dir']) / 'activity.jsonl').read_text(encoding='utf-8')
+        lines = [json.loads(line) for line in text.splitlines() if line.strip()]
+        assert lines, 'a field with no log is a field with no account of itself'
+        assert all(e['type'] != 'image' for e in lines), 'previews do not belong on disk'
+        blob = text
+        assert entry['name'].split('\\')[-1] in blob
+        for other in names:
+            if other != entry['name']:
+                assert other.split('\\')[-1] not in blob, (
+                    f'{entry["name"]} log mentions {other}')
+
+
+def test_a_failed_field_still_leaves_a_record_saying_why(session, tmp_path, runner,
+                                                         monkeypatch):
+    """The absence of a folder is not a diagnosis."""
+    import json
+    from mee2024 import stacker_implementation as si
+
+    calls = []
+
+    def flaky(lights, darks, flats, options, progress=None):
+        calls.append(1)
+        if len(calls) == 2:
+            raise RuntimeError('bad frame')
+        return tmp_path / 'fake.zip'
+
+    monkeypatch.setattr(si, 'do_stack', flaky)
+    fields, _ = batch.find_fields(session)
+    runner.start({'fields': fields, 'output_dir': str(tmp_path / 'out'), 'preset': 'auto',
+                  'stages': ['stack'], 'batch_root': str(session)})
+    assert _wait(runner) == 'done'
+
+    bad = [r for r in runner.batch_results if r['status'] == 'failed'][0]
+    record = json.loads((Path(bad['output_dir']) / 'field_summary.json')
+                        .read_text(encoding='utf-8'))
+    assert record['field']['status'] == 'failed'
+    assert 'bad frame' in record['field']['error']
+
+
 def test_one_bad_field_does_not_abandon_the_rest(session, tmp_path, runner, monkeypatch):
     """A night of observing is too expensive to lose to one bad folder."""
     from mee2024 import stacker_implementation as si
