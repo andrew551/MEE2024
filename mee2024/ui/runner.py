@@ -13,6 +13,7 @@ from mee2024 import events
 from mee2024.MEE2024util import _version
 from mee2024.config import get_default_options
 from mee2024.progress import EventProgress, ProgressReporter
+from mee2024.ui import batch
 
 IDLE = 'idle'
 RUNNING = 'running'
@@ -138,11 +139,18 @@ class PipelineRunner:
             missing = [p for p in lights if not Path(p).exists()]
             if missing:
                 raise ValueError(f'file not found: {missing[0]}')
-        # create the output folder now, so a bad choice is reported here rather than
-        # several directory levels deep inside the pipeline
+        run_spec = dict(spec)
+        # results go in a subfolder named for the input, not straight into the folder the
+        # user picked: it says which input produced them, and it stops a second run
+        # overwriting the first run's summary and activity log, which are the only record
+        # of what happened
         if spec.get('output_dir'):
+            run_spec['output_dir'] = batch.run_output_root(
+                spec['output_dir'], self.source_folder(spec))
+            # create it now, so a bad choice is reported here rather than several
+            # directory levels deep inside the pipeline
             try:
-                Path(spec['output_dir']).mkdir(parents=True, exist_ok=True)
+                Path(run_spec['output_dir']).mkdir(parents=True, exist_ok=True)
             except OSError as exc:
                 raise ValueError(f'cannot use that output folder: {exc}')
 
@@ -150,17 +158,33 @@ class PipelineRunner:
             self.status = RUNNING
             self.error = None
             self.outputs = {}
-            self.spec = dict(spec)
+            self.spec = dict(run_spec)
             self.batch_results = []
             self.sink.clear()
             self.bus.reset()   # event times should be relative to this run, not to boot
             self.cancel_event = threading.Event()
 
+        # the folder the user chose, not the subfolder this run made inside it -- else
+        # the next run would nest a second copy of the name under the first
         self.remember(spec)
-        self.attach_log_sink(spec.get('output_dir'))
-        self.thread = threading.Thread(target=self._work, args=(dict(spec),), daemon=True)
+        self.attach_log_sink(run_spec.get('output_dir'))
+        self.thread = threading.Thread(target=self._work, args=(dict(run_spec),),
+                                       daemon=True)
         self.thread.start()
         return True
+
+    @staticmethod
+    def source_folder(spec):
+        """The input folder a run's output folder should be named after.
+
+        A batch knows its root. A single run knows only its frames, so the folder holding
+        the first one stands for the set -- which is the capture folder in every layout
+        the app has seen.
+        """
+        if spec.get('batch_root'):
+            return str(spec['batch_root'])
+        lights = spec.get('lights') or []
+        return str(Path(str(lights[0])).parent) if lights else ''
 
     #: what a run should carry over to the next session, and where it lives in the
     #: options dict the config file round-trips
@@ -320,6 +344,9 @@ class PipelineRunner:
                 else:
                     events.log(f'starting: {len(spec["lights"])} light frame(s), '
                                f'preset={spec.get("preset", "auto")}')
+                if spec.get('output_dir'):
+                    # the run made this folder itself, so say which one it picked
+                    events.log(f'results go to {spec["output_dir"]}')
                 if 'distortion' in stages:
                     # only stage 2 consults the catalogue, but check before stage 1 so a
                     # missing download is not discovered after minutes of stacking
@@ -480,8 +507,6 @@ class PipelineRunner:
         The catalogue and the pattern database are prepared once by the caller rather than
         per field, which is most of why this is not simply a loop over start().
         """
-        from mee2024.ui import batch
-
         fields = spec['fields']
         output_root = spec.get('output_dir')
         results = []

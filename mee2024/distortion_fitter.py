@@ -202,6 +202,26 @@ def _lookup_neighbours(dbs, stardata, cutoff_arcsec, max_mag):
     return gaia_search.lookup_nearby(stardata, cutoff_arcsec, max_mag)
 
 
+def stage1_label(path_data, starttime):
+    """Which stage-1 archive this fit came from, short enough to live in a Windows path.
+
+    Stage 1 names its archive for its own start time, so appending that time again --
+    which is what `Path(path_data).stem + data['starttime']` did -- recited it twice and
+    produced names like
+
+        distortion_data20260808013735__centroid_data2026080801371820260808013718.zip
+
+    89 characters, with a working folder of the same length beside it, before any of the
+    field tree the batch puts above them. Windows stops at 260 for the lot. The stage-1
+    path itself is recorded in distortion_results.txt, so the name only has to identify
+    the run, not recite it.
+    """
+    stem = Path(path_data).stem
+    if stem.endswith(starttime):
+        return starttime
+    return stem + starttime
+
+
 def match_and_fit_distortion(path_data, options, debug_folder=None):
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     
@@ -216,7 +236,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         other_stars_df = pd.read_csv(archive.open('data/STACKED_CENTROIDS_DATA.csv'))
     other_stars_df = other_stars_df.astype({'px':float, 'py':float}) # fix datatypes
     image_size = data['img_shape']
-    basename = Path(path_data).stem + data['starttime']
+    basename = stage1_label(path_data, data['starttime'])
 
     output_name = f'DISTORTION_OUTPUT{starttime}__'+basename
     output_dir = Path(output_path(output_name, options))
@@ -380,6 +400,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'gravity sweep mode?': options['gravity_sweep'],
                        'refraction correction enabled?': options['enable_corrections_ref'],
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
+                       'source_data':str(path_data),
                        'fixed distortion order':options['distortion_fixed_coefficients'],
                        'fixed distortion reference files':str(options['distortion_reference_files']),
                        'simultaneous_deflection_and_platescale':str(options['gravity_sweep']),

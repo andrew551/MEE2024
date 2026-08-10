@@ -330,3 +330,24 @@ def test_open_image_names_a_file_it_cannot_decode(tmp_path):
         si.open_image(str(junk))
     assert 'FITS reader said' in str(caught.value), (
         'the swallowed astropy error is the only clue to what is wrong with the file')
+
+
+def test_the_stage2_archive_name_states_each_timestamp_once():
+    """`Path(path_data).stem + data['starttime']` recited the stage-1 start time twice.
+
+    The result was an 89-character file name, and a working folder of the same length
+    beside it, before the field tree a batch puts above them -- against a 260-character
+    limit on Windows.
+    """
+    label = distortion_fitter.stage1_label('D:/out/centroid_data20260808013718.zip',
+                                           '20260808013718')
+    assert label == '20260808013718'
+    assert len(f'distortion_data20260808013735__{label}.zip') == 49   # was 89
+
+
+def test_the_stage2_archive_name_still_identifies_an_unconventional_input():
+    """A renamed or hand-made stage-1 archive keeps its name in the label, because that
+    is the only thing tying the fit to its input."""
+    assert distortion_fitter.stage1_label('D:/out/rerun_of_field_7.zip',
+                                          '20260808013718') == \
+        'rerun_of_field_720260808013718'

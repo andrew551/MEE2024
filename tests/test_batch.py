@@ -7,6 +7,8 @@ visit every directory on the machine and then start hundreds of runs, so most of
 are about the bounds and about *refusing* rather than silently truncating.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from astropy.io import fits
@@ -162,6 +164,48 @@ def test_two_fields_named_the_same_stay_apart(tmp_path):
     assert len(targets) == 2
 
 
+# ------------------------------------------------------- naming the run's folder
+
+def test_the_run_folder_is_named_after_the_input(session, tmp_path):
+    """An output folder should say which input produced it, without the user naming it."""
+    root = batch.run_output_root(tmp_path / 'results', session)
+    assert root == str(tmp_path / 'results' / '2026-07-27')
+
+
+def test_a_fresh_folder_gets_no_timestamp(session, tmp_path):
+    """The paths are already close to the Windows limit; do not lengthen them for a
+    collision that has not happened."""
+    (tmp_path / 'results' / '2026-07-27').mkdir(parents=True)
+    root = batch.run_output_root(tmp_path / 'results', session)
+    assert root == str(tmp_path / 'results' / '2026-07-27')
+
+
+@pytest.mark.parametrize('record', batch.RUN_RECORDS)
+def test_a_second_run_does_not_overwrite_the_first_run_s_records(session, tmp_path,
+                                                                 record):
+    """The per-field archives are timestamped and survive. The summary and the activity
+    log are not: a second run into the same folder used to destroy the only account of
+    what the first one did."""
+    first = tmp_path / 'results' / '2026-07-27'
+    first.mkdir(parents=True)
+    (first / record).write_text('the first run')
+    second = batch.run_output_root(tmp_path / 'results', session, stamp='20260810_0151')
+    assert second == str(tmp_path / 'results' / '2026-07-27_20260810_0151')
+    assert (first / record).read_text() == 'the first run'
+
+
+def test_a_source_with_no_folder_name_leaves_the_root_alone(tmp_path):
+    """A batch assembled without a root, and a path that is nothing but a separator."""
+    assert batch.run_output_root(tmp_path, '') == str(tmp_path)
+    assert batch.run_output_root(tmp_path, '/') == str(tmp_path)
+
+
+def test_the_label_is_bounded_and_free_of_separators():
+    assert batch.source_label('J:/data/Zenith') == 'Zenith'
+    assert len(batch.source_label('J:/data/' + 'x' * 200)) == batch.MAX_LABEL
+    assert '/' not in batch.source_label('a/b:c*d')
+
+
 def test_describe_reports_counts(session):
     fields, info = batch.find_fields(session)
     text = batch.describe(fields, info)
@@ -210,6 +254,52 @@ def test_each_field_runs_into_its_own_mirrored_output(session, tmp_path, runner,
     for entry, field in zip(seen, fields):
         assert entry['n'] == len(field['frames'])
         assert entry['out'].endswith(field['relative'])
+
+
+def test_two_batches_into_one_folder_both_keep_their_records(session, tmp_path,
+                                                             monkeypatch):
+    """I18: the summary and the activity log have fixed names, so the second run used to
+    destroy the first one's -- the very records that say what happened."""
+    from mee2024 import stacker_implementation as si
+    from mee2024.ui.runner import PipelineRunner
+
+    monkeypatch.setattr(si, 'do_stack', lambda *a, **k: tmp_path / 'fake.zip')
+    fields, _ = batch.find_fields(session)
+    out = tmp_path / 'results'
+    roots = []
+    for _ in range(2):
+        run = PipelineRunner()
+        run.start({'fields': fields, 'output_dir': str(out), 'preset': 'auto',
+                   'stages': ['stack'], 'batch_root': str(session)})
+        assert _wait(run) == 'done'
+        roots.append(run.spec['output_dir'])
+
+    assert roots[0] != roots[1]
+    assert roots[0] == str(out / '2026-07-27')
+    assert roots[1].startswith(str(out / '2026-07-27_'))
+    for root in roots:
+        assert (Path(root) / 'batch_summary.csv').exists()
+        assert (Path(root) / 'activity.jsonl').exists()
+
+
+def test_the_remembered_folder_is_the_one_the_user_picked(session, tmp_path, runner,
+                                                          monkeypatch):
+    """Remembering the subfolder instead would nest a second copy of the name inside it
+    on the next run, and again on the one after that."""
+    from mee2024 import stacker_implementation as si
+    from mee2024.ui import runner as runner_module
+
+    saved = {}
+    monkeypatch.setattr(si, 'do_stack', lambda *a, **k: tmp_path / 'fake.zip')
+    # capture the settings write rather than letting a test edit the user's own config
+    monkeypatch.setattr('mee2024.MEE2024util.write_ini', saved.update)
+    fields, _ = batch.find_fields(session)
+    out = tmp_path / 'results'
+    runner.start({'fields': fields, 'output_dir': str(out), 'preset': 'auto',
+                  'stages': ['stack'], 'batch_root': str(session)})
+    assert _wait(runner) == 'done'
+    assert saved['output_dir'] == str(out)
+    assert runner.spec['output_dir'] == str(out / '2026-07-27')
 
 
 def test_one_bad_field_does_not_abandon_the_rest(session, tmp_path, runner, monkeypatch):

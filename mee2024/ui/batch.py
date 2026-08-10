@@ -9,7 +9,7 @@ timestamp folder below:
 
 so the thing to process is not the folder the user picks but every folder *below* it that
 directly holds frames. This walks the tree, returns those folders, and mirrors their layout
-into the output.
+into the output, under a folder named for the input.
 
 The walk is the dangerous part. Pointed at a drive root it would visit every directory on
 the machine and then start hundreds of runs, so it is bounded twice over -- by how many
@@ -17,7 +17,9 @@ fields it will accept and by how many directories it will look at -- and says wh
 hit rather than quietly returning a truncated list.
 """
 
+import datetime
 import os
+import re
 from pathlib import Path
 
 #: Frame extensions worth stacking. `.fit`/`.fits` cover the capture software; the image
@@ -109,6 +111,54 @@ def output_dir_for(field, output_root):
     """
     base = Path(output_root)
     return str(base / field['relative']) if field['relative'] else str(base)
+
+
+#: The files a run writes at its own level rather than per field. Their names are fixed,
+#: so two runs sharing one folder cannot both keep theirs.
+RUN_RECORDS = ('batch_summary.csv', 'batch_summary.json', 'activity.jsonl')
+
+#: Characters a folder name may not carry on Windows. A source folder name has already
+#: passed the filesystem once, so this only ever matters for the odd separator.
+_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+#: Longest folder name taken from an input path. The field tree, the archive names and a
+#: `DISTORTION_OUTPUT<ts>__...` working folder all sit below this, and Windows stops at 260
+#: characters for the lot.
+MAX_LABEL = 64
+
+
+def source_label(source):
+    """A folder name for the output, taken from the input path. '' if there is none."""
+    if not source:
+        return ''
+    path = Path(str(source))
+    name = path.name or path.drive.strip(':\\/ ')
+    return _UNSAFE.sub('_', name).strip('. ')[:MAX_LABEL]
+
+
+def run_output_root(output_root, source, stamp=None):
+    """Where one run's results go: a subfolder of the chosen folder, named for the input.
+
+    Writing straight into the chosen folder was wrong twice over. Nothing in an output
+    folder said which input produced it, so the user had to make and name one by hand for
+    every field set. And the run-level files -- the batch summary and the activity log --
+    have fixed names, so a second run pointed at the same folder silently destroyed the
+    first run's records: the per-field archives survived, being timestamped, but the
+    account of what happened did not.
+
+    A timestamp is appended **only** when a previous run's records are already sitting in
+    the target. Appending one always would lengthen every path for a case that usually
+    does not arise, and these paths are already close to the Windows limit.
+    """
+    root = Path(output_root)
+    name = source_label(source)
+    if not name:
+        return str(root)
+    target = root / name
+    if not any((target / record).exists() for record in RUN_RECORDS):
+        return str(target)
+    stamp = stamp or datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    return str(root / f'{name}_{stamp}')
 
 
 def describe(fields, info):
