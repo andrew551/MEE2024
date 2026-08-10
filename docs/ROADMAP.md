@@ -221,9 +221,23 @@ set is enough. That is consistent with the reported higher failure rate under li
 pollution, where spurious detections are more likely. Only four candidates are generated
 across the whole failure ladder, which suggests the escalation gives up early.
 
-Not diagnosable further from the outputs, because `results.txt` records `platesolved:
-true/false` and nothing about which solver, which pattern database, which catalogue, or how
-many candidates were tried. See I16.
+**Resolved, once the provenance existed.** Rerun under v1.3.6, the two fields report:
+
+```
+pattern_db      : patdb_g13_t17k        layers_used : ["patdb_g13_t17k"]
+verify_catalogue: gaia_offline G<13.0   noise_px_used: 0.9   anchor_rounds_used: 2
+```
+
+Only **one** pattern layer is installed on that machine. When the same fields solved
+elsewhere the run used `patdb_g12_t17k` *plus* `patdb_g13_t06k` and `patdb_g12_t40k`, and
+found the pose. So the escalation ladder is not giving up early by design -- it has
+nothing to escalate into. `noise_px_used` of 0.9 (3x the 0.3 default) and two anchor
+rounds show it exhausted what it had.
+
+**Action:** run `mee2024 build-pattern-db` on whichever machine reduces the campaign data,
+confirm the extra layers appear and that these two fields then solve, and make the full
+layer set a pre-flight check. `results.txt` now records which layers were available, so it
+is verifiable rather than assumed. Treat this as confirmed only after that test.
 
 ### 1.10 A caution on the acceptance test
 
@@ -254,6 +268,8 @@ Small, individually verified, no design work needed. Roughly in order of consequ
 
 | # | Fix | Why |
 |---|---|---|
+| **I18** | **Batch-level files overwrite each other** | `batch_summary.csv`, `batch_summary.json` and `activity.jsonl` are written to the *output root*, so a second batch pointed at the same output folder silently destroys the first batch's summary and log -- the very records that say what happened. Per-field results survive; the batch-level record does not. Introduced 2026-08-09 with F3/F4. Fixed by I19. |
+| **I19** | **Create an output subfolder named after the input folder** | Today the user must create and name it by hand, and nothing in an output folder says which input produced it. Name it for the input folder (`.../Zenith`), with the field tree inside. Append a timestamp **only on collision** -- not always, because the existing names are already too long (`distortion_data20260808013735__centroid_data2026080801371820260808013718.zip` concatenates two timestamps and a name, and is worth shortening in the same pass). |
 | **I0** | **Resolve the observation date per field in batch mode** | `_work` calls `build_options(spec)` once, before any field is discovered, and the header branch reads `spec['lights']` — which is empty in batch mode. So **header date mode has never worked in folder mode**: it silently falls back to guessing and logs "no date in the FITS header" about frames that have one. Folder mode is the intended default for real data, and §1.3 is the measured consequence. Resolve the date inside `_run_fields`, where the frames are known. |
 | **I1** | `encoding='utf-8'` on the log `FileHandler` | Confirmed cp1252 on Windows. The log writes `str(files)` verbatim, so a `ł`, `ř`, `ğ` or CJK character in any capture path raises `UnicodeEncodeError` **mid-run**. One word. |
 | **I2** | Calibration controls out of `single-input` | Darks and flats picked in single mode stay selected and **are still applied to every field** in folder mode, invisibly, with no way to see or clear them. Hidden state, and the most dangerous item here. |
@@ -389,6 +405,21 @@ Neither solver accepts a prior; both are lost-in-space. Two levels:
 
 Caution: the *dark* frames also carry `RA`/`DEC`, because the mount was parked somewhere.
 Presence proves nothing; any prior needs a sanity gate and must fall back to a blind solve.
+
+### F10 — Multi-select folders in batch mode
+
+Batch mode takes one root and processes everything beneath it, so reducing an arbitrary
+*subset* -- two fields out of eighteen, say, after a rerun -- means running them one at a
+time. Ctrl-click selection of several folders is the standard Windows idiom and the
+obvious fix.
+
+The native dialog already supports it: pywebview's `create_file_dialog` takes
+`allow_multiple`, which is not restricted to files, but `ui/app.py` currently forces it
+off for directories (`allow_multiple=bool(multiple) and not directory`). Removing that is
+small. The real work is elsewhere: the in-page picker tracks a single `picker.cwd` and
+needs per-row selection like it already has for files; `find_fields` must accept a list of
+roots; and `output_dir_for` needs a sensible `relative` when the chosen folders share no
+parent -- which interacts with I19's naming.
 
 ### F9 — UI convergence
 
