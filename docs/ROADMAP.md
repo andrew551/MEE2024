@@ -455,9 +455,14 @@ time.
 unstructured noise → the scalar `BIASADU` is enough and they can leave the session chain.
 Banding → keep them.
 
-**Q4. Set the frame type at capture.** Darks currently record `FRAMETYP = 'Light'`. Setting
-it correctly in SharpCap costs nothing today and makes automatic dark pairing possible
-later; retrofitting it to captured data means guessing from folder names.
+**Q4. Set the frame type at capture.** ~~Darks currently record `FRAMETYP = 'Light'`.
+Setting it correctly in SharpCap costs nothing today.~~ **Answered, and the premise was
+wrong:** the SharpCap Sequencer has no frame-type command, so a scripted capture cannot set
+it at all (stated in `leon_darks_v1.4.scs`, 2026-08-09). The workable answer is the one the
+Leon scripts adopt -- put the type in `TARGETNAME`, which lands in `OBJECT`, and key
+calibration matching on `GAIN` + `EXPTIME` + `OBJECT`, never on `IMAGETYP`. That also makes
+the capture folders self-labelling (`DARK_G0_1p2s`, `DARK_G101_4s`), which is what F1's
+library key actually needs. See [`LEON_SCRIPT_REVIEW.md`](LEON_SCRIPT_REVIEW.md) §1.
 
 **Q5. How spread are the zenith positions?** Tightly clustered means the polar term is
 effectively constant and F5's decomposition is simple; widely spread gives better geometric
