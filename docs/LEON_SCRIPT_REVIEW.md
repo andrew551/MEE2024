@@ -3,8 +3,9 @@
 **Reviewed:** `Leon_gain_101.zip` (six scripts) against `Leon_gain_zero.zip` (six scripts),
 2026-08-10, against the findings in [`PORTLAND_2026-07-29.md`](PORTLAND_2026-07-29.md).
 **Verdict:** the physics is right, the two-regime split is right, and it is what was asked
-for. There are four stale comments, one of which is dangerous, and one free improvement the
-change enables and has not been taken.
+for. The exposures are right to leave alone — the headroom is already spent, twice over.
+There are four stale comments, one of which is dangerous, and two stale *numbers* worth
+correcting.
 
 ---
 
@@ -32,9 +33,9 @@ back through a V ≈ 3.7 effective magnitude, 7″ seeing and 2.13″/px gives a
 throughput of ~7×10⁵ e⁻/s for a V = 3.7 star — about what a 90 mm aperture, QE 0.8 and a red
 filter should deliver. The numbers hang together.
 
-**The 1.36× radius shrink assumes B ∝ r⁻³** (2.5^⅓ = 1.36). That is a fair mid-range slope
-for the inner K-corona; a steeper r⁻⁷ near the limb would give only 1.14×. The claim is
-therefore slightly optimistic close in and conservative further out. Not material.
+**The 1.36x radius shrink is too generous** — it assumes B ∝ r⁻³, and the local slope where
+the saturation radius actually sits is r⁻⁶·⁴. The measured shrink is **1.14x**. §3 works
+this through; the target is still met, but the figure should be corrected.
 
 **"Read noise is invisible under eclipse sky" is correct, comprehensively.** Taking the
 corona at ~10⁻⁷ of mean disc surface brightness at 2 R☉ and ~10⁻⁸·⁵ at 4 R☉, and the
@@ -152,32 +153,79 @@ gain to be identical to.
 
 ---
 
-## 3. The free improvement the change enables, and has not been taken
+## 3. Does the ladder reach R = 1.5? Yes — and that is where the headroom went
 
-The science ladder is unchanged at 0.1 / 0.3 / 0.6 / 1.2 s. For the three longer tiers that
-is right — they already run near 100% duty, and lengthening them would only trade frames for
-trailing.
+*This section replaced a wrong one. The first draft proposed moving the 0.1 s tier to
+0.25 s, on the grounds that 2.5x the exposure into a 2.5x deeper well reproduces the
+gain-101 frame exactly while lifting duty from 35% to 88%. Andrew's objection: that spends
+the headroom a second time. It was bought to push the saturation radius **in**, not to be
+handed back as integration time — and 0.25 s against an existing 0.3 s rung is a duplicate,
+not a ladder step. Both objections are right, and the arithmetic below quantifies the first:
+0.25 s at gain 0 saturates at R = 1.47, which is the gain-101 value to two decimals. The
+suggestion would have returned 100% of the gain.*
 
-**The 0.1 s tier is different, because it is the only one throttled by the readout floor.**
-The script's own numbers: 52 MB per frame over 183 MB/s gives a 0.285 s cadence floor, so
-the 0.1 s tier runs at 35% duty and spends 13.7 s of a 104 s totality delivering 4.8 s of
-integration.
+Anchoring the throughput on the scripts' own figure (π Leo saturating a 20 000 e⁻ well in
+0.35 s at 7″ seeing), a mean solar disc of −10.59 mag/arcsec², and Baumbach's K-corona
+formula:
 
-With 2.5× the well depth, **0.1 s → 0.25 s reproduces the gain-101 frame exactly**: 2.5×
-the electrons into a 2.5× deeper well is the same saturation radius, the same star-to-corona
-contrast, the same picture. What changes is that duty goes 35% → 88%, so the same 13.7 s of
-wall clock delivers **12 s of integration instead of 4.8** — 2.5× the photons on the stars
-those frames exist to show, for no wall-clock cost and no change in what saturates.
+| tier | gain 101 saturates inside | gain 0 saturates inside |
+|---|---|---|
+| 0.1 s | 1.47 R☉ | **1.29 R☉** |
+| 0.3 s | 1.76 R☉ | 1.51 R☉ |
+| 0.6 s | 2.01 R☉ | 1.69 R☉ |
+| 1.2 s | 2.34 R☉ | 1.92 R☉ |
 
-Trailing is not an objection: 0.25 s at even Portland's uncorrected drift is 0.24″ = 0.11 px.
+**At gain 101 the shortest tier sat at R = 1.47 — exactly on the 1.5 target, with no margin
+at all. Gain 0 takes it to 1.29, which is the target met with 0.2 R☉ to spare.** That is
+what the change bought, and it is not available for anything else.
 
-The counter-argument is the script's own doctrine — *"REHEARSE THIS FILE, unedited"*, *"do
-not edit the script on the day"* — and it is a good doctrine. This is a two-character change
-in two places, but it changes what a tier means, so it needs a rehearsal, not just an edit.
-**Worth doing if there is time to rehearse; not worth doing if there is not.** If the
-measured full-well ratio is not exactly 2.5×, scale the exposure by whatever it is.
+Two caveats on the absolute numbers, neither of which moves the conclusion. Baumbach is an
+average corona; a real one varies by ~2x between streamer and hole at a given position
+angle, and 2026 is near maximum, so it will be rounder and brighter than average. And the
+throughput is calibrated through one quoted saturation time. But the inner corona falls as
+**r⁻⁶·⁴** near 1.5 R☉, so a factor of 2 in brightness moves the radius by only 1.11x. The
+answer is robust to both.
 
----
+**One correction to the v1.16 header, from the same arithmetic.** It claims the coronal
+saturation radius shrinks ~1.36x; the measured shrink is **1.14x**. The 1.36 figure comes
+from assuming B ∝ r⁻³, which is roughly right for the *outer* corona but far too shallow
+where the saturation radius actually sits — the local slope there is r⁻⁶·⁴, so 2.5x of
+brightness allowance buys 2.5^(1/6.4) = 1.15x of radius, not 2.5^(1/3) = 1.36x. **The
+conclusion survives and the number does not:** 1.14x is still 1.47 → 1.29, which clears the
+target. Worth fixing the figure so nobody later budgets against 1.36.
+
+### The same headroom does a second job on the calibration field, and it is a bigger one
+
+The cal ladder's short rung is 0.3 s, and its stated purpose is an unsaturated π Leo:
+*"0.3 s puts its peak near 85% of full well at expected seeing."* That was the gain-101
+calculation, and at gain 0 the fill is 34%. But the number that matters is not the fill — it
+is **how good the seeing can get before the rung fails**, because a star's peak pixel scales
+as 1/FWHM² while the corona, being a smooth surface brightness, does not care about seeing
+at all:
+
+| seeing | π Leo saturates at | 0.3 s rung fills (gain 0) |
+|---|---|---|
+| 3″ | 0.16 s | 187% — saturated |
+| 4″ | 0.29 s | 105% — saturated |
+| 5″ | 0.45 s | 67% |
+| 7″ (expected at airmass 5.8) | 0.88 s | 34% |
+| 9″ | 1.45 s | 21% |
+
+At gain 101 the same rung saturates π Leo for **any seeing better than about 6.5″** — so on
+a better-than-expected night the calibration ladder would have lost its bright anchor
+entirely, and 7″ is an expectation, not a guarantee. At gain 0 it holds down to ~4.1″.
+
+**So leave the 0.3 s rung exactly where it is.** Its fill number is now stale, but what
+replaced it is worth more than the number was: the rung went from working only in poor
+seeing to working across the plausible range. That is the second thing the gain change
+bought, on the frames the deflection measurement actually rests on, and as far as I can tell
+nobody claimed it.
+
+*(Footnote, for completeness: the science stars themselves are never at risk. Deflections of
+0.20–0.54″ put them at 3–9 R☉, well outside every saturation radius in the table. The radius
+matters for the coronal images as a deliverable, for bleed out of a saturated core, and for
+the annular background estimate near the inner stars — not for the astrometry targets
+directly.)*
 
 ## 4. Two things from Portland that these scripts assume away
 
@@ -236,9 +284,11 @@ accident.
 |---|---|
 | Gain 0 for the eclipse frames | **Right.** Read noise is invisible under that sky; the headroom is free. |
 | Gain 101 for the night frames | **Right,** and the reversion from gain 0 + doubled exposure is the better call. |
-| Exposures unchanged | **Right for 0.3/0.6/1.2 s.** The 0.1 s tier could take 2.5× more light for free — §3. |
+| Exposures unchanged | **Right, all four tiers.** The headroom is already spent — on the saturation radius on the science field, and on seeing robustness for π Leo on the cal field. §3. |
 | Flat-darks retired | **Right,** and the "half-scale fill is load-bearing" framing is the correct dependency. |
 | Two-gain dark library | **Right,** and it is what Portland §7 asked for. |
 | Four stale gain references | **Fix**, especially the eclipse-night darks prompt and the centring gain. |
+| “1.36x radius shrink” | **Correct to 1.14x** — the inner corona falls as r⁻⁶·⁴, not r⁻³. Conclusion unaffected. |
+| “π Leo at 85% of full well” | **Stale but harmless** — it is 34% now, and the rung is better for it. §3. |
 | Focal length | **Check** — Portland says 350.96 mm, the script is coded for 363.5. |
 | Polar alignment | **Unresolved precondition,** and every exposure choice in these scripts depends on it. |
