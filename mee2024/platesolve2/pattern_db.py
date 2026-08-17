@@ -26,7 +26,9 @@ rebuild (v1's ``database_cache._load_triangles`` regenerates for minutes on any 
 failure, which is the behaviour this module exists to retire).
 """
 
+import gc
 import json
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -70,6 +72,11 @@ DEFAULT_NAME = 'patdb_g12_t17k'
 def write_pattern_db(directory, arrays, params, source, verify_spec, provenance=''):
     """Write the arrays and manifest. ``arrays`` maps the COLUMNS keys to ndarrays."""
     directory = Path(directory)
+    # a rebuild in place overwrites files this process may have mapped, and Windows
+    # refuses to write a mapped file -- so let go of them first. Rebuilding a layer the
+    # current session had already solved against otherwise failed with a PermissionError
+    # naming the .npy but not the mapping that held it.
+    release_databases()
     directory.mkdir(parents=True, exist_ok=True)
 
     columns = {}
@@ -151,6 +158,31 @@ def open_db(directory):
     if key not in _DB_CACHE:
         _DB_CACHE[key] = PatternDB(directory)
     return _DB_CACHE[key]
+
+
+def release_databases():
+    """Drop every cached pattern database, unmapping the files they hold.
+
+    The same problem as ``database_cache.release_catalogues``, one directory over: the
+    arrays are opened with ``mmap_mode='r'`` and cached for the process lifetime, and
+    Windows will not delete a mapped file. So a pattern database could not be removed or
+    rebuilt in place while the app was running, and `build-pattern-db` writing over a
+    layer the current process had open failed with a PermissionError that named the file
+    but not the reason.
+
+    Returns the directories released, so a caller can report them.
+    """
+    released = []
+    for key, db in list(_DB_CACHE.items()):
+        try:
+            db.close()
+        except Exception:
+            traceback.print_exc()
+        del _DB_CACHE[key]
+        released.append(key)
+    # a memmap is only really gone once nothing refers to it
+    gc.collect()
+    return released
 
 
 #: The blind multi-scale layer set (S6), one group per FOV scale, primary group first.
@@ -287,6 +319,18 @@ class PatternDB:
             else:
                 raise ValueError(f'unknown invariant {self.invariant!r}')
         return self._kd_tree
+
+    def close(self):
+        """Drop the memory maps and the KD-tree built over them.
+
+        The KD-tree has to go too: it holds the invariant array it was built from, so
+        releasing only ``_arrays`` would leave the largest file still mapped. Reopening
+        is lazy, so a closed database that is used again simply maps itself back in.
+
+        Safe to call twice, and never raises.
+        """
+        self._arrays = {}
+        self._kd_tree = None
 
     def triangle_anchor_and_legs(self, triangle_indices):
         """Decode flat triangle rows -> (anchor index, leg j, leg k)."""

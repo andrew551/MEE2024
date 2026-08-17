@@ -222,6 +222,47 @@ def stage1_label(path_data, starttime):
     return stem + starttime
 
 
+def resolve_epoch(options, data):
+    """Prefer the epoch stage 1 read out of the frames' own headers.
+
+    The catalogue epoch decides where every star is placed, so getting it wrong shows up as
+    a systematic residual -- measured on the London 18-field set at 38 days mean error and
+    140 days worst, because folder mode never reached the header at all.
+
+    The fix for that lived in one front end's options assembly, which made correctness
+    depend on *which of three interfaces* had been used: the app window resolved the header
+    date, the CLI fell back to the ``2023-12-01`` default, and the classic interface did
+    whatever its date checkbox said. Stage 1 already writes ``observation_date_header``
+    into the archive that travels to stage 2, so resolving it here makes the guarantee
+    structural instead of per-front-end.
+
+    Precedence, highest first:
+
+    1. an ``observation_date`` the caller set deliberately, with ``guess_date`` off -- an
+       explicit instruction outranks a header;
+    2. ``observation_date_header`` from the frames;
+    3. guessing it from proper motions.
+
+    Returns options; a copy when anything changed, so a caller's dict is not mutated
+    underneath it.
+    """
+    header_date = (data or {}).get('observation_date_header')
+    if not header_date:
+        return options
+    if not options.get('guess_date'):
+        # an explicit date was given. Say so if it disagrees with the frames, because one
+        # of the two is wrong and the fit cannot tell which
+        given = str(options.get('observation_date') or '')
+        if given and given[:10] != str(header_date)[:10]:
+            events.log(f'using the observation date given ({given}) rather than the '
+                       f'{header_date} in the frame headers -- they disagree',
+                       level='warning')
+        return options
+    events.log(f'observation date {header_date} read from the FITS header '
+               f'(recorded by stage 1), rather than guessed from proper motions')
+    return dict(options, observation_date=str(header_date), guess_date=False)
+
+
 def match_and_fit_distortion(path_data, options, debug_folder=None):
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     
@@ -257,6 +298,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     corners = transforms.to_polar(transforms.linear_transform(plate_solve_result['x'], np.array([[0,0], [image_size[0]-1., image_size[1]-1.], [0, image_size[1]-1.], [image_size[0]-1., 0]]) - np.array([image_size[0]/2, image_size[1]/2])))
     dbs = database_cache.open_catalogue(path_catalogue, gaia_limit=options['safety_limit_mag'])
     alt, az = None, None
+    options = resolve_epoch(options, data)
     lookupdate = options['DEFAULT_DATE'] if options['guess_date'] else options['observation_date']
     stardata0, stardata, plate2, alt, az, mask_select = match_centroids(other_stars_df, initial_guess, dbs, corners, image_size, lookupdate, options)
     
@@ -395,6 +437,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'distortion coeffs x': dict(zip(coeff_names, coeff_x)),
                        'distortion coeffs y': dict(zip(coeff_names, coeff_y)),
                        'nearest-neighbour error correlation': nn_corr,
+                       # the correlation is unreadable without the distance it was measured
+                       # over: 0.3 at 50 px and 0.3 at 500 px are different findings
+                       'nearest-neighbour distance (pixels)': nn_r,
                        'aberration/parallax correction enabled?': options['enable_corrections'],
                        'gravitational correction enabled?': options['enable_gravitational_def'],
                        'gravity sweep mode?': options['gravity_sweep'],
@@ -430,6 +475,11 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     events.emit(events.METRICS, stage='distortion',
                 rms_mas=float(np.degrees(np.mean(mag_errors**2)**0.5)*3600*1000),
                 n_stars=int(plate2.shape[0]), nn_corr=float(nn_corr),
+                # nn_corr cannot be read without the distance it covers, and a summary
+                # table cannot be labelled without the two thresholds that shaped the fit
+                nn_r=float(nn_r),
+                max_star_mag_dist=float(options['max_star_mag_dist']),
+                distortion_fit_tol=float(options['distortion_fit_tol']),
                 platescale=float(np.degrees(result[0])*3600),
                 platescale_rel_uncertainty=float(platescale_stderror),
                 distortion_order=options['distortionOrder'],
@@ -491,6 +541,25 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     events.emit(events.ANALYSIS, **distortion_polynomial.analysis_payload(
         plate2, plate2_corrected - plate2, px_errors, coeff_x, coeff_y, image_size,
         options, platescale_arcsec=np.degrees(result[0]) * 3600))
+
+    # The 2-D residuals as numbers, not only as a scatter panel in a 600 dpi PNG. They are
+    # the measurement the fit produced -- a picture of them cannot be re-binned, correlated
+    # against drift, or compared between two epochs, all of which this project does by hand
+    # today. One column per axis in pixels and in arcseconds, beside the position each
+    # residual belongs to, so the file stands alone.
+    platescale_arcsec = float(np.degrees(result[0]) * 3600)
+    pd.DataFrame({
+        'px': plate2[:, 1] + image_size[1] / 2,
+        'py': plate2[:, 0] + image_size[0] / 2,
+        'dx_px': px_errors[:, 1],
+        'dy_px': px_errors[:, 0],
+        'dx_arcsec': px_errors[:, 1] * platescale_arcsec,
+        'dy_arcsec': px_errors[:, 0] * platescale_arcsec,
+        'error_arcsec': np.degrees(mag_errors) * 3600,
+        'radius_px': np.linalg.norm(plate2, axis=1),
+        'magV': stardata.get_mags(),
+        'ID': ['gaia:' + str(_) for _ in stardata.ids],
+    }).to_csv(data_dir / 'TWOD_RESIDUALS.csv', index=False)
 
     plate2_unfiltered_corrected = distortion_polynomial.apply_corrections(result, plate2_unfiltered, coeff_x, coeff_y, image_size, options)
     transformed_final = transforms.linear_transform(result, plate2_unfiltered_corrected, image_size)

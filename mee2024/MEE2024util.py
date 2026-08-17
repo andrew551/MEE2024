@@ -14,7 +14,7 @@ from pathlib import Path
 from platformdirs import user_data_dir, user_config_dir
 
 def _version():
-    return 'v1.3.6'
+    return 'v1.3.7'
 
 
 AUTHORS = 'Andrew Smith and Douglas Smith'
@@ -195,9 +195,15 @@ def setup_logger(name, log_file, level=logging.INFO):
     """To setup as many loggers as you want.
 
     Pair every call with :func:`close_logger`, or the log file stays open -- see there.
+
+    ``encoding='utf-8'`` is not decoration. Without it ``FileHandler`` takes the platform
+    default, which is cp1252 on Windows, while the log writes the frame list verbatim --
+    so one ``ł``, ``ř``, ``ğ`` or CJK character anywhere in a capture path raised
+    ``UnicodeEncodeError`` *during the run*, from the logging call rather than from
+    anything to do with the data.
     """
 
-    handler = logging.FileHandler(log_file)
+    handler = logging.FileHandler(log_file, encoding='utf-8')
     handler.setFormatter(formatter)
 
     logger = logging.getLogger(name)

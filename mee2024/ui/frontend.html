@@ -301,19 +301,24 @@ under a chosen folder, mirroring its layout into the output">
           </div>
           <div class="faint" id="calib-note" style="margin-top:7px"></div>
         </div>
-        <!-- batch mode: one folder in, every folder of frames beneath it processed -->
+        <!-- batch mode: folders in, every folder of frames beneath them processed -->
         <div id="batch-input" style="display:none">
           <p class="faint" style="margin:0 0 10px;max-width:60ch">
-            Every folder of frames beneath this one is treated as its own field, and its
+            Every folder of frames beneath these is treated as its own field, and its
             results are written to a matching folder under the output. Capture software
             usually nests them as
             <span style="font-family:var(--mono)">session / field / time / frames</span>.
+            Folders of darks and flats are recognised and left out.
           </p>
           <div class="row">
             <span class="faint" id="batchdir" style="flex:1;font-family:var(--mono);
               overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
               (no folder chosen)</span>
             <button class="btn" id="pick-batch">Choose&hellip;</button>
+          </div>
+          <div class="faint" style="margin-top:7px">
+            Ctrl-click to pick several folders at once &mdash; two fields out of eighteen
+            after a rerun, rather than one run each.
           </div>
           <div class="adv" style="margin-top:12px">
             <label for="batch-limit">Most fields to accept</label>
@@ -325,6 +330,64 @@ under a chosen folder, mirroring its layout into the output">
             and launch hundreds of runs.
           </div>
           <div id="batch-scan" style="margin-top:12px"></div>
+        </div>
+
+        <!-- The calibration library applies to both modes, which is the point of it: in
+             folder mode each field gets the tier that matches its own frames, reported per
+             field, instead of one hand-picked set applied to all of them unseen. -->
+        <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+          <div class="row">
+            <span class="faint" style="flex:0 0 auto">Calibration library</span>
+            <span class="faint" id="calibdir" style="flex:1;font-family:var(--mono);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">
+              (none)</span>
+            <button class="btn" id="pick-calib">Choose&hellip;</button>
+            <button class="btn" id="clear-calib" title="Use no library">Clear</button>
+          </div>
+          <div class="faint" style="margin-top:7px;max-width:60ch">
+            A folder of master darks and flats built with
+            <span style="font-family:var(--mono)">Build library</span> below or
+            <span style="font-family:var(--mono)">mee2024 calibrate</span>. Each field is
+            matched on gain and exposure &mdash; never scaled from a neighbouring tier, and
+            never on <span style="font-family:var(--mono)">IMAGETYP</span>, which reads
+            &ldquo;Light&rdquo; on scripted darks. A field with no matching tier says so and
+            runs uncalibrated rather than borrowing the wrong one.
+          </div>
+          <div class="faint" id="calib-list" style="margin-top:7px"></div>
+          <div class="row" style="margin-top:10px">
+            <div class="spacer"></div>
+            <span class="pill" id="calib-count"></span>
+          </div>
+          <!-- Building is its own small form: two folders in, masters out. Folder pickers
+               rather than typed paths, because a webview has no reliable prompt(). -->
+          <div class="adv" style="margin-top:12px;border-top:1px dashed var(--line);
+               padding-top:10px">
+            <div class="row">
+              <span class="faint" style="flex:0 0 auto">Darks folder</span>
+              <span class="faint" id="calibdarksdir" style="flex:1;font-family:var(--mono);
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">
+                (none)</span>
+              <button class="btn" id="pick-calib-darks">Choose&hellip;</button>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <span class="faint" style="flex:0 0 auto">Flats folder</span>
+              <span class="faint" id="calibflatsdir" style="flex:1;font-family:var(--mono);
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">
+                (none)</span>
+              <button class="btn" id="pick-calib-flats">Choose&hellip;</button>
+            </div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn" id="build-calib">Build library</button>
+              <button class="btn" id="clear-calib-src">Clear</button>
+            </div>
+            <div class="faint" style="margin-top:7px;max-width:60ch">
+              Point these at the folders *above* the capture folders &mdash; every folder of
+              frames beneath each one becomes one master, keyed by what its headers say it is.
+              Either may be left empty. Re-running a tier replaces it rather than adding a
+              near-duplicate. It reads every frame once, so a full dark library takes a few
+              minutes.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -659,7 +722,9 @@ const state = {
   tab:'run', watch:null, watchFolder:null, keepPolling:false, settingsOpen:true,
   analysis:null, analysisOpen:false, analysisView:'dx', catalogueLimits:{},
   stars:null, previewImage:null, psf:null, psfOpen:false,
-  batchMode:false, batchFolder:null, batchFields:[], batchStatus:new Map(),
+  batchMode:false, batchFolder:null, batchFolders:[], batchFields:[],
+  batchStatus:new Map(), calibLibrary:null, calibDarks:null, calibFlats:null,
+  runRoot:null,
 };
 
 /* ------------------------------------------------------------------ helpers */
@@ -757,10 +822,12 @@ function updateRunEnabled(){
 
 async function scanBatchFolder(){
   const host = $('batch-scan');
-  if(!state.batchFolder){ host.innerHTML = ''; state.batchFields = []; return; }
+  const folders = state.batchFolders.length ? state.batchFolders
+                : (state.batchFolder ? [state.batchFolder] : []);
+  if(!folders.length){ host.innerHTML = ''; state.batchFields = []; return; }
   host.innerHTML = '<div class="faint">looking&hellip;</div>';
   try{
-    const r = await api('batch/scan', {folder: state.batchFolder,
+    const r = await api('batch/scan', {folder: folders[0], folders: folders,
                                        max_fields: parseInt($('batch-limit').value, 10) || 20});
     state.batchFields = r.fields || [];
     const blocked = r.info && r.info.truncated;
@@ -847,6 +914,16 @@ function renderBatch(){
       numbers.style.marginRight = '6px';
       numbers.textContent = summary;
       row.insertBefore(numbers, pill);
+    }
+    /* Click a row to open that field's folder. Every field writes a field_summary.json
+       and its own slice of the activity log, and until now the only way to reach either
+       was to read the path off the screen and go and find it by hand. Failed fields get
+       a folder too, so the row is worth clicking whichever way it went. */
+    const target = entry.output_dir || entry.folder || f.folder;
+    if(target){
+      row.style.cursor = 'pointer';
+      row.title += '\n\nClick to open this field\'s folder';
+      row.onclick = () => api('reveal', {path: target}).catch(e => banner(e.message));
     }
     host.appendChild(row);
   });
@@ -1889,14 +1966,23 @@ function onStatusChange(s){
     if(!state.keepPolling) stopPolling();
     poll();  // one last sweep for trailing events
     if(s.status==='failed' && s.run_error) banner(s.run_error);
-    if(s.status==='done'){
-      appendLog('✓ finished');
-      if(s.outputs && (s.outputs.distortion_zip || s.outputs.centroid_zip)){
-        $('open-out').style.display='';
-        $('open-out').onclick = () =>
-          api('reveal', {path: s.outputs.distortion_zip || s.outputs.centroid_zip})
-            .catch(e => banner(e.message));
-      }
+    if(s.status==='done') appendLog('✓ finished');
+    /* The run's own folder, whatever the outcome. This used to point at
+       `outputs.distortion_zip || outputs.centroid_zip`, which in a batch is whichever
+       field happened to run *last* -- so it opened one arbitrary field rather than the
+       run root where batch_summary.csv and activity.jsonl live. And it only appeared on
+       success, which is exactly backwards: a failed or cancelled run is when someone
+       wants the log. */
+    const root = (s.spec && s.spec.output_dir)
+              || (s.outputs && (s.outputs.distortion_zip || s.outputs.centroid_zip));
+    if(root && s.status !== 'idle'){
+      state.runRoot = root;
+      $('open-out').style.display = '';
+      $('open-out').textContent = s.spec && s.spec.output_dir
+        ? 'Open run folder' : 'Open output folder';
+      $('open-out').title = root;
+      $('open-out').onclick = () =>
+        api('reveal', {path: root}).catch(e => banner(e.message));
     }
   }
 }
@@ -1936,9 +2022,19 @@ function resetRunView(keepBatch){
    Under Auto the settings panel is not merely hidden, it is not sent: the runner's own
    preset decides, and a stale control the user cannot see must not reach through and
    change the run. Custom sends everything. */
+/* The darks and flats pickers live in the single-input card, which batch mode hides. They
+   were still sent: a set chosen once in single mode stayed selected and was applied to
+   every field of every later folder run, invisibly, with no way to see or clear it -- a
+   calibration decision the run could not report and the user could not see. Folder mode
+   takes a calibration *library* instead, matched per field on gain and exposure, which is
+   the thing that can actually be right for fifty fields at once. */
 function buildSpec(){
+  const batch = state.batchMode;
   const spec = {
-    lights: state.lights, darks: state.darks, flats: state.flats,
+    lights: state.lights,
+    darks: batch ? [] : state.darks,
+    flats: batch ? [] : state.flats,
+    calibration_library: state.calibLibrary || null,
     output_dir: state.outputDir, preset: state.preset,
   };
   if(state.preset !== 'custom'){
@@ -1994,24 +2090,26 @@ async function run(){
 /* ------------------------------------------------------------ file picker */
 // cwds: the last folder used per purpose, so the input and output pickers each
 // reopen where *they* were rather than wherever the other one went last
-const picker = {target:null, dirsOnly:false, cwd:null, cwds:{}, chosen:new Set(), files:[]};
+const picker = {target:null, dirsOnly:false, multi:false, cwd:null, cwds:{},
+                chosen:new Set(), files:[]};
 
 function pickKind(target){ return target || 'output'; }
 
 /* The platform's own dialog when the session has one (the native window), this
    page's picker otherwise (a browser cannot open a file dialog without a real user
    gesture on an <input type=file>, which gives no paths a pipeline can read). */
-async function choose(target, dirsOnly){
+async function choose(target, dirsOnly, multi){
+  multi = multi === undefined ? !dirsOnly : multi;
   let answer = null;
   try{
-    answer = await api('pick', {multiple: !dirsOnly, directory: dirsOnly,
+    answer = await api('pick', {multiple: multi, directory: dirsOnly,
                                 kind: pickKind(target)});
   }catch(err){ answer = null; }
   if(answer && answer.available){
     if(answer.paths && answer.paths.length) applyChoice(target, dirsOnly, answer.paths);
     return;                                   // available and cancelled: respect it
   }
-  await openPicker(target, dirsOnly);
+  await openPicker(target, dirsOnly, multi);
 }
 
 function applyChoice(target, dirsOnly, paths){
@@ -2020,9 +2118,14 @@ function applyChoice(target, dirsOnly, paths){
       state.watchFolder = paths[0];
       $('watchdir').textContent = paths[0];
     }else if(target === 'batch'){
-      state.batchFolder = paths[0];
-      $('batchdir').textContent = paths[0];
-      scanBatchFolder();
+      setBatchFolders(paths);
+    }else if(target === 'calib'){
+      state.calibLibrary = paths[0];
+      $('calibdir').textContent = paths[0];
+      refreshCalibrationLibrary();
+    }else if(target === 'calibDarks' || target === 'calibFlats'){
+      state[target] = paths[0];
+      $(target === 'calibDarks' ? 'calibdarksdir' : 'calibflatsdir').textContent = paths[0];
     }else{
       state.outputDir = paths[0];
       $('outdir').textContent = paths[0];
@@ -2034,13 +2137,27 @@ function applyChoice(target, dirsOnly, paths){
   }
 }
 
-async function openPicker(target, dirsOnly){
+/* One root or several. Several matters after a rerun: two fields out of eighteen used to
+   mean two runs, because a batch took exactly one root and processed everything under it. */
+function setBatchFolders(paths){
+  state.batchFolders = paths.slice().sort();
+  state.batchFolder = state.batchFolders[0] || null;
+  $('batchdir').textContent = !state.batchFolders.length ? '(no folder chosen)'
+    : state.batchFolders.length === 1 ? state.batchFolders[0]
+    : `${state.batchFolders.length} folders: ` + state.batchFolders.map(base).join(', ');
+  $('batchdir').title = state.batchFolders.join('\n');
+  scanBatchFolder();
+}
+
+async function openPicker(target, dirsOnly, multi){
   picker.target = target; picker.dirsOnly = dirsOnly;
+  picker.multi = multi === undefined ? !dirsOnly : multi;
   picker.chosen = new Set();
-  $('pick-title').textContent = dirsOnly ? 'Choose a folder'
+  $('pick-title').textContent = dirsOnly
+    ? (picker.multi ? 'Choose folders' : 'Choose a folder')
     : (target==='lights' ? 'Choose light frames'
        : target==='darks' ? 'Choose dark frames' : 'Choose flat frames');
-  $('pick-all').style.display = dirsOnly ? 'none' : '';
+  $('pick-all').style.display = (dirsOnly && !picker.multi) ? 'none' : '';
   $('modal').classList.add('on');
   // this purpose's own last folder first; only then the generic fallbacks
   const remembered = picker.cwds[pickKind(target)];
@@ -2060,8 +2177,28 @@ async function navigate(path){
   if(data.parent){
     host.appendChild(entryRow('↑ up one level', () => navigate(data.parent), 'dir'));
   }
-  data.directories.forEach(d =>
-    host.appendChild(entryRow(d.name, () => navigate(d.path), 'dir')));
+  data.directories.forEach(d => {
+    if(!(picker.dirsOnly && picker.multi)){
+      host.appendChild(entryRow(d.name, () => navigate(d.path), 'dir'));
+      return;
+    }
+    /* Selecting folders and moving between them are different actions, so they get
+       different targets: the row toggles selection, the chevron descends. With one
+       click doing both there is no way to pick a folder without entering it. */
+    const row = entryRow(d.name, null, 'dir', 'open ›');
+    row.classList.toggle('sel', picker.chosen.has(d.path));
+    row.onclick = () => {
+      if(picker.chosen.has(d.path)) picker.chosen.delete(d.path);
+      else picker.chosen.add(d.path);
+      row.classList.toggle('sel', picker.chosen.has(d.path));
+      updatePickStatus();
+    };
+    const open = row.querySelector('.sz');
+    open.style.cursor = 'pointer';
+    open.title = 'Open this folder';
+    open.onclick = ev => { ev.stopPropagation(); navigate(d.path); };
+    host.appendChild(row);
+  });
   if(!picker.dirsOnly){
     data.files.forEach(f => {
       const row = entryRow(f.name, null, 'file', fmtSize(f.size));
@@ -2091,10 +2228,16 @@ function entryRow(name, onclick, kind, extra){
 }
 
 function updatePickStatus(){
-  $('pick-status').textContent = picker.dirsOnly
-    ? picker.cwd
-    : (picker.chosen.size ? picker.chosen.size + ' file(s) selected'
-                          : (picker.files.length + ' image file(s) here'));
+  if(picker.dirsOnly){
+    $('pick-status').textContent = picker.multi && picker.chosen.size
+      ? `${picker.chosen.size} folder(s) selected`
+      : picker.multi ? picker.cwd + '  (select folders, or OK for this one)'
+      : picker.cwd;
+    return;
+  }
+  $('pick-status').textContent = picker.chosen.size
+    ? picker.chosen.size + ' file(s) selected'
+    : (picker.files.length + ' image file(s) here');
 }
 
 function closePicker(){ $('modal').classList.remove('on'); }
@@ -2102,18 +2245,11 @@ function closePicker(){ $('modal').classList.remove('on'); }
 function confirmPicker(){
   picker.cwds[pickKind(picker.target)] = picker.cwd;
   if(picker.dirsOnly){
-    if(picker.target === 'watch'){
-      state.watchFolder = picker.cwd;
-      $('watchdir').textContent = picker.cwd;
-    }else if(picker.target === 'batch'){
-      state.batchFolder = picker.cwd;
-      $('batchdir').textContent = picker.cwd;
-      scanBatchFolder();
-    }else{
-      state.outputDir = picker.cwd;
-      $('outdir').textContent = picker.cwd;
-      updateRunEnabled();
-    }
+    // in multi mode an empty selection means "this folder", which is what someone who
+    // navigated to a folder and pressed OK plainly meant
+    const dirs = picker.multi && picker.chosen.size
+      ? [...picker.chosen].sort() : [picker.cwd];
+    applyChoice(picker.target, true, dirs);
   }else{
     const chosen = [...picker.chosen].sort();
     if(chosen.length) state[picker.target] = chosen;
@@ -2169,8 +2305,84 @@ $('batch-mode').onchange = () => {
   applyBatchMode();
   if(state.batchMode && state.batchFolder) scanBatchFolder();
 };
-$('pick-batch').onclick = () => choose('batch', true);
+$('pick-batch').onclick = () => choose('batch', true, true);
 $('batch-limit').onchange = () => { if(state.batchFolder) scanBatchFolder(); };
+
+/* ------------------------------------------------- calibration library */
+$('pick-calib').onclick = () => choose('calib', true, false);
+$('clear-calib').onclick = () => {
+  state.calibLibrary = null;
+  $('calibdir').textContent = '(none)';
+  refreshCalibrationLibrary();
+};
+
+/* What is in the library, so "no dark was applied" is answerable before a run rather
+   than discovered in the log afterwards. */
+async function refreshCalibrationLibrary(){
+  const host = $('calib-list');
+  const count = $('calib-count');
+  if(!state.calibLibrary){ host.innerHTML = ''; count.textContent = ''; return; }
+  host.innerHTML = '<span class="faint">reading&hellip;</span>';
+  try{
+    const r = await api('calibration/list', {library: state.calibLibrary});
+    const entries = r.entries || [];
+    count.textContent = `${entries.length} master(s)`;
+    if(!entries.length){
+      host.innerHTML = '<span class="warnline">no masters here yet &mdash; build one below'
+                     + '</span>';
+      return;
+    }
+    host.innerHTML = '';
+    entries.forEach(e => {
+      const line = document.createElement('div');
+      line.style.fontFamily = 'var(--mono)';
+      line.style.fontSize = '11px';
+      const bits = [e.kind === 'dark' ? 'dark' : 'flat'];
+      if(e.gain !== null && e.gain !== undefined) bits.push('gain ' + e.gain);
+      if(e.kind === 'dark' && e.exptime) bits.push(e.exptime + ' s');
+      bits.push(e.n_frames + ' frames');
+      if(e.set_temp !== null && e.set_temp !== undefined) bits.push(e.set_temp + ' °C');
+      line.textContent = bits.join(' · ');
+      if((e.warnings || []).length) line.style.color = 'var(--bad)';
+      line.title = (e.warnings || []).join('\n') || e.key;
+      host.appendChild(line);
+    });
+  }catch(err){ host.innerHTML = ''; count.textContent = ''; banner(err.message); }
+}
+
+$('pick-calib-darks').onclick = () => choose('calibDarks', true, false);
+$('pick-calib-flats').onclick = () => choose('calibFlats', true, false);
+$('clear-calib-src').onclick = () => {
+  state.calibDarks = null; state.calibFlats = null;
+  $('calibdarksdir').textContent = '(none)';
+  $('calibflatsdir').textContent = '(none)';
+};
+
+/* Building is a run of its own: it reads every calibration frame and writes masters. It goes
+   through the same runner, status and event log as a pipeline run, so progress appears where
+   the user is already looking and the build leaves an activity.jsonl beside the masters. */
+$('build-calib').onclick = async () => {
+  if(!state.calibLibrary){
+    banner('choose where the library should live first');
+    return;
+  }
+  if(!state.calibDarks && !state.calibFlats){
+    banner('nothing to build: choose a darks folder, a flats folder, or both');
+    return;
+  }
+  state.since = 0;
+  $('log').innerHTML = '';
+  resetRunView();
+  showLive();
+  try{
+    await api('calibration/build', {library: state.calibLibrary,
+                                    darks_root: state.calibDarks || null,
+                                    flats_root: state.calibFlats || null});
+    state.status = 'running';
+    onStatusChange({status:'running'});
+    startPolling();
+  }catch(err){ banner(err.message); }
+};
 
 $('settings-toggle').onclick = () => {
   state.settingsOpen = !state.settingsOpen;
@@ -2489,6 +2701,12 @@ document.addEventListener('keydown', e => {
     if(last.distortion_order){ $('order').value = last.distortion_order; }
     if(last.work_dir){ picker.cwd = last.work_dir;
                        picker.cwds.lights = last.work_dir; }
+    if(last.calibration_library){
+      state.calibLibrary = last.calibration_library;
+      $('calibdir').textContent = last.calibration_library;
+      picker.cwds.calib = last.calibration_library;
+      refreshCalibrationLibrary();
+    }
     state.version = hello.version;
     state.platform = hello.platform;
     state.solverInfo = hello.solver_info;

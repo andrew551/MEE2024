@@ -82,11 +82,70 @@ def test_a_field_stops_the_walk_going_deeper(tmp_path):
     assert [f['name'] for f in fields] == ['field']
 
 
+def test_a_stray_file_in_a_session_root_does_not_swallow_the_tree(tmp_path):
+    """The Leon session root keeps one `.JPG` of the site beside 1251 frames of data in
+    DARKS, Zenith and Horizon. Treating that photograph as the field pruned the whole tree,
+    so a batch aimed at the session found one field and processed none of the session."""
+    (tmp_path / 'actual leon site.JPG').write_bytes(b'0')
+    _frames(tmp_path / 'Zenith' / 'Z1_base' / '22_16_15',
+            [f'z{i}.fits' for i in range(30)])
+    _frames(tmp_path / 'Horizon' / 'H1' / '23_16_10', [f'h{i}.fits' for i in range(45)])
+    fields, _ = batch.find_fields(tmp_path)
+    assert [f['name'] for f in fields] == ['23_16_10', '22_16_15']
+    assert all(f['relative'] for f in fields)      # nothing claimed the root
+
+
+def test_a_capture_folder_keeps_its_thumbnails_out_even_so(tmp_path):
+    """The ratio is what separates the two cases: 30 frames against 5 is a field with a
+    derived subfolder, 1 against 1251 is a container with something stray in it."""
+    _frames(tmp_path / 'field', [f'a{i}.fits' for i in range(30)])
+    _frames(tmp_path / 'field' / 'thumbnails', [f't{i}.fits' for i in range(5)])
+    fields, _ = batch.find_fields(tmp_path)
+    assert [f['name'] for f in fields] == ['field']
+
+
 def test_other_image_formats_count_too(tmp_path):
     (tmp_path / 'tifs').mkdir()
     (tmp_path / 'tifs' / 'a.tif').write_bytes(b'0')
     fields, _ = batch.find_fields(tmp_path)
     assert len(fields) == 1
+
+
+# ------------------------------------------------------- several roots at once (F10)
+
+def test_several_roots_are_scanned_together(tmp_path):
+    """Reducing two fields out of eighteen after a rerun used to mean one run each."""
+    for name in ('Z1_base', 'Z2_mid_left', 'Z3_top_left'):
+        _frames(tmp_path / 'Zenith' / name / '22_16_15', ['a.fits', 'b.fits'])
+    chosen = [tmp_path / 'Zenith' / 'Z1_base', tmp_path / 'Zenith' / 'Z3_top_left']
+    fields, info = batch.find_fields_in(chosen)
+    assert len(fields) == 2
+    # each field keeps its own root's name at the front, so two fields the capture software
+    # called the same thing do not collide in the output
+    assert sorted(f['relative'] for f in fields) == [
+        str(Path('Z1_base') / '22_16_15'), str(Path('Z3_top_left') / '22_16_15')]
+    assert info['found'] == 2
+
+
+def test_the_run_is_named_after_the_shared_parent_of_the_chosen_folders(tmp_path):
+    chosen = [tmp_path / 'Zenith' / 'Z1_base', tmp_path / 'Zenith' / 'Z3_top_left']
+    assert batch.batch_root_for(chosen) == str(tmp_path / 'Zenith')
+    # one folder names itself
+    assert batch.batch_root_for([tmp_path / 'Zenith']) == str(tmp_path / 'Zenith')
+
+
+def test_a_nested_selection_does_not_process_a_field_twice(tmp_path):
+    _frames(tmp_path / 'Zenith' / 'Z1_base' / '22_16_15', ['a.fits', 'b.fits'])
+    fields, _ = batch.find_fields_in([tmp_path / 'Zenith',
+                                     tmp_path / 'Zenith' / 'Z1_base'])
+    assert len(fields) == 1
+
+
+def test_one_unreadable_root_stops_the_run_rather_than_dropping_it(tmp_path):
+    _frames(tmp_path / 'good' / '22_16_15', ['a.fits'])
+    fields, info = batch.find_fields_in([tmp_path / 'good', tmp_path / 'missing'])
+    assert fields == []
+    assert 'not a folder' in info['truncated']
 
 
 def test_a_tree_with_no_frames_says_so(tmp_path):

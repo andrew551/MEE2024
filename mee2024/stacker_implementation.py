@@ -12,6 +12,7 @@ from scipy.optimize import minimize
 import time
 from mee2024.MEE2024util import (output_path, _version, setup_logger, close_logger,
                                  date_string_to_float)
+from mee2024 import calibration
 from mee2024 import events
 from mee2024 import hotpixels
 from mee2024 import star_labels
@@ -121,6 +122,14 @@ def assert_matching_bit_depth(lights, darks=(), flats=()):
 #: search; re-exported here because this is where callers have always found it.
 hot_pixel_mask = hotpixels.dark_mask
 
+#: How much of a dark-subtracted stack has to be below zero before it is worth a warning.
+#: Noise alone puts a handful of pixels under -- on 26 megapixels the minimum of a
+#: 4 ADU-sigma distribution sits five or six sigma low by construction, and dividing by a
+#: vignetted flat deepens it -- so the old "any pedestal at all" test fired on every
+#: correctly calibrated frame. A genuinely mismatched dark is not subtle: it puts a large
+#: share of the background under, which 1% detects and noise does not reach.
+NEGATIVE_FRACTION_WARN = 0.01
+
 
 def read_observation_date(file):
     """The DATE-OBS calendar date from a FITS header, as 'YYYY-MM-DD', or None.
@@ -216,12 +225,24 @@ def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None):
     frame to zero) a pedestal is added and recorded in ``PEDESTAL``, so subtracting that
     one number recovers the calibrated ADU exactly.
 
-    Returns the pedestal used, and how many pixels still had to be clipped at the top.
+    Returns the pedestal used; how many pixels sat above the 16-bit container -- which is
+    what drove the float32 fallback, not a loss; and what fraction of the frame was below
+    zero, which is how the caller decides whether the pedestal is worth a warning.
+
+    That over-container count used to be taken in the *other* branch, where
+    ``shifted.max() <= 65535`` holds by construction, so it was always zero and the warning
+    it fed could never fire. Reporting it from the branch it describes makes it say
+    something true: the values were kept, in a wider dtype.
     """
     values = np.nan_to_num(np.asarray(stacked, dtype=np.float64), nan=0.0,
                            posinf=0.0, neginf=0.0)
     low = float(values.min())
     pedestal = int(np.ceil(-low)) if low < 0 else 0
+    # what fraction of the frame is actually below zero, which is a different question from
+    # whether *any* pixel is. On 26 million pixels with a few ADU of read noise the minimum
+    # is several sigma negative by construction, so "any" is always true on a correctly
+    # calibrated frame; a mismatched dark pushes the whole background under instead.
+    negative_fraction = float(np.count_nonzero(values < 0)) / max(values.size, 1)
     shifted = np.rint(values + pedestal)
 
     header = fits.Header()
@@ -232,18 +253,18 @@ def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None):
     header['MEE2024'] = _version()
     header['COMMENT'] = 'pixel values are the input frames ADU, not rescaled'
 
-    clipped = 0
+    over = 0
     if shifted.max() > 65535:
         # too wide for the 16-bit container: keep the values rather than the dtype
+        over = int(np.sum(shifted > 65535))
         data = shifted.astype(np.float32)
         header['COMMENT'] = 'stored as float32: the values exceed a 16-bit container'
     else:
-        clipped = int(np.sum(shifted > 65535))
-        data = np.clip(shifted, 0, 65535).astype(np.uint16)
+        data = shifted.astype(np.uint16)
     if pedestal:
         header['PEDESTAL'] = (pedestal, 'added to keep values non-negative; subtract it')
     fits.writeto(path, data, header=header, overwrite=True)
-    return pedestal, clipped
+    return pedestal, over, negative_fraction
 
 
 def _stopped_early(message, files):
@@ -303,6 +324,12 @@ def save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, f
     something to combine, though -- a single input copied back out under a new name is
     clutter that looks like a product, and re-deriving it costs nothing.
 
+    The header used to carry ``NCOMBINE``, ``COMBTYPE`` and a version number, which says a
+    master exists and nothing about whether it may be used. Reuse is the *only* reason to
+    save one, and reuse needs the exposure, gain, offset, temperature and camera -- so the
+    provenance keys are copied from the frames it was built from. A master that cannot
+    identify itself is a file someone will apply to the wrong lights.
+
     Returns the paths written, so a caller can report them.
     """
     written = []
@@ -310,9 +337,11 @@ def save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, f
         if len(frames or []) < 2:
             continue
         path = Path(output_dir) / f'{label}_STACK{starttime}.fit'
-        fits.writeto(path, np.asarray(stack, dtype=np.float32),
-                     header=fits.Header({'NCOMBINE': len(frames), 'COMBTYPE': 'mean',
-                                         'MEE2024': _version()}),
+        header = calibration._master_header(
+            label.lower(), calibration.read_cal_header(frames[0]),
+            {'n_frames': len(frames), 'combine': 'mean'},
+            extra={'CALSRC': (str(Path(frames[0]).parent)[:68], 'folder it was built from')})
+        fits.writeto(path, np.asarray(stack, dtype=np.float32), header=header,
                      overwrite=True)
         events.log(f'saved the combined {label.lower()} of {len(frames)} frames '
                    f'as {path.name}')
@@ -771,9 +800,27 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
 
     imgs_0 = open_image(files[0])
     _, masks_0, masks2_0 = remove_saturated_blob(imgs_0, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], blob_saturation=options['blob_saturation_level']/100, perform=options['delete_saturated_blob'])
-    dark = np.mean(np.array(open_images(darkfiles)), axis=0) if darkfiles else np.zeros(imgs_0.shape, dtype=imgs_0.dtype)
-    flat = np.mean(np.array(open_images(flatfiles)), axis=0) if flatfiles else np.ones(imgs_0.shape, dtype=float)
-    if flatfiles:
+    # Streamed, not stacked into one array. `np.mean(np.array(open_images(files)))` holds
+    # every frame at once: fifty frames of the 26 MP ASI2600MM is 5.2 GB as float32, and
+    # 10.4 GB while the list and the array both exist, so a full dark tier could not be
+    # combined at all on an ordinary machine. It also accepts a master straight from the
+    # calibration library, which is the usual case now.
+    dark, dark_info = calibration.load_or_combine(darkfiles, progress=None)
+    if dark is None:
+        dark = np.zeros(imgs_0.shape, dtype=imgs_0.dtype)
+    else:
+        logger.info(f'dark: {dark_info["source"]} ({dark_info.get("combine", "")})')
+        events.log(f'dark from {dark_info["source"]}'
+                   + (f' ({dark_info["combine"]})' if dark_info.get('combine') else ''))
+    flat, flat_info = calibration.load_or_combine(flatfiles, progress=None)
+    if flat is None:
+        flat = np.ones(imgs_0.shape, dtype=float)
+    elif flat_info.get('normalised'):
+        # a library master flat is already divided by its own level; doing it again divides
+        # by a number near 1, which does almost nothing and looks like it worked
+        logger.info(f'flat: {flat_info["source"]}, already normalised')
+        events.log(f'flat from {flat_info["source"]} (already normalised)')
+    else:
         # A flat corrects *relative* sensitivity, so it has to be about 1. Dividing by raw
         # flat ADU (thousands) scaled the whole frame away; the old output stretch hid it,
         # and now that the stack keeps its ADU it would not.
@@ -781,6 +828,7 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
         if flat_level > 0:
             flat = flat / flat_level
             logger.info(f'flat normalised by its median level {flat_level:.1f}')
+            events.log(f'flat from {flat_info["source"]}, normalised by {flat_level:.1f}')
 
     print('image size:'+str(imgs_0.shape))
     logger.info('image size:'+str(imgs_0.shape))
@@ -788,7 +836,9 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
     # Hot pixels survive dark subtraction -- they clip, and clipping is not linear -- and
     # then smear across the stack as fake stars, because they are fixed to the detector
     # while the field is dithered. Find them once from the master dark and drop them.
-    hot = hot_pixel_mask(dark, options['hot_pixel_sigmas']) if darkfiles else None
+    hot = hot_pixel_mask(dark, options['hot_pixel_sigmas'],
+                         min_adu=options.get('hot_pixel_min_adu',
+                                             hotpixels.MIN_DARK_ADU)) if darkfiles else None
     if hot is not None and np.any(hot):
         n_hot = int(np.sum(hot))
         message = (f'{n_hot} hot pixel(s) found in the master dark '
@@ -945,21 +995,32 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
     stacked = np.divide(stack_array, count_array, out=np.zeros_like(stack_array),
                         where=count_array > 0)
 
-    pedestal, clipped = write_stacked_fits(
+    pedestal, over_16bit, negative_fraction = write_stacked_fits(
         output_dir / ('STACKED'+starttime+'.fit'), stacked,
         bit_depth=bit_depth, n_frames=len(files))
     if pedestal:
-        # a mismatched dark is the usual cause, and it is worth saying so out loud
-        message = (f'the calibrated stack runs {pedestal} ADU below zero, so the saved '
-                   f'image carries a PEDESTAL of {pedestal}. A background this far '
-                   f'negative usually means the darks do not match the lights '
-                   f'(different temperature or exposure).')
+        # Recorded always -- subtracting it recovers the calibrated ADU exactly -- but only
+        # *warned* about when the negativity is systematic. On 26 million pixels with a few
+        # ADU of read noise the single lowest pixel is always some way below zero, so
+        # warning whenever a pedestal exists fired on every correctly calibrated frame,
+        # which is the fastest way to teach someone to ignore a warning. A mismatched dark
+        # looks different: it puts a large share of the frame under, not one extreme pixel.
+        message = (f'the calibrated stack dips {pedestal} ADU below zero '
+                   f'({100 * negative_fraction:.3f}% of pixels), so the saved image '
+                   f'carries a PEDESTAL of {pedestal}; subtract it to recover the '
+                   f'calibrated ADU.')
         print(message)
         logger.info(message)
-        events.log(message, level='warning')
-    if clipped:
-        events.log(f'{clipped} pixel(s) exceeded the 16-bit container and were clipped',
-                   level='warning')
+        if negative_fraction > NEGATIVE_FRACTION_WARN:
+            events.log(message + (f' Over {100 * NEGATIVE_FRACTION_WARN:.0f}% of the frame '
+                                  f'is negative, which usually means the darks do not '
+                                  f'match the lights (different temperature or exposure).'),
+                       level='warning')
+        else:
+            events.log(message)
+    if over_16bit:
+        events.log(f'{over_16bit} pixel(s) exceeded the 16-bit container, so the stack '
+                   f'was saved as float32 rather than clipped')
     if options['float_fits']:
         fits.writeto(output_dir / ('STACKED_FLOAT'+starttime+'.fit'), stacked.astype(np.float32))
     # find centroids on the stacked image

@@ -127,8 +127,20 @@ def release_catalogues():
     file cannot be removed on Windows. Called before a deletion, so the app can free
     the disk without being restarted. The triangle database is deliberately left alone
     -- it is not a catalogue and reloading it is expensive.
+
+    The v2 **pattern** databases are released too. They are a different directory and a
+    different format, but the same mapping problem and the same caller intent: whoever
+    calls this is trying to free disk, and a pattern database is the larger of the two
+    (230 MB against 138 MB). Deliberately *not* done at the end of every run -- the
+    KD-tree over the invariants is built on first use, and a watch-mode session solving
+    field after field would pay for it again each time.
     """
     released = []
+    try:
+        from mee2024.platesolve2 import pattern_db
+        released += pattern_db.release_databases()
+    except Exception:
+        traceback.print_exc()
     for path, cached in list(_cache.catalogue_cache.items()):
         if isinstance(cached, TriangleData):
             continue

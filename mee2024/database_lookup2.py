@@ -11,6 +11,9 @@ class database_searcher:
 
     def __init__(self, catalogue_path, star_max_magnitude=12, epoch_proper_motion='now', debug_folder=None):
         self._logger = logging.getLogger('database_searcher.databasesearcher')
+        # the debug file handler, if this instance is the one that attached it, so that
+        # close() can release it -- see close() for why that matters
+        self._debug_handler = None
         if str(catalogue_path).endswith('.npz'):
             data = np.load(catalogue_path)
             mydata  = data['mydata']
@@ -36,11 +39,14 @@ class database_searcher:
             self._logger.addHandler(ch)
             if debug_folder is not None:
                 self.debug_folder = Path(debug_folder)
-                # File handler at DEBUG level
-                fh = logging.FileHandler(self.debug_folder / 'database_lookupDEBUG.txt')
+                # File handler at DEBUG level. utf-8 for the same reason as the run log:
+                # the default is cp1252 on Windows and a catalogue path is user data.
+                fh = logging.FileHandler(self.debug_folder / 'database_lookupDEBUG.txt',
+                                         encoding='utf-8')
                 fh.setLevel(logging.DEBUG)
                 fh.setFormatter(formatter)
                 self._logger.addHandler(fh)
+                self._debug_handler = fh
         ####
         star_max_magnitude = float(star_max_magnitude)
         if epoch_proper_motion is None or str(epoch_proper_motion).lower() == 'none':
@@ -180,5 +186,31 @@ class database_searcher:
         mydata[:, :2] = self.star_table[:, :2]
         mydata[:, 2] = self.star_table[:, 5]
         np.savez_compressed(file, mydata=mydata)
+
+    def close(self):
+        """Release the debug log file, if this instance opened one.
+
+        Same leak as the run log, in the catalogue reader rather than the pipeline, which
+        is why the earlier sweep missed it: the handler is attached to a *named* logger,
+        which ``logging`` keeps in a process-global registry, so it outlives the searcher
+        and holds its file open -- on Windows an exclusive lock on a file inside the very
+        folder the user is trying to clear.
+
+        Dormant while ``debug_folder`` is None at every call site, which is today. It
+        would bite the first person to enable debug logging, who is by definition already
+        diagnosing something else. ``database_cache.release_catalogues`` already calls
+        ``close()`` on anything that has one, so defining it is the whole fix.
+
+        Safe to call twice, and never raises.
+        """
+        handler, self._debug_handler = getattr(self, '_debug_handler', None), None
+        if handler is None:
+            return
+        try:
+            self._logger.removeHandler(handler)   # detach first, so a failing close frees it
+            handler.flush()
+            handler.close()
+        except Exception:
+            pass
 
 # Command-line entry points for this module live in mee2024/cli.py

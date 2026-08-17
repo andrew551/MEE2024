@@ -351,3 +351,43 @@ def test_the_stage2_archive_name_still_identifies_an_unconventional_input():
     assert distortion_fitter.stage1_label('D:/out/rerun_of_field_7.zip',
                                           '20260808013718') == \
         'rerun_of_field_720260808013718'
+
+
+# ------------------------------------------------- the epoch, decided where the data is (I9)
+
+def test_the_fitter_prefers_the_header_epoch_over_guessing():
+    """The header-date fix used to live in one front end's options assembly, so whether it
+    applied depended on which of three interfaces was used -- and the CLI, the one most
+    likely to be scripted and left unattended, fell back to a 2023 default. Stage 1 already
+    writes observation_date_header into the archive, so stage 2 can decide it from the data."""
+    from mee2024.distortion_fitter import resolve_epoch
+
+    options = {'guess_date': True, 'observation_date': '2023-12-01'}
+    resolved = resolve_epoch(options, {'observation_date_header': '2026-08-11'})
+    assert resolved['observation_date'] == '2026-08-11'
+    assert resolved['guess_date'] is False
+    # the caller's dict is not mutated underneath it
+    assert options['guess_date'] is True
+
+
+def test_an_explicit_date_outranks_the_header_but_the_disagreement_is_reported():
+    """An explicit instruction wins -- but one of the two is wrong and the fit cannot tell
+    which, so it says so rather than choosing quietly."""
+    from mee2024 import events
+    from mee2024.distortion_fitter import resolve_epoch
+
+    sink = events.ListSink()
+    with events.using(events.EventBus([sink])):
+        resolved = resolve_epoch({'guess_date': False, 'observation_date': '2026-01-01'},
+                                 {'observation_date_header': '2026-08-11'})
+    assert resolved['observation_date'] == '2026-01-01'
+    messages = [e.get('text', '') for e in sink.events]
+    assert any('disagree' in m for m in messages), messages
+
+
+def test_no_header_date_leaves_the_guesser_alone():
+    from mee2024.distortion_fitter import resolve_epoch
+
+    options = {'guess_date': True, 'observation_date': '2023-12-01'}
+    assert resolve_epoch(options, {}) is options
+    assert resolve_epoch(options, {'observation_date_header': None}) is options

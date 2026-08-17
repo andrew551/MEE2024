@@ -92,11 +92,15 @@ def _run_native(server):
     # per-process last-visited folder, which is *shared* between the file and folder
     # dialogs -- so choosing an output folder re-aimed the next input dialog and
     # vice versa. The server passes a per-purpose folder instead (see Api.pick).
+    # `allow_multiple` is not restricted to files -- a FOLDER_DIALOG honours it too, and
+    # Ctrl-click over folders is the standard Windows idiom. It used to be forced off for
+    # directories (`bool(multiple) and not directory`), which is why reducing two fields
+    # out of eighteen meant two separate runs.
     def native_dialog(multiple=True, directory=False, start=None):
         return window.create_file_dialog(
             webview.FOLDER_DIALOG if directory else webview.OPEN_DIALOG,
             directory=start or '',
-            allow_multiple=bool(multiple) and not directory,
+            allow_multiple=bool(multiple),
             file_types=() if directory else (
                 'Image frames (*.fit;*.fits;*.fts;*.tif;*.tiff;*.png;*.jpg;*.jpeg)',
                 'All files (*.*)'))

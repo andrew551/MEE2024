@@ -1116,3 +1116,113 @@ def test_the_log_sink_never_fails_a_run(tmp_path):
     blocker = tmp_path / 'blocked'
     blocker.write_text('I am a file, not a folder')
     assert PipelineRunner().attach_log_sink(blocker / 'sub') is None
+
+
+# --------------------------------------------------- the calibration library (F1) endpoints
+
+def _cal_frames(folder, names, gain=101, exptime=4.0, obj='DARK_G101_4s', level=500.0):
+    """Frames whose headers look like the capture software's, including IMAGETYP='Light'."""
+    import numpy as np
+    from astropy.io import fits
+
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    rng = np.random.default_rng(0)
+    for name in names:
+        fits.writeto(folder / name, rng.normal(level, 2.0, (16, 16)).astype('float32'),
+                     header=fits.Header({
+                         'OBJECT': obj, 'IMAGETYP': 'Light', 'FRAMETYP': 'Light',
+                         'EXPTIME': exptime, 'GAIN': gain, 'XBINNING': 1,
+                         'INSTRUME': 'ZWO ASI2600MM Pro', 'SET-TEMP': 10.0,
+                         'CCD-TEMP': 10.2, 'TELESCOP': 'FRA500', 'FOCUSPOS': 17049,
+                         'ADCBITS': 16}),
+                     overwrite=True)
+    return [str(folder / n) for n in names]
+
+
+def test_the_library_endpoint_lists_nothing_when_there_is_no_library(api, tmp_path):
+    assert api.calibration_list({'library': str(tmp_path / 'nope')})['entries'] == []
+    assert api.calibration_list({})['entries'] == []
+
+
+def test_building_a_library_needs_somewhere_to_put_it_and_something_to_build(api, tmp_path):
+    with pytest.raises(ValueError, match='where the calibration library'):
+        api.calibration_build({'darks_root': str(tmp_path)})
+    with pytest.raises(ValueError, match='darks, a folder of flats'):
+        api.calibration_build({'library': str(tmp_path / 'lib')})
+
+
+def test_a_library_build_runs_through_the_runner_and_leaves_its_own_log(api, tmp_path):
+    """Same status, event bus and log sink as a pipeline run: the page needs no second
+    notion of 'something is happening', and the build leaves a record beside the masters."""
+    _cal_frames(tmp_path / 'DARKS' / 'DARK_G101_4s' / '22_39_39',
+                [f'd{i}.fits' for i in range(5)])
+    library = tmp_path / 'lib'
+    assert api.calibration_build({'library': str(library),
+                                  'darks_root': str(tmp_path / 'DARKS')})['ok']
+    api.runner.thread.join(timeout=60)
+    assert api.runner.status == 'done', api.runner.error
+    assert api.runner.outputs['calibration_library'] == str(library)
+    assert (library / 'activity.jsonl').exists()
+
+    entries = api.calibration_list({'library': str(library)})['entries']
+    assert len(entries) == 1
+    assert entries[0]['kind'] == 'dark' and entries[0]['gain'] == 101
+    assert entries[0]['exptime'] == 4.0 and entries[0]['n_frames'] == 5
+
+
+def test_a_batch_field_is_matched_to_its_own_tier_and_told_so(tmp_path):
+    """The point of the library: each field gets the master matching its own frames, per
+    field, reported per field -- rather than one hand-picked set applied to all of them."""
+    from mee2024 import calibration
+    from mee2024.ui.runner import PipelineRunner
+
+    _cal_frames(tmp_path / 'DARKS' / 'DARK_G101_4s' / '22_39_39',
+                [f'd{i}.fits' for i in range(5)])
+    _cal_frames(tmp_path / 'DARKS' / 'DARK_G101_6s' / '22_43_26',
+                [f'd{i}.fits' for i in range(5)], exptime=6.0, obj='DARK_G101_6s')
+    library = tmp_path / 'lib'
+    calibration.build_library(library, darks_root=tmp_path / 'DARKS',
+                              on_note=lambda *a, **k: None)
+
+    runner = PipelineRunner()
+    frames = _cal_frames(tmp_path / 'H1' / '23_16_10', ['h1.fits', 'h2.fits'],
+                         exptime=6.0, obj='H1_eclipse_altaz')
+    options = {}
+    notes = runner.resolve_calibration({'calibration_library': str(library)},
+                                       options, frames)
+    assert options['-DARK-'].endswith('master.fits')
+    assert 'g101_6p000s' in options['-DARK-'], 'matched the 4 s tier to 6 s frames'
+    assert any('master dark' in note for note in notes)
+
+
+def test_hand_picked_calibration_still_wins_over_the_library(tmp_path):
+    """An explicit choice is an explicit choice."""
+    from mee2024 import calibration
+    from mee2024.ui.runner import PipelineRunner
+
+    _cal_frames(tmp_path / 'DARKS' / 'DARK_G101_4s' / '22_39_39',
+                [f'd{i}.fits' for i in range(5)])
+    library = tmp_path / 'lib'
+    calibration.build_library(library, darks_root=tmp_path / 'DARKS',
+                              on_note=lambda *a, **k: None)
+    frames = _cal_frames(tmp_path / 'Z1' / '22_16_15', ['z1.fits'], obj='Z1_base')
+
+    options = {}
+    PipelineRunner().resolve_calibration(
+        {'calibration_library': str(library), 'darks': ['mine.fits'],
+         'flats': ['myflat.fits']}, options, frames)
+    assert '-DARK-' not in options and '-FLAT-' not in options
+
+
+def test_a_batch_scan_accepts_several_folders(api, tmp_path):
+    """F10: the API takes `folders`, and still takes a single `folder` from an older page."""
+    for name in ('Z1_base', 'Z2_mid_left'):
+        _cal_frames(tmp_path / 'Zenith' / name / '22_16_15', ['a.fits', 'b.fits'],
+                    obj=name)
+    chosen = [str(tmp_path / 'Zenith' / 'Z1_base'),
+              str(tmp_path / 'Zenith' / 'Z2_mid_left')]
+    result = api.scan_fields({'folders': chosen})
+    assert len(result['fields']) == 2
+    # and the old single-folder form still works
+    assert len(api.scan_fields({'folder': str(tmp_path / 'Zenith')})['fields']) == 2

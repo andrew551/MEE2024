@@ -22,6 +22,13 @@ FAILED = 'failed'
 CANCELLED = 'cancelled'
 
 
+def _paths(joined, fallback=None):
+    """A ';'-joined option value as a list, falling back to a list the spec already holds."""
+    if joined:
+        return [p for p in str(joined).split(';') if p]
+    return [str(p) for p in (fallback or [])]
+
+
 class Cancelled(Exception):
     """Raised inside the worker when the user asks to stop."""
 
@@ -189,7 +196,10 @@ class PipelineRunner:
     #: what a run should carry over to the next session, and where it lives in the
     #: options dict the config file round-trips
     REMEMBERED = {'output_dir': 'output_dir', 'catalogue': 'catalogue',
-                  'preset': 'ui_preset', 'observation_date': 'observation_date'}
+                  'preset': 'ui_preset', 'observation_date': 'observation_date',
+                  # a library is built once and used for a whole campaign, so re-picking it
+                  # every session is exactly the kind of thing that gets forgotten
+                  'calibration_library': 'calibration_library'}
 
     def remember(self, spec):
         """Save the choices this run was given, so the next session starts there.
@@ -273,6 +283,8 @@ class PipelineRunner:
             options['-DARK-'] = ';'.join(str(p) for p in spec['darks'])
         if spec.get('flats'):
             options['-FLAT-'] = ';'.join(str(p) for p in spec['flats'])
+        if spec.get('calibration_library'):
+            options['calibration_library'] = str(spec['calibration_library'])
         if spec.get('catalogue'):
             options['catalogue'] = spec['catalogue']
         if spec.get('observation_date'):
@@ -289,6 +301,39 @@ class PipelineRunner:
                 self.resolve_header_date(options, spec.get('lights') or [])
         options.update(spec.get('options') or {})
         return options
+
+    @staticmethod
+    def resolve_calibration(spec, options, frames):
+        """Point this field's run at the library masters that match its own frames.
+
+        The payoff of the library, and the answer to the hidden-state problem: a batch names
+        one library and each field gets the tier matching *its* gain and exposure, said out
+        loud in that field's log. The picker it replaces was invisible in folder mode -- a
+        set chosen once in single mode stayed selected and was applied to every field of
+        every later run -- and could only ever be right for fields that happened to share
+        an exposure.
+
+        Hand-picked darks and flats still win when they are given: an explicit choice is an
+        explicit choice. Returns the notes, for the field record.
+        """
+        from mee2024 import calibration
+
+        library = spec.get('calibration_library') or options.get('calibration_library')
+        if not library or not frames:
+            return []
+        picked_dark = bool(spec.get('darks'))
+        picked_flat = bool(spec.get('flats'))
+        if picked_dark and picked_flat:
+            events.log('using the darks and flats chosen by hand; the calibration '
+                       'library was not consulted')
+            return []
+        resolved = calibration.resolve_for_field(
+            library, frames, want_dark=not picked_dark, want_flat=not picked_flat)
+        if resolved['dark']:
+            options['-DARK-'] = str(resolved['dark'])
+        if resolved['flat']:
+            options['-FLAT-'] = str(resolved['flat'])
+        return resolved['notes']
 
     @staticmethod
     def resolve_header_date(options, lights):
@@ -363,6 +408,7 @@ class PipelineRunner:
                 if spec.get('fields'):
                     self._run_fields(spec, options, progress)
                 else:
+                    self.resolve_calibration(spec, options, spec.get('lights') or [])
                     self._run_one(spec, options, progress)
 
                 self._finish(DONE)
@@ -390,10 +436,13 @@ class PipelineRunner:
         centroid_zip = spec.get('centroid_zip')
         distortion_zip = None
         if 'stack' in stages:
+            # read from options rather than the spec: the calibration library writes its
+            # match into '-DARK-'/'-FLAT-' per field, and the spec holds only what the user
+            # picked by hand. Same keys the CLI and the classic interface have always used
             centroid_zip = stacker_implementation.do_stack(
                 [str(p) for p in spec['lights']],
-                [str(p) for p in spec.get('darks') or []],
-                [str(p) for p in spec.get('flats') or []],
+                _paths(options.get('-DARK-'), spec.get('darks')),
+                _paths(options.get('-FLAT-'), spec.get('flats')),
                 options, progress=progress)
             self._record_output('centroid_zip', centroid_zip)
             events.log(f'stage 1 complete: {Path(centroid_zip).name}')
@@ -580,9 +629,14 @@ class PipelineRunner:
             # the frames are only known now, which is why the date is resolved here
             if field_options.pop('_date_from_header', False):
                 self.resolve_header_date(field_options, field['frames'])
+            # per field, because the tier that matches depends on this field's own frames
+            calib_notes = self.resolve_calibration(spec, field_options, field['frames'])
             entry = {'name': label, 'folder': field['folder'],
                      'n_frames': len(field['frames']),
-                     'output_dir': field_options.get('output_dir', '')}
+                     'output_dir': field_options.get('output_dir', ''),
+                     'calibration': calib_notes,
+                     'dark_applied': field_options.get('-DARK-', ''),
+                     'flat_applied': field_options.get('-FLAT-', '')}
             # where this field's events begin, so its numbers are not confused with the
             # previous field's when they are collected below
             with self._lock:
@@ -636,6 +690,65 @@ class PipelineRunner:
     def _finish(self, status):
         with self._lock:
             self.status = status
+
+    # ------------------------------------------------- building a calibration library
+
+    def start_calibration(self, spec):
+        """Build master darks and flats into a library, on the worker thread.
+
+        Uses the same status, event bus and log sink as a pipeline run, so the page needs
+        no second notion of "something is happening" and the build leaves an
+        ``activity.jsonl`` in the library beside the masters.
+        """
+        if self.is_running:
+            raise RuntimeError('a run is already in progress')
+        library = spec.get('library')
+        if not library:
+            raise ValueError('choose where the calibration library should live')
+        with self._lock:
+            self.status = RUNNING
+            self.error = None
+            self.outputs = {}
+            self.spec = dict(spec, output_dir=str(library))
+            self.batch_results = []
+            self.sink.clear()
+            self.bus.reset()
+            self.cancel_event = threading.Event()
+        Path(library).mkdir(parents=True, exist_ok=True)
+        self.attach_log_sink(str(library))
+        self.thread = threading.Thread(target=self._build_calibration,
+                                       args=(dict(spec),), daemon=True)
+        self.thread.start()
+        return True
+
+    def _build_calibration(self, spec):
+        from mee2024 import calibration
+
+        with events.using(self.bus):
+            try:
+                library = str(spec['library'])
+                events.log(f'building the calibration library in {library}')
+                results = calibration.build_library(
+                    library,
+                    darks_root=spec.get('darks_root') or None,
+                    flats_root=spec.get('flats_root') or None,
+                    progress_for=lambda name, total: EventProgress(
+                        stage=f'calib:{name}', label=f'Combining {name}'),
+                    on_note=lambda message, level='info': events.log(message, level=level))
+                darks = sum(1 for r in results if r['kind'] == 'dark')
+                flats = sum(1 for r in results if r['kind'] == 'flat')
+                self._record_output('calibration_library', library)
+                events.log(f'library built: {darks} master dark(s), {flats} master '
+                           f'flat(s) in {library}')
+                self._finish(DONE)
+            except Exception as exc:
+                text = f'{type(exc).__name__}: {exc}'
+                events.emit(events.ERROR, text=text, traceback=traceback.format_exc())
+                with self._lock:
+                    self.error = text
+                self._finish(FAILED)
+            finally:
+                self.detach_log_sink()
 
     # ------------------------------------------------------------- watch mode
 

@@ -172,8 +172,37 @@ def get_img_data(f, maxsize=(30, 18), first=False):
         return None
     
 
+def _browse_start(*candidates):
+    """Where a file dialog should open: the first candidate that is a real folder.
+
+    Every one of these options defaults to ``''``, and an empty ``initial_folder`` makes
+    the dialog fall back to the process working directory -- which for a double-clicked
+    executable is wherever Windows happened to launch it from, not anywhere the user keeps
+    data. A file path is accepted as well as a folder, since ``workDir`` holds whichever
+    the last run recorded, and the home directory is a better last resort than the CWD.
+
+    Returns ``None`` when nothing resolves, which is what the toolkit wants for "no
+    preference" -- an empty string is not the same thing.
+    """
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(str(candidate))
+        if path.is_dir():
+            return str(path)
+        if path.parent.is_dir() and str(path.parent) not in ('.', ''):
+            return str(path.parent)
+    home = Path.home()
+    return str(home) if home.is_dir() else None
+
+
 def inputUI(options):
     popup_messages = {"no_file_error": "Error: file not entered! Please enter file(s)", "no_folder_error": "Error: Output folder not entered! Please enter folder"}
+    # resolved once: the dialogs are built before the window runs, and every one of these
+    # would otherwise open on the process working directory when its option is blank
+    start_in = _browse_start(options['workDir'], options['output_dir'])
+    start_in2 = _browse_start(options['workDir2'], options['workDir'], options['output_dir'])
+    start_out = _browse_start(options['output_dir'], options['workDir'])
         
     sg.theme('Dark2')
     sg.theme_button_color(('white', '#500000'))
@@ -184,17 +213,17 @@ def inputUI(options):
 
     layout_file_input = [
         [sg.Text('File(s)', size=(7, 1), key = 'File(s)'), sg.InputText(default_text=options['workDir'],size=(75,1),key='-FILE-'),
-         sg.FilesBrowse('Choose images to stack', key = 'Choose images to stack', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose images to stack', key = 'Choose images to stack', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=start_in)],
         [sg.Text('Dark(s)', size=(7, 1), key = 'Dark(s)'), sg.InputText(default_text=options['-DARK-'],size=(75,1),key='-DARK-'),
-         sg.FilesBrowse('Choose Dark image(s)', key = 'Choose Dark image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose Dark image(s)', key = 'Choose Dark image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=start_in)],
         [sg.Text('Flat(s)', size=(7, 1), key = 'Flat(s)'), sg.InputText(default_text=options['-FLAT-'],size=(75,1),key='-FLAT-'),
-         sg.FilesBrowse('Choose Flat image(s)', key = 'Choose Flat image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=options['workDir'])],
+         sg.FilesBrowse('Choose Flat image(s)', key = 'Choose Flat image(s)', file_types=(("Image Files (FIT, TIF, PNG)", "*.fit *.fts *.fits *.tif *.tiff *.png *.jpg *.jpeg"),),initial_folder=start_in)],
     ]
 
     layout_folder_output = [
         [sg.Text('Output folder (blank for same as input):', size=(50, 1), key = 'Output Folder (blank for same as input):')],
         [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir'),
-            sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
+            sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=start_out)],
     ]
 
     layout_base = [
@@ -220,13 +249,13 @@ def inputUI(options):
 
     layout_distortion = [
         [sg.Text('File(s)', size=(7, 1), key = 'File2(s)'), sg.InputText(default_text=options['workDir2'],size=(75,1),key='-FILE2-'),
-         sg.FilesBrowse('Choose data (data.zip)', key = 'Choose data.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['workDir2'])],
+         sg.FilesBrowse('Choose data (data.zip)', key = 'Choose data.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=start_in2)],
         [sg.Text('Fix distortion file(s)', size=(7, 1), key = 'Fix distortion file(s)'), sg.InputText(default_text='',size=(75,1),key='distortion_reference_files'),
-         sg.FilesBrowse('Choose distortion files', key = 'Choose distortion zip', file_types=(("distortion files", "*.zip *.txt"),),initial_folder=options['workDir2'])],
+         sg.FilesBrowse('Choose distortion files', key = 'Choose distortion zip', file_types=(("distortion files", "*.zip *.txt"),),initial_folder=start_in2)],
         [sg.Text('Fix order higher than',size=(32,1)), sg.Combo(['None', 'constant', 'linear', 'quadratic', 'cubic', 'quartic', 'quintic', 'sextic', 'septic'], default_value=options['distortion_fixed_coefficients'], key='distortion_fixed_coefficients', size=(12, 1))],
         [sg.Text('Output folder (blank for same as input):', size=(50, 1), key = 'Output Folder (blank for same as input):2')],
         [sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir2'),
-            sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
+            sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=start_out)],
         [sg.Checkbox('Show graphics', default=options['flag_display2'], key='Show graphics2')],
         [sg.Text('Maximum star magnitude',size=(32,1)), sg.Input(default_text=str(options['max_star_mag_dist']),size=(12,1),key='max_star_mag_dist',enable_events=True)],
         [sg.Checkbox('Guess Date!', default=options['guess_date'], key='guess_date', enable_events=True)],
@@ -254,9 +283,9 @@ def inputUI(options):
 
     layout_eclipse = [
         [sg.Text('File', size=(7, 1), key = 'File3(s)'), sg.InputText(default_text=options['output_dir'],size=(75,1),key='-FILE3-'),
-         sg.FilesBrowse('Choose data (distortion.zip)', key = 'Choose distortion.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=options['output_dir'])],
+         sg.FilesBrowse('Choose data (distortion.zip)', key = 'Choose distortion.zip', file_types=(("zip files (.zip)", "*.zip"),),initial_folder=start_out)],
         [sg.Checkbox('Show graphics', default=options['flag_display3'], key='Show graphics3')],
-        [sg.Text('Output', size=(7, 1)), sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir3'), sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=options['output_dir'])],
+        [sg.Text('Output', size=(7, 1)), sg.InputText(default_text=options['output_dir'],size=(75,1),key='output_dir3'), sg.FolderBrowse('Choose output folder', key = 'Choose output folder',initial_folder=start_out)],
         [sg.Text('Eclipse analysis method',size=(32,1)), sg.Combo(['Method 1', 'Method 2', 'Method 1 & 2'], default_value=options['eclipse_method'], key='eclipse_method', size=(12, 1))],
         [sg.Text('Limiting magnitude',size=(30,1)), sg.Input(default_text=str(options['eclipse_limiting_mag']),size=(12,1),key='eclipse_limiting_mag',enable_events=True)],
         [sg.Checkbox('Cutoff radius (solar radii)', default=options['limit_radial_sun_radii'], key='limit_radial_sun_radii',size=(32,1)), sg.Input(default_text=str(options['limit_radial_sun_radii_value']),size=(12,1),key='limit_radial_sun_radii_value',enable_events=True)],

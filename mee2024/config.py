@@ -25,6 +25,11 @@ DEFAULT_OPTIONS = {
     'workDir2': '',
     '-DARK-': '',
     '-FLAT-': '',
+    # a folder of master darks and flats built by `mee2024 calibrate`. When set, each field
+    # is matched to the master with its own gain and exposure, per field, and told so --
+    # which is what replaces picking darks and flats by hand for a folder run, where one
+    # chosen set was applied to every field whether it fitted or not
+    'calibration_library': '',
     'output_dir': '',
     # 'gaia' is the installed offline archive plus the bright fill Gaia itself lacks,
     # and falls back to the online archive only until an archive is installed.
@@ -43,6 +48,12 @@ DEFAULT_OPTIONS = {
     # -- on the measured example it selects 299 pixels of 46.8 million. Raise it to keep
     # more, or set it very high to disable the exclusion entirely.
     'hot_pixel_sigmas': 20.0,
+    # the floor under that cut, in ADU above the dark's own bias. A multiple of sigma is
+    # not a fixed threshold -- the master is a mean of N darks, so its sigma falls as
+    # 1/sqrt(N) and taking more darks silently masked more pixels. 10 ADU is what moves a
+    # centroid enough to matter (~37 mas at 2 px from a 1000 ADU star). Set 0 for the old
+    # pure-sigma behaviour
+    'hot_pixel_min_adu': 10.0,
     # With no darks, find hot pixels from the dither instead: a star is fixed to the sky, a
     # hot pixel to the detector (docs/bench/HOTPIX.md -- 96.3% of the dark-confirmed hot
     # pixels, no false positives, about 4% of stage 1's runtime). Declines and says so when

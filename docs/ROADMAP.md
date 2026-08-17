@@ -1,7 +1,14 @@
 # MEE2024 — findings, immediate fixes, and roadmap
 
 **Status:** for discussion. Nothing here is implemented unless marked *done*. Every measurement in §1 was derived from the raw 2026-08-06 London dataset; several supersede earlier claims, and those are flagged where they occur.
-**Date:** 2026-08-08, against v1.3.5
+**Date:** 2026-08-08, against v1.3.5; §2 and F1/F10 updated 2026-08-17 for **v1.3.7**
+
+> **v1.3.7 closed out §2 entirely, plus F1 and F10.** The whole immediate-fix list is done,
+> the run log and batch summary are reachable from the app window, batch mode takes several
+> folders, and the calibration library exists and has been built from the real Leon
+> campaign data. See [`LEON_2026-08-11.md`](LEON_2026-08-11.md) for what that data says.
+> What remains open is F2 and F5–F9, which are features needing their own validation
+> rather than fixes.
 **Audience:** users and contributors. Please argue with it — several items below exist
 because someone's field experience contradicted an assumption in the code.
 
@@ -262,33 +269,65 @@ land together. Only the epoch half exists, so the test can no longer be run as a
 
 ---
 
-## 2. Immediate fixes
+## 2. Immediate fixes -- all closed
 
-Small, individually verified, no design work needed. Roughly in order of consequence.
+Small, individually verified, no design work needed. **Every item on this list is now done**;
+the table records what each was and where it landed, because the reasoning is worth keeping
+and because several of them describe traps a future change could walk back into.
 
-| # | Fix | Why |
-|---|---|---|
-| ~~**I18**~~ | ~~**Batch-level files overwrite each other**~~ | *Done.* `batch_summary.csv`, `batch_summary.json` and `activity.jsonl` were written to the *output root*, so a second batch pointed at the same output folder silently destroyed the first batch's summary and log -- the very records that say what happened. Per-field results survived; the batch-level record did not. Introduced 2026-08-09 with F3/F4, fixed by I19 on 2026-08-10. |
-| ~~**I19**~~ | ~~**Create an output subfolder named after the input folder**~~ | *Done, 2026-08-10.* `batch.run_output_root` puts each run in a subfolder of the chosen output folder, named for the input folder (`.../Zenith`), with the field tree inside; the timestamp is appended **only** when a previous run's records are already there. It applies to single runs as well as batches -- the log collided the same way -- taking the name from the folder holding the first frame, and the settings file still remembers the folder the *user* picked, so runs do not nest. In the same pass, the stage-2 archive name stopped reciting the stage-1 timestamp twice: 89 characters down to 49, with a working folder of the same length beside it, which matters against the 260-character Windows limit once a field tree sits above them. The stage-1 path is now recorded inside `distortion_results.txt` instead. |
-| ~~**I20**~~ | ~~**Per-field summary and log, inside each field's folder**~~ | *Done, 2026-08-10.* Raised from the field: a field folder that gets copied to a second drive or handed to whoever is reducing should say what produced it without the folder above it. Each field now gets `field_summary.json` (its row plus the run-constant settings) and its own slice of `activity.jsonl` -- its slice, not the batch's, because fifty copies of a fifty-field log is fifty times the bytes to say the same thing. A **failed** field gets one too, since the absence of a folder is not a diagnosis. The batch roll-up stays at the run root as well: it is the only file that can say which field is *missing*, which is why F3 exists, and a field that never ran leaves no folder to look in. |
-| **I0** | **Resolve the observation date per field in batch mode** | `_work` calls `build_options(spec)` once, before any field is discovered, and the header branch reads `spec['lights']` — which is empty in batch mode. So **header date mode has never worked in folder mode**: it silently falls back to guessing and logs "no date in the FITS header" about frames that have one. Folder mode is the intended default for real data, and §1.3 is the measured consequence. Resolve the date inside `_run_fields`, where the frames are known. |
-| **I1** | `encoding='utf-8'` on the log `FileHandler` | Confirmed cp1252 on Windows. The log writes `str(files)` verbatim, so a `ł`, `ř`, `ğ` or CJK character in any capture path raises `UnicodeEncodeError` **mid-run**. One word. |
-| **I2** | Calibration controls out of `single-input` | Darks and flats picked in single mode stay selected and **are still applied to every field** in folder mode, invisibly, with no way to see or clear them. Hidden state, and the most dangerous item here. |
-| **I3** | Record the **effective options**, calibration and `source_folder` in the results JSON | Today a run's own result file cannot tell you whether it was calibrated, nor which star-selection flags were in force. `remove_double_tab2` is absent, and `n_dropped_double` is *computed and emitted on the event bus* before being discarded at the JSON boundary. Two fits that differ only in a default are indistinguishable afterwards — which is precisely what §1.1 compares. |
-| **I4** | Master dark/flat headers | They record only `NCOMBINE`, `COMBTYPE`, version. No `EXPTIME`, `GAIN`, `CCD-TEMP`, `CAMID`, `BITDEPTH`. A master that cannot identify itself cannot be safely reused — which is the only reason to save one. |
-| **I5** | `find_fields` must skip calibration folders | Any folder with ≥3 frames is treated as a light field, so a `DARK_10s` folder under the batch root is stacked and plate-solved, and fails. |
-| **I6** | Persist per-frame shifts, rms and dither span | Computed, then sent only to a `print()` and a plot. Needed for drift (F5) and for judging a stack. |
-| **I7** | Persist `deltas` (the 2-D residuals) as CSV | Currently rendered to a 600 dpi PNG and discarded. It is a picture of a measurement rather than the measurement. |
-| **I8** | Widen `_field_metrics` | FWHM, ellipticity, plate scale, `n_frames` and the pointing check are all computed, pass through the event stream, and are dropped. `nn_corr` is collected and never displayed. |
-| **I9** | Epoch precedence **inside the fitter**, plus a real CLI date option | The header-date fix lives in one front end's options assembly, so correctness depends on which of three interfaces was used — and the CLI, the path most likely to be scripted and left unattended, still falls back to the `2023-12-01` default. `distortion_fitter.py:240` resolves the epoch from `guess_date` alone and cannot reach a header value. Stage 1 already writes `observation_date_header` into the data that travels to stage 2, so resolving it there makes the guarantee structural rather than per-front-end. §1.3 is the consequence of not doing this. |
-| **I10** | Emit `nn_r`, `max_star_mag_dist`, `distortion_fit_tol` | `nn_corr` is unreadable without its companion distance; the other two are needed to label a summary table. |
-| **I11** | Release pattern-DB memory maps | Same family as the catalogue mmap fix — a mapped file cannot be deleted while the app runs. |
-| **I12** | Classic UI `initial_folder` guard | Three unguarded sites fall back to the process CWD. Low priority: the classic UI is frozen. |
-| **I13** | Dead `clipped` counter | The "exceeded the 16-bit container" warning can never fire. Benign — the float32 fallback protects the data — but it reads as an active check. |
-| **I15** | `text_select=True` on the app window | pywebview disables text selection by default (`create_window(..., text_select=False)`), so the activity log cannot be selected or copied — bug reports currently require screenshots. Nothing in the CSS blocks it; one keyword argument in `ui/app.py`. |
-| **I16** | Solve provenance in `results.txt` | Which solver ran, which pattern database, which verification catalogue, how many candidates were tried and the best match count. Three separate questions this session died for want of it, including §1.9. |
-| **I17** | Make the defect threshold absolute | `dark_mask` scales its cut to the *master's* robust sigma, which shrinks as 1/√N — so 20σ is 5.3 ADU with 50 darks and 8.7 ADU with 10. **Taking more darks silently masks more pixels** and changes which stars survive. Set it in ADU or e⁻ above bias, from what actually perturbs a centroid (a 10 ADU defect 2 px from a 1000 ADU star pulls it ~37 mas); let N affect only the confidence. |
-| **I14** | Close the second `logging.FileHandler` | `database_lookup2.py:40` attaches a handler to a logger that never passes through `close_logger` — the same pattern as the run-log leak, missed by our sweep because it is in the catalogue reader rather than the pipeline. Dormant today (`debug_folder` is `None` at every call site), so it locks nothing; it will bite the first person to enable debug logging, who is by definition already diagnosing something else. *Found by Douglas.* |
+I0, I3, I6, I8, I15 and I16 shipped in **v1.3.6**; I18-I20 landed just after it, in source
+only, and reached an executable for the first time in **v1.3.7** along with the rest.
+
+| # | Fix | Landed | What it was |
+|---|---|---|---|
+| **I0** | Observation date per field in batch mode | v1.3.6 | `build_options` ran once, before any field was discovered, so the header branch read an empty `spec['lights']`. **Header date mode had never worked in folder mode**: it fell back to guessing while logging "no date in the FITS header" about frames that had one. Measured cost on the London 18-field set: 38 days mean epoch error, 140 worst, across sixteen epochs spanning six months. Resolved per field in `_run_fields`, where the frames are known. |
+| **I1** | `encoding='utf-8'` on the log `FileHandler` | v1.3.7 | Confirmed cp1252 on Windows. The log writes `str(files)` verbatim, so a non-cp1252 character in any capture path raised `UnicodeEncodeError` **mid-run**, from the logging call rather than from anything to do with the data. One keyword. Done in `database_lookup2` too. |
+| **I2** | Calibration controls out of `single-input` | v1.3.7 | Darks and flats picked in single mode stayed selected and **were still applied to every field** in folder mode, invisibly, with no way to see or clear them. `buildSpec` now sends neither in batch mode; folder runs take a **calibration library** instead (F1), matched per field on gain and exposure and reported per field. Hand-picked frames still win when given. |
+| **I3** | Effective options, calibration and `source_folder` in the results JSON | v1.3.6 | A run's own result file could not say whether it was calibrated, nor which star-selection flags were in force -- so two fits differing only in a default were indistinguishable afterwards, which is exactly what the repeatability study compares. |
+| **I4** | Master dark/flat headers | v1.3.7 | They recorded only `NCOMBINE`, `COMBTYPE` and a version. A master that cannot identify itself cannot be safely reused, and reuse is the only reason to save one. `save_calibration_stacks` now writes the same provenance block the library uses: exposure, gain, offset, both temperatures, camera, optical train, and the folder it came from. |
+| **I5** | `find_fields` skips calibration folders | v1.3.7 | Any folder with frames was treated as a light field, so a `DARK_10s` folder under the batch root was stacked and plate-solved, and failed. Recognised by folder name and then by `OBJECT` -- **never** `IMAGETYP`, which reads `'Light'` on every scripted dark because the capture sequencer cannot set it. The count is reported, not silent. On the Leon tree this is 8 dark tiers and a flat set. |
+| **I6** | Persist per-frame shifts, rms and dither span | v1.3.6 | Computed, then sent only to a `print()` and a plot. |
+| **I7** | Persist `deltas` (the 2-D residuals) as CSV | v1.3.7 | Rendered to a 600 dpi PNG and discarded -- a picture of a measurement rather than the measurement, so it could not be re-binned, correlated against drift, or compared between epochs. Now `TWOD_RESIDUALS.csv`: position, dx/dy in pixels and arcseconds, radius, magnitude and ID. |
+| **I8** | Widen `_field_metrics` | v1.3.6 | FWHM, ellipticity, plate scale, `n_frames` and the pointing check were computed, passed through the event stream, and dropped. |
+| **I9** | Epoch precedence **inside the fitter**, plus a real CLI date option | v1.3.7 | The header-date fix lived in one front end's options assembly, so correctness depended on which of three interfaces was used -- and the CLI, the path most likely to be scripted and left unattended, still fell back to `2023-12-01`. `distortion_fitter.resolve_epoch` now decides it where the data is: an explicit date wins, then the header value stage 1 recorded, then the guesser. A disagreement between an explicit date and the header is reported. `--date`, `--date-from-header` and `--guess-date` join the CLI. |
+| **I10** | Emit `nn_r`, `max_star_mag_dist`, `distortion_fit_tol` | v1.3.7 | `nn_corr` is unreadable without its companion distance -- 0.3 at 50 px and 0.3 at 500 px are different findings -- and the other two are needed to label a summary table. |
+| **I11** | Release pattern-DB memory maps | v1.3.7 | A mapped file cannot be deleted on Windows, so a pattern database could not be removed or rebuilt in place while the app ran. `pattern_db.release_databases()` drops the maps *and* the KD-tree built over them, since the tree holds the largest array. Called before any rebuild, and from `release_catalogues`; deliberately **not** after every run, because the tree is expensive and watch mode solves field after field. |
+| **I12** | Classic UI `initial_folder` guard | v1.3.7 | Nine unguarded sites fell back to the process CWD, which for a double-clicked executable is wherever Windows launched it. One helper resolves the first candidate that exists, falling back to the home directory, and returns `None` rather than `''` for "no preference". |
+| **I13** | Dead `clipped` counter | v1.3.7 | The "exceeded the 16-bit container" warning could never fire: the count was taken in the branch where `max <= 65535` holds by construction. Moved to the branch it describes, and reworded -- the float32 fallback means the values were *kept*, not clipped. |
+| **I14** | Close the second `logging.FileHandler` | v1.3.7 | `database_lookup2.py` attached a handler to a logger that never passed through `close_logger` -- the same leak as the run log, in the catalogue reader rather than the pipeline, which is why the earlier sweep missed it. `database_cache.release_catalogues` already called `close()` on anything that had one, so defining it was the whole fix. *Found by Douglas.* |
+| **I15** | `text_select=True` on the app window | v1.3.6 | pywebview disables text selection by default, so the activity log could not be selected or copied and bug reports arrived as screenshots. |
+| **I16** | Solve provenance in `results.txt` | v1.3.6 | Which solver, which pattern database, which verification catalogue, how many candidates, best match count. Three questions died for want of it, including 1.9 -- which 1.9 then answered. |
+| **I17** | Absolute floor under the defect threshold | v1.3.7 | `dark_mask` scaled its cut to the *master's* robust sigma, which falls as 1/sqrt(N) -- 20 sigma measured 5.3 ADU with 50 darks against 8.7 ADU with 10, so **taking more darks silently masked more pixels** and changed which stars reached the fit. The cut is now `median + max(10 ADU, sigmas x sigma)`: 10 ADU is what moves a centroid enough to matter (~37 mas at 2 px from a 1000 ADU star), and N affects only the confidence. The threshold can only rise against the old behaviour, so this masks fewer pixels, never more. |
+| **I18** | Batch-level files overwrite each other | src 2026-08-10, exe v1.3.7 | `batch_summary.csv`, `batch_summary.json` and `activity.jsonl` were written to the *output root*, so a second batch pointed at the same output folder silently destroyed the first batch's summary and log -- the very records that say what happened. Per-field results survived; the batch-level record did not. Introduced 2026-08-09 with F3/F4, fixed by I19. **This is the bug the v1.3.6 build Douglas tested still has.** |
+| **I19** | Output subfolder named after the input folder | src 2026-08-10, exe v1.3.7 | `batch.run_output_root` puts each run in a subfolder of the chosen output folder, named for the input folder (`.../Zenith`), with the field tree inside; the timestamp is appended **only** when a previous run's records are already there. It applies to single runs as well -- the log collided the same way -- and the settings file still remembers the folder the *user* picked, so runs do not nest. In the same pass the stage-2 archive name stopped reciting the stage-1 timestamp twice: 89 characters down to 49, which matters against the 260-character Windows limit once a field tree sits above it. |
+| **I20** | Per-field summary and log, inside each field's folder | src 2026-08-10, exe v1.3.7 | Raised from the field: a field folder that gets copied to a second drive or handed to whoever is reducing should say what produced it without the folder above it. Each field gets `field_summary.json` and its own slice of `activity.jsonl` -- its slice, because fifty copies of a fifty-field log is fifty times the bytes to say the same thing. A **failed** field gets one too, since the absence of a folder is not a diagnosis. The batch roll-up stays at the run root as well: it is the only file that can say which field is *missing*. |
+
+### 2.1 Reaching the records at all -- new in v1.3.7
+
+Not on the original list, and found while reviewing what v1.3.6 shipped: **every one of those
+files was written to disk and none of them was reachable from the app window.** The single
+"Open output folder" button pointed at `outputs.distortion_zip || outputs.centroid_zip`,
+which in a batch is whichever field ran *last* -- so it opened one arbitrary field rather
+than the run root where the summary and the batch log live -- and it appeared only when the
+run finished `done`, which is exactly backwards: a failed or cancelled run is when someone
+wants the log.
+
+It now points at the run root, shows whatever the outcome, and every row of the batch table
+is clickable and opens that field's own folder.
+
+### 2.2 A container is not a field -- found on the Leon tree
+
+Also new, and it would have wasted a whole session. `find_fields` claimed the first folder
+holding frames and stopped descending, which is right for a capture folder (a `thumbnails`
+subfolder must not become a second field) and wrong for a session root: the Leon root keeps
+`actual leon site.JPG` beside `DARKS`, `Zenith`, `Horizon` and 1251 frames of data. Pointed
+at that root, a batch found **one field, containing one photograph**, and processed none of
+the session.
+
+A folder whose own frames are outnumbered ten to one by what lies beneath it is now treated
+as a container. That separates the two cases without knowing anything about file types or
+naming: 30 frames against a 5-frame thumbnails subfolder stays a field; 1 against 1251 does
+not.
 
 **Done this week:** `erfa.ld` restored on the error path; run log released when the run
 ends; file dialogs remember their own folders; four star names corrected and the list
@@ -300,46 +339,78 @@ catalogue removal from the app; release tags corrected; `main` brought up to dat
 
 ## 3. Feature roadmap
 
-### F1 — Calibration library (darks and flats batch modes)
+### F1 — Calibration library — **done, v1.3.7**
 
-There is no way to build a dark library or a master flat except as a side effect of a light
-run. Proposal: a mode selector (Lights / Darks / Flats) rather than three peer buttons,
-because catalogue, date, distortion order, tolerance and magnitude are all meaningless for
-calibration frames and should disappear.
+`mee2024/calibration.py`, `mee2024 calibrate`, and a library picker in the app window.
+Built and validated against the real Leon campaign calibration data: **8 dark tiers and
+1 master flat**, 449 frames of 26 megapixels. See
+[`LEON_2026-08-11.md`](LEON_2026-08-11.md) for the numbers it produced.
 
-Darks and flats skip centroiding, solving and fitting — but **not** the bit-depth check,
-the provenance header (I4), or a pedestal check against `BIASADU`. They should additionally
-produce the **per-pixel standard deviation**, which is the only thing that finds
-telegraph/RTS pixels; the mean finds only hot ones.
+**Keyed on gain and exposure, and nothing else.** Camera, binning and frame shape must also
+agree, but they are identity rather than configuration. Temperature is **recorded and warned
+about, not keyed** — for a cooled body the setpoint is in `SET-TEMP` and is what makes a dark
+comparable, and for an uncooled one the temperature is measured rather than chosen, so keying
+on it means never matching. The observer segregates by temperature; the library says so when
+the frames disagree with the master.
 
-*Must stream.* The current `np.mean(np.array(open_images(...)))` materialises the whole
-cube: **3.6 GB** for 50 × 3008², **10.4 GB** for a 2600MM. Welford needs two buffers
-regardless of frame count and yields the std for free.
+**Never `IMAGETYP`.** The capture sequencer has no frame-type command, so every scripted dark
+and flat in the Leon data records `FRAMETYP = IMAGETYP = 'Light'`. The scripts put the type in
+`TARGETNAME`, which lands in `OBJECT` (`DARK_G0_0p1s`, `FLATS`) — and say so in their own
+header comments, addressed to us. Classification uses the folder name first and `OBJECT`
+second. This is also what I5 keys on.
 
-**Three simplifications the measurements in §1.8 allow:**
+**Nothing is scaled or interpolated.** A tier is matched to within 1% of its exposure or
+reported as missing, with the tiers that *are* present listed. Defect amplitude is
+`pedestal + rate·t` — the pedestal is 63% of a defect at 0.1 s and 1.7% at 10 s — so a tier
+interpolated from its neighbours is wrong in a way that looks plausible. A field with no
+matching tier runs uncalibrated and says why.
 
-- **No flat-dark input.** Worth 87 ppm, and the darks already carry the bias. Drops one UI
-  input and ~9 minutes from every session.
-- **No tier synthesis / rate map.** Because defect amplitude is `pedestal + rate·t`, tiers
-  cannot be extrapolated. But at eclipse-ladder exposures darks are nearly free — 50 frames
-  at each of 0.1/0.3/0.6/1.2/2.4 s is ~4 minutes of integration — so **capture every tier
-  directly** and delete the synthesis machinery from the design.
-- **Absolute defect threshold** (I17), not one that moves with the number of darks.
+**The flat is deliberately not keyed on gain.** One gain-0 flat set corrects the gain-101
+night data, on the stated first-order assumption that PRNU and vignetting do not depend on
+gain. That is what the capture scripts assume; the library records the gain that was used and
+notes the difference when it applies the flat across gains, so the assumption is visible
+rather than buried. Flats key on camera, optical train, filter and focus — quantised, because
+dust-donut geometry moves with focus but focuser jitter should not split one set into several
+entries.
 
-**How many darks:** 3–5 for the bias, 10–20 for a defect map, **40–50** only if you also
-want per-pixel σ for RTS/telegraph detection — which is the one thing many frames uniquely
-buy, and the defect class that defeats subtraction entirely.
+**No flat-dark input**, as decided. What makes that valid is the mid-range fill of the flat
+itself: the unsubtracted offset pedestal is diluted by the signal, so at half scale it leaves
+~0.3% at a vignetted corner — smooth, multiplicative, centroid-irrelevant — and five times
+that at a tenth of scale. So the builder *checks the fill* and warns outside 25–75%. The Leon
+flat measured **50.7% of full scale**, exactly where its capture script aimed, so the
+argument holds for this campaign as a measured fact rather than an assumption.
 
-**Library key:** camera | gain | offset | binning | shape | exposure. Temperature joins the
-key *only* when the header carries a setpoint (`SET-TEMP`); for an uncooled body it is
-measured, not chosen, so keying on it means never matching — record it and warn instead.
-Flats key additionally on `FOCUSPOS`, `TELESCOP` and filter, so a changed optical train is
-*detected* rather than silently averaged.
+**It streams, and it had to.** `np.mean(np.array(open_images(...)))` holds every frame at
+once: 5.2 GB for fifty frames of the 26 MP ASI2600MM, and 10.4 GB while the list and the
+array both exist — more than the machine has. One pass now accumulates sum, sum of squares,
+running minimum and running maximum. The stacker's own dark and flat combination was changed
+to the same code, so the memory ceiling is gone from the light path too.
 
-**The payoff is larger than the feature.** Once a library exists, the lights batch points at
-the library root and matching becomes automatic per field by exposure. That supersedes I2's
-picker, dissolves the hidden-state problem (the match is reported per field), and solves the
-eclipse ladder case. **Build the library first, then the consumer.**
+**Sigma-clipping was tried first and is the wrong tool here** — worth recording, because it
+is the obvious choice. Clipping needs a spread to measure against, and the only spread a
+streaming pass has is the per-pixel standard deviation, which the outlier itself inflates:
+one frame at 60 000 ADU among forty-nine at 500 gives that pixel a sigma near 17 800, so even
+a 5σ cut keeps the spike. **Min-max rejection** — drop each pixel's own extreme high and low
+frame — needs no scale estimate, comes free from the same pass
+(`mean = (sum - min - max) / (n - 2)`), and discriminates on the right axis: a cosmic ray is
+extreme in *one* frame, while a hot or telegraph pixel is high in *every* frame and survives
+with 2 of 50 samples trimmed. It also halved the build time, since there is no second pass.
+
+**The per-pixel σ map is written beside every master, and is deliberately untrimmed.** It is
+the only thing that finds telegraph/RTS pixels — the defect class subtraction cannot touch —
+and trimming each pixel's extremes is precisely what would hide them.
+
+Still to do, and not blocking: the light path consumes the library but the Lights/Darks/Flats
+*mode selector* was not built — building a library is a button and a CLI subcommand rather
+than a mode, which turned out to be enough.
+
+### F1a — What the library is for, once it exists
+
+The payoff, and it lands with the library: a folder run points at one library and **each
+field gets the tier matching its own frames, reported per field**. That is what supersedes
+I2's picker. It also dissolves the hidden-state problem, because the match is announced in
+each field's own log and recorded in its `field_summary.json`. Hand-picked darks and flats
+still win when they are given — an explicit choice is an explicit choice.
 
 ### F2 — Affine per-frame alignment
 
@@ -347,20 +418,27 @@ Replace translation-only alignment with a per-frame affine. §1.5 is the evidenc
 mount-off dataset is the extreme validation case. Expect it to help every dataset, not just
 badly tracked ones.
 
-### F3 — Batch summary file
+### F3 — Batch summary file — **done, v1.3.6**
 
 `batch_summary.csv` + `.json`, one row per field: source folder, output folder, status,
 error text, plate-solve success, and every metric from I8. A header block carries the
 run-constant parameters (distortion order, magnitude limit, fit tolerance).
 
 This is how §1.2 should have been found. It also serves cross-run collation and the
-repeatability analysis, both of which are currently manual.
+repeatability analysis, both of which were previously manual.
 
-### F4 — Persist the activity log
+v1.3.7 added the per-field roll-up beside it (I20), the calibration match per field, and —
+the part that had been missed — a way to *reach* any of it from the app window (§2.1).
 
-The app's event bus has one sink, `ListSink`, in memory, cleared at the start of each run.
-The batch-level narrative exists nowhere on disk. `events.JsonlSink` already exists and is
-used by the CLI; the app simply never wires it up.
+### F4 — Persist the activity log — **done, v1.3.6**
+
+The app's event bus had one sink, `ListSink`, in memory, cleared at the start of each run,
+so the batch-level narrative existed nowhere on disk. `events.JsonlSink` already existed and
+was used by the CLI; the app simply never wired it up. It does now, minus the `IMAGE` events
+— a base64 PNG each, 97% of the bytes and none of the story.
+
+Reachable from the window as of v1.3.7 (§2.1). A library build writes one too, into the
+library folder beside the masters.
 
 ### F5 — Drift measurement
 
@@ -407,20 +485,19 @@ Neither solver accepts a prior; both are lost-in-space. Two levels:
 Caution: the *dark* frames also carry `RA`/`DEC`, because the mount was parked somewhere.
 Presence proves nothing; any prior needs a sanity gate and must fall back to a blind solve.
 
-### F10 — Multi-select folders in batch mode
+### F10 — Multi-select folders in batch mode — **done, v1.3.7**
 
-Batch mode takes one root and processes everything beneath it, so reducing an arbitrary
-*subset* -- two fields out of eighteen, say, after a rerun -- means running them one at a
-time. Ctrl-click selection of several folders is the standard Windows idiom and the
-obvious fix.
+Batch mode took one root and processed everything beneath it, so reducing an arbitrary
+*subset* — two fields out of eighteen, after a rerun — meant running them one at a time.
 
-The native dialog already supports it: pywebview's `create_file_dialog` takes
-`allow_multiple`, which is not restricted to files, but `ui/app.py` currently forces it
-off for directories (`allow_multiple=bool(multiple) and not directory`). Removing that is
-small. The real work is elsewhere: the in-page picker tracks a single `picker.cwd` and
-needs per-row selection like it already has for files; `find_fields` must accept a list of
-roots; and `output_dir_for` needs a sensible `relative` when the chosen folders share no
-parent -- which interacts with I19's naming.
+`allow_multiple` is honoured for the native folder dialog (it was forced off for
+directories), the in-page picker gained per-row folder selection with a separate chevron to
+descend — selecting a folder and entering it are different actions, and one click cannot be
+both — and `find_fields_in` accepts a list of roots. Each field keeps its own root's name at
+the front of its relative path, so two fields the capture software called the same thing do
+not collide in the output, and the run is named after the roots' shared parent when they have
+one. A nested selection does not process a field twice, and one unreadable root stops the run
+rather than being silently dropped.
 
 ### F9 — UI convergence
 
@@ -509,16 +586,23 @@ needs the time of day — so F7 still wants it, for a different reason.
 
 ## 6. Suggested order
 
-1. **I0 first** — header date in folder mode: it silently defeats the default on the mode meant for real data. Then **I1–I5, I14–I17** — the one-liners, the hidden-state fix, and the provenance. Small, independent, protect data
-   being captured now.
-2. **F1** — the calibration library, because F1 supersedes part of I2 and should be built
-   before its consumer.
-3. **F3, F4, I6–I8** — summary file, event log, the metrics that already exist. These make
-   folder mode reportable, which is what it is missing.
-4. **F2** — affine alignment. The largest accuracy item, and the one to validate against the
-   tracking-off dataset.
-5. **F5–F8** — drift, open-from-disk, header harvest, solve fallback.
-6. **F9** — UI convergence, gated on Q1.
+Steps 1 to 3 of the original order are **done** — I0–I20, F1, F3, F4 and F10, across v1.3.6
+and v1.3.7. What follows is what is left, reordered by what the Leon data has since made
+urgent.
 
-Nothing here is urgent enough to interrupt field testing of v1.3.5. Items I1–I5 are small
-enough to ride along with whatever that testing surfaces.
+1. **F7 — header harvest**, promoted from fifth place. The Leon headers carry `OBSLAT`,
+   `OBSLONG`, `SITEELEV`, `JD_UTC`, `CENTALT`/`OBJCTALT`, `AIRMASS`, `FOCTEMP` and
+   `EQUINOX` on every frame, and the eclipse happened 9° above the horizon where **vertical
+   refraction is the dominant error term**. Refraction needs site, time, temperature,
+   pressure and humidity; four of the five are in the headers already and the fifth is in
+   `leon_temp_press_humid.csv`. Nothing else on this list unlocks as much.
+2. **F2 — affine alignment.** The largest accuracy item, and the evidence for it already
+   exists (§1.5). Validate against the tracking-off dataset.
+3. **F8 — solve fallback from the header.** `FOCALLEN` 350 and `XPIXSZ` 3.76 give a
+   2.216″/px prior on the Leon rig; the horizon fields at airmass 5.8 are exactly where a
+   blind solve is most likely to need it.
+4. **F5 — drift measurement**, now that `JD_UTC` is known to be per-frame in this data.
+5. **F6 — open a previous run from disk.**
+6. **F9 — UI convergence**, gated on Q1.
+
+Nothing here is urgent enough to interrupt private testing of v1.3.7.

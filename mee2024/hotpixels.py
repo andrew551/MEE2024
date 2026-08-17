@@ -29,6 +29,22 @@ import numpy as np
 #: and a 99.999th percentile of 396 -- so 20 sigma is far outside the honest pixels.
 DARK_SIGMAS = 20.0
 
+#: The floor under that cut, in ADU above the dark's own bias. A multiple of sigma alone is
+#: not a fixed threshold: the master is a *mean* of N darks, so its robust sigma falls as
+#: 1/sqrt(N), and 20 sigma measured 5.3 ADU with 50 darks against 8.7 ADU with 10. Taking
+#: more darks therefore masked more pixels, and changed which stars survived to the fit --
+#: a calibration decision quietly driven by how long the observer spent on darks.
+#:
+#: 10 ADU is what actually perturbs a centroid: a 10 ADU defect 2 px from a 1000 ADU star
+#: pulls the measured position by about 37 mas, which is the scale of the residuals the fit
+#: is trying to measure. Below that a defect is not worth losing a star over.
+#:
+#: Used as ``max(MIN_DARK_ADU, sigmas * sigma)``, so N now affects only the *confidence*:
+#: on a well-averaged master the absolute floor governs, while a single noisy dark still
+#: gets the wide statistical cut it needs. The threshold can only ever rise against the
+#: old behaviour, so this masks fewer pixels, never more.
+MIN_DARK_ADU = 10.0
+
 #: Threshold on log(detector persistence) - log(sky persistence). Chosen from the middle of
 #: a wide plateau: anywhere between 1.0 and 3.5 gives 98-100% precision and 95-99% recall on
 #: the measured example, so this is not tuned to an edge.
@@ -53,11 +69,17 @@ MAX_CANDIDATES = 200_000
 CENTROID_RADIUS_PX = 2
 
 
-def dark_mask(dark, sigmas=DARK_SIGMAS):
+def dark_mask(dark, sigmas=DARK_SIGMAS, min_adu=MIN_DARK_ADU):
     """Detector pixels whose dark level puts them outside the population of real pixels.
 
-    Found from the master dark's own distribution rather than an absolute level, which
-    would depend on the camera.
+    The cut is ``median + max(min_adu, sigmas * sigma)``: an absolute floor in ADU above
+    the dark's own bias, widened to a statistical one when the dark is noisy enough to
+    need it. See :data:`MIN_DARK_ADU` for why a pure multiple of sigma was wrong -- it
+    moved with the number of darks combined, so a longer calibration run masked more
+    pixels.
+
+    ``min_adu=0`` restores the old pure-sigma behaviour, and a very large ``sigmas``
+    still disables the exclusion entirely.
     """
     dark = np.asarray(dark)
     if dark.ndim != 2:
@@ -67,9 +89,10 @@ def dark_mask(dark, sigmas=DARK_SIGMAS):
     sample = dark[::4, ::4]
     median = float(np.median(sample))
     sigma = 1.4826 * float(np.median(np.abs(sample - median)))
-    if not sigma > 0:                      # a synthetic or perfectly flat dark
+    threshold = max(float(min_adu), sigmas * sigma)
+    if not threshold > 0:                  # a synthetic flat dark with the floor disabled
         return np.zeros(dark.shape, dtype=bool)
-    return dark > median + sigmas * sigma
+    return dark > median + threshold
 
 
 def dither_span(shifts):

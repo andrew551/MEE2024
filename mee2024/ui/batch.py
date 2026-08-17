@@ -42,13 +42,43 @@ DEFAULT_MAX_SCANNED = 2000
 #: though it is allowed, since the Rasalhague example is exactly that.
 MIN_FRAMES = 1
 
+#: How far a folder's own frames must be outnumbered by the frames beneath it before it is
+#: treated as a container rather than a field.
+#:
+#: A folder of frames is normally a field, and the walk stops there -- otherwise a
+#: `thumbnails` subfolder inside a capture folder would be processed as a second field. But
+#: a *session root* can hold something stray: the Leon root keeps one `.JPG` of the site
+#: beside 1251 frames of data in `DARKS`, `Zenith`, `Horizon` and the rest, and treating
+#: that photograph as the field pruned the whole tree, so a batch aimed at the session
+#: found one field and processed none of the session.
+#:
+#: Ten to one separates the two cleanly and needs no knowledge of file types or naming: a
+#: capture folder of 30 frames keeps its 5-frame thumbnails subfolder out, while 1 frame
+#: against 1251 is plainly not the field.
+CONTAINER_RATIO = 10
+
 
 def is_frame(name):
     return Path(name).suffix.lower() in FRAME_SUFFIXES
 
 
+def _is_calibration(folder, root, frames):
+    """Is this leaf a folder of darks or flats rather than a field?
+
+    Kept here as a thin wrapper so the walk does not import the calibration module unless
+    it has a leaf to judge, and so the rule itself lives in one place. Name first, then
+    ``OBJECT`` from a single frame -- never ``IMAGETYP``, which reads 'Light' on every
+    scripted dark and flat because the capture software's sequencer cannot set it.
+    """
+    from mee2024 import calibration
+
+    if calibration.looks_like_calibration(folder, root):
+        return True
+    return calibration.classify_frames([str(folder / f) for f in frames[:1]]) is not None
+
+
 def find_fields(root, max_fields=DEFAULT_MAX_FIELDS, max_scanned=DEFAULT_MAX_SCANNED,
-                min_frames=MIN_FRAMES):
+                min_frames=MIN_FRAMES, skip_calibration=True):
     """Folders under ``root`` that directly contain frames.
 
     Returns ``(fields, info)``. Each field is a dict with ``folder``, ``relative`` (its
@@ -57,15 +87,32 @@ def find_fields(root, max_fields=DEFAULT_MAX_FIELDS, max_scanned=DEFAULT_MAX_SCA
     which limit stopped it -- ``info['truncated']`` is a sentence to show the user.
 
     A root that holds frames itself counts as a field, so pointing this at a single
-    capture folder behaves the way anyone would expect.
+    capture folder behaves the way anyone would expect, and a folder of frames is a field
+    rather than a container of fields -- a `thumbnails` subfolder inside a capture folder
+    must not become a second field.
+
+    The exception is a folder whose own frames are swamped by what lies beneath it. The
+    Leon session root keeps one `.JPG` of the site beside `DARKS`, `Zenith`, `Horizon` and
+    1251 frames of data; claiming it as a field pruned the entire tree, so a batch pointed
+    at that root found one "field" holding one photograph and processed none of the
+    session. :data:`CONTAINER_RATIO` decides: outnumbered that heavily, a folder is a
+    container with something stray in it, and the walk goes on down.
+
+    ``skip_calibration`` leaves out folders of darks, flats or bias frames, which are
+    listed in ``info['calibration']``. Without it every tier of a dark library under the
+    session root was stacked and plate-solved as though it were a field, and failed -- a
+    capped-lens frame has no stars in it. A real session tree keeps them there: the Leon
+    campaign has eight dark tiers and a flat set beside two nights of science. Pass False
+    when the calibration folders are what you are looking for.
     """
     root = Path(root)
-    info = {'scanned': 0, 'found': 0, 'truncated': None, 'root': str(root)}
+    info = {'scanned': 0, 'found': 0, 'truncated': None, 'root': str(root),
+            'calibration': []}
     if not root.is_dir():
         info['truncated'] = f'{root} is not a folder'
         return [], info
 
-    fields = []
+    candidates = []
     # sorted walk so the order matches what the user sees in a file manager, and so a
     # rerun processes the same tree in the same order
     for current, subdirs, files in os.walk(root):
@@ -73,21 +120,10 @@ def find_fields(root, max_fields=DEFAULT_MAX_FIELDS, max_scanned=DEFAULT_MAX_SCA
         info['scanned'] += 1
         frames = sorted(f for f in files if is_frame(f))
         if len(frames) >= min_frames:
-            folder = Path(current)
-            fields.append({
-                'folder': str(folder),
-                'relative': '' if folder == root else str(folder.relative_to(root)),
-                'name': folder.name or str(folder),
-                'frames': [str(folder / f) for f in frames],
-            })
-            # a folder of frames is a field, not a container of fields
-            subdirs[:] = []
-        if len(fields) > max_fields:
-            info['truncated'] = (
-                f'more than {max_fields} folders of frames under {root}. That is usually a '
-                f'sign of a folder higher up the tree than intended, so nothing has been '
-                f'started. Pick a folder closer to the data, or raise the limit.')
-            return [], info
+            candidates.append((Path(current), frames))
+        # the field count is checked against the candidates that survive the container
+        # test below -- a container folder with a stray frame in it must not count
+        # towards the limit it would otherwise trip
         if info['scanned'] >= max_scanned:
             info['truncated'] = (
                 f'stopped after looking at {max_scanned} folders under {root} without '
@@ -95,11 +131,127 @@ def find_fields(root, max_fields=DEFAULT_MAX_FIELDS, max_scanned=DEFAULT_MAX_SCA
                 f'subfolders than a session tree should.')
             return [], info
 
+    # shallowest first, so a container is judged before the folders it contains
+    candidates.sort(key=lambda item: (len(item[0].parts), str(item[0])))
+    below = {}
+    for folder, frames in candidates:
+        for parent in folder.parents:
+            below[parent] = below.get(parent, 0) + len(frames)
+
+    fields, claimed = [], []
+    for folder, frames in candidates:
+        if any(folder == owner or owner in folder.parents for owner in claimed):
+            continue                     # a field already claimed this branch
+        if below.get(folder, 0) >= CONTAINER_RATIO * len(frames):
+            continue                     # a container with something stray in it
+        claimed.append(folder)
+        if skip_calibration and _is_calibration(folder, root, frames):
+            info['calibration'].append(str(folder))
+            continue
+        fields.append({
+            'folder': str(folder),
+            'relative': '' if folder == root else str(folder.relative_to(root)),
+            'name': folder.name or str(folder),
+            'frames': [str(folder / f) for f in frames],
+        })
+    fields.sort(key=lambda f: f['relative'])
+
+    if len(fields) > max_fields:
+        info['truncated'] = (
+            f'more than {max_fields} folders of frames under {root}. That is usually a '
+            f'sign of a folder higher up the tree than intended, so nothing has been '
+            f'started. Pick a folder closer to the data, or raise the limit.')
+        return [], info
+
     info['found'] = len(fields)
     if not fields:
         info['truncated'] = (f'no image frames anywhere under {root} '
                              f'({info["scanned"]} folder(s) looked at)')
     return fields, info
+
+
+def find_fields_in(roots, max_fields=DEFAULT_MAX_FIELDS, max_scanned=DEFAULT_MAX_SCANNED,
+                   min_frames=MIN_FRAMES, skip_calibration=True):
+    """:func:`find_fields` over several roots at once.
+
+    Reducing an arbitrary *subset* -- two fields out of eighteen, after a rerun -- used to
+    mean one run each, because a batch took exactly one root and processed everything
+    beneath it. Ctrl-clicking several folders is the ordinary way to say what you mean.
+
+    ``relative`` is taken from each field's **own** root, and the roots' shared parent
+    becomes the run's name, so mirroring the input layout still works when the selection
+    spans folders that have no parent in common (different drives, say) -- in which case
+    there is no shared parent and each field keeps its own root's name at the front.
+    """
+    roots = [Path(r) for r in (roots if isinstance(roots, (list, tuple)) else [roots]) if r]
+    if not roots:
+        return [], {'scanned': 0, 'found': 0, 'truncated': 'no folder chosen',
+                    'root': '', 'calibration': []}
+    if len(roots) == 1:
+        return find_fields(roots[0], max_fields=max_fields, max_scanned=max_scanned,
+                           min_frames=min_frames, skip_calibration=skip_calibration)
+
+    shared = _common_parent(roots)
+    fields, merged = [], {'scanned': 0, 'found': 0, 'truncated': None,
+                          'root': str(shared) if shared else ', '.join(str(r) for r in roots),
+                          'roots': [str(r) for r in roots], 'calibration': []}
+    seen = set()
+    for root in roots:
+        found, info = find_fields(root, max_fields=max_fields, max_scanned=max_scanned,
+                                  min_frames=min_frames,
+                                  skip_calibration=skip_calibration)
+        merged['scanned'] += info.get('scanned', 0)
+        merged['calibration'] += info.get('calibration') or []
+        if info.get('truncated'):
+            # one bad root must not silently drop the others, but it must be said
+            merged['truncated'] = info['truncated']
+            return [], merged
+        for field in found:
+            if field['folder'] in seen:      # nested selections would process twice
+                continue
+            seen.add(field['folder'])
+            # keep the chosen folder's own name at the front, so two fields called
+            # `22_16_15` under different roots do not collide in the output
+            prefix = root.name if shared is None or root != shared else ''
+            relative = field['relative']
+            field['relative'] = str(Path(prefix) / relative) if prefix else relative
+            fields.append(field)
+    if len(fields) > max_fields:
+        merged['truncated'] = (
+            f'more than {max_fields} folders of frames across the {len(roots)} folders '
+            f'chosen, so nothing has been started. Choose fewer, or raise the limit.')
+        return [], merged
+    merged['found'] = len(fields)
+    if not fields:
+        merged['truncated'] = (f'no image frames in any of the {len(roots)} folders chosen '
+                               f'({merged["scanned"]} folder(s) looked at)')
+    return fields, merged
+
+
+def _common_parent(roots):
+    """The deepest folder every root sits under, or None if they share none."""
+    try:
+        import os.path
+        shared = Path(os.path.commonpath([str(r) for r in roots]))
+    except ValueError:                 # different drives on Windows
+        return None
+    return shared if str(shared) not in ('', '.') else None
+
+
+def batch_root_for(roots):
+    """The folder a multi-root run should be named after.
+
+    Their shared parent when they have one -- `.../Zenith` for two fields chosen under it,
+    which is what someone would call that run. When they share nothing (two drives), the
+    first choice names it and the rest are recorded in the summary.
+    """
+    roots = [Path(r) for r in (roots if isinstance(roots, (list, tuple)) else [roots]) if r]
+    if not roots:
+        return ''
+    if len(roots) == 1:
+        return str(roots[0])
+    shared = _common_parent(roots)
+    return str(shared) if shared is not None else str(roots[0])
 
 
 def output_dir_for(field, output_root):
@@ -162,9 +314,18 @@ def run_output_root(output_root, source, stamp=None):
 
 
 def describe(fields, info):
-    """A one-line summary for the log."""
+    """A one-line summary for the log.
+
+    Says how many calibration folders were left out. A skip nobody is told about reads as
+    "everything was processed", and the whole reason for the skip is that those folders
+    used to appear as failed fields.
+    """
     if info.get('truncated'):
         return info['truncated']
     total = sum(len(f['frames']) for f in fields)
+    skipped = info.get('calibration') or []
     return (f'{len(fields)} field(s), {total} frame(s), from '
-            f'{info["scanned"]} folder(s) under {info["root"]}')
+            f'{info["scanned"]} folder(s) under {info["root"]}'
+            + (f'; {len(skipped)} calibration folder(s) skipped '
+               f'({", ".join(Path(s).name for s in skipped[:4])}'
+               f'{", ..." if len(skipped) > 4 else ""})' if skipped else ''))

@@ -80,6 +80,7 @@ def resolve_options(args):
         options['distortion_reference_files'] = ';'.join(str(p) for p in args.fix_distortion)
     if getattr(args, 'limiting_mag', None) is not None:
         options['eclipse_limiting_mag'] = args.limiting_mag
+    _apply_date_options(args, options)
 
     apply_sets(options, getattr(args, 'set', None))
     return options
@@ -252,6 +253,78 @@ def cmd_run(args):
         from mee2024 import eclipse_analysis
         eclipse_analysis.eclipse_analysis(str(distortion_zip), options)
         print('stage 3 complete')
+    return 0
+
+
+def default_library_root():
+    """Where a calibration library lives when the user does not say.
+
+    Beside the catalogues, under the same user data directory, because it is the same kind
+    of thing: large derived data that belongs to the machine rather than to any one run.
+    """
+    from mee2024.MEE2024util import get_catalogue_root
+    return Path(get_catalogue_root()).parent / 'calibration'
+
+
+def cmd_calibrate(args):
+    """Build, list or test-match a calibration library."""
+    from mee2024 import calibration
+
+    library = Path(args.library) if args.library else default_library_root()
+
+    if args.match:
+        frames = resolve_input_files(args.match, 'light frame', required=True)
+        entries = calibration.read_index(library)
+        if not entries:
+            print(f'no calibration library at {library}')
+            return 1
+        header = calibration.read_cal_header(frames[0])
+        print(f'{len(frames)} frame(s), gain {header.get("GAIN")}, '
+              f'{header.get("EXPTIME")} s, {header.get("INSTRUME")}')
+        for kind, matcher in (('dark', calibration.match_dark),
+                              ('flat', calibration.match_flat)):
+            entry, reason = matcher(entries, header)
+            if entry is None:
+                print(f'  {kind}: none -- {reason}')
+            else:
+                print(f'  {kind}: {entry["key"]} ({entry.get("n_frames")} frames)'
+                      + (f'\n        note: {reason}' if reason else ''))
+        return 0
+
+    if args.darks or args.flats:
+        with event_bus(args):
+            results = calibration.build_library(
+                library,
+                darks_root=str(args.darks) if args.darks else None,
+                flats_root=str(args.flats) if args.flats else None,
+                reject=None if args.no_reject else calibration.REJECT_MINMAX,
+                progress_for=lambda name, total: make_progress(args),
+                on_note=lambda message, level='info': print(
+                    f'{"WARNING: " if level == "warning" else ""}{message}'))
+        darks = sum(1 for r in results if r['kind'] == 'dark')
+        flats = sum(1 for r in results if r['kind'] == 'flat')
+        print(f'\n{darks} master dark(s), {flats} master flat(s) in {library}')
+        if not results:
+            return 1
+
+    entries = calibration.read_index(library)
+    if args.list or not (args.darks or args.flats):
+        print(f'calibration library: {library}')
+        if not entries:
+            print('  (empty -- build one with --darks and/or --flats)')
+            return 0
+        for entry in entries:
+            header = entry.get('header') or {}
+            bits = [f'{entry["kind"]:5}', f'gain {header.get("GAIN")}']
+            if entry['kind'] == 'dark':
+                bits.append(f'{float(header.get("EXPTIME", 0)):g} s')
+            bits += [f'{entry.get("n_frames")} frames',
+                     f'{header.get("INSTRUME") or "?"}']
+            if header.get('SET-TEMP') is not None:
+                bits.append(f'setpoint {float(header["SET-TEMP"]):g} C')
+            print(f'  {entry["key"]:36} ' + '  '.join(str(b) for b in bits))
+            for warning in entry.get('warnings') or []:
+                print(f'      WARNING: {warning}')
     return 0
 
 
@@ -535,6 +608,37 @@ def _add_common(parser):
                         help='override any option; repeatable')
 
 
+def _add_date_options(parser):
+    """How the catalogue epoch is chosen. Three ways, and the default is now the frames'.
+
+    The CLI is the interface most likely to be scripted and left unattended, and it had no
+    date option at all: every run fell back to the ``2023-12-01`` default unless someone
+    remembered `--set observation_date=...`, which is not discoverable. `--date-from-header`
+    is the default because the frames already carry the answer.
+    """
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--date', default=None, metavar='YYYY-MM-DD',
+                       help='observation date to propagate the catalogue to')
+    group.add_argument('--date-from-header', action='store_true',
+                       help='read it from the frames (the default when they carry one)')
+    group.add_argument('--guess-date', action='store_true',
+                       help='recover it from proper motions instead')
+
+
+def _apply_date_options(args, options):
+    """Turn the date flags into the two options the pipeline actually reads."""
+    if getattr(args, 'date', None):
+        options['observation_date'] = str(args.date)
+        options['guess_date'] = False
+    elif getattr(args, 'guess_date', False):
+        options['guess_date'] = True
+    elif getattr(args, 'date_from_header', False):
+        # stage 2 resolves it from what stage 1 recorded; guessing is the fallback if the
+        # headers turn out to carry no date at all
+        options['guess_date'] = True
+    return options
+
+
 def _add_pipeline_common(parser):
     _add_common(parser)
     parser.add_argument('-o', '--output-dir', type=Path, default=None,
@@ -584,6 +688,7 @@ def build_parser():
     p.add_argument('--catalogue', default=None, help="catalogue to match against (e.g. 'gaia')")
     p.add_argument('--fix-distortion', nargs='*', type=Path, default=None,
                    help='reference distortion file(s) whose high-order terms are held fixed')
+    _add_date_options(p)
     _add_pipeline_common(p)
     p.set_defaults(func=cmd_distortion)
 
@@ -601,8 +706,33 @@ def build_parser():
     p.add_argument('--order', choices=['linear', 'cubic', 'quintic', 'septic'], default=None)
     p.add_argument('--catalogue', default=None)
     p.add_argument('--eclipse', action='store_true', help='also run stage 3')
+    _add_date_options(p)
     _add_pipeline_common(p)
     p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser('calibrate',
+                       help='build master darks and flats into a calibration library')
+    p.add_argument('--library', type=Path, default=None,
+                   help='where the library lives (default: <catalogue root>/../calibration)')
+    p.add_argument('--darks', type=Path, default=None,
+                   help='folder holding the dark folders; every folder of frames beneath '
+                        'it becomes one master, keyed by gain and exposure')
+    p.add_argument('--flats', type=Path, default=None,
+                   help='folder holding the flat folders (no flat-darks are needed)')
+    p.add_argument('--list', action='store_true', help='list what the library holds')
+    p.add_argument('--match', nargs='+', type=Path, default=None, metavar='FRAME',
+                   help='report which masters would be applied to these light frames')
+    p.add_argument('--no-reject', action='store_true',
+                   help='combine with a plain mean of every frame, keeping no outlier '
+                        'rejection: a cosmic ray in any one frame then reaches every '
+                        'light the master calibrates')
+    p.add_argument('--quiet', action='store_true', help='suppress the progress bar')
+    p.add_argument('--events-jsonl', type=Path, default=None, metavar='PATH',
+                   help='write a machine-readable JSONL record of the build')
+    p.add_argument('--events-text', action='store_true',
+                   help='print events to stderr as they happen')
+    _add_common(p)
+    p.set_defaults(func=cmd_calibrate)
 
     p = sub.add_parser('config', help='show or edit the saved configuration')
     p.add_argument('--show-path', action='store_true', help='print the config file path only')

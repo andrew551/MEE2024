@@ -11,18 +11,20 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 747 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 793 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
+| Calibration | **library of master darks and flats**, keyed on camera/gain/exposure/binning, built by `mee2024 calibrate` or from the app window; matched per field and reported per field. Temperature recorded, not keyed. No flat-darks. `docs/LEON_2026-08-11.md` |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.3.6; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.3.7; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
 `docs/PLATESOLVER_V2_DESIGN.md` (the solver rebuild: theory and stage plan),
-`docs/UI_DESIGN.md` (UI strategy, what is built, and the P2 question).
+`docs/UI_DESIGN.md` (UI strategy, what is built, and the P2 question),
+`docs/LEON_2026-08-11.md` (the Leon eclipse campaign: calibration measured, refraction scoped).
 
 ### Measured baseline — do not regress these
 
@@ -50,6 +52,97 @@ zwo3-quintic "−1 d" was a lucky 0.06 σ draw):
 | zwo1 | septic | 104.2 mas | 1565 | 2023-09-23 | −37 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-08-17 — v1.3.7: the calibration library, and the records nobody could reach
+
+v1.3.6 was built, given to Douglas, and worked as designed — but it was never tagged, never
+pushed, and it carried a bug fixed the day after it was built. A review of what it left out
+turned into this release, which closes **every** item on `ROADMAP.md` §2 plus F1 and F10.
+
+**The batch overwrite bug reaches an executable at last.** `batch_summary.csv`,
+`batch_summary.json` and `activity.jsonl` have fixed names and were written to the chosen
+output root, so a second run pointed at the same folder silently destroyed the first run's
+summary and log. Per-field archives survived, being timestamped; the account of what happened
+did not — and that account is what found the two failed fields in the London set. Fixed in
+source on 2026-08-10 (I18/I19/I20); v1.3.6 predates it by a day, so Douglas's build still has
+it. Each run now writes into a subfolder named for its input, and each field carries its own
+`field_summary.json` and its own slice of the log.
+
+**Those records existed and were unreachable.** Found while reviewing v1.3.6: every one of
+them was written to disk and nothing in the app window opened any of them. The single "Open
+output folder" button pointed at `outputs.distortion_zip || outputs.centroid_zip`, which in a
+batch is whichever field ran *last* — so it opened one arbitrary field rather than the run
+root — and it appeared only on success, which is backwards: a failed run is when you want the
+log. It now points at the run root, shows whatever the outcome, and every batch row opens its
+own field's folder.
+
+**A stray file in a session root swallowed the whole tree.** `find_fields` claimed the first
+folder holding frames and stopped descending. The Leon session root keeps
+`actual leon site.JPG` beside `DARKS`, `Zenith`, `Horizon` and 1251 frames of data, so a batch
+aimed at that root found **one field containing one photograph** and processed none of the
+session. A folder outnumbered ten to one by what lies beneath it is now a container; a capture
+folder with a 5-frame `thumbnails` subfolder is still a field.
+
+**The calibration library (F1).** `mee2024/calibration.py`, `mee2024 calibrate`, and a library
+picker in the window. Master darks keyed on camera, gain, exposure and binning — **temperature
+recorded and warned about, never keyed**, because for an uncooled body it is measured rather
+than chosen. Nothing is scaled or interpolated: a defect is `pedestal + rate·t`, so a missing
+tier is reported as missing with the tiers that do exist listed. No flat-dark input, and the
+builder *checks the flat's fill* rather than assuming it, because mid-range fill is what makes
+that valid. Classification never touches `IMAGETYP`, which reads `'Light'` on every scripted
+dark because the capture sequencer cannot set it — it uses `OBJECT`, where `TARGETNAME` lands.
+
+Built and validated on the real Leon campaign data: **9 masters from 449 frames of 26
+megapixels in 324 s**. `docs/LEON_2026-08-11.md` has what it measured, including that
+`BIASADU` is trustworthy on the 2600MM (0.3%) where it was out by 4.16× on the 533MM.
+
+**It also removed a memory ceiling from the light path.**
+`np.mean(np.array(open_images(files)))` holds every frame at once: 5.2 GB for fifty frames of
+the 26 MP ASI2600MM, 10.4 GB while the list and the array both exist — more than the machine
+has, so a full dark tier could not be combined at all. One streaming pass now accumulates sum,
+sum of squares, running min and running max, and the stacker uses the same code.
+
+**Sigma-clipping was tried first and is the wrong tool**, which is worth recording because it
+is the obvious choice. Clipping needs a spread, and the only spread a streaming pass has is
+the per-pixel σ — which the outlier itself inflates: one frame at 60 000 ADU among forty-nine
+at 500 gives that pixel a σ near 17 800, so even a 5σ cut keeps the spike. Min-max rejection
+needs no scale estimate, comes free from the same accumulators, discriminates on the right
+axis (a cosmic ray is extreme in one frame; a hot pixel is high in every frame), and halved
+the build time. There is a test for the failure mode as well as for the fix.
+
+**Hidden calibration state, gone (I2).** Darks and flats picked in single mode stayed selected
+and were applied to every field of every later folder run, invisibly. Folder mode now sends
+neither and takes a library instead, matched per field and announced per field.
+
+**The epoch is decided where the data is (I9).** The header-date fix lived in one front end's
+options assembly, so correctness depended on which of three interfaces was used — and the CLI,
+the path most likely to be scripted and left unattended, still fell back to `2023-12-01`.
+`distortion_fitter.resolve_epoch` now decides it: explicit date, then the header value stage 1
+recorded, then the guesser, with a warning when an explicit date disagrees with the frames.
+`--date`, `--date-from-header` and `--guess-date` join the CLI.
+
+**The defect threshold stopped moving with the number of darks (I17).** `dark_mask` scaled its
+cut to the master's robust σ, which falls as 1/√N — 20σ measured 5.3 ADU with 50 darks against
+8.7 ADU with 10 — so taking more darks silently masked more pixels and changed which stars
+reached the fit. The cut is now `median + max(10 ADU, sigmas × σ)`: 10 ADU is what moves a
+centroid enough to matter (~37 mas at 2 px from a 1000 ADU star), and N affects only the
+confidence. It can only mask fewer pixels than before, never more.
+
+**Multi-select folders (F10)**, the 2-D residuals as CSV (I7), master provenance headers (I4),
+`nn_r` and the two fit thresholds emitted (I10), pattern-DB mmaps released (I11), the classic
+UI's nine unguarded file dialogs (I12), the dead `clipped` counter (I13), the second leaked
+`FileHandler` (I14, found by Douglas), and `encoding='utf-8'` on the run log (I1) — which
+could kill a run mid-flight on any capture path containing a character cp1252 cannot hold.
+
+**Also measured, from the Leon data, and not yet acted on:** at 9.6° altitude the *curvature*
+of vertical refraction across the field — the part neither the plate solve nor the fit's linear
+terms can absorb — is 0.52″, about 8× the stage-2 noise floor, and 2.12″ at the bottom of the
+refraction mosaic. Read noise measures 25–30% below the header's `RDNOISE` at both gains. The
+site ran at 895–897 hPa against a pipeline default of 1010. `docs/LEON_2026-08-11.md` §4 has
+the numbers and is careful about which half is large: refraction not being modelled at all is
+the dominant term, and the wrong site parameters are the smaller half.
 
 ---
 

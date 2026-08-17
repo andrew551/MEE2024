@@ -28,6 +28,19 @@ FRONTEND = Path(__file__).parent / 'frontend.html'
 IMAGE_SUFFIXES = {'.fit', '.fits', '.fts', '.tif', '.tiff', '.png', '.jpg', '.jpeg'}
 
 
+def _chosen_folders(spec):
+    """The batch roots in a request, however the page sent them.
+
+    ``folders`` is the multi-select list; ``folder`` is the single value older pages (and
+    the tests) send. Accepting both keeps one code path in the API and means a page served
+    from a cached copy of an earlier build still works.
+    """
+    folders = [str(f) for f in (spec.get('folders') or []) if f]
+    if folders:
+        return folders
+    return [str(spec['folder'])] if spec.get('folder') else []
+
+
 class Api:
     """The application logic. No HTTP in here."""
 
@@ -64,6 +77,9 @@ class Api:
                 'preset': saved.get('ui_preset') or 'auto',
                 'distortion_order': saved.get('distortionOrder')
                 or defaults['distortionOrder'],
+                # a library is built once and used for a campaign, so re-picking it every
+                # session is exactly what gets forgotten
+                'calibration_library': saved.get('calibration_library') or '',
             },
             'config_path': str(get_config_path()),
             # context for a bug report, gathered where it is actually known
@@ -389,11 +405,11 @@ class Api:
         from mee2024.ui import batch
 
         spec = spec or {}
-        folder = spec.get('folder')
-        if not folder:
+        roots = _chosen_folders(spec)
+        if not roots:
             return {'fields': [], 'info': {'truncated': 'no folder chosen'}}
         limit = int(spec.get('max_fields') or batch.DEFAULT_MAX_FIELDS)
-        fields, info = batch.find_fields(folder, max_fields=limit)
+        fields, info = batch.find_fields_in(roots, max_fields=limit)
         return {
             # the frame lists themselves are not sent: for twenty fields of a few hundred
             # frames that is a lot of JSON to render a count from
@@ -405,19 +421,58 @@ class Api:
         }
 
     def start_batch(self, spec):
-        """Discover the fields under a folder and run each of them."""
+        """Discover the fields under one or more folders and run each of them."""
         from mee2024.ui import batch
 
-        folder = (spec or {}).get('folder')
-        if not folder:
+        roots = _chosen_folders(spec or {})
+        if not roots:
             raise ValueError('choose a folder of fields to process')
         limit = int(spec.get('max_fields') or batch.DEFAULT_MAX_FIELDS)
-        fields, info = batch.find_fields(folder, max_fields=limit)
+        fields, info = batch.find_fields_in(roots, max_fields=limit)
         if info.get('truncated'):
             raise ValueError(info['truncated'])
-        self.runner.start(dict(spec, fields=fields, batch_root=str(folder)))
+        self.runner.start(dict(spec, fields=fields,
+                               batch_root=batch.batch_root_for(roots),
+                               batch_roots=[str(r) for r in roots]))
         return {'ok': True, 'n_fields': len(fields),
                 'summary': batch.describe(fields, info)}
+
+    # ------------------------------------------------------- calibration library
+
+    def calibration_list(self, spec=None):
+        """What masters a library holds, for the panel that says whether one will match."""
+        from mee2024 import calibration
+
+        library = (spec or {}).get('library')
+        if not library:
+            return {'entries': []}
+        entries = calibration.read_index(library)
+        return {'library': str(library), 'entries': [{
+            'key': e['key'], 'kind': e['kind'],
+            'gain': (e['header'] or {}).get('GAIN'),
+            'exptime': (e['header'] or {}).get('EXPTIME'),
+            'set_temp': (e['header'] or {}).get('SET-TEMP'),
+            'ccd_temp': (e['header'] or {}).get('CCD-TEMP'),
+            'camera': (e['header'] or {}).get('INSTRUME'),
+            'n_frames': e.get('n_frames'),
+            'warnings': e.get('warnings') or [],
+        } for e in entries]}
+
+    def calibration_build(self, spec=None):
+        """Build masters into a library, on the runner's worker thread.
+
+        Routed through the runner rather than done inline: it reads every calibration frame
+        twice -- eight tiers of fifty 26 MP frames is 40 GB of I/O -- so it cannot block the
+        HTTP handler, and it belongs in the same event log as everything else so progress
+        and warnings appear where the user is already looking.
+        """
+        spec = spec or {}
+        if not spec.get('library'):
+            raise ValueError('choose where the calibration library should live')
+        if not (spec.get('darks_root') or spec.get('flats_root')):
+            raise ValueError('give a folder of darks, a folder of flats, or both')
+        self.runner.start_calibration(spec)
+        return {'ok': True}
 
     def state(self, since=0):
         return self.runner.snapshot(since=int(since))
@@ -611,6 +666,10 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send_json(self.api.scan_fields(payload))
             elif parsed.path == '/api/batch/run':
                 self._send_json(self.api.start_batch(payload))
+            elif parsed.path == '/api/calibration/list':
+                self._send_json(self.api.calibration_list(payload))
+            elif parsed.path == '/api/calibration/build':
+                self._send_json(self.api.calibration_build(payload))
             elif parsed.path == '/api/reveal':
                 self._send_json(self.api.reveal(payload.get('path')))
             elif parsed.path == '/api/watch/start':

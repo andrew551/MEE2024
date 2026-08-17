@@ -183,8 +183,9 @@ def test_a_negative_background_is_offset_not_clipped_away(tmp_path):
     """A mismatched dark drives the sky below zero; clipping would flatten the frame."""
     path = tmp_path / 's.fit'
     stacked = np.array([[-200.0, 0.0], [300.0, 1000.0]])
-    pedestal, clipped = write_stacked_fits(path, stacked)
-    assert pedestal == 200 and clipped == 0
+    pedestal, over, negative = write_stacked_fits(path, stacked)
+    assert pedestal == 200 and over == 0
+    assert negative == pytest.approx(0.25)
     data = fits.getdata(path)
     assert fits.getheader(path)['PEDESTAL'] == 200
     # subtracting the recorded pedestal recovers the calibrated ADU exactly
@@ -193,8 +194,8 @@ def test_a_negative_background_is_offset_not_clipped_away(tmp_path):
 
 def test_no_pedestal_keyword_when_none_was_needed(tmp_path):
     path = tmp_path / 's.fit'
-    pedestal, _ = write_stacked_fits(path, np.array([[0.0, 5.0]]))
-    assert pedestal == 0
+    pedestal, _, negative = write_stacked_fits(path, np.array([[0.0, 5.0]]))
+    assert pedestal == 0 and negative == 0.0
     assert 'PEDESTAL' not in fits.getheader(path)
 
 
