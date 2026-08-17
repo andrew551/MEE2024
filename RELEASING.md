@@ -7,6 +7,7 @@ Three kinds of artefact, and only two are ever uploaded:
 | **Star catalogue** `gaia_dr3_g13` | built once from the Gaia archive | yes, tag `catalogues-v1` |
 | **The program** `MEE_2024_v<version>.exe` | `python -m PyInstaller MEE2024.spec` | yes, tag `v<version>` |
 | **Plate-solving pattern databases** | derived on the user's own machine | **no — see Part 3** |
+| **Calibration libraries** | built by the observer from their own darks and flats | **no** — they describe one camera at one setpoint, so they are neither shareable nor ours to ship. `mee2024 calibrate` builds one; Part 3's argument applies unchanged. |
 
 Catalogues and software are separate releases because the catalogues change far less often
 than the code: pinning them together would mean re-uploading hundreds of megabytes for

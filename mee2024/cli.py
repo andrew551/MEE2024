@@ -7,6 +7,7 @@ Every pipeline stage is reachable headlessly:
     mee2024 distortion  DATA.zip           -> distortion_data<ts>__<name>.zip
     mee2024 eclipse     DISTORTION.zip     -> ECLIPSE_OUTPUT<ts>.txt
     mee2024 run         LIGHTS...          -> stage 1 then stage 2 (then 3 with --eclipse)
+    mee2024 calibrate   --darks/--flats    -> master darks and flats in a library
     mee2024 config      --show / --set k=v
     mee2024 gui
 
