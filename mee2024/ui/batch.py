@@ -23,8 +23,14 @@ import re
 from pathlib import Path
 
 #: Frame extensions worth stacking. `.fit`/`.fits` cover the capture software; the image
-#: formats are here because open_image falls back to cv2 for them.
-FRAME_SUFFIXES = ('.fits', '.fit', '.fts', '.tif', '.tiff', '.png', '.jpg', '.jpeg')
+#: formats are here because open_image falls back to cv2 for them; `.ser` is a *container*
+#: of many frames rather than one frame, and is expanded by `frames_of`.
+FRAME_SUFFIXES = ('.fits', '.fit', '.fts', '.tif', '.tiff', '.png', '.jpg', '.jpeg', '.ser')
+
+#: Extensions that hold many frames in one file. One of these *is* a field on its own -- a
+#: 22 GB capture is not "one frame beside some others" -- so a folder holding one is a field
+#: even under the usual minimum, and the frame list comes from inside the container.
+CONTAINER_SUFFIXES = ('.ser',)
 
 #: How many fields a batch will accept before refusing. A night's observing is a handful of
 #: fields; twenty is generous. Past this the user has almost certainly picked a folder
@@ -60,6 +66,34 @@ CONTAINER_RATIO = 10
 
 def is_frame(name):
     return Path(name).suffix.lower() in FRAME_SUFFIXES
+
+
+def is_container(name):
+    """Does this file hold many frames rather than one?"""
+    return Path(name).suffix.lower() in CONTAINER_SUFFIXES
+
+
+def frames_of(folder, names):
+    """The frame list for a folder: paths for ordinary images, references for containers.
+
+    A `.ser` file becomes one reference per frame (`capture.ser#0`, `#1`, ...), so
+    everything downstream keeps working on a list of frames without knowing the difference.
+    A container that cannot be read is left as a plain path, and fails later with a message
+    about that file rather than being silently dropped here.
+    """
+    folder = Path(folder)
+    out = []
+    for name in names:
+        path = folder / name
+        if not is_container(name):
+            out.append(str(path))
+            continue
+        try:
+            from mee2024 import ser
+            out.extend(ser.expand(path))
+        except Exception:
+            out.append(str(path))
+    return out
 
 
 def _is_calibration(folder, root, frames):
@@ -152,7 +186,7 @@ def find_fields(root, max_fields=DEFAULT_MAX_FIELDS, max_scanned=DEFAULT_MAX_SCA
             'folder': str(folder),
             'relative': '' if folder == root else str(folder.relative_to(root)),
             'name': folder.name or str(folder),
-            'frames': [str(folder / f) for f in frames],
+            'frames': frames_of(folder, frames),
         })
     fields.sort(key=lambda f: f['relative'])
 

@@ -11,20 +11,22 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 | | |
 |---|---|
 | Branch | `refactor/test-cli-foundation` |
-| Tests | 793 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
+| Tests | 866 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
 | Pipeline | stages 1–3 headless from the CLI, and from the new app window |
+| Input formats | FITS, ordinary image files, and **SER containers** — one frame addressed as `capture.ser#42`. A frame range is a run parameter, not a second copy of the file. `docs/SER_INPUT.md` |
 | Calibration | **library of master darks and flats**, keyed on camera/gain/exposure/binning, built by `mee2024 calibrate` or from the app window; matched per field and reported per field. Temperature recorded, not keyed. No flat-darks. `docs/LEON_2026-08-11.md` |
 | Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
 | Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
 | Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
 | Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.3.7; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| Version | v1.3.8; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
 
 Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
 `docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
 `docs/PLATESOLVER_V2_DESIGN.md` (the solver rebuild: theory and stage plan),
 `docs/UI_DESIGN.md` (UI strategy, what is built, and the P2 question),
-`docs/LEON_2026-08-11.md` (the Leon eclipse campaign: calibration measured, refraction scoped).
+`docs/LEON_2026-08-11.md` (the Leon eclipse campaign: calibration measured, refraction scoped),
+`docs/SER_INPUT.md` (SER input, choosing frames, and the exposure-consistency check).
 
 ### Measured baseline — do not regress these
 
@@ -52,6 +54,86 @@ zwo3-quintic "−1 d" was a lucky 0.06 σ draw):
 | zwo1 | septic | 104.2 mas | 1565 | 2023-09-23 | −37 d | 0.191 |
 
 All of the above is asserted by `tests/test_stage2_regression.py`, offline.
+
+---
+
+## 2026-08-18 — v1.3.8: a whole capture in one file, and choosing which of it to use
+
+A user's 61-megapixel camera cannot sustain FITS-per-frame: 122 MB a frame at 3.2 fps is
+388 MB/s, and at 315 ms the frames are really a video. He recorded SER, and the only route
+into this pipeline was a conversion through PIPP -- which costs a duplicate of a 15 GB file
+and, measured, destroys the timestamps on the way through.
+
+**SER is read directly now.** `mee2024/ser.py`. A frame is addressed as `capture.ser#42`, so
+the pipeline's one-frame-one-path model survives untouched: `find_fields` expands a container
+into references, and `open_image`, `read_bit_depth`, `read_observation_date`, `read_pointing`
+and the calibration library all resolve them. Reading frame N is a seek, so a 22 GB capture
+costs one frame of memory.
+
+**Three things in real SER files that a specification-following reader gets wrong.** The
+`LittleEndian` header field reads 0 -- big-endian by a literal reading -- while the pixels are
+little-endian, on every file examined. The timestamps are often absent, and in two different
+ways: one file has a 180-slot trailer containing nothing but zeros, and the PIPP-trimmed copy
+has lost even the header stamp. The empty one is the single capture of three that ended
+abnormally -- its last eight frames are blank -- and the trailer is written when a capture
+*completes*, so an interrupted capture loses its per-frame timing. Not a setting: all three
+sidecars say `Timestamp Frames=Off`, including the two whose trailers are full. That was
+diagnosed wrongly first and corrected when the owner questioned it. And the header strings are not zero-filled, so they must be cut at the NUL.
+
+**Two byte-order tests were tried and failed before one worked**, which is worth recording
+because both look obviously right. Spatial smoothness fails on a frame with no large-scale
+structure, where the neighbour difference *is* the whole deviation whichever way it is read.
+The same normalised by the range fails whenever the data spans less than one step of the high
+byte -- swapping is then exactly a multiplication by 256, and every ratio is invariant under
+it. Counting distinct byte values survives both: real image data has a repetitive high byte
+and a noisy low one, so whichever byte is more repetitive is the high one.
+
+**Trimming a sequence is a run parameter, not a second file.** `--frames 50-172`, recorded in
+the results, reproducible, and free to change. Every run also *measures* its frames -- a strip
+through each, one second for 180 frames of a 22 GB container -- and suggests a usable range
+without dropping anything.
+
+**Both ends are trimmed symmetrically, because the Sun can be at either.** The obvious rules
+fail and were measured failing. "Drop all-black and all-white frames" got a real blank tail
+exactly right and the saturated head completely wrong -- the frames either side of second
+contact are not *all* white, they decay smoothly through every value in between. "Drop frames
+until the picture stops changing" fails silently and is the one to remember: **while a frame
+is saturated its median is pinned at full scale and the frame-to-frame difference is exactly
+zero**, so a forward search for "settled" stops on the first frame and keeps the entire
+saturated run. Saturation is indistinguishable from perfect stability by that measure.
+
+The change threshold calibrates itself, because a fixed one cannot work across exposures: at
+315 ms a stable stretch changes well under 1% a frame, at 2 s the same sky changes 1.3-2.6%,
+and a fixed 1% cut rejected every frame of a real calibration sequence. Against the manual
+trims: within one frame on the case that has a human answer (50-171 against 49-171), and
+correct on both Sun-at-the-end cases.
+
+**Does a frame's brightness match the exposure it claims?** Capture software that changes
+exposure mid-sequence can write the new exposure into the header of a frame that still holds
+the previous one -- the camera had not applied the change when the frame was read out. Six
+frames of the Leon eclipse ladder are like that, and nothing downstream can detect it: the
+file is well-formed, the header self-consistent, and the frame simply carries half the signal
+it claims, which would then be stacked into the wrong tier and matched to the wrong dark.
+
+Every run checks and **reports**. It does not correct: eclipse data is too scarce to drop a
+frame over a label, and an automatic relabel would be a silent edit of somebody's science. It
+also flags data nobody has inspected by hand, before anyone trusts the output. Two tests --
+a local transition test at each stated-exposure change, and a neighbourhood backstop -- because
+a whole-group comparison is not enough: on the pi Leo ladder the sky rose enough within a
+single exposure group to inflate its spread until a mislabelled member sat comfortably inside
+it. Run over the Leon eclipse folders it found **two more than a by-hand analysis had**: the
+lag affects the first *two* frames after a change, not just the first.
+
+The backstop had to be made local for a second reason, found by running it: against the whole
+group it produced thirty warnings on a capture whose sky brightened steadily from first frame
+to last. A trend is not a fault.
+
+**Also measured, on the data this was built for.** Joe's eclipse frames *do* contain stars --
+ten of them, at 1.3-3.2 degrees from the Sun, confirmed by 100% split-half repeatability and,
+decisively, by nine of them appearing in two separate files at two different gains with a
+consistent 1.6 px rigid shift. A detector artefact would sit at identical coordinates; a
+consistent displacement means they are fixed to the sky. They are invisible by eye because the
+corona spans 533,845 saturated pixels and the stars peak 72-297 ADU above background.
 
 ---
 

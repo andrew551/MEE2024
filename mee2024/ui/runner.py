@@ -10,6 +10,7 @@ import traceback
 from pathlib import Path
 
 from mee2024 import events
+from mee2024 import ser
 from mee2024.MEE2024util import _version
 from mee2024.config import get_default_options
 from mee2024.progress import EventProgress, ProgressReporter
@@ -143,7 +144,9 @@ class PipelineRunner:
             lights = [str(p) for p in spec.get('lights') or []]
             if not lights:
                 raise ValueError('choose at least one light frame')
-            missing = [p for p in lights if not Path(p).exists()]
+            # a frame reference (`capture.ser#42`) names a frame inside a container, so the
+            # thing to check the existence of is the container
+            missing = [p for p in lights if not ser.parse_ref(p)[0].exists()]
             if missing:
                 raise ValueError(f'file not found: {missing[0]}')
         run_spec = dict(spec)

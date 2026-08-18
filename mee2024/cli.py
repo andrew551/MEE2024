@@ -82,6 +82,7 @@ def resolve_options(args):
     if getattr(args, 'limiting_mag', None) is not None:
         options['eclipse_limiting_mag'] = args.limiting_mag
     _apply_date_options(args, options)
+    _apply_frame_options(args, options)
 
     apply_sets(options, getattr(args, 'set', None))
     return options
@@ -131,7 +132,22 @@ def resolve_input_files(entries, kind, *, required=False):
         resolved.extend(files)
     if required and not resolved:
         raise RuntimeError(f'no {kind}s given')
-    return resolved
+    # a SER container is one file holding many frames, so it expands into one reference per
+    # frame -- otherwise `stack capture.ser` would stack a single "frame" that is really a
+    # 22 GB video
+    from mee2024 import ser
+    expanded = []
+    for path in resolved:
+        if ser.is_ser(path) and ser.parse_ref(path)[1] is None:
+            try:
+                frames = ser.expand(path)
+            except Exception as exc:
+                raise RuntimeError(f'cannot read {path} as a SER file: {exc}') from exc
+            print(f'{Path(path).name}: {ser.open_ser(path).describe()}')
+            expanded.extend(frames)
+        else:
+            expanded.append(path)
+    return expanded
 
 
 @contextlib.contextmanager
@@ -609,6 +625,32 @@ def _add_common(parser):
                         help='override any option; repeatable')
 
 
+def _add_frame_options(parser):
+    """Which frames of a sequence to use, and what to measure before using them."""
+    parser.add_argument('--frames', default=None, metavar='FIRST-LAST',
+                        help='use only these frames of the sequence, 0-based and '
+                             'inclusive (e.g. 50-172). A capture rarely starts and stops '
+                             'on the science; this records the trim as a run parameter '
+                             'instead of a second copy of the file')
+    parser.add_argument('--no-scan', action='store_true',
+                        help='skip measuring the frames; you then get no suggested range '
+                             'and no warning about a sequence that starts or ends on the '
+                             'uneclipsed Sun')
+    parser.add_argument('--no-exposure-check', action='store_true',
+                        help='skip checking each frame against the exposure its header '
+                             'states')
+
+
+def _apply_frame_options(args, options):
+    if getattr(args, 'frames', None):
+        options['frame_range'] = str(args.frames)
+    if getattr(args, 'no_scan', False):
+        options['scan_frames'] = False
+    if getattr(args, 'no_exposure_check', False):
+        options['check_exposures'] = False
+    return options
+
+
 def _add_date_options(parser):
     """How the catalogue epoch is chosen. Three ways, and the default is now the frames'.
 
@@ -679,6 +721,7 @@ def build_parser():
                    help='light frames; wildcards are expanded here if the shell did not')
     p.add_argument('--dark', nargs='*', type=Path, help='dark frames')
     p.add_argument('--flat', nargs='*', type=Path, help='flat frames')
+    _add_frame_options(p)
     _add_pipeline_common(p)
     p.set_defaults(func=cmd_stack)
 
@@ -707,6 +750,7 @@ def build_parser():
     p.add_argument('--order', choices=['linear', 'cubic', 'quintic', 'septic'], default=None)
     p.add_argument('--catalogue', default=None)
     p.add_argument('--eclipse', action='store_true', help='also run stage 3')
+    _add_frame_options(p)
     _add_date_options(p)
     _add_pipeline_common(p)
     p.set_defaults(func=cmd_run)
@@ -817,7 +861,13 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        return args.func(args) or 0
+        result = args.func(args)
+        # An exit code, never a payload. `stack` and `distortion` return the archive they
+        # wrote -- useful to a caller in Python, but `sys.exit()` treats any non-integer as
+        # an error message and exits 1. So every successful `mee2024 stack` reported failure,
+        # and `mee2024 stack ... && next-step` never ran the next step. The path is already
+        # printed on stdout for anyone scripting around it.
+        return result if isinstance(result, int) else 0
     except (ValueError, KeyError) as exc:
         # bad --set, unknown option or unknown catalogue: a user error, not a crash
         parser.error(str(exc).strip('"\''))

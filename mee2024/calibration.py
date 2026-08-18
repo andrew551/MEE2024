@@ -110,8 +110,27 @@ def read_cal_header(path):
     Returns a plain dict so it can go straight into ``meta.json``; FITS values are cast to
     ``int``/``float``/``str`` because a ``fits.Card`` value does not round-trip through
     JSON.
+
+    A SER frame is described by its container plus the capture software's sidecar, which
+    carries the gain, exposure, offset, binning, camera and both temperatures -- everything
+    the library keys on.
     """
+    from mee2024 import ser
+
     out = {}
+    if ser.is_ser(path):
+        try:
+            container, index = ser.parse_ref(path)
+            handle = ser.open_ser(container)
+            header = handle.fits_header(index or 0)
+            for key in PROVENANCE_KEYS:
+                value = header.get(key)
+                if value not in (None, ''):
+                    out[key] = value
+            out['shape'] = [handle.header['height'], handle.header['width']]
+        except Exception:
+            return {}
+        return out
     try:
         with fits.open(path) as hdul:
             header = hdul['PRIMARY'].header if 'PRIMARY' in hdul else hdul[0].header

@@ -14,7 +14,9 @@ from mee2024.MEE2024util import (output_path, _version, setup_logger, close_logg
                                  date_string_to_float)
 from mee2024 import calibration
 from mee2024 import events
+from mee2024 import framescan
 from mee2024 import hotpixels
+from mee2024 import ser
 from mee2024 import star_labels
 from mee2024.progress import NullProgress
 import datetime
@@ -34,6 +36,11 @@ import warnings
 
 # return fit file image as np array
 def open_image(file):
+    # a SER frame reference (`capture.ser#42`) names one frame inside a container. Checked
+    # first because such a path does not exist as a file and every reader below would fail
+    # on it with a message about the wrong thing
+    if ser.is_ser(file):
+        return ser.read_frame(file)
     try:
         with fits.open(file) as hdul:
             if 'PRIMARY' in hdul:
@@ -71,7 +78,14 @@ def read_bit_depth(file):
     container and not the sensor: a 12-bit camera routinely writes ``BITPIX = 16``, and
     may scale its values up inside it. Cameras that know better also write ``BITDEPTH``,
     which is the number we want -- it is what makes a dark comparable to a light.
+
+    A SER container states its depth outright, in ``PixelDepthPerPlane``.
     """
+    if ser.is_ser(file):
+        try:
+            return int(ser.read_header(file)['depth'])
+        except Exception:
+            return None
     try:
         with fits.open(file) as hdul:
             header = hdul['PRIMARY'].header if 'PRIMARY' in hdul else hdul[0].header
@@ -136,7 +150,18 @@ def read_observation_date(file):
 
     Recorded alongside the stage-1 results so that stage 2 can report how close a blind
     date guess came. Non-FITS inputs and headers without a date simply return None.
+
+    For a SER frame the date comes from the container and its sidecar: the per-frame
+    timestamp trailer if the capture recorded one, else the header's UTC stamp, else the
+    sidecar's start time. All three are UTC, which is what this wants.
     """
+    if ser.is_ser(file):
+        try:
+            container, index = ser.parse_ref(file)
+            when = ser.open_ser(container).frame_time(index or 0)
+            return when.date().isoformat() if when else None
+        except Exception:
+            return None
     try:
         with fits.open(file) as hdul:
             header = hdul['PRIMARY'].header if 'PRIMARY' in hdul else hdul[0].header
@@ -160,6 +185,19 @@ def read_pointing(file):
         value = sum(p / 60 ** i for i, p in enumerate(parts))
         return value * (15.0 if unit == 'hours' else 1.0)
 
+    if ser.is_ser(file):
+        # the container has no pointing; the sidecar records the mount's claim, e.g.
+        #   ASI Mount=RA=09:13:06.0,Dec=+13:56:48 (JNOW)
+        try:
+            container, index = ser.parse_ref(file)
+            header = ser.open_ser(container).fits_header(index or 0)
+            ra, dec = header.get('OBJCTRA'), header.get('OBJCTDEC')
+            if ra is None or dec is None:
+                return None
+            ra, dec = sexagesimal(ra, 'hours'), sexagesimal(dec, 'degrees')
+            return (float(ra % 360), float(dec)) if -90 <= dec <= 90 else None
+        except Exception:
+            return None
     try:
         with fits.open(file) as hdul:
             header = hdul['PRIMARY'].header if 'PRIMARY' in hdul else hdul[0].header
@@ -746,6 +784,70 @@ def open_img_and_add_to_stack(data, output_array=None, count_array=None, options
     add_img_to_stack((reg_img, shift), output_array, count_array,
                      valid=None if hot is None else ~hot)
     
+def select_frames(files, options):
+    """Apply the frame range, and say what the sequence looks like before stacking it.
+
+    Three things happen here, all of them reporting rather than deciding:
+
+    * an explicit ``frame_range`` is applied -- the trim is a run parameter, recorded in the
+      results, rather than a second copy of the data on disk;
+    * the sequence is measured and a usable range *suggested*, so a capture that opens on
+      the uneclipsed Sun or ends in blank frames says so before it is stacked into an
+      average with them;
+    * every frame's level is checked against the exposure its header claims.
+
+    None of it changes a frame. The suggestion is a line in the log the user can act on by
+    setting ``frame_range``; the exposure check names files to look at. That is deliberate:
+    the alternative is silently processing data nobody has inspected, and on eclipse data
+    there is too little of it to have any of it quietly dropped or relabelled.
+    """
+    files = [str(f) for f in files]
+    if len(files) < 2:
+        return files
+
+    scanned = None
+    if options.get('scan_frames', True) or options.get('check_exposures', True):
+        try:
+            scanned = framescan.scan(files)
+        except Exception as exc:      # never fail a run over a measurement
+            events.log(f'could not measure the frames: {exc}', level='warning')
+
+    if scanned and options.get('check_exposures', True):
+        try:
+            for message in framescan.check_exposures(files, scanned):
+                events.log(message, level='warning')
+        except Exception as exc:
+            events.log(f'could not check the exposures: {exc}', level='warning')
+
+    if scanned and options.get('scan_frames', True):
+        try:
+            start, stop, info = framescan.suggest(scanned)
+            summary = framescan.describe(start, stop, info)
+            if start is not None and (info['dropped_leading'] or info['dropped_trailing']):
+                events.log(summary + f'. Set frame_range to {start}-{stop} to use only '
+                                     f'those; nothing has been dropped automatically.',
+                           level='warning')
+            else:
+                events.log(summary)
+        except Exception as exc:
+            events.log(f'could not suggest a frame range: {exc}', level='warning')
+
+    chosen = options.get('frame_range') or ''
+    if not chosen:
+        return files
+    try:
+        start, stop = framescan.parse_range(chosen, len(files))
+    except ValueError as exc:
+        raise ValueError(f'{exc}. The sequence has {len(files)} frames.') from exc
+    kept = framescan.apply_range(files, start, stop)
+    events.log(f'using frames {start}-{stop} of {len(files)} '
+               f'({len(kept)} frame(s)), as frame_range asked')
+    if not kept:
+        raise ValueError(f'frame_range {chosen!r} selects no frames from a '
+                         f'{len(files)}-frame sequence')
+    return kept
+
+
 def do_stack(files, darkfiles, flatfiles, options, progress=None):
     """Stage 1: stack the light frames and find + platesolve centroids on the result.
 
@@ -759,6 +861,7 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     """
     if progress is None:
         progress = NullProgress()
+    files = select_frames(files, options)
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     output_name = f'CENTROID_OUTPUT{starttime}'
     output_dir = Path(output_path(output_name, options))

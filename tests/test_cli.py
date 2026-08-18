@@ -481,3 +481,30 @@ def test_check_remote_notices_a_different_file_was_uploaded(monkeypatch, capsys)
     monkeypatch.setattr(download.urllib.request, 'urlopen', lambda *a, **k: WrongSize())
     assert cli.main(['catalogue', '--no-config', '--check-remote']) == 1
     assert 'size mismatch' in capsys.readouterr().out
+
+
+def test_a_successful_stack_exits_zero(tmp_path, monkeypatch):
+    """`stack` and `distortion` return the archive they wrote, which is useful in Python and
+    wrong as an exit code: sys.exit() treats a non-integer as an error message and exits 1.
+    Every successful run therefore reported failure, so `mee2024 stack ... && next` never ran
+    the next step."""
+    from mee2024 import cli
+
+    monkeypatch.setattr(cli, 'cmd_stack', lambda args: tmp_path / 'centroid_data.zip')
+    parser = cli.build_parser()
+    monkeypatch.setattr(cli, 'build_parser', lambda: parser)
+    for action in parser._subparsers._group_actions[0].choices.values():
+        if action.get_default('func') is not None and 'stack' in str(action.prog):
+            action.set_defaults(func=cli.cmd_stack)
+    assert cli.main(['stack', str(tmp_path / 'x.fits')]) == 0
+
+
+def test_a_command_that_returns_an_int_keeps_it(monkeypatch):
+    from mee2024 import cli
+
+    parser = cli.build_parser()
+    monkeypatch.setattr(cli, 'build_parser', lambda: parser)
+    for action in parser._subparsers._group_actions[0].choices.values():
+        if 'config' in str(action.prog):
+            action.set_defaults(func=lambda args: 3)
+    assert cli.main(['config']) == 3

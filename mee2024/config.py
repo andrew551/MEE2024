@@ -30,6 +30,18 @@ DEFAULT_OPTIONS = {
     # which is what replaces picking darks and flats by hand for a folder run, where one
     # chosen set was applied to every field whether it fitted or not
     'calibration_library': '',
+    # which frames of a sequence to use, as '50-172' (0-based, inclusive). Empty means all.
+    # A capture rarely starts and stops on the science -- the Sun is there before totality
+    # and back afterwards -- and this records the trim as a run parameter rather than as a
+    # second copy of a 15 GB file
+    'frame_range': '',
+    # measure every frame's level before stacking, and say which range looks usable. Cheap:
+    # a strip through each frame, about a second for 180 frames of a 22 GB container
+    'scan_frames': True,
+    # warn when a frame's brightness disagrees with the exposure its header states. Catches
+    # capture software writing a new exposure into the header of a frame that still holds
+    # the previous one, which nothing downstream can detect
+    'check_exposures': True,
     'output_dir': '',
     # 'gaia' is the installed offline archive plus the bright fill Gaia itself lacks,
     # and falls back to the online archive only until an archive is installed.

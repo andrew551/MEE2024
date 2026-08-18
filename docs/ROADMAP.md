@@ -412,6 +412,27 @@ I2's picker. It also dissolves the hidden-state problem, because the match is an
 each field's own log and recorded in its `field_summary.json`. Hand-picked darks and flats
 still win when they are given — an explicit choice is an explicit choice.
 
+### F11 — SER input, and choosing frames without a second copy — **done, v1.3.8**
+
+Raised by a user whose 61 MP camera cannot sustain FITS-per-frame: 122 MB a frame at 3.2 fps
+is 388 MB/s, and at 315 ms the frames are really a video. The only route in was a conversion
+through PIPP, which costs a duplicate of a 15 GB file and — measured — destroys the
+timestamps.
+
+`mee2024/ser.py` reads the container; a frame is addressed as `capture.ser#42`, so the
+pipeline's one-frame-one-path model survives untouched. `mee2024/framescan.py` measures a
+sequence and *suggests* a usable range, and `--frames 50-172` applies one as a **run
+parameter** rather than as a second file on disk. Both ends are trimmed symmetrically,
+because the Sun can be at the end of the last file as well as the start of the first.
+
+The same scan answers a different question: whether each frame's brightness matches the
+exposure its header claims. Six frames of the Leon eclipse ladder do not — capture software
+writes the new exposure into the header of a frame that still holds the previous one — and
+nothing downstream could detect it. It reports rather than corrects, deliberately.
+
+Full account, including three measures that looked right and failed, in
+[`SER_INPUT.md`](SER_INPUT.md). Not done: a graphical frame selector.
+
 ### F2 — Affine per-frame alignment
 
 Replace translation-only alignment with a per-frame affine. §1.5 is the evidence; the
