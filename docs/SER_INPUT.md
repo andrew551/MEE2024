@@ -228,10 +228,22 @@ script of mine found three** — because that script only tested the *first* fra
 change. The lag reaches the second frame too. (It did not beat the owner's own inspection: he
 had already identified all four `(2)` files by hand and moved them. It beat my first pass.)
 
-One of the five is a different failure worth knowing about. At the 0.1 -> 0.3 s transition the
-second frame carries neither exposure: 61% too faint for the 0.3 s it claims, 15% too bright
-for 0.1 s, which works out at an effective **~0.115 s** — a *partial* exposure caught
-mid-transition rather than a clean copy of the previous one.
+**The mechanism is the reverse of the obvious reading, and the timestamps say so.** The
+`(2)` files sit chronologically at the *end* of the folder they are in, not the start of the
+next one — `18_28_13/00002 (2)` is the last frame of that folder by time, and its pixels are
+0.1 s, which is what that folder holds. So these are the **last frames of the current block,
+written late, and stamped with the exposure the script had already moved on to**. The folder
+is right; only the header is wrong. It also explains the `(2)` naming: the next series had
+already restarted its numbering at 00001 before those frames reached disk.
+
+Inferring the true exposure from signal against a locally smoothed scene rate gives 0.099,
+0.115, 0.596, 0.299 and 0.284 s for the five — ordinary members of the 0.1, 0.6 and 0.3 s
+blocks. (An earlier draft read the 0.115 s as a *partial* exposure caught mid-transition. That
+was over-reading the method: 15% on a sky changing at ~1.2%/s is within its slop.)
+
+**What the tiers actually contain**, once pixels rather than headers decide: 0.6 s is complete
+at 12 of 12; 0.3 s has 23 of 24; 1.2 s has 5 of 6 — one genuinely lost, as the owner recalled;
+0.1 s has 46 of 48, one of which is the Live View frame he deleted.
 
 The diagnostic that makes any of this trustworthy is **signal per second**. A changing sky
 affects every frame at a given moment equally, so comparing signal/exptime between frames a

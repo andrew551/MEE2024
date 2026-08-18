@@ -125,8 +125,12 @@ it. Run over the Leon eclipse folders it found five in `SCI_ladder` where an ear
 of mine found three, because that script only tested the *first* frame after each change --
 the lag reaches the second frame too. It did **not** beat the owner's own inspection, which had
 already identified all four `(2)` files; an earlier draft of this entry claimed it had, and
-that was wrong. One of the five is a partial exposure caught mid-transition (~0.115 s
-effective) rather than a clean copy of the previous one. The diagnostic that separates any of
+that was wrong. The mechanism is the reverse of the obvious reading: the timestamps put the
+`(2)` files at the *end* of the folder they are in, so they are the last frames of the
+current block, written late and stamped with the exposure the script had already moved on
+to. Folder right, header wrong. Effective exposures 0.099/0.115/0.596/0.299/0.284 s -- all
+ordinary block members; an earlier draft called one a partial exposure, which over-read the
+method's precision. The diagnostic that separates any of
 this from a changing sky is signal-per-second between adjacent frames: at the 0.3 -> 0.1 s
 transition the scene rate is flat at 3510-3520 while the suspect frames imply 9980-10510.
 
