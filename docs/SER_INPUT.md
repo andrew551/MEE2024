@@ -223,9 +223,23 @@ the sky rose enough *within a single exposure group* to inflate its spread until
 member sat comfortably inside it. The transition test catches all six; the group test alone
 caught three.
 
-Running it over the Leon eclipse folders found **two more than a by-hand analysis had** —
-the lag affects the first *two* frames after a change, not just the first. A 30-frame
-single-exposure field stays silent.
+Running it over the Leon eclipse folders found **five in `SCI_ladder`, where an earlier
+script of mine found three** — because that script only tested the *first* frame after each
+change. The lag reaches the second frame too. (It did not beat the owner's own inspection: he
+had already identified all four `(2)` files by hand and moved them. It beat my first pass.)
+
+One of the five is a different failure worth knowing about. At the 0.1 -> 0.3 s transition the
+second frame carries neither exposure: 61% too faint for the 0.3 s it claims, 15% too bright
+for 0.1 s, which works out at an effective **~0.115 s** — a *partial* exposure caught
+mid-transition rather than a clean copy of the previous one.
+
+The diagnostic that makes any of this trustworthy is **signal per second**. A changing sky
+affects every frame at a given moment equally, so comparing signal/exptime between frames a
+fraction of a second apart isolates the exposure from the sky. At the 0.3 -> 0.1 s transition
+the scene rate is flat at 3510-3520 for four seconds while the two suspect frames imply
+10510 and 9980 — a factor of 2.8, where the sky drifts at about 1%/s. It is not sky.
+
+A 30-frame single-exposure field stays silent.
 
 `--no-exposure-check` turns it off.
 
