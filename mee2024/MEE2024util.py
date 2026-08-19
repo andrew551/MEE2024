@@ -14,7 +14,7 @@ from pathlib import Path
 from platformdirs import user_data_dir, user_config_dir
 
 def _version():
-    return 'v1.3.9'
+    return 'v1.4.0-dev'
 
 
 AUTHORS = 'Andrew Smith and Douglas Smith'
