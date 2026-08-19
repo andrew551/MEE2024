@@ -7,9 +7,9 @@ package -- the code uses absolute `from mee2024 import ...` imports throughout:
 
     python -m PyInstaller MEE2024.spec --noconfirm
 
-Produces dist/MEE_2024_v<version>.exe on Windows, where the version is read from the
+Produces dist/MEE_v<version>.exe on Windows, where the version is read from the
 package rather than written here, so the two cannot drift apart. Double-clicking it opens
-the new app window; `MEE_2024_v<version>.exe gui` opens the classic one, and every CLI
+the new app window; `MEE_v<version>.exe gui` opens the classic one, and every CLI
 subcommand works too.
 
 Bundling notes, each of which was needed to make the build actually run:
@@ -38,7 +38,7 @@ if not os.path.isdir(package):
 sys.path.insert(0, os.getcwd())
 from mee2024.MEE2024util import _version, get_catalogue_root  # noqa: E402  (needs the path above)
 
-exe_name = f'MEE_2024_{_version()}'
+exe_name = f'MEE_{_version()}'
 
 datas = []
 datas += collect_data_files('astroquery', includes=['CITATION'])
@@ -170,7 +170,7 @@ exe = EXE(
     [],
     name=exe_name,
     onefile=True,
-    # console=True so that `MEE_2024.exe --help`, the CLI subcommands and any error
+    # console=True so that `MEE_v<version>.exe --help`, the CLI subcommands and any error
     # traceback remain visible. The UI opens its own window on top of it.
     console=True,
 )

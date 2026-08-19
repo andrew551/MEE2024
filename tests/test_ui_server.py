@@ -307,7 +307,7 @@ def test_frontend_is_served_with_the_token_substituted(server):
     assert r.status == 200
     assert '__MEE_TOKEN__' not in html, 'token placeholder was not substituted'
     assert server.token in html
-    assert '<title>MEE2024</title>' in html
+    assert '<title>MEE</title>' in html
     assert '__MEE_AUTHORS__' not in html
     assert 'Andrew Smith and Douglas Smith' in html
 
@@ -774,7 +774,43 @@ def test_hello_offers_where_the_last_session_left_off(api):
     last = api.hello()['last']
     for key in ('work_dir', 'output_dir', 'catalogue', 'preset', 'distortion_order'):
         assert key in last
-    assert api.hello()['config_path'].endswith('MEE_config.txt')
+    hello = api.hello()
+    # the window's own file, not the one the classic UI and CLI read
+    assert hello['config_path'].endswith('MEE_app_config.txt')
+    assert hello['shared_config_path'].endswith('MEE_config.txt')
+    assert hello['config_path'] != hello['shared_config_path']
+
+
+def test_the_app_window_never_writes_the_shared_config(tmp_path, monkeypatch):
+    """The leak this split exists to fix.
+
+    `remember` read the shared ini, overlaid its own keys and wrote the whole file back,
+    so a run on the "quick" preset left `sensitive_mode_stack: false` in the file the
+    classic UI and the CLI read -- one-way contamination, invisible from either end.
+    """
+    import json
+
+    from mee2024 import MEE2024util
+    from mee2024.ui.runner import PipelineRunner
+
+    shared = tmp_path / 'MEE_config.txt'
+    private = tmp_path / 'MEE_app_config.txt'
+    shared.write_text(json.dumps({'sensitive_mode_stack': True,
+                                  'output_dir': str(tmp_path / 'old')}), encoding='utf-8')
+    monkeypatch.setattr(MEE2024util, 'get_config_path', lambda: shared)
+    monkeypatch.setattr(MEE2024util, 'get_app_config_path', lambda: private)
+
+    before = shared.read_text(encoding='utf-8')
+    PipelineRunner().remember({'output_dir': str(tmp_path / 'new'),
+                               'options': {'sensitive_mode_stack': False}})
+
+    assert shared.read_text(encoding='utf-8') == before, 'the shared config was written'
+    assert private.exists(), 'the app window wrote no settings of its own'
+    saved = json.loads(private.read_text(encoding='utf-8'))
+    assert saved['sensitive_mode_stack'] is False
+    assert saved['output_dir'] == str(tmp_path / 'new')
+    # seeded once from the shared file, so nothing the user had chosen is lost
+    assert json.loads(shared.read_text(encoding='utf-8'))['sensitive_mode_stack'] is True
 
 
 # --------------------------------------------- what the interface offers as a choice
@@ -933,6 +969,9 @@ def own_config(tmp_path, monkeypatch):
     from mee2024 import MEE2024util
     path = tmp_path / 'MEE_config.txt'
     monkeypatch.setattr(MEE2024util, 'get_config_path', lambda: path)
+    # the app window keeps its own file, and the cleanup prompt is remembered there
+    monkeypatch.setattr(MEE2024util, 'get_app_config_path',
+                        lambda: tmp_path / 'MEE_app_config.txt')
     return path
 
 

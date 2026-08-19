@@ -104,6 +104,24 @@ class CalibrationError(Exception):
 
 # ------------------------------------------------------------------ reading headers
 
+LIBRARY_DIRNAME = 'CALIBRATION_LIBRARY'
+
+
+def default_library_for_output(output_dir):
+    """Where a library goes when the user has not chosen: inside the output folder.
+
+    Not beside the darks it was built from. Capture folders are the one place in a
+    campaign that should stay exactly as the camera left them, and a library is derived
+    data -- 1.8 GB of it -- so writing it into the source tree makes the pristine copy
+    the awkward thing to keep.
+
+    The path is remembered separately from the output folder (``REMEMBERED`` in the
+    runner), so a library built once is reused by later runs writing somewhere else
+    rather than silently rebuilt per output folder.
+    """
+    return Path(output_dir) / LIBRARY_DIRNAME
+
+
 def read_cal_header(path):
     """The header keys that identify a calibration frame. Missing keys are simply absent.
 
@@ -354,7 +372,7 @@ def load_or_combine(files, reject=REJECT_MINMAX, progress=None):
 
 # ------------------------------------------------------------------ building masters
 
-def _master_header(kind, header, info, extra=None):
+def _master_header(kind, header, info, extra=None, data=None):
     """The provenance a master needs to identify itself.
 
     The old `save_dark_flat` wrote `NCOMBINE`, `COMBTYPE` and a version, which is enough
@@ -379,9 +397,45 @@ def _master_header(kind, header, info, extra=None):
             out[key] = header[key]
     if header.get('DATE-OBS'):
         out['DATE-OBS'] = (header['DATE-OBS'], 'first frame of the set')
+    if data is not None:
+        # DATAMIN/DATAMAX are the FITS convention for the range actually present, and a
+        # master is precisely the file someone opens in a viewer that would otherwise
+        # autoscale to the hottest pixel. They also answer, without loading the array,
+        # the two questions asked of a master: is this dark full of extremes, and is this
+        # flat normalised (max near 1) or raw ADU (max in the thousands)?
+        finite = np.asarray(data, dtype=np.float64)
+        finite = finite[np.isfinite(finite)]
+        if finite.size:
+            out['DATAMIN'] = (float(finite.min()), 'minimum pixel value present')
+            out['DATAMAX'] = (float(finite.max()), 'maximum pixel value present')
     for key, value in (extra or {}).items():
         out[key] = value
     return out
+
+
+def flat_fill_check(level, header):
+    """Is this flat exposed near mid-range? Returns ``(warning or None, fill, full_scale)``.
+
+    Extracted so the light path and the library build ask the identical question. It used
+    to run only when a library was *built*, which left the commonest case unchecked: flats
+    picked by hand for a single run were normalised and applied with nothing looking at
+    their level at all.
+
+    The fill level is not advice. The reason a flat-dark can be skipped is that the
+    unsubtracted offset pedestal is diluted by the signal, and the dilution is only small
+    while the flat is near mid-range -- a flat exposed to a tenth of full scale carries
+    five times the residual, and nothing downstream would notice.
+    """
+    full_scale = float(2 ** int(header.get('ADCBITS') or header.get('BITPIX') or 16) - 1)
+    fill = level / full_scale if full_scale > 0 else 0.0
+    if FLAT_FILL_MIN <= fill <= FLAT_FILL_MAX:
+        return None, fill, full_scale
+    return (f'the flat sits at {100 * fill:.0f}% of full scale ({level:.0f} of '
+            f'{full_scale:.0f} ADU), outside the {100 * FLAT_FILL_MIN:.0f}-'
+            f'{100 * FLAT_FILL_MAX:.0f}% this pipeline assumes. Mid-range fill is what '
+            f'makes it safe to take no flat-darks: the offset pedestal is left in, and '
+            f'its share of the signal grows as the fill falls. Re-take the flats nearer '
+            f'mid-range, or take flat-darks for this set.'), fill, full_scale
 
 
 def _bias_note(mean, header, compare=True):
@@ -448,18 +502,9 @@ def build_master_flat(files, reject=REJECT_MINMAX, progress=None, normalise=True
     key = flat_key(header)
     mean, sigma, info = combine(files, reject=reject, progress=progress)
 
-    full_scale = float(2 ** int(header.get('ADCBITS') or header.get('BITPIX') or 16) - 1)
     level = float(np.median(mean[::8, ::8]))
-    fill = level / full_scale if full_scale > 0 else 0.0
-    warnings = []
-    if not FLAT_FILL_MIN <= fill <= FLAT_FILL_MAX:
-        warnings.append(
-            f'the flat sits at {100 * fill:.0f}% of full scale ({level:.0f} of '
-            f'{full_scale:.0f} ADU), outside the {100 * FLAT_FILL_MIN:.0f}-'
-            f'{100 * FLAT_FILL_MAX:.0f}% this pipeline assumes. Mid-range fill is what '
-            f'makes it safe to take no flat-darks: the offset pedestal is left in, and '
-            f'its share of the signal grows as the fill falls. Re-take the flats nearer '
-            f'mid-range, or take flat-darks for this set.')
+    warning, fill, full_scale = flat_fill_check(level, header)
+    warnings = [warning] if warning else []
     # the flat's median is its illumination level, not a bias: recorded, not compared
     bias, _ = _bias_note(mean, header, compare=False)
 
@@ -492,13 +537,13 @@ def write_entry(library_root, mean, sigma, meta):
     directory = Path(library_root) / meta['key']
     directory.mkdir(parents=True, exist_ok=True)
     kind = meta['kind']
-    header = _master_header(kind, meta['header'], meta)
+    header = _master_header(kind, meta['header'], meta, data=mean)
     if kind == 'flat' and meta.get('normalised'):
         header['CALNORM'] = (meta['level_adu'], 'ADU the flat was divided by')
         header['CALFILL'] = (meta['fill_fraction'], 'fraction of full scale before that')
     fits.writeto(directory / MASTER_FILE, np.asarray(mean, dtype=np.float32),
                  header=header, overwrite=True)
-    sigma_header = _master_header(kind, meta['header'], meta,
+    sigma_header = _master_header(kind, meta['header'], meta, data=sigma,
                                  extra={'CALDATA': ('sigma',
                                                     'per-pixel standard deviation')})
     fits.writeto(directory / SIGMA_FILE, np.asarray(sigma, dtype=np.float32),

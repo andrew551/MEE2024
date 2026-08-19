@@ -5,7 +5,7 @@ Three kinds of artefact, and only two are ever uploaded:
 | artefact | where it comes from | released? |
 |---|---|---|
 | **Star catalogue** `gaia_dr3_g13` | built once from the Gaia archive | yes, tag `catalogues-v1` |
-| **The program** `MEE_2024_v<version>.exe` | `python -m PyInstaller MEE2024.spec` | yes, tag `v<version>` |
+| **The program** `MEE_v<version>.exe` | `python -m PyInstaller MEE2024.spec` | yes, tag `v<version>` |
 | **Plate-solving pattern databases** | derived on the user's own machine | **no — see Part 3** |
 | **Calibration libraries** | built by the observer from their own darks and flats | **no** — they describe one camera at one setpoint, so they are neither shareable nor ours to ship. `mee2024 calibrate` builds one; Part 3's argument applies unchanged. |
 
@@ -139,7 +139,7 @@ reached 2.7 GB on CUDA libraries no part of this project uses. `MEE2024.spec` st
 those by name, but from a clean venv that filter is a safety net rather than the mechanism.
 
 Run it **from the repository root** — the code uses absolute `from mee2024 import ...`
-imports, so the root must be on the path. Produces `dist/MEE_2024_v<version>.exe`, one
+imports, so the root must be on the path. Produces `dist/MEE_v<version>.exe`, one
 file, no Python needed on the target machine. The filename follows `_version()` in
 `mee2024/MEE2024util.py`, so bump that (and `setup.cfg`) first.
 
@@ -166,7 +166,7 @@ a deeper archive can reproduce.
 ## Check before shipping
 
 ```bash
-dist/MEE_2024_v1.3.1.exe --version
+dist/MEE_v1.3.1.exe --version
 ```
 
 **Actually run it.** A broken bundle builds perfectly and dies on the first import —
@@ -174,7 +174,7 @@ PyInstaller 6.12 against numpy 2.5 produced an exe that failed with `No module n
 'numpy._core._exceptions'`, and nothing in the build log hinted at it.
 
 ```bash
-python tools/inspect_exe.py dist/MEE_2024_v1.3.1.exe
+python tools/inspect_exe.py dist/MEE_v1.3.1.exe
 ```
 
 This reads the archive and gates the release on it: the bundled catalogue, the UI frontend,
@@ -184,14 +184,18 @@ proves nothing on a build machine, because that catalogue is installed in its ow
 directory, which is exactly where the runtime looks first.
 
 Then double-click it: the app window opens
-(the default since v1.0.0), and `MEE_2024_v1.3.1.exe gui` still opens the classic
+(the default since v1.0.0), and `MEE_v1.3.1.exe gui` still opens the classic
 interface. Run a small dataset through it and confirm the plate solve succeeds on a machine
 with no catalogue in its data directory — that is the whole point of the bundle.
 
 ## Publish
 
 ```bash
-gh release create v1.3.1 "dist/MEE_2024_v1.3.1.exe" --repo andrew551/MEE2024 --title "MEE2024 v1.3.1" --notes "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still there with: MEE_2024_v1.3.1.exe gui.
+gh release create v1.3.1 "dist/MEE_v1.3.1.exe" --repo andrew551/MEE2024 --title "MEE v1.3.1" --notes-file docs/releases/v1.3.1.md
+
+The notes live in `docs/releases/`, under version control: they are the record of what a
+build contained, and `dist/` is ignored, so notes kept there vanish with the first
+`git clean`. Older text: "Windows executable, no Python installation required. Double-click for the app window, or run it from a terminal for the command line; the classic interface is still there with: MEE_v1.3.1.exe gui.
 
 The headline changes since v1.0.1:
 

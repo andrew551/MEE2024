@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MEE2024</title>
+<title>MEE</title>
 <style>
 :root{
   --bg:#0b0e14; --panel:#131824; --panel-2:#1a2030; --line:#242c3d;
@@ -256,7 +256,7 @@ canvas.plot.rot:active{cursor:grabbing}
         <ellipse cx="12" cy="12" rx="10" ry="4.2" stroke="#a78bfa"/>
         <ellipse cx="12" cy="12" rx="10" ry="4.2" stroke="#6f8dff" transform="rotate(60 12 12)"/>
       </svg>
-      <b>MEE2024</b>
+      <b>MEE</b>
       <span class="version">__MEE_VERSION__</span>
       <span class="byline">Modern Eddington Experiment &middot; __MEE_AUTHORS__</span>
     </div>
@@ -755,7 +755,7 @@ function showDiagnostics(text, trace){
 function diagnosticsText(){
   const err = state.lastError || {};
   const lines = [
-    'MEE2024 error report',
+    'MEE error report',
     '--------------------',
     `version   ${state.version || 'unknown'}`,
     `platform  ${state.platform || navigator.userAgent}`,

@@ -29,7 +29,6 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['blob_saturation_level'] = ui_values['blob_saturation_level']
     options['centroid_gaussian_subtract'] = ui_values['centroid_gaussian_subtract']
     options['save_dark_flat'] = ui_values['save_dark_flat']
-    options['float_fits'] = ui_values['float_fits']
     options['sensitive_mode_stack'] = ui_values['sensitive_mode_stack']
     options['background_subtraction_mode'] = ui_values['background_subtraction_mode']
     try :
@@ -230,7 +229,6 @@ def inputUI(options):
     
     [sg.Checkbox('Show graphics', default=options['flag_display'], key='Show graphics'),
          sg.Checkbox('save_dark_flat', default=options['save_dark_flat'], key='save_dark_flat'),
-         sg.Checkbox('float_32_fits', default=options['float_fits'], key='float_fits'),
      ],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
     [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob',enable_events=True)],
@@ -305,7 +303,7 @@ def inputUI(options):
                        selected_title_color='red', tab_location='top')
                ]]
     
-    window = sg.Window('MEE2024 '+_version(), layout, finalize=True)
+    window = sg.Window('MEE '+_version(), layout, finalize=True)
     window.BringToFront()
     
     def check_file(s):

@@ -246,7 +246,65 @@ def pointing_comment(header_pointing, solved_ra, solved_dec):
     return separation, verdict
 
 
-def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None):
+def _short(value, limit=68):
+    """A FITS card holds 80 characters for keyword, value and comment together."""
+    text = str(value)
+    return text if len(text) <= limit else text[:limit - 1] + '~'
+
+
+def _stack_header(bit_depth=None, n_frames=None, source_header=None,
+                  dark_info=None, flat_info=None, hot_pixels=None):
+    """What a stacked frame needs to say about itself.
+
+    The stack used to carry ``BITDEPTH``, ``NCOMBINE`` and a version, which describes the
+    *stacking* and nothing about the exposure it came from. Anyone reading a STACKED file
+    a month later -- or matching it against a calibration library -- needs the exposure,
+    gain and epoch, and needs to know whether a dark and a flat were actually applied.
+    Absence of a keyword is not evidence: a stack with no ``CALDARK`` could equally be
+    uncalibrated or written by a version that never recorded it, so both are written
+    always, with an explicit ``none``.
+    """
+    header = fits.Header()
+    if bit_depth:
+        header['BITDEPTH'] = (int(bit_depth), 'ADC bits of the source frames')
+    if n_frames:
+        header['NCOMBINE'] = (int(n_frames), 'light frames stacked')
+    header['MEE2024'] = (_version(), 'version that wrote this stack')
+
+    source = source_header or {}
+    for key, comment in (('EXPTIME', 'exposure of one light frame, seconds'),
+                         ('GAIN', 'camera gain of the light frames'),
+                         ('EGAIN', 'e- per ADU'),
+                         ('OFFSET', 'camera offset'),
+                         ('CCD-TEMP', 'sensor temperature, C'),
+                         ('SET-TEMP', 'requested sensor temperature, C'),
+                         ('CAMID', 'camera identifier'),
+                         ('INSTRUME', 'camera'),
+                         ('TELESCOP', 'optical train'),
+                         ('FOCALLEN', 'focal length, mm'),
+                         ('XPIXSZ', 'pixel size, micron'),
+                         ('XBINNING', 'binning'),
+                         ('FILTER', 'filter')):
+        if source.get(key) is not None:
+            header[key] = (source[key], comment)
+    if source.get('DATE-OBS'):
+        # the first frame, not the middle: the epoch a stack should carry is a v1.4.0
+        # question (it moves the fit), so this records what is true today rather than
+        # quietly changing it
+        header['DATE-OBS'] = (source['DATE-OBS'], 'start of the first light frame')
+
+    header['CALDARK'] = (_short((dark_info or {}).get('source') or 'none'),
+                         'master dark applied')
+    header['CALFLAT'] = (_short((flat_info or {}).get('source') or 'none'),
+                         'master flat applied')
+    if hot_pixels is not None:
+        header['CALHOT'] = (int(hot_pixels), 'hot pixels excluded from the stack')
+    return header
+
+
+def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None,
+                       source_header=None, dark_info=None, flat_info=None,
+                       hot_pixels=None):
     """Write the stack in the input frames' own ADU, not stretched to fill the container.
 
     This used to be
@@ -283,12 +341,9 @@ def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None):
     negative_fraction = float(np.count_nonzero(values < 0)) / max(values.size, 1)
     shifted = np.rint(values + pedestal)
 
-    header = fits.Header()
-    if bit_depth:
-        header['BITDEPTH'] = (int(bit_depth), 'ADC bits of the source frames')
-    if n_frames:
-        header['NCOMBINE'] = (int(n_frames), 'light frames stacked')
-    header['MEE2024'] = _version()
+    header = _stack_header(bit_depth=bit_depth, n_frames=n_frames,
+                           source_header=source_header, dark_info=dark_info,
+                           flat_info=flat_info, hot_pixels=hot_pixels)
     header['COMMENT'] = 'pixel values are the input frames ADU, not rescaled'
 
     over = 0
@@ -303,6 +358,28 @@ def write_stacked_fits(path, stacked, bit_depth=None, n_frames=None):
         header['PEDESTAL'] = (pedestal, 'added to keep values non-negative; subtract it')
     fits.writeto(path, data, header=header, overwrite=True)
     return pedestal, over, negative_fraction
+
+
+def write_float_stack(path, stacked, **provenance):
+    """The same stack as float32, with no pedestal and no container to overflow.
+
+    This used to be written only when the classic UI's ``float_32_fits`` box was ticked --
+    off by default, and absent from the app window and the CLI -- and with **no header at
+    all**: no version, no exposure, not even the frame count, so the one output holding the
+    unaltered calibrated values was also the one that could not say where it came from.
+
+    It is now always written, because it is cheap (one file, same array already in memory)
+    and because it is the only form that survives dark subtraction without arithmetic. The
+    16-bit ``STACKED`` file adds a pedestal to keep values non-negative and rounds to
+    integers; both are recoverable, but only if the reader knows to do it. This one needs
+    no correction, which makes it the right input for anything measuring flux.
+    """
+    header = _stack_header(**provenance)
+    header['CALPED'] = (0, 'no pedestal: float32 holds negatives directly')
+    header['COMMENT'] = 'calibrated ADU as measured: no pedestal, no rounding, not rescaled'
+    fits.writeto(path, np.asarray(stacked, dtype=np.float32), header=header,
+                 overwrite=True)
+    return path
 
 
 def _stopped_early(message, files):
@@ -377,7 +454,7 @@ def save_calibration_stacks(output_dir, starttime, darkfiles, dark, flatfiles, f
         path = Path(output_dir) / f'{label}_STACK{starttime}.fit'
         header = calibration._master_header(
             label.lower(), calibration.read_cal_header(frames[0]),
-            {'n_frames': len(frames), 'combine': 'mean'},
+            {'n_frames': len(frames), 'combine': 'mean'}, data=stack,
             extra={'CALSRC': (str(Path(frames[0]).parent)[:68], 'folder it was built from')})
         fits.writeto(path, np.asarray(stack, dtype=np.float32), header=header,
                      overwrite=True)
@@ -909,6 +986,9 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
     # combined at all on an ordinary machine. It also accepts a master straight from the
     # calibration library, which is the usual case now.
     dark, dark_info = calibration.load_or_combine(darkfiles, progress=None)
+    # captured before the None is replaced by a zero array, so the header can say
+    # "none" rather than describing a dark that was never there
+    dark_applied = dark_info if dark is not None else None
     if dark is None:
         dark = np.zeros(imgs_0.shape, dtype=imgs_0.dtype)
     else:
@@ -916,6 +996,7 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
         events.log(f'dark from {dark_info["source"]}'
                    + (f' ({dark_info["combine"]})' if dark_info.get('combine') else ''))
     flat, flat_info = calibration.load_or_combine(flatfiles, progress=None)
+    flat_applied = flat_info if flat is not None else None
     if flat is None:
         flat = np.ones(imgs_0.shape, dtype=float)
     elif flat_info.get('normalised'):
@@ -929,6 +1010,17 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
         # and now that the stack keeps its ADU it would not.
         flat_level = float(np.median(flat[::8, ::8]))
         if flat_level > 0:
+            # the same question the library build asks, on the path that skipped it: a
+            # hand-picked flat set was normalised and applied with nothing checking how
+            # it was exposed
+            try:
+                fill_warning, _, _ = calibration.flat_fill_check(
+                    flat_level, calibration.read_cal_header(flatfiles[0]))
+            except Exception:
+                fill_warning = None
+            if fill_warning:
+                logger.warning(fill_warning)
+                events.log(fill_warning, level='warning')
             flat = flat / flat_level
             logger.info(f'flat normalised by its median level {flat_level:.1f}')
             events.log(f'flat from {flat_info["source"]}, normalised by {flat_level:.1f}')
@@ -1098,9 +1190,18 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
     stacked = np.divide(stack_array, count_array, out=np.zeros_like(stack_array),
                         where=count_array > 0)
 
+    # the light frames' own provenance, so the stack can be matched to a calibration
+    # tier or an epoch without the originals being present
+    try:
+        source_header = calibration.read_cal_header(files[0])
+    except Exception:
+        source_header = {}
+    provenance = dict(bit_depth=bit_depth, n_frames=len(files),
+                      source_header=source_header, dark_info=dark_applied,
+                      flat_info=flat_applied,
+                      hot_pixels=int(np.sum(hot)) if hot is not None else None)
     pedestal, over_16bit, negative_fraction = write_stacked_fits(
-        output_dir / ('STACKED'+starttime+'.fit'), stacked,
-        bit_depth=bit_depth, n_frames=len(files))
+        output_dir / ('STACKED'+starttime+'.fit'), stacked, **provenance)
     if pedestal:
         # Recorded always -- subtracting it recovers the calibrated ADU exactly -- but only
         # *warned* about when the negativity is systematic. On 26 million pixels with a few
@@ -1124,8 +1225,8 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
     if over_16bit:
         events.log(f'{over_16bit} pixel(s) exceeded the 16-bit container, so the stack '
                    f'was saved as float32 rather than clipped')
-    if options['float_fits']:
-        fits.writeto(output_dir / ('STACKED_FLOAT'+starttime+'.fit'), stacked.astype(np.float32))
+    write_float_stack(output_dir / ('STACKED_FLOAT'+starttime+'.fit'), stacked,
+                      **provenance)
     # find centroids on the stacked image
     centroids_stacked_data = get_centroids_blur((stacked, masks_0, masks2_0),
                         options=dict(options, **{'centroid_gaussian_subtract':options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']}), # use sensitive mode if requested only for the stack

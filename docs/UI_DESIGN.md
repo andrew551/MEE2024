@@ -240,8 +240,8 @@ uses absolute `from mee2024 import ...` imports and so needs the repo root on th
 python -m PyInstaller MEE2024.spec --noconfirm
 ```
 
-Produces `dist/MEE_2024_v1.0.0.exe`, **187 MB**, one file, no Python install needed.
-Double-clicking it opens the classic GUI as before; `MEE_2024_v1.0.0.exe ui` opens the new
+Produces `dist/MEE_v1.0.0.exe`, **187 MB**, one file, no Python install needed.
+Double-clicking it opens the classic GUI as before; `MEE_v1.0.0.exe ui` opens the new
 app window, and every CLI subcommand works.
 
 Built and verified with **Python 3.9** — the interpreter that already carried the science

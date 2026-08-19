@@ -14,7 +14,7 @@ from pathlib import Path
 from platformdirs import user_data_dir, user_config_dir
 
 def _version():
-    return 'v1.3.8'
+    return 'v1.3.9'
 
 
 AUTHORS = 'Andrew Smith and Douglas Smith'
@@ -85,6 +85,47 @@ def get_config_path():
     cfg_dir = Path(user_config_dir(APP_NAME, APP_AUTHOR))
     cfg_dir.mkdir(parents=True, exist_ok=True)
     return cfg_dir / "MEE_config.txt"
+
+
+def get_app_config_path():
+    """The app window's own settings file, separate from the shared one.
+
+    They used to be the same file, and the sharing ran one way only: the app window
+    *wrote* `sensitive_mode_stack`, `distortionOrder`, `distortion_fit_tol`,
+    `max_star_mag_dist`, `guess_date` and the folder paths into `MEE_config.txt` -- which
+    the classic UI and the CLI read -- while never reading that file itself. Running the
+    app window once on the "quick" preset therefore left `sensitive_mode_stack: false`
+    waiting for the next classic-UI session, with nothing to show it had happened.
+
+    The rule that settles it: an interface should only apply settings it can show. The
+    classic UI displays forty-odd options and the app window eight, so a shared file means
+    one of them is always running on values the user cannot see or change where they are
+    working. Site and session data -- date, position, temperature, pressure -- is the
+    exception and belongs to the observation rather than to either interface; that is the
+    site file, and it is a v1.4.0 item.
+    """
+    cfg_dir = Path(user_config_dir(APP_NAME, APP_AUTHOR))
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    return cfg_dir / "MEE_app_config.txt"
+
+
+def read_app_ini(options):
+    """The app window's settings, seeded once from the shared file.
+
+    On the first launch after the split there is no app file yet, and starting from bare
+    defaults would silently forget the output folder, catalogue and calibration library
+    the user had already chosen. So the shared file is inherited exactly once; from then
+    on the two are independent and the app window never writes to the shared one again.
+    """
+    path = get_app_config_path()
+    if not path.exists():
+        read_ini(options)
+        return
+    read_ini(options, path=path)
+
+
+def write_app_ini(options):
+    write_ini(options, path=get_app_config_path())
 
 '''
 open config.txt and read parameters

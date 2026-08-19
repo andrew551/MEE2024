@@ -1,7 +1,7 @@
 """
 What actually ended up inside a release executable.
 
-    python tools/inspect_exe.py dist/MEE_2024_v1.2.2.exe
+    python tools/inspect_exe.py dist/MEE_v1.3.9.exe
 
 Running the built exe and seeing `gaia_dr3_g10 ... installed` does *not* prove the bundle
 arrived: the build machine has that catalogue installed in its own data directory, which is

@@ -60,12 +60,14 @@ class Api:
     # ------------------------------------------------------------------ meta
 
     def hello(self):
-        from mee2024.MEE2024util import get_config_path, read_ini
+        from mee2024 import calibration
+        from mee2024.MEE2024util import (get_app_config_path, get_config_path,
+                                         read_app_ini)
         from mee2024.config import get_default_options
         from mee2024.starcat import providers
         defaults = get_default_options()
         saved = get_default_options()
-        read_ini(saved)          # the user's own settings, if they have run before
+        read_app_ini(saved)      # this window's own settings, if it has run before
         return {
             # where the session should pick up from: the folder last used, the
             # catalogue and preset last chosen. Absent on a first run, and the
@@ -78,10 +80,15 @@ class Api:
                 'distortion_order': saved.get('distortionOrder')
                 or defaults['distortionOrder'],
                 # a library is built once and used for a campaign, so re-picking it every
-                # session is exactly what gets forgotten
-                'calibration_library': saved.get('calibration_library') or '',
+                # session is exactly what gets forgotten. With nothing remembered, offer
+                # one inside the output folder rather than an empty box the user has to
+                # fill before the build button does anything
+                'calibration_library': saved.get('calibration_library') or (
+                    str(calibration.default_library_for_output(saved['output_dir']))
+                    if saved.get('output_dir') else ''),
             },
-            'config_path': str(get_config_path()),
+            'config_path': str(get_app_config_path()),
+            'shared_config_path': str(get_config_path()),
             # context for a bug report, gathered where it is actually known
             'platform': f'{platform.platform()} python {platform.python_version()}',
             'solver_info': self._solver_info(),
@@ -238,13 +245,13 @@ class Api:
     def dismiss_cleanup_prompt(self):
         """Remember that the tidy-up was offered, so it is not asked at every launch."""
         from mee2024.config import get_default_options
-        from mee2024.MEE2024util import read_ini, write_ini
+        from mee2024.MEE2024util import read_app_ini, write_app_ini
 
         try:
             options = get_default_options()
-            read_ini(options)
+            read_app_ini(options)
             options['catalogue_cleanup_dismissed'] = True
-            write_ini(options)
+            write_app_ini(options)
         except Exception as exc:          # never let bookkeeping break the session
             events.log(f'could not save the setting: {exc}', level='warning')
         return {'ok': True}

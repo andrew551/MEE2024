@@ -208,14 +208,17 @@ class PipelineRunner:
         """Save the choices this run was given, so the next session starts there.
 
         Without this the app forgot everything between launches -- the folder you
-        last used most of all -- because nothing in the UI ever wrote the config
-        file that the CLI and the classic interface have always used.
+        last used most of all -- because nothing in the UI ever wrote a config file.
+
+        It writes the app window's **own** file. It used to write the shared
+        `MEE_config.txt`, which meant every run left its options behind for the classic
+        UI and the CLI to pick up; see `get_app_config_path`.
         """
-        from mee2024.MEE2024util import read_ini, write_ini
+        from mee2024.MEE2024util import read_app_ini, write_app_ini
 
         try:
             options = get_default_options()
-            read_ini(options)
+            read_app_ini(options)
             lights = [str(p) for p in spec.get('lights') or []]
             if lights:
                 options['workDir'] = str(Path(lights[0]).parent)
@@ -225,7 +228,7 @@ class PipelineRunner:
                     options[option] = str(value)
             for key, value in (spec.get('options') or {}).items():
                 options[key] = value
-            write_ini(options)
+            write_app_ini(options)
         except Exception as exc:      # never let bookkeeping break a run
             events.log(f'could not save settings: {exc}', level='warning')
 
@@ -706,6 +709,12 @@ class PipelineRunner:
         if self.is_running:
             raise RuntimeError('a run is already in progress')
         library = spec.get('library')
+        if not library and spec.get('output_dir'):
+            # a build used to be refused outright without a path. The output folder is
+            # already chosen by then, and that is where derived data belongs
+            from mee2024 import calibration
+            library = str(calibration.default_library_for_output(spec['output_dir']))
+            events.log(f'no library folder given; using {library}')
         if not library:
             raise ValueError('choose where the calibration library should live')
         with self._lock:

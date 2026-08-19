@@ -23,6 +23,27 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip)
 
 
+@pytest.fixture(autouse=True)
+def _never_touch_the_real_config(tmp_path_factory, monkeypatch):
+    """No test may read or write the developer's own settings.
+
+    Several tests exercise code that saves settings -- `remember`, the catalogue
+    cleanup prompt -- and only some of them patched the path. The rest wrote straight
+    into the real config directory, which is how a developer's `output_dir` ends up
+    pointing at `pytest-of-<user>/pytest-204/...`: harmless-looking, and then the app
+    opens its folder picker somewhere that no longer exists.
+
+    Autouse and unconditional, because the failure is silent. A test that wants to
+    inspect the file overrides these with its own path.
+    """
+    from mee2024 import MEE2024util
+    root = tmp_path_factory.mktemp('config')
+    monkeypatch.setattr(MEE2024util, 'get_config_path', lambda: root / 'MEE_config.txt')
+    monkeypatch.setattr(MEE2024util, 'get_app_config_path',
+                        lambda: root / 'MEE_app_config.txt')
+    return root
+
+
 @pytest.fixture
 def options():
     """Default options, with every display flag off."""

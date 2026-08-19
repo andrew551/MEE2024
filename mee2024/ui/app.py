@@ -19,7 +19,7 @@ import webbrowser
 from mee2024.MEE2024util import _version
 from mee2024.ui.server import Api, UiServer
 
-WINDOW_TITLE = f'MEE2024 {_version()}'
+WINDOW_TITLE = f'MEE {_version()}'
 MIN_SIZE = (1024, 680)
 DEFAULT_SIZE = (1320, 880)
 
@@ -44,7 +44,7 @@ def launch(prefer_browser=False, host='127.0.0.1', port=0, block=True,
     server = UiServer(api=Api(), host=host, port=port).start()
     # flush: a frozen (PyInstaller) build buffers stdout when it is redirected or
     # has no console, and this URL is the only way to reach the UI
-    print(f'MEE2024 UI serving at {server.url}', flush=True)
+    print(f'MEE UI serving at {server.url}', flush=True)
 
     if not prefer_browser and have_webview():
         _run_native(server)

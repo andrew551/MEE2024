@@ -682,7 +682,7 @@ def remove(name, options=None):
     except PermissionError as exc:
         raise RuntimeError(
             f'cannot remove {directory}: {exc.strerror or exc}. Something still has '
-            f'the catalogue open -- close any other MEE2024 window and try again.'
+            f'the catalogue open -- close any other MEE window and try again.'
         ) from exc
     return {'name': name, 'path': str(directory), 'freed_bytes': freed}
 

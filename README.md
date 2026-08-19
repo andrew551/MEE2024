@@ -1,5 +1,10 @@
-# MEE2024
-Modern Eddington Experiment codebase
+# MEE — Modern Eddington Experiment
+
+**Formerly MEE2024.** The year named the eclipse the project began before, not the software:
+the same code reduces 2017, 2024 and 2026 data and prepares for 2027. From **v1.3.9** the
+executable is `MEE_v<version>.exe`. The repository, the Python package, the `mee2024` command
+and the `MEE2024` FITS keyword keep their names, so existing clones, scripts, settings and
+installed catalogues are unaffected.
 
 ## Installation
 
