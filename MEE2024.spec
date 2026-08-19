@@ -27,6 +27,7 @@ Bundling notes, each of which was needed to make the build actually run:
 
 import os
 import re
+import shutil
 import sys
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -181,3 +182,17 @@ if sys.platform == 'darwin':
         name=f'{exe_name}.app',
         bundle_identifier='org.mee2024.mee2024',
     )
+
+# The notes belong beside the binary they describe. They are written and version-controlled
+# in docs/releases/, because dist/ is gitignored and notes kept only there vanish with the
+# first `git clean` -- which is how three releases' notes came to exist nowhere but one
+# machine. Copied rather than moved: one source of truth, one build artefact. Doing it here
+# rather than in the checklist because a step that must be remembered is a step that gets
+# forgotten, and the failure is silent -- an exe shipped with no notes beside it.
+_notes = os.path.join('docs', 'releases', f'{_version()}.md')
+if os.path.exists(_notes):
+    _dest = os.path.join('dist', f'release-notes-{_version()}.md')
+    shutil.copyfile(_notes, _dest)
+    print(f'spec: release notes copied to {_dest}')
+else:
+    print(f'spec: WARNING no release notes at {_notes} -- write them before publishing')
