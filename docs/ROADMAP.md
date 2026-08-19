@@ -1,14 +1,16 @@
 # MEE2024 — findings, immediate fixes, and roadmap
 
 **Status:** for discussion. Nothing here is implemented unless marked *done*. Every measurement in §1 was derived from the raw 2026-08-06 London dataset; several supersede earlier claims, and those are flagged where they occur.
-**Date:** 2026-08-08, against v1.3.5; §2 and F1/F10 updated 2026-08-17 for **v1.3.7**
+**Date:** 2026-08-08, against v1.3.5; §2 and F1/F10 updated 2026-08-17 for v1.3.7;
+F11–F13 and §6 updated 2026-08-19 for **v1.3.9**
 
-> **v1.3.7 closed out §2 entirely, plus F1 and F10.** The whole immediate-fix list is done,
-> the run log and batch summary are reachable from the app window, batch mode takes several
-> folders, and the calibration library exists and has been built from the real Leon
-> campaign data. See [`LEON_2026-08-11.md`](LEON_2026-08-11.md) for what that data says.
-> What remains open is F2 and F5–F9, which are features needing their own validation
-> rather than fixes.
+> **§2 is closed entirely, plus F1, F3, F4, F10 and F11.** The whole immediate-fix list is
+> done, the run log and batch summary are reachable from the app window, batch mode takes
+> several folders, the calibration library exists and has been built from the real Leon
+> campaign data, and SER files are read directly. See
+> [`LEON_2026-08-11.md`](LEON_2026-08-11.md) for what that data says. What remains open is
+> F2, F5–F9 and F12 — features needing their own validation rather than fixes. §6 now says
+> which release each one lands in, and why the line is drawn where it is.
 **Audience:** users and contributors. Please argue with it — several items below exist
 because someone's field experience contradicted an assumption in the code.
 
@@ -412,6 +414,26 @@ I2's picker. It also dissolves the hidden-state problem, because the match is an
 each field's own log and recorded in its `field_summary.json`. Hand-picked darks and flats
 still win when they are given — an explicit choice is an explicit choice.
 
+Three decisions from the 2026-08-19 review, none of them built yet:
+
+- **Clear the input fields after a *successful* build**, not after a failed one — a failure
+  should not cost the user the folder selections they just made. Clearing is a courtesy
+  rather than a safety measure: `build_library` is keyed by what the frames are, so an
+  accidental second build **supersedes** a tier rather than adding a near-duplicate. The cost
+  of the accident is minutes, not a corrupted library.
+- **Guard the rebuild instead.** If a valid library already exists at the target path, say
+  what is in it and require confirmation. That covers the case clearing does not — fields
+  re-populated by hand — and it is the guard that actually prevents the accident.
+- **Make calibration one three-way choice — none / manual / library — not two independent
+  settings.** Today `-DARK-`/`-FLAT-` and `calibration_library` can both be set, which is
+  exactly the shape that produces "which one won?" bugs; v1.3.7 already had to fix manual
+  darks leaking invisibly into folder runs (I2). Two failure cases, deliberately treated
+  differently: *library selected but none exists*, or it is empty or unreadable, is a **hard
+  error before the run starts**, because it is a setup mistake and nothing useful can follow;
+  *library exists but has no tier for this field* keeps the current **warn and run
+  uncalibrated** behaviour, because on a batch of eighteen fields one missing tier must not
+  abort the other seventeen.
+
 ### F11 — SER input, and choosing frames without a second copy — **done, v1.3.8**
 
 Raised by a user whose 61 MP camera cannot sustain FITS-per-frame: 122 MB a frame at 3.2 fps
@@ -432,6 +454,85 @@ nothing downstream could detect it. It reports rather than corrects, deliberatel
 
 Full account, including three measures that looked right and failed, in
 [`SER_INPUT.md`](SER_INPUT.md). Not done: a graphical frame selector.
+
+### F12 — Settings that no interface can reach
+
+Raised from the field: `MEE_config.txt` used to sit beside the executable and the source. It
+now resolves through `platformdirs` to
+`AppData\Local\MEE2024\MEE2024\MEE_config.txt` — doubled, because `APP_NAME` and
+`APP_AUTHOR` are both `"MEE2024"` — with **no local fallback**. The copy in the repository
+root is legacy and is read by nothing.
+
+That would be a findability annoyance on its own. Measured against
+`config.DEFAULT_OPTIONS`, it is more than that: of **86 options, 17 are reachable from no
+interface at all** — not the classic UI, not the app window, not a named CLI flag. They are
+editable only by hand-editing that file, or via `mee2024 --set`.
+
+Thirteen of the seventeen change what a reduction does:
+
+| | default | governs |
+|---|---|---|
+| `double_star_cutoff` / `double_star_mag` | 10.0″ / 17.0 | which stars are discarded from the fit |
+| `hot_pixel_sigmas` / `hot_pixel_min_adu` / `hot_pixel_dark_free` | 20.0 / 10.0 / True | defect masking |
+| `img_edge_distance` / `pxl_tol` / `cutoff` | 5 / 10 / 100 | centroid acceptance and stack matching |
+| `sanity_check_centroids` | True | whether centroids are validated at all |
+| `safety_limit_mag` | 13.0 | catalogue depth guard |
+| `platesolve_noise_px` | 0.3 | the v2 solver's noise model |
+| `residual_bins` | 0 | stage-2 residual binning |
+| `DEFAULT_DATE` | 2020-01-01 | fallback epoch when guessing |
+
+The remaining four — `flag_debug`, `catalogue_cleanup_dismissed`, `watch_folder`,
+`default_interface` — are plumbing or UI state, though `default_interface` is the only way to
+choose which window opens and it is buried with the rest.
+
+**The fix is not seventeen new controls.** Hand-maintaining a control per option is how
+seventeen came to be orphaned in the first place, and the next option added will make
+eighteen. Give `DEFAULT_OPTIONS` a schema — default, type, bounds and the help text that is
+already written as comments beside each entry — and generate from it:
+
+- an **Advanced** disclosure in the app window listing every option not surfaced elsewhere,
+  so the orphan count is structurally zero rather than tracked
+- tooltips, from the same help strings
+- `mee2024 config --path` / `--list`, and real `--help` for `--set`
+
+Cheapest useful step, independent of the schema work: a **"reveal settings folder"** button.
+One control, and the file stops being unfindable.
+
+`migrate_config` already keys fixes on the version that wrote the file, so the schema can
+land without resetting anything a user meant to keep.
+
+### F13 — Product naming: drop the year, keep the storage key
+
+`MEE2024` was named before the 2024 eclipse. The program now reduces 2017 Bruns data, 2024
+data and 2026 data, and prepares for 2027 — so the year describes *one dataset*, not the
+software. The groups.io board has already moved from MEE 2024 to MEE 2027, skipping 2026
+entirely, which is the same problem seen from the other side.
+
+**Decision: drop the year rather than chase it.** The executable becomes `MEE_v<version>.exe`
+— `MEE_v1.3.9.exe` — with window titles, README, `CITATION.cff` and release titles to follow.
+Not `MEE_2026`: a year in the name is a promise to rename every year, and it mislabels the
+2017 re-analysis as off-label use of the wrong tool. The version number already carries the
+information the year was standing in for.
+
+**The trap, and why the rename is smaller than it looks.** `APP_NAME` does not only set the
+config path — it feeds `get_data_root()`, which is where the **triangle database, the star
+catalogues and the pattern databases** live. Change `APP_NAME` and every existing install
+looks in a new, empty directory and re-downloads the archive. `migrate_config` keys its fixes
+on the version that wrote the config file; there is no equivalent for the data root.
+
+The way out is that **the product name and `APP_NAME` need not change together.** Rename the
+user-facing surface and leave `APP_NAME = "MEE2024"` permanently, as an opaque storage key
+that users never see. No migration, no re-download.
+
+Measured surface: `MEE_2024` 16 sites (the exe filename pattern), `MEE 2024` 1 (display
+text), `MEE2024` 173 — of which 111 are `MEE2024util` imports, 15 are `MEE2024.spec`, and 58
+are mixed. The user-facing part is roughly **30 sites**: the exe filename, window titles,
+README and docs, `CITATION.cff`, release titles. Left alone deliberately: the `MEE2024util`
+imports, the `mee2024` package and CLI command, `MEE2024.spec`, `APP_NAME`, and the `MEE2024`
+FITS keyword — an opaque provenance token that other people's scripts may already read.
+
+The GitHub repository keeps its legacy name. Renaming it breaks every existing clone, link
+and citation for no user-visible gain.
 
 ### F2 — Affine per-frame alignment
 
@@ -607,9 +708,51 @@ needs the time of day — so F7 still wants it, for a different reason.
 
 ## 6. Suggested order
 
-Steps 1 to 3 of the original order are **done** — I0–I20, F1, F3, F4 and F10, across v1.3.6
-and v1.3.7. What follows is what is left, reordered by what the Leon data has since made
-urgent.
+Steps 1 to 3 of the original order are **done** — I0–I20, F1, F3, F4, F10 and F11, across
+v1.3.6, v1.3.7 and v1.3.8. What follows is organised by *release* rather than by priority,
+split on a single criterion: **whether a change can alter a measured number.**
+
+The reason for splitting that way is v1.3.5. Three builds — v1.3.6, v1.3.7 and v1.3.8 — were
+made and field-tested and none was ever published, so general users are still running a
+version that overwrites its own batch records and exits 1 on success. Getting that body of
+work out matters more than getting the next feature in, and it only stays low-risk if nothing
+rides along that moves a centroid.
+
+### v1.3.9 — additive only, and therefore still the tested v1.3.8
+
+Every item either adds information or changes a message. None changes a number, so the field
+testing behind v1.3.8 carries over.
+
+| | why it is safe |
+|---|---|
+| float32 light stack always written, with a real header | adds a file; the 16-bit primary output is byte-identical |
+| `EXPTIME`/`GAIN`/`DATE-OBS`/calibration-applied in stacked headers | new keywords only |
+| `DATAMIN`/`DATAMAX` on masters | header only |
+| flat fill check on input frames | changes a warning, never the data |
+| `CALIBRATION_LIBRARY` under the **output** folder | a path default; keeps the source data pristine |
+| the app window gets its own settings file | fixes the leak below; no reduction path touched |
+| rename to `MEE_v1.3.9.exe` (F13) | filename and display text only; `APP_NAME` unchanged |
+
+**The settings leak this fixes.** `_remember_settings` reads the existing ini, overlays its
+own keys and writes the whole file back — so the app window **writes** `sensitive_mode_stack`,
+`distortionOrder`, `distortion_fit_tol`, `max_star_mag_dist`, `guess_date` and the folder
+paths into `MEE_config.txt`, the file the classic UI and CLI read, while never reading that
+file itself. Run the app window once on "quick", and `sensitive_mode_stack: false` is waiting
+in the shared config for the next classic-UI session. One-way contamination, and in the
+opposite direction from the one you would guess.
+
+The principle settled on: **an interface should only apply settings it can show.** The classic
+UI can display forty-odd options and the app window eight; if the app window inherited the
+shared file it would run with values the user cannot see or change in the interface they are
+actually using. Hence one settings file per interface — and hence the *site file* in v1.4.0,
+because session and site data (date, time, lat/long, temperature, pressure, humidity, height,
+wavelength) belong to the **observation**, not to an interface, and must stay readable by all
+three. Without the site file, separating the configs would strand the astrometric corrections
+in the classic UI.
+
+### v1.4.0 — the things that change results, re-tested on Leon
+
+Testing starts immediately and in parallel; this is not queued behind v1.3.9's distribution.
 
 1. **F7 — header harvest**, promoted from fifth place. The Leon headers carry `OBSLAT`,
    `OBSLONG`, `SITEELEV`, `JD_UTC`, `CENTALT`/`OBJCTALT`, `AIRMASS`, `FOCTEMP` and
@@ -617,13 +760,24 @@ urgent.
    refraction is the dominant error term**. Refraction needs site, time, temperature,
    pressure and humidity; four of the five are in the headers already and the fifth is in
    `leon_temp_press_humid.csv`. Nothing else on this list unlocks as much.
-2. **F2 — affine alignment.** The largest accuracy item, and the evidence for it already
+2. **The site file, and corrections on by default.** The other half of the settings split
+   above. This turns the astrometric corrections **on**, which changes every fit — which is
+   precisely why it is here and not in v1.3.9.
+3. **First-file dependence.** The epoch moves to mid-sequence rather than frame 0, and the
+   blob mask comes from the stack rather than from one frame. Both change results across all
+   five sites.
+4. **F2 — affine alignment.** The largest accuracy item, and the evidence for it already
    exists (§1.5). Validate against the tracking-off dataset.
-3. **F8 — solve fallback from the header.** `FOCALLEN` 350 and `XPIXSZ` 3.76 give a
+5. **F12 — the settings schema**, plus the "reveal settings folder" button, which can land
+   earlier since it adds a control and changes nothing.
+6. **F8 — solve fallback from the header.** `FOCALLEN` 350 and `XPIXSZ` 3.76 give a
    2.216″/px prior on the Leon rig; the horizon fields at airmass 5.8 are exactly where a
    blind solve is most likely to need it.
-4. **F5 — drift measurement**, now that `JD_UTC` is known to be per-frame in this data.
-5. **F6 — open a previous run from disk.**
-6. **F9 — UI convergence**, gated on Q1.
+7. **F13's remaining surface** — window titles, README, `CITATION.cff` — once the executable
+   rename has been through a release.
 
-Nothing here is urgent enough to interrupt private testing of v1.3.7.
+### v2.0 — and beyond
+
+Tab 3 in the app window, adaptive sensitivity, the Leon exposure-ladder threshold sweep, and
+**F9 — UI convergence**, gated on Q1. Also **F5 — drift measurement**, now that `JD_UTC` is
+known to be per-frame in this data, and **F6 — open a previous run from disk**.
