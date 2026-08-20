@@ -1,0 +1,47 @@
+# Runs the fast test suite on every pull request and on pushes to the release and
+# development branches.
+#
+# windows-latest, not ubuntu: tests/test_regressions.py imports mee2024.UI_handler, which
+# imports FreeSimpleGUI and PIL.ImageTk at module level, so the suite needs tkinter. A Linux
+# runner would fail on a missing GUI toolkit rather than on anything to do with the code,
+# and a red cross that means nothing is worse than no check at all. Windows is also what
+# every release is built and field-tested on.
+#
+# --runslow is deliberately not run here: those 26 tests need the 127 MB triangle database
+# or a network call to the Gaia archive. This job is the fast, deterministic gate.
+
+name: tests
+
+on:
+  pull_request:
+    branches: [main, v1.4.0-dev]
+  push:
+    branches: [main, v1.4.0-dev]
+
+jobs:
+  pytest:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Test
+        run: python -m pytest tests/ -q
+
+      # Says out loud what the suite is expected to report, so a silent drop in collected
+      # tests -- a whole file failing to import, say -- is visible in the log rather than
+      # passing as "all green".
+      - name: Report what ran
+        if: always()
+        run: python -m pytest tests/ -q --collect-only | Select-Object -Last 3
