@@ -245,8 +245,12 @@ Double-clicking it opens the classic GUI as before; `MEE_v1.0.0.exe ui` opens th
 app window, and every CLI subcommand works.
 
 Built and verified with **Python 3.9** — the interpreter that already carried the science
-dependencies, and the more proven PyInstaller target than 3.14. The full test suite passes
+dependencies, and the more proven PyInstaller target than 3.14. The full test suite passed
 on 3.9 as well as 3.14.
+
+*Historical, and true only of v1.0.0.* The floor is **3.12** from 2026-08-20: numpy 2.5 and
+scipy 1.18 both require it, and the suite no longer passes on 3.9 or 3.10 --
+`datetime.fromisoformat` before 3.11 cannot parse the SER sidecar timestamps.
 
 Verified end to end through the frozen exe: `distortion` on the real zwo3 data against the
 offline catalogue reproduced **109.6 mas and recovered 2023-10-28**, matching the source

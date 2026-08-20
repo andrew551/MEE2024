@@ -20,7 +20,7 @@ was settled by measuring, and reversed at least once.
 
 ## Set up
 
-Python 3.9+ (3.12 in practice). From a clone:
+Python 3.12+ -- the floor is numpy's and scipy's, not the code's. From a clone:
 
 ```bash
 python -m venv .venv

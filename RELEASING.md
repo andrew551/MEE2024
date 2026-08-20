@@ -150,7 +150,10 @@ imports, so the root must be on the path. Produces `dist/MEE_v<version>.exe`, on
 file, no Python needed on the target machine. The filename follows `_version()` in
 `mee2024/MEE2024util.py`, so bump that (and `setup.cfg`) first.
 
-Built and tested with Python 3.9; the full suite also passes on newer interpreters.
+Built and tested with Python 3.12 -- what CI pins, and what the shipped v1.3.9 exe bundles.
+This line claimed 3.9 until 2026-08-20. That was stale prose rather than a record of any build
+machine, and it led a collaborator to conclude the released binaries carried a 3.9-only bug.
+**Check the exe, not this file:** the bundled `python3XX.dll` names the interpreter outright.
 
 **The build bundles the compact star catalogue** so a fresh install plate-solves offline
 immediately. The spec looks for `gaia_dr3_g10` in the build machine's catalogue directory

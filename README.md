@@ -14,7 +14,7 @@ The Windows executable (see releases) will run on Windows 10 and 11 computers wi
 
 ### Mac/Linux
 
-- The recommended way to install MEE2024 is via pip in the terminal. As a pre-requisite, this requires an install of Python 3.9+, with Python added to path (see https://www.python.org/downloads/).
+- The recommended way to install MEE2024 is via pip in the terminal. As a pre-requisite, this requires an install of Python 3.12+, with Python added to path (see https://www.python.org/downloads/).
 
 - (Linux only: you may need to install tkinter for python: sudo apt-get install python3-tk)
 
