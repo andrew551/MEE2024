@@ -631,6 +631,119 @@ Those three are one deliverable: *the app window can process eclipse data*.
 
 ---
 
+## 3a. External sources, and what they do and do not settle
+
+Three documents in `I:\Papers` constrain this work and were not previously cited anywhere in
+the repository. None is a project decision; two are external analyses whose conclusions are
+suggestive rather than settled, and this section records which parts are load-bearing and
+which are open.
+
+**Bruns, "Minimizing the Effects of Cubic Optical Distortion on Wide-Field Astrometry" (V5,
+2024-07-18).** Measures cubic distortion for nine telescope/camera combinations (Table 1) and
+argues about where to place the Sun. What it establishes with data:
+
+- **A reducer dominates the cubic distortion.** The same TV-85 + ASI1600 goes from -0.3" with
+  no reducer to **+8.4" with a 0.8x reducer** -- 28x worse and sign-flipped, at 475 mm EFL.
+- **Between-session repeatability**: two telescopes over several nights, refocused each night,
+  camera sometimes removed, imaged above 80 degrees altitude across 10-15 star fields --
+  **7.09" +/-0.9%** and **-1.03" +/-2.6%**. That is a stronger claim than §1.1's, which is a
+  *within*-session bound over 42 minutes on one focus. Read §1.1's "measured for the first
+  time" as "first from this pipeline".
+- **Imaging above 80 degrees to make refraction negligible** is his method, and it is the
+  origin of the zenith/horizon pairing used here. Worth citing rather than re-deriving.
+- The **Askar FRA500 + 0.7x + ASI1600** he recommends measures -0.2", essentially flat. The
+  Leon rig is that optical train with an **ASI2600MM** instead, so the coefficient does not
+  transfer -- a larger sensor reaches further into the field -- but the optic is the clean one.
+
+**What it does not settle: where to put the Sun.** The paper compares *centred* against *one
+corner* and concludes for the corner, because with the Sun centred an error in the cubic
+coefficient acts along the same direction as the deflection. It never analyses an
+**edge-centre** placement, which is the live alternative here: Sun at the centre of the long
+edge with a **two-panel mosaic** rather than four. That is the geometry **Leon was testing**,
+and Douglas holds the analysis. Treat the corner recommendation as one input, not a decision.
+
+### The reference-projection gauge -- the finding that changes how numbers are read
+
+`MEE2026_Bruns_NP101is_Astrometrica_Cross_Analysis_2026-08-05.md` (analysis by Claude, not
+independently reviewed) compares Astrometrica 4.13 against MEE on **four fields Astrometrica
+read from MEE's own `STACKED_FLOAT` output**, so both programs saw identical pixels.
+
+Its central claim: MEE reports distortion in an internal **angular (arc-like)** frame rather
+than the tangent plane, so its coefficients differ from any TAN-gauge tool by a universal
+radial theta-cubed term. Converting between them is therefore two steps:
+
+1. **Basis rescale.** Take the linear Jacobian `J` from Astrometrica's `x'`,`y'` terms
+   (radians per pixel); the nonlinear displacement in MEE's pixel gauge is `J^-1 . dxi`, and
+   each coefficient maps with `W^(i+j)` where `W = max(img_shape)/2`. Mind `det J < 0`.
+2. **Add the gauge term**: `k_TAN ~= k_MEE + ~0.4 "/deg^3`, following theta-cubed.
+
+**Verified here, independently.** Step 1 was re-derived from the code and the logs and agrees.
+For step 2, fitting the difference between the two distortion fields as a *single* radial cubic
+collapses the residual to **0.016-0.021 px** against fields of ~0.46 px rms -- one free
+parameter, four fields. The mechanism is real, and the disagreement is **additive and radial**
+rather than a scale factor, which is why treating it as a scale factor gives incoherent
+per-axis ratios (x3.0 in x, x4.4 in y).
+
+**The constant is not agreed.** The note gives **+0.41 "/deg^3** (its Bruns value +0.4110);
+the measurement here gives **+0.4587 +/-0.0106**, 12% higher on the same data. The theoretical
+tan-minus-arc term is exactly `theta^3/3 = +0.3656 "/deg^3` (confirmed), so the unexplained
+remainder is either ~0.044 (the note) or ~0.093 (here). The methods differ -- the note refits
+both programs' star tables, this used the printed polynomial coefficients as fields, and MEE's
+printed coefficients come from a three-pass fit that folds linear terms back into the plate
+solution each pass. **Do not quote a conversion constant to better than ~10% until that is
+resolved.**
+
+Cheap and actionable regardless: **document MEE's reference projection explicitly**, and
+consider a TAN-gauge export. Anyone comparing MEE output against Astrometrica, ASTAP or a
+published coefficient without the gauge term will conclude the programs disagree by a factor of
+three. On the evidence here they do not -- centroids agree to 0.012 px median, recovered
+catalogue positions to 8 mas, per-star residuals 0.052" against 0.055".
+
+### Central radial residual: tested here, and the stacker is not indicated
+
+The note's §7 reports a "central pixel-space compression" of -8 to -65 mas across three
+sensors and two telescopes, and names **stacking registration** as the leading suspect, on the
+mechanism that linear-only frame alignment plus distortion plus field rotation would leave a
+radius-dependent bias. Two tests were run against that, with polynomial order held fixed in
+each so it cannot confound the result.
+
+**Test 1 -- is it polynomial order?** Re-running stage 2 on Don's HIP 31096 archive, same data
+and version, changing only the order:
+
+| order | rms | nn | 0-15' | 15-25' | 25-35' | 35-45' | 45-60' |
+|---|---|---|---|---|---|---|---|
+| cubic | 71.7 mas | 0.185 | -1.8 | -1.8 | **-12.3** | -8.7 | +10.0 |
+| quintic | 70.0 mas | 0.166 | +5.0 | +3.9 | **-5.9** | -6.0 | +7.0 |
+
+Quintic **halves** the mid-field inward pull and turns the inner bins positive. The note treats
+the cubic underfit (its §4) and the central compression (§7) as separate effects; on this
+data they are not cleanly separable, and a substantial part of the reported compression is
+order.
+
+**Test 2 -- is it stacking?** One frame against a full stack, quintic in both, two datasets:
+
+| dataset | run | stars | rms | 30-45' | 45-60' |
+|---|---|---|---|---|---|
+| Texas 2024, 294MM | 1 frame | 95 | 74.0 mas | +21.5 +/-13 | -14.0 +/-12 |
+| Texas 2024, 294MM | 7 frames | 95 | 50.2 mas | +17.0 +/-8 | -16.4 +/-11 |
+| London 2026, 533MM | 1 frame | 185 | 83.4 mas | -5.7 | +5.2 |
+| London 2026, 533MM | 10 frames | 185 | 67.8 mas | -3.4 | +2.2 |
+
+The coherent outer-field structure is **present in a single frame at the same amplitude**, and
+where stacking changes anything it makes it *smaller*, consistent with noise averaging. On this
+evidence stacking does not introduce the pattern.
+
+**Caveats, and they matter.** Both datasets are star-poor -- 95 and 185 matched stars, so
+per-bin standard errors of 5-25 mas against an effect of the same size. Neither is the NP101is
+the note measured. And neither is expected to carry field rotation: **Don's data almost
+certainly has none**, which removes the note's proposed mechanism from his fields whatever the
+stacker does. `I:\Toby Portland 2026` is the dataset that plausibly does have poor polar
+alignment, and is where the rotation hypothesis should actually be tested. **That test has not
+been run.**
+
+So: not confirmed, not refuted. What it does say is that **F2 should not be justified on this
+basis** -- §1.5's drift measurement remains its real argument.
+
 ## 4. Open questions — for the group, not for the code
 
 **Q1. Does the eclipse campaign need stage 3 in the GUI?** The error budget and benchmarks
