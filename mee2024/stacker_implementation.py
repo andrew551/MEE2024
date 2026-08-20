@@ -10,8 +10,8 @@ import scipy.ndimage
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import time
-from mee2024.MEE2024util import (output_path, _version, setup_logger, close_logger,
-                                 date_string_to_float)
+from mee2024.MEE2024util import (output_path, _version, environment_line, setup_logger,
+                                 close_logger, date_string_to_float)
 from mee2024 import calibration
 from mee2024 import events
 from mee2024 import framescan
@@ -950,6 +950,8 @@ def do_stack(files, darkfiles, flatfiles, options, progress=None):
     os.makedirs(data_dir, exist_ok=True)
     print(f'logpath {logpath}')
     logger = setup_logger('logger'+starttime, logpath)
+    logger.info(f'MEE2024 {_version()}')
+    logger.info(f'environment: {environment_line()}')
     try:
         return _do_stack(files, darkfiles, flatfiles, options, progress,
                          starttime, output_dir, data_dir, logger)

@@ -20,6 +20,34 @@ def _version():
 AUTHORS = 'Andrew Smith and Douglas Smith'
 
 
+#: Packages whose version can move a measured number. astropy does the coordinate transforms
+#: the refraction correction rides on, photutils does the centroiding, and numpy/scipy carry
+#: the fits. Recorded because none of them is pinned: setup.cfg names them without versions,
+#: so two installs a month apart can resolve differently and nothing else would say so. A
+#: collaborator's environment resolved astropy 6.1.7 against this machine's 8.0.1 -- two major
+#: versions -- and the only reason anyone knew was that he happened to run `pip list`.
+_STAMPED = ('numpy', 'scipy', 'astropy', 'photutils', 'scikit-image', 'pandas')
+
+
+def environment_line():
+    """One line naming the interpreter and the versions that can affect a result.
+
+    Written beside every result so a number stays traceable to what produced it. Best effort:
+    a package that cannot be found is reported as `?` rather than raising, since a missing
+    version must never be the thing that stops a reduction finishing.
+    """
+    import importlib.metadata as _md
+
+    parts = [f'python {sys.version_info.major}.{sys.version_info.minor}.'
+             f'{sys.version_info.micro}']
+    for name in _STAMPED:
+        try:
+            parts.append(f'{name} {_md.version(name)}')
+        except Exception:
+            parts.append(f'{name} ?')
+    return ', '.join(parts)
+
+
 def _version_tuple(text):
     """('v1.0.0') -> (1, 0, 0). Unparseable input sorts as the oldest possible version."""
     parts = []

@@ -197,3 +197,23 @@ def test_this_interpreter_satisfies_the_declared_floor():
     assert sys.version_info[:2] >= floor, (
         f'this is Python {sys.version_info.major}.{sys.version_info.minor}, but setup.cfg '
         f'requires >={floor[0]}.{floor[1]} -- rebuild the venv on a supported interpreter')
+
+
+def test_environment_line_names_the_interpreter_and_the_packages_that_move_numbers():
+    """Written beside every result, because none of these is pinned.
+
+    setup.cfg names numpy, scipy, astropy and photutils without versions, so two installs a
+    month apart resolve differently and nothing else records which one produced a number. A
+    collaborator's environment held astropy 6.1.7 against this machine's 8.0.1 -- two major
+    versions, in the library the refraction correction transforms through -- and the only
+    reason anyone found out was that he happened to compare pip list output.
+    """
+    import sys
+
+    from mee2024.MEE2024util import environment_line
+
+    line = environment_line()
+    assert f'python {sys.version_info.major}.{sys.version_info.minor}' in line
+    for package in ('numpy', 'scipy', 'astropy', 'photutils'):
+        assert package in line, f'{package} is in the measurement path and must be recorded'
+    assert '?' not in line, f'a version could not be read: {line}'

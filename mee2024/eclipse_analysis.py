@@ -13,7 +13,7 @@ from mee2024.refraction_correction import _find_rotation_matrix
 import scipy
 from pathlib import Path
 import datetime
-from mee2024.MEE2024util import output_path, _version
+from mee2024.MEE2024util import output_path, _version, environment_line
 
 import astropy
 from astropy.coordinates import EarthLocation, get_body, AltAz
@@ -374,6 +374,9 @@ def eclipse_analysis(path_data, options):
     print(output_file)
     with open(output_file, 'w') as f:
         f.write(f"MEE2024 version: {_version()}\n")
+        # the environment beside the result: astropy and photutils are in the measurement
+        # path and neither is pinned, so the number is not reproducible without them
+        f.write(f"environment: {environment_line()}\n")
         f.write(f"input file: {path_data}\n\n")
         f.write(f"limiting magnitude: {options['eclipse_limiting_mag']}\n")
         if options['limit_radial_sun_radii']:

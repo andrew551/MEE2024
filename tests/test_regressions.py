@@ -309,6 +309,65 @@ def test_erfa_ld_is_restored_when_correct_ra_dec_raises():
         erfa.ld = original  # never poison the rest of the suite, even if this fails
 
 
+def test_astropy_still_reaches_the_erfa_ld_module_global():
+    """The mirror of the test above: that one proves the patch is removed, this proves it
+    was ever applied.
+
+    `AstroCorrect` disables gravitational light deflection by replacing the *module-global*
+    `erfa.ld`, which works only because astropy looks that name up at call time. If a future
+    astropy binds `ld` at import, or routes through an internal, the patch silently becomes a
+    no-op and the deflection stays on -- in an experiment whose measurement is a light
+    deflection. Nothing existing would notice: the revert test still passes, because a patch
+    that never applied is also a patch that was correctly removed.
+
+    Two assertions, because either half can fail on its own: that astropy calls the global at
+    all, and that zeroing the mass actually moves the answer.
+
+    Geometry is frozen rather than taken from `get_sun`, so the expected size does not drift
+    with the ephemeris. The star sits 2 deg from the Sun's 2026-08-12 position, about 7.7
+    solar radii, where 1.751/7.7 = 0.227 arcsec is expected; astropy 8.0.1 gives 0.2387.
+    """
+    import erfa
+    from astropy.coordinates import AltAz, EarthLocation, SkyCoord
+    from astropy.time import Time
+    import astropy.units as u
+
+    location = EarthLocation(lat=51.5, lon=0.0, height=0 * u.m)
+    when = Time('2026-08-12 18:29:00')
+    star = SkyCoord(ra=144.106920 * u.deg, dec=14.908897 * u.deg)   # 2 deg from the Sun
+    frame = AltAz(location=location, obstime=when)
+
+    original = erfa.ld
+    masses = []
+
+    def spy(bm, *args):
+        masses.append(float(np.max(bm)))
+        return original(bm, *args)
+
+    def no_deflection(bm, *args):
+        return original(0, *args)
+
+    try:
+        erfa.ld = spy
+        with_deflection = star.transform_to(frame)
+        erfa.ld = no_deflection
+        without = star.transform_to(frame)
+    finally:
+        erfa.ld = original
+
+    assert masses, (
+        'astropy did not call the module-global erfa.ld during an AltAz transform, so '
+        'AstroCorrect cannot disable the deflection any more -- enable_gravitational_def '
+        'is now silently ignored')
+    assert masses[0] == pytest.approx(1.0), (
+        f'expected the deflector mass in solar masses, got {masses[0]}')
+
+    shift = with_deflection.separation(without).to(u.arcsec).value
+    assert 0.15 < shift < 0.40, (
+        f'zeroing the deflector mass moved the position by {shift:.4f} arcsec; expected '
+        'about 0.24 at this geometry. Exactly 0 means the patch had no effect')
+
+
 def test_open_image_names_a_missing_file(tmp_path):
     """open_image blamed cvtColor for a path that was never openable.
 
