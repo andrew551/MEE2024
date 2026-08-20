@@ -699,6 +699,34 @@ published coefficient without the gauge term will conclude the programs disagree
 three. On the evidence here they do not -- centroids agree to 0.012 px median, recovered
 catalogue positions to 8 mas, per-star residuals 0.052" against 0.055".
 
+**Does the gauge term affect the deflection measurement? No -- verified.** It is a
+*field-centred radial theta-cubed* term, which is one of the basis functions the distortion
+polynomial already fits, so it lands entirely in the fitted cubic coefficient and changes no
+residual, no star position and no deflection. Three checks:
+
+- **It really is pure theta-cubed.** The next term of `tan(theta) - theta` is
+  `2*theta^5/15`, which is 1.2e-4 of the cubic term at 1 degree and 2.1e-4 at 1.3 degrees.
+  A cubic fit absorbs the gauge completely; it does not leak into the quintic terms.
+- **Deflection cannot alias with it.** Deflection is Sun-centred and goes as 1/r; the gauge is
+  field-centred and goes as theta-cubed. Different centre, different radial law -- and in the
+  planned geometry the Sun is not at the field centre in any case.
+- **The calibration-transfer step preserves the cancellation.** Holding the cubic fixed from a
+  zenith field into an eclipse field is the one place an offset could survive. It does not:
+  `distortion_reference_files` (`--fix-distortion`) loads MEE's own `distortion_results.txt`
+  and reads `"distortion coeffs x"`/`"distortion coeffs y"` from it, so both ends are in MEE's
+  gauge.
+
+It follows that the 12% disagreement over the constant above is also irrelevant to the
+measurement. It matters only for cross-program conversion.
+
+**The one way it bites: a coefficient typed in from outside.** A value taken from Bruns'
+Table 1, an Astrometrica log or any published source is in TAN gauge, and MEE would treat it
+as its own -- injecting ~0.4 "/deg^3 into the held-fixed cubic. Bruns' paper is explicit that
+an error in exactly that coefficient biases the Einstein coefficient, worst with the Sun
+centred. So the gauge is harmless until a number crosses a program boundary, and then it is a
+first-order error. Worth a guard on the reference-file path, and worth stating the gauge
+alongside any coefficient this project publishes.
+
 ### Central radial residual: tested here, and the stacker is not indicated
 
 The note's §7 reports a "central pixel-space compression" of -8 to -65 mas across three
