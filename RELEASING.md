@@ -6,8 +6,15 @@ Three kinds of artefact, and only two are ever uploaded:
 |---|---|---|
 | **Star catalogue** `gaia_dr3_g13` | built once from the Gaia archive | yes, tag `catalogues-v1` |
 | **The program** `MEE_v<version>.exe` | `python -m PyInstaller MEE2024.spec` | yes, tag `v<version>` |
+| **Release notes** `docs/releases/v<version>.md` | written by hand, **before** the build | yes, as the release body |
 | **Plate-solving pattern databases** | derived on the user's own machine | **no — see Part 3** |
 | **Calibration libraries** | built by the observer from their own darks and flats | **no** — they describe one camera at one setpoint, so they are neither shareable nor ours to ship. `mee2024 calibrate` builds one; Part 3's argument applies unchanged. |
+
+Write the notes **before** building. The spec copies `docs/releases/v<version>.md` to
+`dist/release-notes-v<version>.md` as its last step, so the notes end up beside the binary
+they describe, and warns if they are missing. The copy in `dist/` is a build artefact; the
+tracked file is the source. `dist/` is gitignored, which is how the v1.3.7 and v1.3.8 notes
+came to exist on one machine and nowhere else.
 
 Catalogues and software are separate releases because the catalogues change far less often
 than the code: pinning them together would mean re-uploading hundreds of megabytes for

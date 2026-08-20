@@ -110,3 +110,29 @@ def test_migration_promotes_the_v2_solver_once(tmp_path):
     deliberate = {'__version__': MEE2024util._version(), 'platesolver': 'triangle'}
     assert MEE2024util.migrate_config(deliberate) == []
     assert deliberate['platesolver'] == 'triangle'
+
+
+def test_the_two_version_numbers_agree():
+    """The version lives in two files, and one of them was missed at v1.3.9.
+
+    `MEE2024util._version()` names the executable and stamps every FITS header; the
+    `version` in setup.cfg is the pip package metadata. Every release from v1.3.2 to
+    v1.3.8 bumped both, by hand, and v1.3.9 shipped with setup.cfg still saying 1.3.8 --
+    so `pip show mee2024` reported a version that had never been built.
+
+    Compared as a numeric triple rather than as text, so a pre-release suffix on a
+    development branch (`v1.4.0-dev`) does not have to be mirrored into packaging
+    metadata that has its own spelling rules.
+    """
+    import configparser
+    from pathlib import Path
+
+    from mee2024.MEE2024util import _version, _version_tuple
+
+    cfg = configparser.ConfigParser()
+    cfg.read(Path(__file__).parent.parent / 'setup.cfg', encoding='utf-8')
+    packaged = cfg['metadata']['version']
+
+    assert _version_tuple(packaged) == _version_tuple(_version()), (
+        f'setup.cfg says {packaged}, MEE2024util._version() says {_version()} -- '
+        'bump both when releasing')

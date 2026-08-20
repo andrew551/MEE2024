@@ -320,6 +320,28 @@ def main():
     print('OK' if not problems else f'PROBLEMS: {problems}')
     print(f'\ntry it with:  mee2024 catalogue --verify {args.name}')
 
+    # The chunk cache is what makes the build resumable, so it is deliberately NOT
+    # deleted here: a build that verified but that the operator has not yet accepted is
+    # exactly when losing it would hurt. It is not deleted silently either, because it is
+    # large and invisible -- a 1.7 GB cache sat unnoticed under the catalogue directory
+    # for two weeks after gaia_dr3_g15 was built.
+    #
+    # It is safe to remove once the catalogue verifies and has been packed and published.
+    # Measured on that g15 build: the installed catalogue held all 36,909,335 stars the
+    # stripes did, every column at the same precision -- 7 bit-identical, ra/dec agreeing
+    # to 6e-14 degrees after the documented degrees-to-radians conversion. Nothing in the
+    # cache is unique. Note too that a cache from one magnitude range does not help build
+    # another: those stripes stopped at G = 15.000, so a deeper catalogue re-queries the
+    # archive regardless.
+    if work_dir.is_dir():
+        cached = sum(f.stat().st_size for f in work_dir.glob('*.npy'))
+        if cached:
+            print()
+            print(f'chunk cache: {cached / 1e9:.2f} GB in {work_dir}')
+            print('  Kept so the build can be resumed. Once this catalogue is verified,')
+            print('  packed and published -- and not before -- it can be deleted; every')
+            print('  column it holds is preserved in the catalogue itself.')
+
 
 if __name__ == '__main__':
     main()
