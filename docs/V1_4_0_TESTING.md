@@ -76,11 +76,13 @@ rms here (correlation +0.01), so sell it as removing a known defect, not as reco
 
 ### F12 — the settings schema
 
-17 of 86 options reachable from no interface, 13 of which change a reduction. Two known
-regressions: `pxl_tol` was exposed as "pixel_tolerance" in v0.3.1 and is not now, and Tab 3's
-**Sun-centred cutoff radius** and **centre-on-Moon** appear in v0.4.6 screenshots with no
-option in `DEFAULT_OPTIONS` (LEON §17). Also `--order` offers only linear/cubic/quintic/septic
-while the code implements quadratic, quartic and sextic.
+17 of 86 options reachable from no interface, 13 of which change a reduction. One known
+regression: `pxl_tol` was exposed as "pixel_tolerance" in v0.3.1 and is not now. Tab 3's
+Sun-centred cutoff radius and centre-on-Moon were listed here as a second regression; that was
+wrong -- both are live options and the classic UI still shows them (LEON §17). They are
+classic-UI-only, which is an exposure gap of the ordinary kind, not a regression. Also
+`--order` offers only linear/cubic/quintic/septic while the code implements quadratic, quartic
+and sextic.
 
 ### F8 — solve fallback from the header
 
