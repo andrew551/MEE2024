@@ -73,7 +73,12 @@ class AstroCorrect:
                        relative_humidity=options['observation_humidity']*u.m/u.m, temperature=options['observation_temp']*u.deg_C)
         else:
             aa = AltAz(location=observing_location, obstime=observing_time)
-        coord = stardata.c#SkyCoord(stardata.get_ra() * u.rad, stardata.get_dec() * u.rad, distance = Distance(parallax = parallax * u.mas)) # u.mas: milli-arcsec
+        # StarData exposed the SkyCoord as an attribute `.c`; StarTable, which replaced it,
+        # builds one lazily through `skycoord()`. The migration kept every `get_*` accessor
+        # name but not this one, and nothing caught it because the whole correction is off
+        # by default -- so `enable_corrections` raised AttributeError on the first star
+        # table it was given, for as long as the new catalogue layer has existed.
+        coord = stardata.skycoord() if hasattr(stardata, 'skycoord') else stardata.c
         local = coord.transform_to(aa)
         print('sky mean position alt/az:', np.mean(local.alt.degree), np.mean(local.az.degree))
         if np.mean(local.alt.degree) < 5:
@@ -92,10 +97,24 @@ class AstroCorrect:
         c_app = SkyCoord(ra=app_ra * u.rad,
                  dec=app_dec * u.rad, obstime=observing_time)
 
-        ret.epoch = observing_time
-        ret.haspm = False
-        ret.c = c_app
-        ret._update_vectors()
+        # The write-back was also StarData-shaped: `.c`, `.haspm` and `_update_vectors()`
+        # do not exist on StarTable, which uses __slots__ and would reject them anyway.
+        # `select(slice(None))` is the copy idiom the table itself uses in `at_epoch`.
+        if hasattr(ret, 'select'):
+            ret = stardata.select(slice(None))
+            ret.ra = np.asarray(app_ra, dtype=np.float64)
+            ret.dec = np.asarray(app_dec, dtype=np.float64)
+            # positions are now apparent at the observation, not catalogue positions at
+            # the catalogue epoch, so the epoch has to say so or a later propagation would
+            # move them a second time
+            ret.epoch = float(observing_time.jyear)
+            ret._vectors = None
+            ret._skycoord = None
+        else:
+            ret.epoch = observing_time
+            ret.haspm = False
+            ret.c = c_app
+            ret._update_vectors()
         return ret, np.mean(local.alt.degree), np.mean(local.az.degree)
         
 
