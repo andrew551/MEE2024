@@ -136,3 +136,64 @@ def test_the_two_version_numbers_agree():
     assert _version_tuple(packaged) == _version_tuple(_version()), (
         f'setup.cfg says {packaged}, MEE2024util._version() says {_version()} -- '
         'bump both when releasing')
+
+
+def _declared_floor():
+    """`python_requires` from setup.cfg, as an (major, minor) tuple."""
+    import configparser
+    import re
+    from pathlib import Path
+
+    cfg = configparser.ConfigParser()
+    cfg.read(Path(__file__).parent.parent / 'setup.cfg', encoding='utf-8')
+    declared = cfg['options']['python_requires']
+    match = re.fullmatch(r'>=\s*(\d+)\.(\d+)', declared.strip())
+    assert match, f'python_requires is {declared!r}, which this test cannot read'
+    return int(match.group(1)), int(match.group(2))
+
+
+def test_ci_tests_the_python_version_the_package_claims_to_require():
+    """The floor is a promise; CI is the only evidence for it. They are separate edits.
+
+    `python_requires` in setup.cfg is what pip enforces on anyone installing from source.
+    `python-version` in .github/workflows/tests.yml is what the suite actually runs on.
+    Nothing but this test connects them, and that gap is not hypothetical: the floor said
+    `>=3.9` until 2026-08-20 while CI had only ever run 3.12, so the 3.9 claim was never
+    exercised by anything. It was false -- numpy 2.5 and scipy 1.18 both require 3.12 -- and
+    a collaborator on 3.10.7 found out by getting a clean install and a failing suite.
+
+    Asserts the floor is *among* the tested versions rather than equal to the only one, so a
+    matrix that adds a newer interpreter still passes. What must not happen is CI moving off
+    the floor and leaving the promise untested again.
+    """
+    import re
+    from pathlib import Path
+
+    workflow = (Path(__file__).parent.parent
+                / '.github' / 'workflows' / 'tests.yml').read_text(encoding='utf-8')
+    tested = {tuple(int(part) for part in m.group(1).split('.'))
+              for m in re.finditer(r"""python-version:\s*['"]?(\d+\.\d+)""", workflow)}
+    assert tested, 'no python-version found in tests.yml -- has the workflow changed shape?'
+
+    floor = _declared_floor()
+    assert floor in tested, (
+        f'setup.cfg requires >={floor[0]}.{floor[1]} but CI runs '
+        f'{", ".join(f"{v[0]}.{v[1]}" for v in sorted(tested))} -- the floor is a promise to '
+        'users and CI is the only thing that checks it, so one of the two is wrong')
+
+
+def test_this_interpreter_satisfies_the_declared_floor():
+    """Run on something older than the floor and this says so, rather than letting an
+    unrelated test fail for a reason nobody connects to the interpreter.
+
+    That is precisely what happened on 2026-08-20: a 3.10.7 machine installed cleanly,
+    because `python_requires` still said `>=3.9`, and the only symptom was a SER timestamp
+    test failing on a stdlib difference (`datetime.fromisoformat` gained full ISO 8601 in
+    3.11). One clear failure beats a puzzling one.
+    """
+    import sys
+
+    floor = _declared_floor()
+    assert sys.version_info[:2] >= floor, (
+        f'this is Python {sys.version_info.major}.{sys.version_info.minor}, but setup.cfg '
+        f'requires >={floor[0]}.{floor[1]} -- rebuild the venv on a supported interpreter')

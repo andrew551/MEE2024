@@ -28,7 +28,7 @@ python -m venv .venv
 .venv/Scripts/python.exe -m pytest tests/ -q
 ```
 
-Expect **870 passed, 26 skipped**. The skips need `--runslow`: the 127 MB triangle database
+Expect **872 passed, 26 skipped**. The skips need `--runslow`: the 127 MB triangle database
 or a network call.
 
 You do not need any observational data to work on this. The 3.5 GB of FITS under

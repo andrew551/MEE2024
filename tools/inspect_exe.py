@@ -11,7 +11,15 @@ this does that, and checks the other things a bundle can silently lose:
 * the compact catalogue, without which a fresh install cannot solve a plate offline;
 * the single-file UI frontend and the star-label index, which live at hand-written
   destinations in the spec and so break quietly when those are wrong;
-* GPU/ML stacks, which nothing here imports and which once turned a build into 2.7 GB.
+* GPU/ML stacks, which nothing here imports and which once turned a build into 2.7 GB;
+* **the bundled interpreter**, which is the one users actually run.
+
+That last one is here because RELEASING.md claimed for a while that releases were built on
+Python 3.9, which was stale prose and not a record of any build machine. Working from it, a
+collaborator reasonably concluded the shipped binaries carried a 3.9-only bug in the SER
+timestamp parser. They do not -- but settling that meant pulling `python3XX.dll` out of the
+archive by hand, when the archive names it outright. No document can be trusted about the
+build interpreter; the bundle can.
 
 Exits non-zero if any of that is wrong, so it can gate a release.
 """
@@ -34,6 +42,8 @@ def main():
     ap.add_argument('exe', help='the built one-file executable')
     ap.add_argument('--catalogue', default='gaia_dr3_g10',
                     help='the catalogue the spec should have bundled')
+    ap.add_argument('--expect-python', metavar='X.Y',
+                    help='fail unless the bundled interpreter is this version, e.g. 3.12')
     args = ap.parse_args()
 
     names = list(CArchiveReader(args.exe).toc)
@@ -57,6 +67,19 @@ def main():
         print(f'{label}: {len(found)} file(s)' if found else f'{label}: MISSING')
         if not found:
             problems.append(f'{label} is not in the archive')
+
+    # python312.dll, not python3.dll: the stable-ABI shim carries no version number
+    matches = [re.fullmatch(r'python(\d)(\d{1,2})\.dll', n, re.I) for n in names]
+    versions = sorted({f'{m.group(1)}.{m.group(2)}' for m in matches if m})
+    print(f'\nbundled interpreter: {", ".join(versions) if versions else "NOT FOUND"}')
+    if not versions:
+        problems.append('no python3XX.dll in the archive -- either this is not a frozen '
+                        'CPython bundle, or PyInstaller changed how it names one')
+    elif len(versions) > 1:
+        problems.append(f'more than one interpreter bundled: {", ".join(versions)}')
+    elif args.expect_python and versions[0] != args.expect_python:
+        problems.append(f'built on Python {versions[0]}, expected {args.expect_python} '
+                        f'-- check which venv produced this')
 
     tops = {re.split(r'[\\/]', n)[0].split('.')[0].lower() for n in names}
     heavy = sorted(tops & HEAVY)

@@ -205,11 +205,14 @@ PyInstaller 6.12 against numpy 2.5 produced an exe that failed with `No module n
 'numpy._core._exceptions'`, and nothing in the build log hinted at it.
 
 ```bash
-python tools/inspect_exe.py dist/MEE_v1.3.1.exe
+python tools/inspect_exe.py dist/MEE_v1.3.1.exe --expect-python 3.12
 ```
 
 This reads the archive and gates the release on it: the bundled catalogue, the UI frontend,
-the star-label index, Hipparcos, Tycho, and the absence of any GPU/ML stack. Reading the
+the star-label index, Hipparcos, Tycho, the absence of any GPU/ML stack, and the interpreter
+the bundle carries. Pass `--expect-python` and a build from the wrong venv fails here rather
+than shipping -- the exe embeds whatever interpreter built it, so that one is the only Python
+version most users will ever run, and no document in this repository is evidence about it. Reading the
 archive is the only honest check — running the exe and seeing `gaia_dr3_g10 ... installed`
 proves nothing on a build machine, because that catalogue is installed in its own data
 directory, which is exactly where the runtime looks first.
