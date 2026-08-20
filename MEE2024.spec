@@ -31,7 +31,8 @@ import shutil
 import subprocess
 import sys
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import (collect_data_files, collect_submodules,
+                                     copy_metadata)
 
 package = os.path.join(os.getcwd(), 'mee2024')
 if not os.path.isdir(package):
@@ -79,6 +80,22 @@ print(f'spec: building {exe_name}')
 
 datas = []
 datas += collect_data_files('astroquery', includes=['CITATION'])
+
+# The environment stamp in every result file and run log reads these versions through
+# importlib.metadata, which needs the package's .dist-info in the archive. PyInstaller
+# bundles dist-info only when something demands it: the v1.3.9 exe happened to carry numpy's
+# and astropy's and not scipy's, photutils', scikit-image's or pandas', so four of the six
+# would have reported '?' to every exe user -- including photutils, which does the
+# centroiding, and scipy, which does the fits. The stamp exists to make a number traceable,
+# and the exe is what almost everyone runs, so it has to work there above all.
+#
+# Keep this list in step with MEE2024util._STAMPED; tools/inspect_exe.py checks the archive.
+for _package in ('numpy', 'scipy', 'astropy', 'photutils', 'scikit-image', 'pandas'):
+    try:
+        datas += copy_metadata(_package)
+    except Exception as _exc:                       # never fail a build over a stamp
+        print(f'spec: WARNING no metadata for {_package} ({_exc}); '
+              f'the environment stamp will report it as ?')
 
 # Bundled catalogues and the UI. Note the two different destinations, which are not
 # interchangeable:

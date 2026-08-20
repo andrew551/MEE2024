@@ -81,6 +81,17 @@ def main():
         problems.append(f'built on Python {versions[0]}, expected {args.expect_python} '
                         f'-- check which venv produced this')
 
+    # environment_line() reads these through importlib.metadata, which needs .dist-info in
+    # the archive. The v1.3.9 exe carried numpy's and astropy's but not the other four.
+    stamped = ('numpy', 'scipy', 'astropy', 'photutils', 'scikit_image', 'pandas')
+    dist_info = [n for n in names if 'dist-info' in n.lower()]
+    missing = [pkg for pkg in stamped
+               if not any(n.lower().startswith(pkg) for n in dist_info)]
+    print(f'\nstamp metadata: {len(stamped) - len(missing)}/{len(stamped)} packages')
+    if missing:
+        problems.append(f'no .dist-info for {", ".join(missing)} -- the environment stamp '
+                        f'in every result file will report them as "?"')
+
     tops = {re.split(r'[\\/]', n)[0].split('.')[0].lower() for n in names}
     heavy = sorted(tops & HEAVY)
     print(f'\nheavy GPU/ML stacks: {", ".join(heavy) if heavy else "none"}')
