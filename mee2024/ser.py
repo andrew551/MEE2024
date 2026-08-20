@@ -36,12 +36,19 @@ start/middle/end -- plus something FITS does not have: explicit confirmation tha
 flat, background subtraction or banding suppression was applied. See :func:`read_sidecar`.
 """
 
+import logging
 import re
 import struct
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
+
+#: Module logger, deliberately without a handler of its own. It inherits whatever the run
+#: configured, and with nothing configured Python's last-resort handler still puts a warning
+#: on stderr -- so an unreadable sidecar is visible either way. Attaching a FileHandler here
+#: would repeat the leak that ``MEE2024util.close_logger`` exists to undo.
+_LOGGER = logging.getLogger(__name__)
 
 #: What the first 14 bytes of every SER file say.
 FILE_ID = 'LUCAM-RECORDER'
@@ -281,6 +288,21 @@ def sidecar_path(path):
 
 
 def _parse_value(raw, kind):
+    """One sidecar value, as the matching FITS header would carry it.
+
+    ``None`` means the value could not be read, which drops the key. The raw text survives
+    under ``'_raw'``, so nothing is lost -- but an unreadable *timestamp* is now logged
+    rather than discarded in silence. It used to return ``None`` with nothing said, so a
+    capture whose ``StartCapture`` would not parse lost ``DATE-OBS``, fell through to the
+    date guesser, and left no record of why: indistinguishable from a sidecar that never
+    carried a time at all.
+
+    That silence hid a real interpreter dependency for a while. ``datetime.fromisoformat``
+    before Python 3.11 accepts only 3 or 6 fractional digits, and these files write 7
+    (``...T18:28:45.5937053Z``), so every SER capture reduced on 3.9 or 3.10 quietly lost its
+    start time. The floor is 3.12 from 2026-08-20, which puts that cause out of reach;
+    capture software that writes some other format is not.
+    """
     raw = raw.strip()
     if kind == 'text':
         return raw
@@ -297,6 +319,8 @@ def _parse_value(raw, kind):
         try:
             return datetime.fromisoformat(raw.replace('Z', '+00:00'))
         except ValueError:
+            _LOGGER.warning('SER sidecar: cannot read the timestamp %r, so this capture '
+                            'falls back to the guessed date', raw)
             return None
     return raw
 

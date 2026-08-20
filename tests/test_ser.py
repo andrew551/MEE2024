@@ -7,6 +7,7 @@ timestamp trailer that is allocated and empty, header strings with leftover memo
 terminator. A mock would agree with whatever the reader assumed.
 """
 
+import logging
 import struct
 from datetime import datetime
 
@@ -274,6 +275,25 @@ def test_the_sidecar_start_time_fills_in_for_a_missing_trailer(tmp_path):
     first, last = handle.frame_time(0), handle.frame_time(2)
     assert first is not None and last is not None
     assert first < last                       # interpolated across the capture
+
+
+def test_an_unreadable_timestamp_is_reported_not_dropped_in_silence(tmp_path, caplog):
+    """It used to return None with nothing said, so a capture lost DATE-OBS and fell through
+    to the date guesser leaving no trace of why -- the same outcome as a sidecar that never
+    had a time. The value is still dropped, since there is nothing to be done with it, but
+    the run says so and the raw text is still there to look at."""
+    path = write_ser(tmp_path / 'cap.ser',
+                     [_smooth_frame(16, 12, 500, seed=i) for i in range(2)])
+    spoiled = SIDECAR.replace('StartCapture=2026-08-12T18:28:45.5937053Z',
+                              'StartCapture=12/08/2026 18:28:45')
+    (tmp_path / 'cap.CameraSettings.txt').write_text(spoiled, encoding='utf-8')
+
+    with caplog.at_level(logging.WARNING, logger='mee2024.ser'):
+        out = ser.read_sidecar(path)
+
+    assert 'DATE-OBS' not in out                                  # still dropped
+    assert out['_raw']['StartCapture'] == '12/08/2026 18:28:45'   # but not lost
+    assert '12/08/2026' in caplog.text                            # and now on the record
 
 
 def test_no_sidecar_is_not_an_error(sample):
