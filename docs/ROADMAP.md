@@ -534,6 +534,71 @@ FITS keyword — an opaque provenance token that other people's scripts may alre
 The GitHub repository keeps its legacy name. Renaming it breaks every existing clone, link
 and citation for no user-visible gain.
 
+### F14 — Choose the reduction parameters by measuring the frames
+
+Three historical reductions now sit side by side (`LEON_2026-08-11.md` 14, 14.2), and the
+values differ by more than an order of magnitude between them:
+
+| | zenith / calibration | eclipse 2017 (Bruns) | eclipse 2024 (Station 1) |
+|---|---|---|---|
+| blob removal | off | on, radius 20, gap 10 | on, radius 100, gap 2000, sat 90% |
+| sensitive stacking | off | on | on |
+| `centroid_gaussian_thresh` | 5.0 | 4.0 | 4.0 |
+| `min_area` | 4 | **1** | 2 |
+| `sigma_subtract` | 3.0 | **0.0** | **0.0** |
+| `remove_edgy_centroids` | off | on | on |
+| `distortion_fit_tol` | **0.2"** | -- | **20"** |
+| `pxl_tol` | 10 | 10 (shown as "pixel_tolerance") | -- |
+
+Nobody can be expected to know these. They are not documented, most are reachable only from
+the classic UI, and `pxl_tol` is not reachable at all any more -- v0.3.1 exposed it under
+"Advanced Parameters" and the current classic UI does not, so it has *regressed* in
+reachability while staying in `DEFAULT_OPTIONS`. That is F12 with a worked example.
+
+**The proposal: measure, then choose.** Most of the table follows from three measurements the
+pipeline can make before it commits to anything.
+
+**1. Is there a saturated blob, and how big?** Find the largest contiguous saturated region.
+It sets `delete_saturated_blob`, and `blob_radius_extra` and `centroid_gap_blob` follow from
+its measured radius -- which is exactly what differs between 2017 (radius 20, gap 10) and 2024
+(100 / 2000), and it is a property of the data, not a preference. The reanalysed 2017 set,
+where long and short exposures were stacked together, produced a strikingly irregular mask for
+precisely this reason: the saturated region is much larger in the long frames, so the union is
+not a disc. Measuring it handles that automatically; typing two numbers cannot.
+
+**2. How many stars does the field yield at default settings?** This is the sensitive-mode
+switch, and the classic UI already states the rule in its own label: *"use if close to sun or
+moon; do not use for zenith or fields with >> 100 stars"*. A trial pass counts them.
+`sigma_subtract`, `min_area` and `centroid_gaussian_thresh` then follow the same split --
+3.0 / 4 / 5.0 for a rich field, 0.0 / 1-2 / 4.0 for a sparse one.
+
+**3. What per-star scatter does the field actually achieve?** Fit once at a loose tolerance,
+read the rms, set `distortion_fit_tol` to roughly 1.5-2x it, refit. That is the sequence run by
+hand in `LEON_2026-08-11.md` 14.2, and it recovers 0.2" for a zenith field fitting at 0.1" and
+0.5" for CAL_piLeo fitting at 0.3" -- the same numbers, derived rather than remembered.
+
+**The exception, and measurement 1 detects it.** A field containing the Sun cannot have its
+tolerance tightened onto the residual, because the deflection displaces exactly the stars the
+experiment exists to measure: fit tightly and you reject the signal. So when a blob is present,
+the tolerance is floored at the expected maximum deflection plus field-edge leeway -- which is
+why 2024 used 20". The blob measurement that decides step 1 is the same one that decides
+whether step 3 is allowed to tighten. That is a satisfying closure rather than a special case.
+
+**4. Frames outside totality must be excluded, and the machinery is already there.**
+`framescan.scan()` measures a per-frame level and `suggest()` proposes a usable range, trimming
+both ends because the Sun can be at the end of the last file as well as the start of the first.
+Today it *only* suggests -- its docstring says "It never edits anything". Wiring it to act by
+default, with an explicit override and a line in the log saying what was dropped, closes a
+mistake that is easy to make: this session's own first CAL_piLeo reduction silently mixed the
+`18_29_27` and `18_29_57` blocks, and the second runs past the end of totality, which produced
+a spurious "no star centroids found" and a wrong conclusion that survived until the owner
+caught it.
+
+**Scope.** Steps 1, 2 and 4 are measurements plus a lookup table and could ship without
+changing any fit. Step 3 changes results and belongs in v1.4.0 with the rest. All four should
+report what they chose and why, in the run log and `field_summary.json` -- an automatic choice
+that cannot be inspected is worse than a documented default.
+
 ### F2 — Affine per-frame alignment
 
 Replace translation-only alignment with a per-frame affine. §1.5 is the evidence; the
