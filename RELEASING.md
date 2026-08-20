@@ -172,6 +172,27 @@ a deeper archive can reproduce.
 
 ## Check before shipping
 
+Start here, because it is the part that can be automated:
+
+```bash
+python tools/smoke_exe.py dist/MEE_v1.3.9.exe --expect-version v1.3.9     --lights "tests/data/fits/00_23_49/Zenith_0000[1-3].fits"
+```
+
+24 checks: the exe runs, reports the version the spec claims, lists all eleven subcommands,
+survives `--help` on every one of them, performs its read-only commands, exits **non-zero**
+on bad input, and -- with `--lights` -- stacks real frames end to end and exits **0** on
+success. Takes about a minute.
+
+That last one is not ceremony. `mee2024 stack` returned its output archive to `sys.exit()`,
+which treats a non-integer as an error message, so every successful run reported failure to
+the shell. It shipped in v1.3.5 and survived to v1.3.8, and the test suite could not see it
+because the source had the same bug. The per-subcommand `--help` sweep is the cheap catch for
+the other bundle-only failure: a hidden import missing from one code path and no other.
+
+The suite passing says nothing about any of this -- `pytest` runs the source tree, and almost
+every user runs the executable. They are not the same program.
+
+
 ```bash
 dist/MEE_v1.3.1.exe --version
 ```

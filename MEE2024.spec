@@ -28,6 +28,7 @@ Bundling notes, each of which was needed to make the build actually run:
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -39,7 +40,42 @@ if not os.path.isdir(package):
 sys.path.insert(0, os.getcwd())
 from mee2024.MEE2024util import _version, get_catalogue_root  # noqa: E402  (needs the path above)
 
-exe_name = f'MEE_{_version()}'
+def _build_tag():
+    """The version, plus what distinguishes one development build from another.
+
+    A release is identified by its number alone: v1.3.9 means one binary, and the rule that
+    a number is never reused is what makes that true. A development branch breaks the rule
+    by construction -- the version string is static, so every build from v1.4.0-dev is
+    called MEE_v1.4.0-dev.exe no matter which commit it came from. With two people building
+    and mailing executables to each other, that is the v1.3.6 confusion waiting to happen
+    again, and worse, because nothing in the filename disagrees.
+
+    So a pre-release version gets the commit it was built from, and a marker if the tree had
+    uncommitted changes -- a build from unpublished edits cannot be identified at all
+    afterwards, and saying so in the filename is cheap. Release builds are untouched.
+    """
+    version = _version()
+    if '-' not in version:
+        return version
+    def git(*args):
+        try:
+            out = subprocess.run(('git',) + args, capture_output=True, text=True,
+                                 timeout=15, cwd=os.getcwd())
+            return out.stdout.strip() if out.returncode == 0 else ''
+        except Exception:
+            return ''
+    sha = git('rev-parse', '--short=7', 'HEAD')
+    if not sha:
+        print('spec: WARNING no git commit available; this build is unidentifiable')
+        return version
+    dirty = '-dirty' if git('status', '--porcelain') else ''
+    if dirty:
+        print('spec: WARNING building from a tree with uncommitted changes')
+    return f'{version}-g{sha}{dirty}'
+
+
+exe_name = f'MEE_{_build_tag()}'
+print(f'spec: building {exe_name}')
 
 datas = []
 datas += collect_data_files('astroquery', includes=['CITATION'])

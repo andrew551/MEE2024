@@ -14,8 +14,18 @@ the reasoning; this file has the rules.
 .venv/Scripts/python.exe -m PyInstaller MEE2024.spec     # -> dist/MEE_v<version>.exe
 ```
 
+```
+.venv/Scripts/python.exe tools/smoke_exe.py dist/MEE_v<version>.exe --expect-version v<version>
+```
+
 Always the venv, never system Python — PyInstaller bundles whatever the interpreter can see,
 and a system Python sweeps up unrelated packages.
+
+**The executable is the product.** Almost every user runs the exe rather than the package, and
+a green test suite is not evidence a release works: `pytest` exercises the source tree, while
+PyInstaller decides at build time which modules exist. A missing hidden import fails in one
+subcommand of the bundle and nowhere else. Run `tools/smoke_exe.py` on any exe before it goes
+anywhere, and `tools/inspect_exe.py` to see what was bundled.
 
 ## Rules that are not obvious from the code
 
