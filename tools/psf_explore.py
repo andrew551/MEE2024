@@ -1,8 +1,8 @@
 """
 Explore the point spread function of real frames.
 
-    python tools/psf_explore.py "tests/data/fits/00_23_49/*.fits" --out docs/bench/psf/zenith --platescale 1.55
-    python tools/psf_explore.py tests/data/fits/rasalhague/Rasalhaguemean50.fit --out docs/bench/psf/rasalhague --platescale 1.65
+    python tools/psf_explore.py "I:/65PHQ 533MM London 2026/00_23_49/*.fits" --out docs/bench/psf/zenith --platescale 1.55
+    python tools/psf_explore.py "I:/Don Bruns TV-85 calibration/Rasalhaguemean50.fit" --out docs/bench/psf/rasalhague --platescale 1.65
 
 Answers, per dataset, the questions PSF_REVIEW.md says decide everything downstream:
 

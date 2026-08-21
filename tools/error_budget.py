@@ -1,10 +1,10 @@
 """
 Where does the centroid error actually come from? An error budget, measured.
 
-    python tools/error_budget.py "tests/data/fits/example_with_darks/070424_040415/*.fits" \
-        --darks "tests/data/fits/example_with_darks/070424_050036 darks 10s/*.fits" \
+    python tools/error_budget.py "I:/65PHQ 294MM Texas 2024/zenith 1/070424_040415/*.fits" \
+        --darks "I:/65PHQ 294MM Texas 2024/070424_050036 darks 10s/*.fits" \
         --out docs/bench/psf/budget_eclipse
-    python tools/error_budget.py "tests/data/fits/00_23_49/Zenith_*.fits" --out docs/bench/psf/budget_zenith
+    python tools/error_budget.py "I:/65PHQ 533MM London 2026/00_23_49/Zenith_*.fits" --out docs/bench/psf/budget_zenith
 
 Each candidate limit has its own signature, so each gets its own measurement:
 

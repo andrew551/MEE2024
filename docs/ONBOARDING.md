@@ -31,9 +31,31 @@ python -m venv .venv
 Expect **874 passed, 26 skipped**. The skips need `--runslow`: the 127 MB triangle database
 or a network call.
 
-You do not need any observational data to work on this. The 3.5 GB of FITS under
-`tests/data/fits/` is gitignored and no test reads it — the suite generates synthetic star
+You do not need any observational data to work on this. The suite generates synthetic star
 fields in `tests/conftest.py`. Nothing to download, nothing to ask for.
+
+`tests/data/fits/` held 3.5 GB of real frames until 2026-08-21 and no longer exists: it was
+gitignored, no test read it, and every one of its 82 files was verified byte-identical
+against the source drive before deletion. What remains under `tests/data/` — `fields/` and
+`gaia/` — *is* tracked and *is* read, so leave it alone.
+
+The benchmark and release-check commands in `docs/bench/` and `RELEASING.md` therefore name
+absolute paths on the machine that holds the captures:
+
+| dataset | lives at |
+|---|---|
+| London 65PHQ zenith | `I:\65PHQ 533MM London 2026\00_23_49` |
+| Texas 65PHQ eclipse + darks | `I:\65PHQ 294MM Texas 2024\` |
+| Rasalhague 50-stack | `I:\Don Bruns TV-85 calibration\` |
+| ZWO#3 zenith ladder | `I:\ZWO#3 2023-10-28\` |
+
+Without that drive those commands cannot run, which costs nothing for development — they
+reproduce published measurements, they are not part of the suite.
+
+One trap worth knowing if you ever re-verify such a copy. Consecutive captures from the same
+camera produce files with **identical names and identical byte counts** but different pixels:
+`00_23_49` matched three separate folders on name and size, and hashed against the wrong one,
+0 of 11 files agreed. Compare by content, never by size.
 
 The bundled Gaia G<10 catalogue means a fresh install plate-solves offline immediately.
 Deeper catalogues (`gaia_dr3_g13`, `gaia_dr3_g15`) download on demand from the repository's

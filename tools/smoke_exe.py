@@ -2,7 +2,7 @@
 
     python tools/smoke_exe.py dist/MEE_v1.3.9.exe
     python tools/smoke_exe.py dist/MEE_v1.3.9.exe --expect-version v1.3.9
-    python tools/smoke_exe.py dist/MEE_v1.3.9.exe --lights "tests/data/fits/00_23_49/Zenith_*.fits"
+    python tools/smoke_exe.py dist/MEE_v1.3.9.exe --lights "I:/65PHQ 533MM London 2026/00_23_49/Zenith_*.fits"
 
 The test suite exercises the source tree. Almost every user runs the executable, and the
 two are not the same program: PyInstaller decides at build time which modules exist, so a

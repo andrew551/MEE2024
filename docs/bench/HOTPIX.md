@@ -19,7 +19,7 @@ answers *yes, no*.
 Reproduce with:
 
 ```bash
-python tools/hotpixel_explore.py "tests/data/fits/example_with_darks/070424_040415/*.fits" --darks "tests/data/fits/example_with_darks/070424_050036 darks 10s/*.fits" --out docs/bench/hotpix
+python tools/hotpixel_explore.py "I:/65PHQ 294MM Texas 2024/zenith 1/070424_040415/*.fits" --darks "I:/65PHQ 294MM Texas 2024/070424_050036 darks 10s/*.fits" --out docs/bench/hotpix
 ```
 ```bash
 python tools/hotpixel_rules.py docs/bench/hotpix
