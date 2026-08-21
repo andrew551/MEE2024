@@ -39,23 +39,15 @@ gitignored, no test read it, and every one of its 82 files was verified byte-ide
 against the source drive before deletion. What remains under `tests/data/` — `fields/` and
 `gaia/` — *is* tracked and *is* read, so leave it alone.
 
-The benchmark and release-check commands in `docs/bench/` and `RELEASING.md` therefore name
-absolute paths on the machine that holds the captures:
+The folder was kept whole rather than scattered back into the source captures, because two
+of its six subfolders are curated *subsets* and the selection cannot be reconstructed from the
+raw data. It now lives at `I:\MEE test frames\fits\`, which is what the benchmark and
+release-check commands in `docs/bench/` and `RELEASING.md` name.
 
-| dataset | lives at |
-|---|---|
-| London 65PHQ zenith | `I:\65PHQ 533MM London 2026\00_23_49` |
-| Texas 65PHQ eclipse + darks | `I:\65PHQ 294MM Texas 2024\` |
-| Rasalhague 50-stack | `I:\Don Bruns TV-85 calibration\` |
-| ZWO#3 zenith ladder | `I:\ZWO#3 2023-10-28\` |
-
-Without that drive those commands cannot run, which costs nothing for development — they
-reproduce published measurements, they are not part of the suite.
-
-One trap worth knowing if you ever re-verify such a copy. Consecutive captures from the same
-camera produce files with **identical names and identical byte counts** but different pixels:
-`00_23_49` matched three separate folders on name and size, and hashed against the wrong one,
-0 of 11 files agreed. Compare by content, never by size.
+[`docs/bench/TEST_FRAMES.md`](bench/TEST_FRAMES.md) is the record: every frame with its size
+and SHA-256, which capture each came from, and which are subsets. Without that drive those
+commands cannot run, which costs nothing for development — they reproduce published
+measurements and are not part of the suite.
 
 The bundled Gaia G<10 catalogue means a fresh install plate-solves offline immediately.
 Deeper catalogues (`gaia_dr3_g13`, `gaia_dr3_g15`) download on demand from the repository's

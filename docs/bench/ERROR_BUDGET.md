@@ -22,10 +22,10 @@ measured with the data at hand, that is stated rather than estimated silently.
 Tool: `tools/error_budget.py`. Runs (v1.3.2):
 
 ```
-python tools/error_budget.py "I:/65PHQ 533MM London 2026/00_23_49/Zenith_*.fits" \
+python tools/error_budget.py "I:/MEE test frames/fits/00_23_49/Zenith_*.fits" \
     --out docs/bench/psf/budget_zenith
-python tools/error_budget.py "I:/65PHQ 294MM Texas 2024/zenith 1/070424_040415/*.fits" \
-    --darks "I:/65PHQ 294MM Texas 2024/070424_050036 darks 10s/*.fits" \
+python tools/error_budget.py "I:/MEE test frames/fits/example_with_darks/070424_040415/*.fits" \
+    --darks "I:/MEE test frames/fits/example_with_darks/070424_050036 darks 10s/*.fits" \
     --out docs/bench/psf/budget_eclipse
 ```
 
@@ -192,10 +192,8 @@ ladder over the first N frames, fitted as rms(N)² = static² + random²/N:
 | zwo3 (0.2 s frames, 69→183 stars)¹ | 301.0 → 262.0 → 202.2 → 168.2 mas (N=2,3,5,9) | **100.4 mas** | 405.4 mas |
 
 ¹ deeper stacks admit fainter stars, so the zwo3 rungs are not at constant star
-population; treat its fit as indicative. The zwo3 row is also not exactly re-runnable: it was
-measured from a curated 9-light, 38-dark copy that was deleted on 2026-08-21, and the source
-folder holds 10 Center2 lights and 64 darks with no record of which subset was used. See
-`tools/stage2_vs_frames.py`.
+population; treat its fit as indicative. The zwo3 frames are a curated 9-light, 38-dark
+selection of a much larger capture; `docs/bench/TEST_FRAMES.md` lists exactly which.
 
 This is the "more information" the question hoped for, and it closes the loop on
 the whole budget by an independent route: the fitted random-at-N=1 (105.9 mas =

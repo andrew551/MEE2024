@@ -2,7 +2,7 @@
 Which centroiding algorithm should this pipeline use? Measure, don't argue.
 
     python tools/centroid_eval.py synthetic --out docs/bench/psf/centroids
-    python tools/centroid_eval.py real "I:/65PHQ 294MM Texas 2024/zenith 1/070424_040415/*.fits" --out docs/bench/psf/centroids
+    python tools/centroid_eval.py real "I:/MEE test frames/fits/example_with_darks/070424_040415/*.fits" --out docs/bench/psf/centroids
 
 Two protocols, because each can lie alone:
 

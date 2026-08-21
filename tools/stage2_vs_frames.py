@@ -8,20 +8,14 @@ what more frames still buy. Together with the track-level scaling in error_budge
 this closes the loop: the track analysis predicts the random part, and the pipeline
 measures where the curve actually flattens.
 
-    python tools/stage2_vs_frames.py "I:/ZWO#3 2023-10-28/Zenith-01-0.2s/*Zenith-Center2.fit" \
-        --darks "I:/ZWO#3 2023-10-28/Darks/*.fit" --counts 2 3 5 9 \
+    python tools/stage2_vs_frames.py "I:/MEE test frames/fits/zwo3/field/*.fit" \
+        --darks "I:/MEE test frames/fits/zwo3/darks/*.fit" --counts 2 3 5 9 \
         --out docs/bench/psf/stage2_vs_frames_zwo3
 
-**This will not reproduce the recorded ladder to the digit.** The numbers in
-`docs/bench/ERROR_BUDGET.md` were measured from a curated copy that held 9 of the 10
-Center2 lights and 38 of the 64 darks; the globs above see 10 and 64, and a master dark from
-64 frames is quieter than one from 38. Which 9 and which 38 is recorded nowhere -- the copy
-was deleted on 2026-08-21 and neither `summary.json` nor the phase-bias output names its
-inputs. Expect the same shape and slightly different values.
-
-The `Zenith-Center2` filter is not cosmetic: `Zenith-01-0.2s` holds six pointings of ten
-frames each (Center1, EN, ES, WN, WS, Center2) and every dark is `Zenith-Center2.Dark`, so a
-bare `*.fit` would stack five wrong pointings and pair them with the wrong darks.
+Those two folders are a curated selection, not whole captures: 9 of the 60 frames in the
+source `Zenith-01-0.2s` and 38 of its 64 darks. Aim this at the raw capture instead and it
+stacks five wrong pointings against the wrong darks, and the ladder will not match. Every
+frame is listed with its hash in `docs/bench/TEST_FRAMES.md`.
 """
 
 import argparse

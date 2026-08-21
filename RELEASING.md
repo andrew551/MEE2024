@@ -178,7 +178,7 @@ a deeper archive can reproduce.
 Start here, because it is the part that can be automated:
 
 ```bash
-python tools/smoke_exe.py dist/MEE_v1.3.9.exe --expect-version v1.3.9     --lights "I:/65PHQ 533MM London 2026/00_23_49/Zenith_0000[1-3].fits"
+python tools/smoke_exe.py dist/MEE_v1.3.9.exe --expect-version v1.3.9     --lights "I:/MEE test frames/fits/00_23_49/Zenith_0000[1-3].fits"
 ```
 
 24 checks: the exe runs, reports the version the spec claims, lists all eleven subcommands,

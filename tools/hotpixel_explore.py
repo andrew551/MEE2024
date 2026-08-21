@@ -1,8 +1,8 @@
 """
 Can hot pixels be told from stars without a dark frame?
 
-    python tools/hotpixel_explore.py "I:/65PHQ 294MM Texas 2024/zenith 1/070424_040415/*.fits" \
-        --darks "I:/65PHQ 294MM Texas 2024/070424_050036 darks 10s/*.fits" \
+    python tools/hotpixel_explore.py "I:/MEE test frames/fits/example_with_darks/070424_040415/*.fits" \
+        --darks "I:/MEE test frames/fits/example_with_darks/070424_050036 darks 10s/*.fits" \
         --out docs/bench/hotpix
 
 The idea under test: a star is fixed to the **sky**, a hot pixel is fixed to the
