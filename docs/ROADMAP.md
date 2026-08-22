@@ -694,6 +694,121 @@ cannot run stage 3, cannot enable the astrometric corrections, and — as of thi
 review — has none of the blob/corona controls that eclipse-day processing depends on.
 Those three are one deliverable: *the app window can process eclipse data*.
 
+### F15 — Centroid the stacked image under a fixed window
+
+**Measured on the Leon zenith set 2026-08-23** ([`LEON_2026-08-11.md`](LEON_2026-08-11.md)
+§18.3), and this is a general defect rather than a Leon one.
+
+The centroider defines each star's footprint by an S/N threshold and weights it by
+`max(S/N - sigma_subtract, 0)`, so **both the region summed over and the weighting inside it
+scale with the star's brightness**. Where the PSF is asymmetric — and any reducer at the wrong
+back focus makes it so toward the field edge — bright and faint stars are therefore measured
+over different parts of the same profile and disagree with each other. On Leon that was
+172 and 299 mas beyond r = 2500 px, in twelve fields out of twelve, and it made the fitted cubic
+a function of `max_star_mag_dist` at the 4.5% level. `PSF_REVIEW.md` §2 predicted exactly this:
+*"unbiased only if the window is symmetric about the true position (it never is — the window is
+placed by the detection)"*.
+
+The fix is not to remove the aberration but to stop its effect depending on brightness. A
+fixed-width Gaussian window, iterated to convergence — SExtractor's `XWIN_IMAGE`, and
+`PSF_REVIEW.md` §5(d)'s own pick — did that on the real data: bias 11–13× smaller, rms −21%,
+*more* stars surviving the tolerance, and the cubic independent of the magnitude cut to 0.44%
+across four magnitudes.
+
+**Scope.** One function of ~15 lines, one call site
+([`stacker_implementation.py:1233`](../mee2024/stacker_implementation.py), where the *stacked*
+image is centroided — the per-frame call at :854 feeds alignment, which is differential and
+integer-rounded, so it needs nothing), and two options defaulting off. It **changes measured
+numbers**, so it is v1.4.0-class and needs its own validation; default-off keeps the released
+path additive and reproduces `tests/test_stage2_regression.py` untouched. The real-data half of
+§5(d)'s evaluation is done and passes; the synthetic-truth half is not.
+
+### F16 — Reject saturated stars
+
+Nothing at any stage tests a centroid's peak value. `sanity_check_centroids` only checks the
+radial profile decreases monotonically, which a flat-topped star passes. On Leon, six clipped
+stars per zenith field carried **454 mas** against 124 mas for everything else.
+
+They survive `distortion_fit_tol = 1` entirely; a tolerance of 0.2 removes five of six, by luck.
+That luck runs out where it matters most: §16 of the Leon document sets `distortion_fit_tol =
+999` on the eclipse field, deliberately, so **a clipped star is guaranteed to reach the
+deflection fit** — and CAL_piLeo, whose low-order terms propagate, has its brightest star clipped
+at the longer exposure.
+
+A peak-value flag set at stage 1, where the stamp is already in hand, honoured at stage 2
+regardless of tolerance. This one is a defect rather than a tuning choice.
+
+### F17 — Report what the fit can actually resolve
+
+Two numbers the pipeline has everything to compute and does not print.
+
+**Leverage-weighted star count.** Only the outer stars constrain a cubic: with
+`N_eff = sum (r/R)^6`, Leon's sensor gives `N_eff/N = 0.085` — about one star in twelve counts,
+and stars inside r < 1400 px hold 0.19% of the information. The predicted precision follows:
+
+    sigma(cubic)/cubic = k * sigma_star / ( d(R) * sqrt(N_eff) )     k ≈ 16 cubic, 28 quintic
+
+measured to ±20% over a 25× range in N. Printing `N_eff` and the predicted fractional precision
+turns "which magnitude limit should I use?" into "go deep enough to meet your requirement, and
+here is whether you did" — telescope-independent, and nothing to tune. It also warns against
+cropping, which looks attractive on rms and destroys the cubic.
+
+**The median residual beside the rms.** The rms is largely a readout of `distortion_fit_tol`,
+since that is the outlier threshold: on Leon, tightening it 1.0 → 0.2 halves the rms
+(108 → 61 mas) and moves the median 5% (45.3 → 43.2). Runs at different tolerances are not
+comparable on rms and are on the median. This mattered in practice — it is what made a claimed
+15–20% pipeline improvement evaporate on re-measurement.
+
+### F18 — Weight the deflection fit instead of cutting on magnitude
+
+Stage 3 filters on `eclipse_limiting_mag` (default 11) and fits an unweighted sum of squares by
+Nelder-Mead, with **no outlier rejection of any kind** — the magnitude cut is the only quality
+filter on by default.
+
+On an eclipse field magnitude is the wrong axis. The dominant noise is the coronal background,
+which falls as R^-2 to R^-3, so between 1.2 and 4 solar radii the background moves ~100× and the
+noise ~10×, against 2.5× for one magnitude. **A mag-11 star at 1.2 R☉ is worse than a mag-12 star
+at 4 R☉, and the cut keeps the first and discards the second.** §16's own justification for the
+cut concedes the point: fainter stars near the corona are least reliable *"and each one enters
+the 1/R fit with equal weight"*.
+
+Inverse-variance weights from an a-priori sigma — flux, measured local background, PSF width, all
+already computed — need no threshold, and a star with sigma → infinity self-limits to zero
+weight. Two conditions must hold first, and one currently does not:
+
+- **sigma must be a-priori, never a star's own residual.** On a deflection field the residual
+  *is* the measurement, so weighting on it biases L toward zero.
+- **Something must catch mismatches.** A wrongly matched faint star is not noisy, it is wrong,
+  and its a-priori sigma looks respectable. With ~30 stars a single 10-sigma blunder carries 78%
+  of the total chi-squared. Today the magnitude cut is the only thing standing in the way; the
+  replacement is a robust loss, not another magnitude threshold.
+
+Related and cheap: `do_cubic_fit` and `_cubic_helper` already accept a `weights` argument, pass
+it through three calls, and **never read it** — a comment at `distortion_polynomial.py:161`
+records the intent as *"new Oct'24: option for weighted centroids"*. Implement it or delete it;
+a signature that promises weighting and silently ignores it is worse than not having one. On the
+zenith fields it would buy under 1%, because the per-star sigma there is flat to 1.2× from mag
+7.5 to 12.5 — PSF-limited, not photon-limited.
+
+### F19 — Warn when the reducer spacing is wrong
+
+Fitted in quadrature, Leon's blur grows **linearly** with field radius — coma — where defocus or
+astigmatism would grow as r². This is a back-focus error that does not allow for the filter
+glass, and it is a defect every reducer user can have without knowing.
+
+What makes it worth a warning is that its cost is invisible where people look. A wider corner
+star is astrometrically harmless on its own; the damage is the one-sided flare in the wings, which
+biases centroids (F15) and leaves *no signature in the rms or the residual map* because the fit
+absorbs it into the cubic coefficient. The warning should say "your cubic is biased and your
+residuals will not tell you", not "your corners are soft".
+
+Detectable from a single frame with what stage 1 already measures: median star width at r < 700
+against r > 2800, plus the corner radial/tangential ratio. **Which direction** the spacing is
+wrong is not derivable from one frame — the sign lives in the astigmatism orientation, which flips
+through focus — so the warning should point at the focus sweep rather than guess. That sweep,
+five to seven exposures at ±30 steps, settles the sign and simultaneously calibrates the
+focus-to-cubic sensitivity that the Leon transfer error currently rests on.
+
 ---
 
 ## 3a. External sources, and what they do and do not settle

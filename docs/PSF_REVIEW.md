@@ -197,6 +197,55 @@ What the measurements settle:
 * Ellipticity medians of 0.07–0.15 are honest optics-quality numbers, worth showing beside
   FWHM as the second score-card figure.
 
+
+### 6.1 Deliverable (d), real-data half: done, and the windowed centroid wins
+
+Run on the Leon zenith set 2026-08-23 — twelve field-nights, detection held fixed so only the
+position estimator changes. Full numbers in [`LEON_2026-08-11.md`](LEON_2026-08-11.md) §18.3.
+
+**§3's predicted failure mode is the one that was actually there.** That section warned about
+"magnitude-dependent centroid shifts … which the polynomial cannot represent at all". Measured:
+beyond r = 2500 px the brightest stars sit 172 mas (night 1) and 299 mas (night 2) outward of the
+faintest, in **twelve fields out of twelve** — and because a polynomial cannot represent it, the
+fit absorbed it into the cubic coefficient instead, making the calibration a function of
+`max_star_mag_dist` at the 4.5% level. It left no signature in the rms or the residual maps.
+
+The mechanism is §2's own caveat about plain centre-of-mass, quantified: *"unbiased only if the
+window is symmetric about the true position (it never is — the window is placed by the
+detection)"*. Our footprint is an S/N-thresholded connected region weighted by
+`max(S/N − sigma_subtract, 0)`, so its **size and its weighting both scale with brightness**.
+Where the PSF is asymmetric the two populations then measure different parts of it.
+
+**Gaussian-windowed iterative centroid, sigma 2.0 px, same detections:**
+
+| mag 13, cubic, tol 0.2 | stars | rms | median residual | bright − faint |
+|---|---|---|---|---|
+| current COM path | 2034 | 83.8 mas | 54.9 / 70.8 mas | +97 / +106 mas |
+| **windowed** | **2196** | **66.2 mas** | **43.2 / 52.0 mas** | **+15 / +8 mas** |
+
+It beats the baseline on every axis at once — bias 11–13× smaller, rms −21%, median −21/−27%,
+and *more* stars surviving the tolerance rather than fewer. It also removes the sensitivity that
+mattered most: the cubic now moves 0.44% across mag 11–15, against 2.18% across mag 11–13 before.
+
+Two further results bearing on §5's expectations:
+
+- **The regime call in §6 was right.** Leon's stacks are FWHM 2.18 and 2.38 px, just inside where
+  §5 expects "the windowed centroid captures most of the available gain at trivial cost and
+  complexity, and ePSF buys little". It did.
+- **The Moffat wings are not harmless here after all.** §6 records "centroid-wise the symmetric
+  wings are harmless" — true, and the operative word is *symmetric*. Fitted in quadrature the
+  Leon blur grows linearly with field radius, i.e. coma, and growing the centroiding aperture
+  walks the centroid radially outward by up to 631 mas at the corner before saturating at 6–8 px.
+  Asymmetric wings carry position information, and a brightness-dependent footprint reads a
+  different amount of it from every star.
+
+**Not done, and still required before this becomes a default:** the synthetic-truth half of
+§5(d) — pixel-integrated Moffat stars at measured beta/FWHM/noise, where truth is known exactly.
+The real-data proxy above establishes that the windowed centroid is better on this data; it
+cannot establish that it is unbiased in an absolute sense, which is what synthetic frames are
+for. Adopt behind an option with COM as the default, per §5(d), until both halves are in.
+Tracked as F15 in [`ROADMAP.md`](ROADMAP.md).
+
 ### Sources
 
 - [Anderson & King 2000, PASP 112, 1360 — toward high-precision astrometry with WFPC2 (the ePSF)](https://iopscience.iop.org/article/10.1086/316632)
