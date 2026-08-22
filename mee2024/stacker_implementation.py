@@ -699,6 +699,49 @@ def simple_get_centroids(image):
     s = np.argsort(total_weights)[::-1]
     return np.asarray(centroids)[s]
 
+def windowed_centroid(sub, y0, x0, sigma, R=8, iters=12, tol=1e-5):
+    """Flux-weighted centroid under a fixed Gaussian window, iterated to convergence.
+
+    Returns (y, x), or None if the star is too near the edge or the window holds no flux.
+
+    Why this exists: the detection footprint is defined by a signal-to-noise threshold, so
+    its *size* -- and the weighting inside it -- scale with the star's brightness. Where the
+    PSF is asymmetric, bright and faint stars are then measured over different parts of the
+    same profile and disagree with each other. Measured on the Leon zenith set that was
+    172 and 299 mas beyond r = 2500 px, in twelve fields out of twelve, and it made the
+    fitted cubic a function of the magnitude limit at the 4.5% level
+    (docs/LEON_2026-08-11.md section 18.3).
+
+    A fixed window does not assume the star is round and does not remove the asymmetry: the
+    centroid still moves with the flare. What it removes is the *brightness dependence*, so
+    the displacement becomes a smooth function of field position -- which is precisely what
+    the distortion polynomial absorbs. The aberration stops leaking into the answer.
+
+    Not SExtractor's XWIN: no factor-2 correction, so this converges to a fixed point that
+    is brightness-independent rather than to the unbiased photocentre. That is the property
+    that matters here; any residual offset is smooth in field position. Use the XWIN form if
+    absolute positions ever matter.
+    """
+    H, W = sub.shape
+    i0, j0 = int(round(y0)), int(round(x0))
+    if i0 < R + 1 or j0 < R + 1 or i0 >= H - R - 1 or j0 >= W - R - 1:
+        return None
+    s = np.clip(sub[i0-R:i0+R+1, j0-R:j0+R+1], 0, None)
+    yy, xx = np.mgrid[-R:R+1, -R:R+1]
+    cx, cy = x0 - j0, y0 - i0
+    for _ in range(iters):
+        w = np.exp(-((xx - cx)**2 + (yy - cy)**2) / (2 * sigma**2)) * s
+        total = w.sum()
+        if total <= 0:
+            return None
+        nx, ny = (w * xx).sum() / total, (w * yy).sum() / total
+        converged = abs(nx - cx) < tol and abs(ny - cy) < tol
+        cx, cy = nx, ny
+        if converged:
+            break
+    return i0 + cy, j0 + cx
+
+
 def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, debug_display=False):
     t_start = time.time()
     img, mask, mask2 = img_mask2
@@ -789,6 +832,18 @@ def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, d
             sorted_c = [cc for cc in sorted_c if sanity_check(cc[2])]
             print(f"n centroids sanity-filtered {len(sorted_c)}")
     #sorted_c = [(f, c) for f,c in zip(fluxes, centroids)], reverse=True)
+    if options.get('centroid_refine_window'):
+        # Same stars, better positions: only the estimator changes. See windowed_centroid.
+        sigma = float(options.get('centroid_window_sigma', 2.0))
+        refined, dropped = [], 0
+        for f, a, c in sorted_c:
+            r = windowed_centroid(sub, c[0], c[1], sigma)
+            if r is None:
+                dropped += 1
+                continue
+            refined.append((f, a, r))
+        print(f"n centroids window-refined {len(refined)} (sigma {sigma} px, {dropped} dropped)")
+        sorted_c = refined
     print("--- %s seconds for centroid finding (all)---" % (time.time() - t_start))
     print('found:', sorted_c)
     return sorted_c
@@ -851,7 +906,11 @@ def open_img_and_preprocess(file, options = {}, dark=0, flat=1, hot=None):
 
 def open_img_and_find_centroids(file, options = {}, dark=0, flat=1, hot=None):
     reg_img, mask, mask2 = open_img_and_preprocess(file, options, dark, flat, hot)
-    centroids = get_centroids_blur((reg_img, mask, mask2), options=options)
+    # Never refine per frame: these centroids feed the alignment, which measures a
+    # difference (so a static centroid bias cancels) and then rounds the shift to whole
+    # pixels. Refining here would cost time and change nothing.
+    centroids = get_centroids_blur((reg_img, mask, mask2),
+                                   options=dict(options, **{'centroid_refine_window': False}))
     centroids_filtered = filter_bad_centroids(centroids, mask2, reg_img.shape)
     return centroids_filtered
 

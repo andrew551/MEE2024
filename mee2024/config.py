@@ -76,6 +76,12 @@ DEFAULT_OPTIONS = {
     'centroid_gaussian_subtract': False,  # use the "sensitive mode" of custom centroid detection
     'centroid_gaussian_thresh': 5.0,  # threshhold for detecting centroids (sensitive mode)
     'min_area': 4,  # minimum area for found centroids (sensitive mode)
+    # Re-centroid the stacked image under a fixed Gaussian window instead of over the
+    # threshold-defined footprint, whose size scales with brightness. Off by default: it
+    # moves measured numbers, so it needs its own validation (ROADMAP F15). Applies to the
+    # stacked image only -- per-frame alignment is differential and integer-rounded.
+    'centroid_refine_window': False,
+    'centroid_window_sigma': 2.0,  # px; near the PSF sigma is about right
     'sanity_check_centroids': True,
     'max_star_mag_dist': 12.0,
     'observation_date': '2023-12-01',
