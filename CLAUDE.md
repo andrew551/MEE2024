@@ -52,6 +52,16 @@ deliberately.** They exist to catch a change that quietly moves astrometry. Do n
 them to make a test pass; if a change moves them, that is the finding — name the change that
 did it. Same for the junk-field false-positive rate, which must stay at zero.
 
+**Distortion coefficients are in MEE's own angular gauge, not the tangent plane.** Astrometrica,
+ASTAP and every published table use TAN; the two differ by a universal radial term,
+`k_TAN ≈ k_MEE + ~0.4 ″/deg³`. Compare without it and the programs look like they disagree by a
+factor of three — this has now been "discovered" twice and written up as a bug once. Ratios are
+gauge-dependent too, because the term is additive: two optics 1.5× apart in TAN gauge can look
+10× apart in MEE gauge. And `rad/px³` scales with pixel size cubed, so convert to `″/deg³`
+before comparing across cameras. `ROADMAP.md` §"The reference-projection gauge" and
+[`docs/LEON_2026-08-11.md`](docs/LEON_2026-08-11.md) §18.11 have the numbers and the worked
+validation.
+
 **Close the app before touching catalogues.** A running instance memory-maps catalogue and
 pattern-DB files, and Windows then refuses to install, remove or rebuild them.
 `database_cache.release_catalogues()` and `pattern_db.release_databases()` exist for the
