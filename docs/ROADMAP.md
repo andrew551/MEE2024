@@ -809,6 +809,20 @@ through focus — so the warning should point at the focus sweep rather than gue
 five to seven exposures at ±30 steps, settles the sign and simultaneously calibrates the
 focus-to-cubic sensitivity that the Leon transfer error currently rests on.
 
+**And be careful what the warning promises.** Correcting the spacer stack removes the *baseline*
+aberration; it does **not** remove the dependence of the distortion on focus. The reducer rides on
+the drawtube with the camera, so reducer-to-sensor is fixed by the spacers while focusing changes
+the **objective-to-reducer** distance — a different degree of freedom, which alters the reduction
+factor and the residual aberration whatever the spacers are set to. That coupling is intrinsic to
+having a reducer at all (`LEON_2026-08-11.md` §10.3, mechanism corrected 2026-08-23). The warning
+should say the spacing is wrong, not that fixing it makes the calibration focus-independent.
+
+While the sweep is running, **record the fitted plate scale at each step as well as the cubic
+amplitude**. The mechanism above predicts the plate scale tracks focuser position, since the
+effective focal length moves with the objective-to-reducer distance; the 190 ppm between the two
+Leon nights is consistent with that. It costs nothing to log and would confirm the mechanism
+directly.
+
 ---
 
 ## 3a. External sources, and what they do and do not settle
