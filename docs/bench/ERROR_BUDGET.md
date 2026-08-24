@@ -294,3 +294,118 @@ integration the atmosphere term is exposure-neutral, but the detection depth,
 saturation headroom and per-frame solve reliability are not — 10 s frames are the
 better operating point for this pipeline unless saturation of the target stars
 forces shorter.
+
+---
+
+# The distortion transfer: what a cubic error does to the deflection constant
+
+Everything above measures the error on a *star position*. The Leon campaign asks a
+different question, and `LEON_2026-08-11.md` §9.2 item 4 has been carrying it as an open
+item: "5 % of the cubic at the radii the eclipse stars actually occupy is a computable
+contribution to the Einstein coefficient, and it has not been computed."
+
+It is computed here. Tool: `tools/cubic_into_deflection.py`.
+
+The distinction that makes it worth doing is that **the cubic error and the error it
+causes are not the same size**, and neither is smaller by a fixed factor. Two stages of
+§16's three-step transfer remove part of it before it reaches L, and how much they remove
+depends on where the Sun sat in the frame.
+
+## What the transfer does to it
+
+A radial displacement of magnitude `k·r³` is the vector `k·r²·(x, y)` — degree 3 in each
+component, and **odd**. That parity is the whole story of step 2. `distortion_fixed_
+coefficients = quadratic` re-fits every polynomial term of degree ≤ 2 on CAL_piLeo, but
+the constant and quadratic terms are *even* and therefore orthogonal to an odd cubic over
+a symmetric star field. Only the linear term — the plate scale — can absorb anything.
+
+For a uniform disc of radius `R` that absorption is exact and worth writing down: the
+best-fit linear term is `(2/3)R²`, leaving a residual `k·r·(r² − (2/3)R²)` which is zero
+at `r = 0.816 R`, reaches `−0.21 kR³` at `r = 0.47 R` and `+0.33 kR³` at the edge.
+**A quadratic fit removes about half of a radial cubic error, not most of it.**
+
+Step 3 then removes the mean, and stage 3's Method 2 removes a further term linear in
+solar radius. What survives is projected onto the Sun-radial direction — which is exactly
+what `eclipse_analysis` measures, `deflection_obs = radial_distance_obs −
+radial_distance_catalog` — and fitted the way stage 3 fits it.
+
+## The numbers
+
+Leon geometry, from `SCI_ladder_00001.fits`: 6248 × 4176 unbinned, 3.76 µm, `FOCALLEN`
+350 → 2.216 ″/px, a 3.85° × 2.57° field. Cubic amplitude `d(3000 px) = 3.1048″` (LEON
+§18.8). 100 eclipse stars between 2 and 9 solar radii. Bias on L in per cent, Method 1 /
+Method 2:
+
+| cubic amplitude error | Sun at field centre | 1400 px off centre (Leon) | short-edge midpoint | near a corner (Bruns) |
+|---|---|---|---|---|
+| 0.38 % — random, 12-field mean (§18.8) | −0.28 / −0.84 | −0.14 / −0.28 | −0.05 / +0.07 | +0.05 / +0.29 |
+| 2.40 % — systematic floor (§18.8) | −1.73 / −5.34 | −0.96 / −1.86 | −0.33 / +0.40 | +0.32 / +1.85 |
+| 4.84 % — night to night (§18.6) | −3.51 / −10.72 | −1.83 / −3.61 | −0.64 / +0.89 | +0.60 / +3.61 |
+| 10 % — eclipse extrapolation, low (§18.9) | −7.27 / −22.39 | −3.99 / −7.67 | −1.31 / +1.93 | +1.48 / +7.51 |
+| 24 % — eclipse extrapolation, high (§18.9) | −18.39 / −53.23 | −9.51 / −18.26 | −3.04 / +4.68 | +3.25 / +17.88 |
+
+Against the terms it has to be compared with, same geometry and star count, Method 1:
+
+| term | size | bias or scatter on L |
+|---|---|---|
+| centroid scatter, per-star 68 mas (the eclipse static wall, above) | | ±1.77 % |
+| centroid scatter, per-star 120 mas | | ±3.15 % |
+| centroid scatter, per-star 200 mas | | ±5.13 % |
+| centroid scatter, per-star 440 mas (CAL_piLeo's measured rms, §11.2) | | ±11.77 % |
+| refraction, ±2 K on the assumed temperature | 25.6 mas | −0.63 %, and see below |
+| refraction, modelled at the 10 °C default rather than the measured 30.5 °C | 228 mas | −6.19 % |
+| refraction, not modelled at all | 2.95″ | −65 % |
+
+## Four things follow
+
+**1. The cubic transfer is the largest systematic, and only at the sizes §18.9 argues
+for.** At 2.4–4.8 % it lands at 1–2 % on L, below the statistical term. At the 10–24 %
+§18.9 argues is *likely* — both zenith nights on the same side of the eclipse focus, plus
+§18.10's incommensurable Venus focus — it reaches 4–9 % and overtakes everything else.
+Unlike the statistical terms it does not average down with more stars or more frames, and
+§18.9 argues its **sign is probably known**: it biases L low.
+
+**2. Bruns' corner argument is worth a factor of 3 to 6, and now has a number.** The same
+4.84 % error costs 3.51 % at the field centre and 0.60 % near a corner. LEON §10.5 and
+§11.4 assert this qualitatively; the table is the assertion measured. Leon's actual
+placement sits between the two, closer to the bad end.
+
+**3. Method 2 amplifies distortion error by 2–3×, and nothing says so.** Its free `B·ρ`
+term exists to absorb plate-scale error, and over a 2–9 R⊙ span it is close to degenerate
+with a radial systematic, so it absorbs part of the cubic residual too — and pays for it
+in the `A/ρ` coefficient. Restricting to Bruns' own 5–10 R⊙ zone (`--rmin 5 --rmax 10`)
+makes it far worse, because the radial lever arm shortens: a 4.84 % cubic error moves
+Method 2 by −41.7 % against Method 1's +1.06 %, and the statistical scatter goes from
+±4.58 % to ±13.79 %. **Method 2 is the wrong choice when the distortion transfer is the
+dominant systematic and the star annulus is narrow**, which is the Leon case. It buys
+immunity to plate-scale error at the price of sensitivity to distortion error.
+
+**4. The refraction rows are the reason the temperature question closes.** LEON §19.2
+shows a ±2 K assumed-temperature error cancels to ±1.2 ppm in the *plate-scale* channel.
+It cancels in the *curvature* channel too, for the same structural reason and by a similar
+factor: the residual across the eclipse field is 25.6 mas standing alone, and 3.7 mas once
+CAL_piLeo's fitted quadratic — which absorbs the near-identical curvature at 9.93° — is
+frozen onto it at 9.5–9.9°. Both channels are common-mode. What is *not* protected is the
+third row: refraction modelled at the wrong temperature outright, or not modelled, and
+those are procedural failures rather than uncertainties.
+
+## What is assumed, and what would change the answer
+
+Both star fields are taken as uniform over the sensor. The real CAL_piLeo and eclipse
+distributions are not, and a lopsided one absorbs less at step 2, so these figures are the
+optimistic end. The injected error is a pure change of cubic *amplitude* with the shape
+held fixed — which is what §18.6 measured, ovality, position angle and trefoil all
+agreeing within 1σ between the nights while only |B| moved — so it is the right error to
+inject, but a shape change would not propagate this way. And the whole table is a
+propagation, not a measurement: it says what a cubic error of a given size costs, not what
+size the error actually is. The focus sweep of §9.3 is still what turns "≥2.4 % and
+unbounded above" into a number, and it is worth more than any refinement of this table.
+
+> **A discrepancy raised while computing the refraction rows.** LEON §5 states the eclipse
+> field as **0.94°** and its curvature table is consistent with that span: recomputing with
+> `erfa.refco` at the site conditions reproduces the 9.70° row to 1.4 % (24.15″ total,
+> 0.493″ curvature, 0.22 px) *only* at 0.94°. The frame headers give 3.85° × 2.57°. At the
+> true short-axis span the curvature at 9.70° is **3.72″ (1.69 px)**, and 8.45″ if the
+> gradient runs along the long axis. This strengthens §5's conclusion — refraction must be
+> modelled — rather than weakening it, and the cancellation in item 4 above is what keeps
+> the residual small. Flagged to Andrew 2026-08-24; §5 has not been edited here.
