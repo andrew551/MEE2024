@@ -9,7 +9,7 @@ the reasoning; this file has the rules.
 ## Commands
 
 ```
-.venv/Scripts/python.exe -m pytest tests/ -q     # 874 pass, 26 skip. Expect exactly this.
+.venv/Scripts/python.exe -m pytest tests/ -q     # 876 pass, 26 skip. Expect exactly this.
 .venv/Scripts/python.exe -m pytest tests/ -q --runslow   # + triangle DB and network tests
 .venv/Scripts/python.exe -m PyInstaller MEE2024.spec     # -> dist/MEE_v<version>.exe
 ```
