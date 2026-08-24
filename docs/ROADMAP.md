@@ -738,6 +738,20 @@ at the longer exposure.
 A peak-value flag set at stage 1, where the stamp is already in hand, honoured at stage 2
 regardless of tolerance. This one is a defect rather than a tuning choice.
 
+**Measure it per frame, not on the stack** (Douglas, 2026-08-24). CAL_piLeo's brightest star
+peaks at 45958 ADU on the combined stack — 70% of full scale — because the mean of seven clipped
+2 s frames and eleven unclipped 1 s frames dilutes the clip away. A stacked-image test cannot see
+a clip that only the long exposures carry, so on that field a stack-based F16 is inert. The fix
+is a saturation mask built as each raw frame is read, shifted by the integer offset the stacker
+already applies and accumulated, giving "clipped in N of 18 frames" in stack coordinates. It
+reuses the count array `add_img_to_stack` already maintains. **SCI_ladder needs this more than
+CAL_piLeo**, being a ladder of exposures.
+
+And a provenance note on this item's own justification: the claim that CAL_piLeo "has its
+brightest star clipped at the longer exposure" came from the owner's prior per-frame analysis,
+not from any stacked measurement — the three v1.3.6 stacks show a worst peak of 59612, below a
+60000 cut. Consistent with the dilution above, but the wording should say per-frame.
+
 ### F17 — Report what the fit can actually resolve
 
 Two numbers the pipeline has everything to compute and does not print.
@@ -822,6 +836,30 @@ amplitude**. The mechanism above predicts the plate scale tracks focuser positio
 effective focal length moves with the objective-to-reducer distance; the 190 ppm between the two
 Leon nights is consistent with that. It costs nothing to log and would confirm the mechanism
 directly.
+
+### F20 — Record what the corrections were fed, not just that they ran
+
+`distortion_results.txt` records `aberration/parallax correction enabled?` and `refraction
+correction enabled?` — and nothing about the values behind them. Not `observation_temp`, not
+`observation_pressure`, not `observation_humidity`, not `observation_wavelength`, not the site.
+
+That is not cosmetic. The eclipse-day plate scale moves **13.5 ppm per kelvin** of assumed
+temperature (`LEON_2026-08-11.md` §19.1), so a result which depends on an input that strongly
+must record it. It already cost something concrete: §14.1's plate scale could not be reproduced
+on another machine, and the temperature it was computed with **cannot now be recovered from the
+output** — the run is gone and the number was never written down. Douglas' first question back
+was "what `observation_temp` did those runs use?", and the honest answer is that the file does
+not say.
+
+Cheap, and the stage-1 pattern already exists: `results.txt` writes the whole `effective_options`
+block. Stage 2 should do the same, or at minimum the correction inputs and the site. While there:
+the same file should carry the **reference-projection gauge** it reports coefficients in (§18.11),
+so a coefficient copied out of it cannot be compared against a TAN-gauge number by accident.
+
+Related discipline, worth stating in the same place because it is the cheaper half of the fix:
+**one assumed temperature for the whole eclipse-day chain.** The error is common-mode between the
+calibration field and the eclipse field and cancels to ±1.2 ppm if they share it; it does not
+cancel at all between two reductions made at different assumed temperatures (§19.2).
 
 ---
 
