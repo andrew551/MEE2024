@@ -742,12 +742,34 @@ def windowed_centroid(sub, y0, x0, sigma, R=8, iters=12, tol=1e-5):
     return i0 + cy, j0 + cx
 
 
+def peak_value(img, y, x, r=4):
+    """The brightest raw pixel within +/-r of a centroid, or nan too near the edge.
+
+    Measured on the *raw* image, not the background-subtracted `sub`: the question F16 asks
+    is whether the sensor clipped, which is a statement about ADU against full scale, not
+    about contrast against the local sky.
+
+    A caveat that belongs with the number rather than in a docstring nobody reaches. This
+    runs on the *stacked* image, and `add_img_to_stack` accumulates a sum and a count, so
+    the stack is a mean. A star clipped in every frame sits at the clip level and is caught;
+    one clipped in only some frames averages down, lands below an absolute threshold, and is
+    biased anyway. Catching that needs per-frame detection carried through the alignment,
+    which is a larger change. `saturation_fraction` is below 1 partly for this reason.
+    """
+    y0, x0 = int(round(y)), int(round(x))
+    if not (r <= y0 < img.shape[0] - r and r <= x0 < img.shape[1] - r):
+        return float('nan')
+    return float(np.max(img[y0 - r:y0 + r + 1, x0 - r:x0 + r + 1]))
+
+
 def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, debug_display=False):
     t_start = time.time()
     img, mask, mask2 = img_mask2
     if not options['centroid_gaussian_subtract']:
         centroids = simple_get_centroids(img)
-        return [(-1, -1, x) for x in centroids] # return tetra centroids
+        # nan peak: this path never measures one, and nan is what the saturation filter
+        # reads as "not known", so it declines to reject rather than rejecting everything
+        return [(-1, -1, x, float('nan')) for x in centroids] # return tetra centroids
     if options['background_subtraction_mode'] =='Gaussian':
         blur = cv2.GaussianBlur(img, (ksize, ksize), 0)
     else:
@@ -813,7 +835,11 @@ def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, d
                 show_scanlines(data_near, fig, ax)
                 plt.show()
     
-    sorted_c = sorted([(f, a, c) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area'] and not np.isnan(c[0])], reverse=True)
+    # The peak is recorded for every star, always: it is one max over a 9x9 stamp, it is
+    # additive to the on-disk contract, and a number that is only there when an option was
+    # on is a number nobody can go back and check. Whether to *reject* on it is the option,
+    # and it is stage 2's to make -- see `reject_saturated_stars`.
+    sorted_c = sorted([(f, a, c, peak_value(img, c[0], c[1])) for f, c, a in zip(fluxes, centroids, areas) if a >= options['min_area'] and not np.isnan(c[0])], reverse=True)
     print(f"n centroids initial {len(sorted_c)}")
     # sanity check: mean(3x3 around centroid) > mean(5x5 around centroid) > mean(7x7) > mean(9x9) around centroid in raw img
     # this should help heal with fake centroids due to artifacts like dead pixels
@@ -836,12 +862,14 @@ def get_centroids_blur(img_mask2, ksize=17, r_max=10, options={}, gauss=False, d
         # Same stars, better positions: only the estimator changes. See windowed_centroid.
         sigma = float(options.get('centroid_window_sigma', 2.0))
         refined, dropped = [], 0
-        for f, a, c in sorted_c:
+        for f, a, c, p in sorted_c:
             r = windowed_centroid(sub, c[0], c[1], sigma)
             if r is None:
                 dropped += 1
                 continue
-            refined.append((f, a, r))
+            # the peak carries over unchanged: refining moves the position, not the pixel
+            # values it was measured from
+            refined.append((f, a, r, p))
         print(f"n centroids window-refined {len(refined)} (sigma {sigma} px, {dropped} dropped)")
         sorted_c = refined
     print("--- %s seconds for centroid finding (all)---" % (time.time() - t_start))
@@ -1312,7 +1340,13 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
     df_detection = pd.DataFrame({'px': np.array(centroids_stacked)[:, 1],
                                'py': np.array(centroids_stacked)[:, 0],
                        'area (pixels)':[x[1] for x in centroids_stacked_data],
-                       'flux (noise-normed)': [x[0] for x in centroids_stacked_data]})
+                       'flux (noise-normed)': [x[0] for x in centroids_stacked_data],
+                       # new in v1.4.0: the raw peak, so stage 2 can reject a clipped star
+                       # on evidence rather than on whether its error happened to exceed
+                       # the fit tolerance. Older archives have no such column and stage 2
+                       # copes -- see `_drop_saturated`.
+                       'peak (adu)': [x[3] if len(x) > 3 else float('nan')
+                                      for x in centroids_stacked_data]})
     df_detection.to_csv(data_dir / ('STACKED_CENTROIDS_DATA'+'.csv'))
     
     logger.info(f'saving {centroids_stacked.shape[0]} centroid pixel coordinates')
@@ -1417,6 +1451,10 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
                          'solve': solve_provenance,
                          'n_centroids' : centroids_stacked.shape[0],
                          'img_shape' : imgs_0.shape,
+                         # what 'peak (adu)' has to be read against. Recorded here because
+                         # stage 2 never sees a frame header, and guessing 65535 is wrong
+                         # for any camera that is not 16-bit.
+                         'full_scale_adu': float(2 ** int(bit_depth) - 1) if bit_depth else None,
                          'RA' : solution['ra'],
                          'DEC' : solution['dec'],
                          'roll' : solution['roll'],

@@ -450,3 +450,82 @@ def test_no_header_date_leaves_the_guesser_alone():
     options = {'guess_date': True, 'observation_date': '2023-12-01'}
     assert resolve_epoch(options, {}) is options
     assert resolve_epoch(options, {'observation_date_header': None}) is options
+
+
+# ------------------------------------------------ saturated star rejection (F16)
+
+def _peaks_df(peaks):
+    import pandas as pd
+    return pd.DataFrame({'px': [10.0] * len(peaks), 'py': [20.0] * len(peaks),
+                         'area (pixels)': [5.0] * len(peaks),
+                         'flux (noise-normed)': [100.0] * len(peaks),
+                         'peak (adu)': peaks})
+
+
+def test_saturated_stars_are_rejected_regardless_of_fit_tolerance():
+    """The point of F16. distortion_fit_tol is set to 999 on the eclipse field on purpose,
+    so a clipped star is otherwise guaranteed to reach the deflection fit."""
+    from mee2024.distortion_fitter import _drop_saturated
+
+    df = _peaks_df([1000.0, 65535.0, 30000.0, 63000.0])
+    data = {'full_scale_adu': 65535.0}
+    opts = {'reject_saturated_stars': True, 'saturation_fraction': 0.95,
+            'distortion_fit_tol': 999.0}
+
+    kept, note = _drop_saturated(df, data, opts)
+
+    # 65535 and 63000 are both >= 0.95 * 65535 = 62258
+    assert len(kept) == 2, note
+    assert sorted(kept['peak (adu)']) == [1000.0, 30000.0]
+    assert '2 saturated star(s) rejected' in note
+
+
+def test_saturation_rejection_is_off_by_default():
+    from mee2024.distortion_fitter import _drop_saturated
+
+    df = _peaks_df([65535.0, 1000.0])
+    kept, note = _drop_saturated(df, {'full_scale_adu': 65535.0}, {})
+    assert len(kept) == 2 and note is None
+
+
+def test_an_archive_without_the_peak_column_is_not_rejected_wholesale():
+    """Stage-1 archives written before F16 -- including the twelve Leon zenith reductions
+    the eclipse calibration transfers from -- carry no peak column. Turning the option on
+    must not silently discard every star in them, and must say why it could do nothing."""
+    from mee2024.distortion_fitter import _drop_saturated
+
+    df = _peaks_df([1000.0, 65535.0]).drop(columns=['peak (adu)'])
+    opts = {'reject_saturated_stars': True, 'saturation_fraction': 0.95}
+
+    kept, note = _drop_saturated(df, {'full_scale_adu': 65535.0}, opts)
+
+    assert len(kept) == 2
+    assert 'predates' in note
+
+
+def test_an_unknown_peak_is_not_grounds_for_rejection():
+    """The non-sensitive centroider records nan. nan means "not measured", not "saturated"."""
+    import numpy as np
+    from mee2024.distortion_fitter import _drop_saturated
+
+    df = _peaks_df([np.nan, np.nan, 65535.0])
+    opts = {'reject_saturated_stars': True, 'saturation_fraction': 0.95}
+
+    kept, note = _drop_saturated(df, {'full_scale_adu': 65535.0}, opts)
+
+    assert len(kept) == 2, 'only the genuinely clipped star should go'
+    assert np.isnan(list(kept['peak (adu)'])).all()
+
+
+def test_a_missing_full_scale_declines_to_guess():
+    """Guessing 65535 would be wrong for any camera that is not 16-bit, and would either
+    reject nothing or reject everything depending on which way it was wrong."""
+    from mee2024.distortion_fitter import _drop_saturated
+
+    df = _peaks_df([1000.0, 65535.0])
+    opts = {'reject_saturated_stars': True, 'saturation_fraction': 0.95}
+
+    kept, note = _drop_saturated(df, {}, opts)
+
+    assert len(kept) == 2
+    assert 'full scale' in note
