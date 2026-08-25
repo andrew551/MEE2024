@@ -872,10 +872,19 @@ inside a path that already exists and is already tested.
 eclipse images Don Bruns`), `EC08` fails to blind-solve under v2 and solves under v1 in the
 same run: RA 303.5889652, DEC 12.1318308, matching the 2024 reduction of the same frames to
 seven decimals. v2 spent 45.6 s, 8.0 M candidates, threshold 38, noise escalated to 0.9 px,
-two anchor rounds, and gave up; the other 29 fields solved in 2.4-3.2 s. The field is not
-marginal — 3503 centroids, background spread 4 ADU across its ten frames, tighter than its
-neighbours. A 2x2 was run to isolate the cause: **the dark is irrelevant, the solver is the
-whole story.**
+two anchor rounds, and gave up; 28 of the 30 fields solved under v2 in 2.4-3.2 s. The field
+is not marginal — 3503 centroids, background spread 4 ADU across its ten frames, tighter than
+its neighbours. A 2x2 was run to isolate the cause: **the dark is irrelevant, the solver is
+the whole story.**
+
+**`EC08` is a regression; the other failure is not, and the distinction is the point.** The
+2024 reduction covered only the second night (`EC06`-`RC10`), and it solved `EC08`. The
+second failure, `EC05`, is from the first night — **no version has ever solved it**, and it
+defeats v1 and v2, with and without the dark, and at a deeper detection threshold (3528
+centroids against 2539), on a stack that is healthy by every available measure: 10/10 frames
+aligned, dither 5.0 px, align-rms 0.165 px against `EC03`'s 0.146. So the real-field v2
+failure rate here is 2/30, of which **fallback would recover one**. `EC05` is a separate
+open question and should not be quoted as evidence for this item.
 
 | | v2 | v1 |
 |---|---|---|
