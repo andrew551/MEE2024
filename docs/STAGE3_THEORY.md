@@ -184,3 +184,65 @@ Consequences, stated once:
 
 None of this is implemented here; this document is the theory record. The one code change
 in flight is the eq. 23 units fix on `fix-platescale-covariance-units`.
+
+## 6. The 2024 paper's scale-free cluster, and a candidate mechanism
+
+*Added 2026-08-25, after reading `Modern Eddington Experiment 2024 Results and
+Conclusions` §4 and §5.1 (`I:\Papers`).*
+
+§4.4 of that paper reports three analyses that determined the plate scale from the eclipse
+stars themselves — the eq. 12 estimator class — and flags their agreement as "intriguing":
+
+| analysis | L | vs 1.7512 |
+|---|---|---|
+| Station 1, 2024 (Mikhailov Δθ = L/R + S·R, 171 stars, Sun in-field) | 1.839 | **+5.0 %** |
+| Bruns 2017, eclipse-only reanalysis (his own comparison) | 1.86 | **+6.2 %** |
+| Lick 1922, Mikhailov's reanalysis (71 stars, 2.1–13 R⊙) | 1.83 | **+4.5 %** |
+
+"The clustering of these three calculations within a range of 0.03 arcsec … may suggest a
+systematic error in this method of data analysis." No mechanism is proposed there.
+
+`tools/cubic_into_deflection.py` supplies a candidate. If the frozen cubic **exceeds**
+the true eclipse-day cubic — which LEON §18.9 argues is the likely direction, both zenith
+nights sitting 121–129 focuser steps below the eclipse focus — the correction leaves a
+negative radial cubic residual, and the scale-free fit's S column absorbs it into L with
+the amplification §3 of this document describes. Measured on the Leon geometry, Sun
+centred: an over-correction of only **2.4 %** (the §18.8 systematic floor) biases the
+scale-free L by **+5.3 %** (+6.9 % on a 2.5–9 R⊙ annulus); Method 1 takes +1.7 %. The
+sign, the size and the estimator-dependence all match the cluster.
+
+What this is and is not. It is a mechanism that produces the observed +5 % from a
+cubic-transfer error of a size the Leon campaign has independently measured, in exactly
+the estimator the three analyses share. It is not yet a demonstration: Station 1's own
+σ_L is 13 %, so its +5 % is 0.4σ alone and only the *cluster* demands explanation; the
+Lick reduction's distortion handling is unknown and its residual need not be cubic
+(any radial systematic — refraction curvature included — feeds the same degeneracy); and
+the Bruns and Lick rows have not been re-propagated on their own field geometries. The
+test is cheap and concrete: re-run Station 1 with the frozen quintic scaled by ±5 %, and
+by nothing, and watch which way L moves. If L tracks the scaling at roughly the Method 2
+rate, the cluster has its mechanism; if it does not, the mechanism is excluded there.
+
+## 7. §5.1's stability claim, and the regime it does not cover
+
+§5.1 measures the cubic on two rigs over several nights of spring 2024 — 7.09 ± 0.06″
+(±0.9 %) and −1.03 ± 0.03″ (±2.9 %), refocused each night — and concludes the distortion
+is "stable over several weeks" and measurable "to within a few percent". LEON §18.6 finds
+4.84 % between two nights at 6σ. These do not contradict each other, and reading them
+together locates the gap precisely:
+
+- §5.1 measures **night-to-night at night focus** — the same thermal regime both times.
+  Its 0.9–2.9 % is what nightly Bahtinov refocus delivers, and Leon's within-night
+  0.9–1.9 % sits in the same band.
+- The workflow then applies those coefficients to **daytime images at daytime focus** —
+  121–129 focuser steps away at Leon, and a Venus-terminator focus procedure at that
+  (§18.10). No campaign has ever measured the cubic at the eclipse focus. §5.1's number
+  is real and does not cover this step; §18.9's 10–24 % extrapolation is the current
+  estimate of what it misses, and §6 above is what that gap may look like when it reaches
+  a published L.
+
+The two measurements that would close it, in order of value: the §9.3 focus sweep (cubic
+vs focuser position, converting "unbounded above" into a slope), and the second 2017
+zenith night — running both of Bruns' nights through the pipeline that produced LEON §18
+extends §5.1's own Figure-17 methodology to the one rig with a published deflection
+result, and measures for the first time whether his night-to-night stability resembled
+0.9 % or Leon's 4.84 %.
