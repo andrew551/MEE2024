@@ -376,9 +376,35 @@ with a radial systematic, so it absorbs part of the cubic residual too — and p
 in the `A/ρ` coefficient. Restricting to Bruns' own 5–10 R⊙ zone (`--rmin 5 --rmax 10`)
 makes it far worse, because the radial lever arm shortens: a 4.84 % cubic error moves
 Method 2 by −41.7 % against Method 1's +1.06 %, and the statistical scatter goes from
-±4.58 % to ±13.79 %. **Method 2 is the wrong choice when the distortion transfer is the
-dominant systematic and the star annulus is narrow**, which is the Leon case. It buys
-immunity to plate-scale error at the price of sensitivity to distortion error.
+±4.58 % to ±13.79 %. It buys immunity to plate-scale error at the price of sensitivity to
+distortion error, and the exchange rate is worst in a narrow annulus.
+
+> **Corrected 2026-08-25.** This item originally ended "Method 2 is the wrong choice when
+> the distortion transfer is the dominant systematic and the star annulus is narrow, which
+> is the Leon case." That reads as a recommendation to prefer Method 1, and it was written
+> without measuring Method 1's own dominant term. **Method 1 costs 7.7–9.9 % of L per
+> 10 ppm of error in the imported plate scale** — at 9 R⊙ a 10 ppm error displaces a star
+> 86 mas against 195 mas of real deflection — so on §12.2's 7 ppm reproducibility it
+> carries ~6.9 %, larger than anything in the cubic table above. Method 2 is ~12× less
+> sensitive to it.
+>
+> So the two are not ranked: each is dominated by a different term and both are several per
+> cent. Both are reported, which is the convention of this literature — determining the
+> plate scale from check fields versus from the eclipse plates themselves are the two
+> historical answers to the scale-factor problem. Where a calibration field exists Method 1
+> is the result, because its weakness shrinks whenever the calibration improves and Method
+> 2's shrinks for nothing; that makes **~4 ppm on the step-2 plate scale a specification**,
+> not a nicety. What the original wording got right is narrower: their *agreement* is not
+> validation, since they fail on different terms.
+>
+> One use falls out. The gap between them is linear in both errors,
+> `gap(%) ≈ 0.36 × ε_cubic(%) + 0.84 × δ_platescale(ppm)`, the 0.36 holding to ±4 % across
+> a 63× range in ε. Two unknowns in one equation, so it bounds rather than separates — but
+> a gap wider than the calibration's plate-scale reproducibility allows points at the cubic
+> transfer, which §18.6 can otherwise only bound as "≥2.4 % and unbounded above".
+>
+> Fixing this also turned up a defect: `analysis_mode_1` understated exactly this term by a
+> factor of the plate scale. Branch `fix-platescale-covariance-units`.
 
 **4. The refraction rows are the reason the temperature question closes.** LEON §19.2
 shows a ±2 K assumed-temperature error cancels to ±1.2 ppm in the *plate-scale* channel.
