@@ -501,3 +501,46 @@ Condensed (ranges over the nine field-windows, alt 8.5–12.4°):
 Method note: the corr-ON tol-2.0 fits carried zero persistent mismatches into these maps
 (the clip count was 0 in all nine field-windows) — the M5 mismatch problem is specific to
 `tol 999`, which is one more datum for the F16-at-step-3 case.
+
+
+## 13. The sky-gradient test — mechanism dead, and a 90° error found and fixed (2026-08-27)
+
+§12.3 proposed the totality sky-brightness gradient as the cause of a daytime "horizontal
+excess" in CAL_piLeo's residuals. The test killed the mechanism three independent ways and
+then killed the premise.
+
+**The gradient, measured.** On the 17-frame stack: sky 3901 ADU, gradient 81 ADU/kpx —
+**almost purely vertical, brighter toward the horizon** (−80.8 ADU/kpx along altitude
+against +5.7 along azimuth; cos of the angle to the Sun's direction = +0.11). It is the
+twilight-ring glow below the field, not the corona 11° west. Per frame the fractional
+gradient is stable at ~2 %/kpx of sky while the sky itself runs 726 → 5700 ADU through
+totality (and the post-C3 frames saturate whole — sky 65535 ADU by 18:30:05).
+
+**The centroid mechanism, priced.** After annular background subtraction, the surviving
+linear term shifts a σ_w = 2 px windowed centroid by g·2πσ_w⁴/F_w: median **0.016″**,
+faintest-quartile 0.034″, maximum 0.050″ — 20–60× below the observed scatter, and
+uncorrelated with the observed along-gradient residuals (r = +0.09 on 105 stars, below
+the 0.20 two-sigma line). Dead on direction, dead on size, dead on correlation.
+
+**The premise was wrong: the daytime anisotropy is vertical, not horizontal.** The
+step-2-era `vertical_test.py` rotated residuals into the vertical frame with a hand-derived
+parallactic angle that is **90° off**. The convention-proof affine (astropy alt-az of the
+solved stars against their own pixels; sensor −y lands 3.1° from the local vertical) gives
+CAL_piLeo **0.424″ vertical / 0.317″ horizontal** (tol 1.0) — the exact swap of the old
+claim. §10 finding 3 and §12 finding 3 are amended accordingly: there is **no daytime
+horizontal anomaly**. Day and night are vertical-major alike, and the daytime vertical
+budget closes from night-measured numbers once integration time is accounted (the CAL
+stack is ~25 s of integration against the night blocks' 270 s: quasi-static ~0.3″ plus
+jitter/√17 with per-1–2 s-frame jitter scaled from the 6 s measurement ≈ 0.42″ predicted
+against 0.42″ observed; the horizontal closes within a factor ~2 of the same crude
+scaling). The CAL_piLeo residual is the ordinary anisotropic atmosphere at airmass ~6 —
+nothing eclipse-specific, nothing instrumental.
+
+**A capture artefact found in passing, for F14/F7 and the §19.4 file:** the first frame
+of a CAL_piLeo block can carry the **previous block's exposure** while its header claims
+the new one — proven by sky level: `18_29_19/00001` reads 1180 ADU (the 0.3 s level, not
+1 s), `18_29_27/00001` reads 2848 ADU (the 1 s level, not 2 s), `18_29_46/00001` reads
+5716 ADU (the 2 s level, not 0.3 s); `18_29_51/00001` is clean, so the rule is not
+universal. Two affected frames sit in the step-2 stack; the effect on the reduction is
+negligible (centroids are exposure-independent and the exposure-weighted mid-time moves
+at the ~1 ppm level) but the headers lie, which matters to anything that trusts EXPTIME.
