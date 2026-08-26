@@ -260,7 +260,9 @@ the mount, and gives §9.3's sweep a control to be measured against.
   reproduces the 2024 rms to 2 % and the day−night transfer to **14 ppm** (−510 vs −524).
   A **+30 ppm** plate-scale offset between reduction generations remains unexplained: it is
   not the reference set (−0.4 ppm), not F15's windowed centroid (+1.1 ppm), and not the
-  tolerance. The refraction fix of §11.1 is the remaining candidate.
+  tolerance. **Two candidates remain untested**: the refraction fix of §11.1, and the
+  calibration frames themselves — the 2024 run used darks and this one did not, which an
+  earlier draft of this list overlooked. See `CALIBRATION_FRAMES.md`.
 - **Averaging both 2017 nights changes nothing** (−0.4, +0.2, +0.1 ppm on the three L/R
   variants), because they are statistically indistinguishable — the opposite of Leon, where
   §18.9 warns against averaging because the nights differ at 6 σ.
