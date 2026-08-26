@@ -1,0 +1,326 @@
+# The Leon refraction data: what it is, and a plan for using it
+
+*(Branch record for `refraction-leon-2026`. The original strategy copy lives at
+`D:\MEE2024 output\MEE_outputefraction\REFRACTION_2026_STRATEGY.md`; this file is the
+living version and will accumulate results as M2–M8 run.)*
+
+**Date:** 2026-08-26. Status: **strategy — nothing here has been measured yet** except the
+inventory (§1), the weather extraction (§2) and the pilot solvability run (§5.M1). Sources:
+`leon_horizon_v1.15.scs`, `leon_refraction_mosaic_v2.scs`, the frame headers on
+`G:\Leon Aug 2026`, the logger file on `I:\Leon location and weather data`, and
+`docs/LEON_2026-08-11.md` (§4.4, §5, §11, §16, §18, §19) with `CAL_PILEO_STEP2.md`.
+
+The purpose, in one sentence: the eclipse was measured at altitude 9.5–9.9°, where the
+pipeline's standard refraction model (astropy/ERFA class) is asked to remove a ~10 000 ppm
+vertical field compression with almost no free parameters to absorb its error — and these
+two datasets exist to **measure that model against the real atmosphere at the real
+sightlines**, rather than assume it.
+
+This analysis is deliberately non-standard, probably eclipse-2026-specific, and should live
+on its own branch as auxiliary tooling (proposed: branch `refraction-leon-2026`, code under
+`tools/refraction/`, running record in `docs/REFRACTION_2026.md`). Nothing under `mee2024/`
+changes, so by the ROADMAP §6 classification it cannot move a released number.
+
+---
+
+## 1. What exists on disk (measured from headers, 2026-08-26)
+
+All frames: 6 s exposure, gain 101, offset 50, sensor at +10 °C, red filter, camera clamped
+at the eclipse rotation. Every planned block is complete — no aborts, no missing fields.
+
+### The horizon sets — three windows, two nights
+
+| window | UTC | fields | frames | FOCUSPOS (steps) | FOCTEMP (°C) |
+|---|---|---|---|---|---|
+| **N1** (pre-eclipse night) | 08-11 23:16 – 23:31 | H1, H2, H3 | 3 × 45 | **17049** | 29.1–29.4 |
+| **N2** (post-eclipse, before mosaic) | 08-12 22:31 – 22:46 | H1, H2, H3 | 3 × 45 | **17041** | 30.6–31.1 |
+| **N3** (post-eclipse, after mosaic) | 08-13 00:22 – 00:37 | H1, H2, H3 | 3 × 45 | **17037** | 30.1–30.3 |
+
+The fields (fixed alt-az GOTO, then sidereal tracking):
+
+| field | alt (°) | az (°) | role |
+|---|---|---|---|
+| H1 | 9.6 | 281 | the Sun's mid-totality position; covers the lower ~70 % of the science frame |
+| H2 | 11.6 | 281 | +2° — brackets the science band from above |
+| H3 | 10.5 | 271 | the CAL_piLeo sightline (CAL_piLeo reduced at alt 9.87°, az 269.9°) |
+
+**N2 and N3 are the same observing night**, bracketing the mosaic by ~2 h: the post-eclipse
+sequence was horizon (22:31) → zenith set (22:48) → mosaic (23:10–00:20) → horizon again
+(00:22). So the "two post-eclipse sets" give a same-night repeat under a measured 2.2 K /
+0.9 hPa atmospheric change — a built-in weather-sensitivity lever — while N1 is the
+different-night control.
+
+**The focus check passes exactly where it can pass** (the check requested before planning):
+
+| block | FOCUSPOS (steps) | same night's zenith set | match |
+|---|---|---|---|
+| N1 horizon | 17049 | zenith 08-11: **17049** | exact |
+| N2 horizon | 17041 | zenith 08-12: **17041** | exact |
+| N3 horizon | 17037 | (no zenith set at 17037) | 4 steps from 08-12's — inside the EAF's ~15-step backlash (§12.4) |
+| CAL_piLeo, eclipse day | 17170 | — | the 121–129-step daytime offset of §10.2 (17170−17049 = 121, 17170−17041 = 129) |
+
+So N1 and N2 are at **identical recorded focus** to their own night's distortion solution —
+the zenith cubic imports with no focus caveat at all — and N3 carries a 4-step,
+inside-backlash caveat.
+
+### The meridian mosaic — one run, complete
+
+80 fields × 5 frames, alt 5° (south) → 88.92° (zenith straddle, fields 40/41) → 5° (north),
+UTC 08-12 23:10:26 → 08-13 00:20:33 (70 min; §4.4's "23:10–23:50" window should be extended —
+a proposed correction, §8). Every field has all 5 frames.
+
+**FOCUSPOS steps 17041 → 17037 exactly at field 63 — the pier flip** (00:05:21 UTC; the
+script predicted the flip between fields 62 and 63, pole at alt 42.60°). A 4-step change
+coincident with the mount reversing the gravity load on the focuser, inside backlash: most
+plausibly the *reading* settled, not the optics. Whether the optics moved is itself
+measurable from the mosaic (§5.M4): fields 62/63 are adjacent in altitude and time across
+the flip, and every matched pair from 63 on straddles it.
+
+### Weather (logger, 30 s cadence, local = UTC+2; extraction reproduces §4.4)
+
+| window | n (records) | T (°C) | RH (%) | P (hPa) |
+|---|---|---|---|---|
+| N1 horizon | 32 | 23.5 ± 0.1 | 37.1 | 896.3 |
+| N2 horizon | 32 | 23.7 ± 0.3 | 37.9 | 897.5 |
+| mosaic | 142 | 21.7 ± 0.5 | 48.6 | 898.4 |
+| N3 horizon | 32 | 21.5 ± 0.1 | 50.0 | 898.4 |
+| eclipse totality (ref) | 6 | 30.5 ± 0.1 | 20.8 | 896.7 |
+
+Placement per §4.4: N1 was logged from the box (humidity reads ~10 points low; night box
+temperature is trustworthy per §4.2); everything on the post-eclipse night is from the
+spreader in free air — the best-instrumented windows of the campaign. Two logger caveats,
+both already established: the file's own "Original time zone UTC+1" header is wrong (the
+timezone was established in §4), and the file must never be averaged whole — its last hours
+(pressure rising to 926.8 hPa) are the descent from site.
+
+## 2. Why refraction is the right suspect, made precise
+
+The pipeline applies the standard model to catalogue positions ("corrections on"). What the
+fit can absorb of the model's error depends on which polynomial orders are free — and the
+three-step chain of §16 progressively freezes them:
+
+| step | free orders | exposed to model error at |
+|---|---|---|
+| 1 (zenith) | all, through cubic | nothing (model ~flat at 80°) |
+| 2 (CAL_piLeo) | constant + linear + quadratic | **cubic and above** |
+| 3 (eclipse field) | **constant only** | **linear and above** |
+
+The standard-model signal sizes at alt 9.6°, on this 2.5°-tall frame (from R ≈ k·tan ζ with
+k = 58.3″; the pipeline's model is better than this, the orders of magnitude are right):
+
+| term | size | absorbed by |
+|---|---|---|
+| absolute refraction | ~330″ | the free constant, everywhere |
+| vertical compression (linear) | **~10 100 ppm** | step 2's free linear; **frozen at step 3** |
+| horizontal compression (linear) | ~283 ppm (constant with altitude — the "zenith floor" measured 2026-08-26) | same |
+| quadratic sag across the frame | ~6″ | step 2's free quadratic; frozen at step 3 |
+| **cubic structure across the frame** | **~0.7–1″** | **nothing — frozen from the zenith night at both steps** |
+| time drift of the compression | ~600–700 ppm/deg × 10.9″/s descent ≈ 1.8 ppm/s | `observation_time` (exposure-weighted mid-point) |
+
+So: a fractional model error ε costs step 2 roughly ε × 1″ of *structured, unfittable*
+residual (against its observed 0.53″ rms — LEON §5's "0.5″ of curvature survives the fit" is
+this line), and costs step 3 ε_differential × 45″ across the frame at the linear term alone,
+where ε_differential is the model error *difference* between the CAL_piLeo reduction
+(alt 9.87°, az 270°, 18:29:34 UTC) and the eclipse frames (alt 9.5–9.9°, az 281°, minutes
+later). The differential is what matters because the imported low orders already carry the
+model error as realized on the cal sightline — §19.2's common-mode principle. **H3 − H1 is,
+by design, a direct measurement of that differential geometry** (cal sightline vs eclipse
+sightline, 2.1° apart in the same sky), which no amount of zenith or mosaic data provides.
+
+What the deflection is protected by, and what it is not: the cal/science common mode
+protects the *amplitude*; the night data's job is to measure the parts that are **not**
+common — the sightline differential, the within-frame shape beyond quadratic, and the
+stability of both against weather (N1 vs N2 vs N3 spans 2.2 K and 2.1 hPa naturally).
+
+### The built-in mini-sweep
+
+Each 45-frame block tracks one star field **descending 0.87° during the block**
+(10.9 ″/s of altitude at az 281°, φ 42.74°). Per-frame astrometry therefore gives ~45
+samples of scale-vs-altitude *on the same stars*, so catalogue and distortion errors cancel
+frame-to-frame. With corrections OFF that measures the raw compression slope
+(~600 ppm/deg — until now known only from the model); with corrections ON the same slope
+should be ~0 and its measured value **is** the model's local error slope. Expected
+sensitivity: per-frame plate-scale error of order 5–20 ppm over a 0.87° lever with 45 points
+resolves the slope to ~5–10 ppm/deg, i.e. tests the ~600 ppm/deg model term at the ~1–2 %
+level, per field, per window — nine independent times.
+
+## 3. What each dataset is for (and is not)
+
+**The horizon sets** are the local instrument: model shape and slope *at the two sightlines
+the science depends on*, at the exact focus of their night's distortion solution, three
+times, under measured weather. They cannot measure the daytime/eclipse atmosphere (§7).
+
+**The mosaic** is the global instrument: the model's shape over 5°–89° of altitude (97× in
+differential refraction), the azimuthal-homogeneity assumption (40 matched pairs at equal
+zenith distance on opposite azimuths — any pair difference is azimuthal asymmetry, not
+refraction), and the pier-flip diagnostic at field 62/63. It validates the model *class*;
+it does not sample the science azimuth (281°) below the pole — which is exactly why the
+horizon sets exist, and why the matched pairs matter: they bound how far meridian
+conclusions transfer to other azimuths.
+
+**The three windows together** are the stability instrument: same measurement under
+2.2 K / 2.1 hPa / 12-point-RH natural variation, plus a same-night repeat (N2 vs N3) and a
+different-night control (N1).
+
+## 4. The decision the horizon data settles first
+
+The largest unexplained term in the step-2 budget is that CAL_piLeo's daytime per-star
+scatter (0.53″ rms, flat with magnitude, horizontally elongated σ_y/σ_x ≈ 1.34) is ~8.5×
+the same rig's night-time zenith figure. The first horizon reduction settles which of three
+worlds we are in, and the rest of the program branches on it:
+
+| night result at H1/H3 | reading | consequence |
+|---|---|---|
+| rms ≈ 0.06–0.12″, isotropic (zenith-like) | the sightline is benign; the daytime excess is **eclipse-specific** (coronal sky gradient, thermal transient, wind) | refraction model likely fine; program closes early with a bound; the eclipse-day mystery moves to daytime physics |
+| rms ≈ 0.3–0.6″ with the **same horizontal anisotropy** | it is the **sightline** — low-altitude differential image motion / turbulence anisotropy, day and night alike | scatter is irreducible per-frame; stacking statistics and exposure choice for step 3 become the lever; model may still be fine |
+| rms elevated with a **structured vertical residual** after corrections ON | **refraction model error** isolated | measure it, template it (M6), correct step 2/3 or bound them |
+
+These are distinguishable in the first afternoon of M2, on stacked blocks alone.
+
+## 5. The measurement program
+
+Everything below runs the existing pipeline (`python -m mee2024.cli stack` / `distortion`)
+through thin drivers in `tools/refraction/` — the same pattern as the step-2 session, no
+package changes. Distortion references: the **same night's six zenith files** (exact-focus
+match, §1); a control pass with all 12 prices that choice. Weather per window from §1's
+table; `observation_time` per frame or per block, exposure-weighted, mid-exposure per the
+script's own instruction.
+
+**M0 — inventory and environment. Done** (this document, §1–§2;
+`refraction/INVENTORY.csv`).
+
+**M1 — pilot solvability. Done** — see result below. Gate: if a 10-frame stack at alt 9.6°
+solves and fits, everything else is mechanics.
+
+**M2 — the horizon ladders** (the core). For each window × field: stage 1 per frame (45
+single-frame reductions) and per block (one 45-frame stack); stage 2 on each at
+`distortion_fixed_coefficients=quadratic`, corrections ON and OFF (same centroids, two
+cheap fits). Outputs per window×field: S(t) and S(alt) with corrections OFF (raw slope vs
+model) and ON (residual slope = model error); rotation(t); rms(t); the stacked residual map
+in sensor coordinates; per-frame scatter statistics (the differential-image-motion
+measurement, and the night answer to the anisotropy question). Cost: ~405 stage-1 +
+~810 stage-2 runs ≈ **8–10 h machine time**, overnight, unattended. Trim to N2 + N3 first
+(the eclipse-night atmosphere) if a first look is wanted sooner; N1 follows as control.
+
+**M3 — the sightline differential.** H3 − H1 per window, both correction states: Δscale
+(ppm), Δresidual-map (mas), Δslope (ppm/deg). This is the number that feeds Method 1's
+transfer term — the non-common-mode part of the refraction correction between the cal and
+eclipse sightlines — and its night-to-night spread is its own error bar. H2 − H1 gives the
+same differential in pure altitude at fixed azimuth (the science band's top vs bottom;
+the upper 30 % of the science frame is reached by H1–H2 interpolation, not extrapolation).
+
+**M4 — the mosaic sweep.** Stage 1 per field (5-frame stacks), stage 2 at quadratic-free,
+corrections ON (primary) and OFF (one in five fields, for the raw curve): plate scale,
+rotation, rms, FWHM and star count vs altitude over 5–89°; the corrections-ON scale should
+be **flat** — the altitude where it departs, and the shape of the departure, is the model's
+validity boundary at this site. Then the 40 matched-pair differences (azimuthal asymmetry
+bound), and the field-62/63 discontinuity (did the pier flip move the optics, or only the
+focuser reading?). Cost ≈ **4–5 h machine**, parallelisable with M2 on a second evening.
+
+**M5 — the step-3 rehearsal** (the highest-value single product). Reproduce the real chain
+at night, where the deflection is absent and truth is the catalogue: same-night zenith
+cubic → step-2-like fit on **H3** (quadratic-free, corrections ON) → step-3-like fit on
+**H1** with H3's result as `--fix-distortion` reference and
+`distortion_fixed_coefficients=constant` (the key exists in the mapping; verified). Every
+arcsecond of structure in H1's residual map is then exactly the class of error the eclipse
+reduction will inherit. Project that map onto the eclipse fit's own basis — the 1/r field
+around the eclipse-day Sun position within the frame, weighted by the actual expected star
+geometry (catalogue to V = 11) — and the output is **a forecast of δL, in arcsec and as %
+of 1.75″, from refraction-model error, before step 3 is ever run**. Three windows give
+three forecasts and a spread.
+
+**M6 — conditional: the empirical template.** Only if M2/M5 find a stable structured
+residual: build the night-mean residual map (N2+N3 primary), smooth it (low-order in
+frame coordinates), and apply it as a pre-correction to (a) the CAL_piLeo step-2 rerun and
+(b) later, step 3 — then re-measure plate scale, rms, anisotropy, and the M5 forecast with
+the template in. Acceptance rule, fixed now: the template must *reduce* the night H1
+constant-only residual in all three windows, not merely in the window that built it. If M5's
+forecast is small, M6 is skipped and its place is an error-budget line.
+
+**M7 — byproducts** (cheap, from M2/M4 outputs): FWHM and limiting magnitude vs altitude
+and night (the SCI_ladder exposure-tier check the horizon script was also designed for);
+sky level vs altitude; the differential-image-motion statistics at airmass 5.8 (what a 45×
+stack actually averages); periodic-error signature in the per-frame pointing constants.
+
+**M8 — the write-up**: `docs/REFRACTION_2026.md` on the branch, LEON register; conclusions
+that touch the main-line reductions (step 2/3 error budget lines, any §4.4/§18 corrections)
+are carried back to `v1.4.0-dev` as proposals, not edits from this branch.
+
+Order: M2 (N2+N3) → M3 + M5 quick-look → decide M6 → M4 overnight → N1 control → M7 → M8.
+
+## 6. Pilot result (M1)
+
+Ten frames of N2 H1 (60 s integration at alt 9.6°, gain 101), zenith stage-1 regime,
+stage 2 quadratic-free against the 12 zenith references:
+
+| stage 2 | stars used | rms (″) | plate scale (″/px) | HC0 (ppm) | solved alt (°) |
+|---|---|---|---|---|---|
+| corrections ON | 154 | 0.4264 | 2.2072262 | 29.6 | 8.94 |
+| corrections OFF | 316 | 0.4291 | 2.2163670 | 10.6 | — |
+
+Four readings, in decreasing order of confidence:
+
+1. **It works.** A 60 s night stack at alt ~9° platesolves and fits cleanly through the
+   standard chain. The program is mechanics from here.
+2. **The ON−OFF scale difference is 4142 ppm** — the model's whole local correction, against
+   ~4260 ppm expected from scaling §11.2's 3500 ppm at 9.87° by csc²h to 8.94°. The model's
+   amplitude is right at the few-percent level out of the box.
+3. **The night sightline is CAL_piLeo-class, not zenith-class**: rms 0.43″ against 0.53″
+   (day) and 0.06–0.07″ (zenith). Provisionally this is row 2 of §4's decision matrix — the
+   daytime scatter excess is a property of the sightline, not of the eclipse — **but** a
+   10-frame stack carries ~0.5″ of within-stack refraction-evolution smear at the frame
+   edges (64 s × ~9 mas/s of differential stretch), which per-frame reduction removes. The
+   per-frame ladder decides between "atmosphere" and "stacking smear"; do not quote row 2
+   yet.
+4. **A 155 ppm tension, flagged for M2 to settle**: corrections-ON at H1 gives 2.2072262,
+   while the same night's zenith field at the *identical* focus (17041), corrections-ON,
+   gave 2.2068874 — a +155 ppm gap where near-zero is expected if the model were exact,
+   i.e. ~3.7 % of the local refraction term, at ~4σ of the pilot's own (HC0) error. Possible
+   readings: genuine model error at airmass ~6, within-stack smear bias, or the tol-1.0
+   selection (the ON fit kept only 154 of 316 stars — the cut rejected half the field, so
+   the tolerance is shaping the sample at this altitude and M2 should sweep it).
+
+Practical notes for M2 from the pilot: single frames will carry ~150–250 usable centroids
+(fine); `distortion_fit_tol = 1.0″` is too tight for mapping work at this altitude — run
+the ladder at 1.0 / 2.0 / 5.0 and keep the maps from the loose end; the AVX pointed ~0.6°
+below the commanded altitude (solved 8.94° vs GOTO 9.6°), harmless since all analysis uses
+solved positions.
+
+## 7. What this data cannot do — stated up front
+
+- **It cannot measure the daytime or eclipse-time atmosphere.** Totality sat 7–9 K warmer
+  than the night windows, with its own cooling transient (§4.4: a damped ~3 K drop) and
+  whatever boundary-layer response the eclipse itself drove. The night data validates the
+  model's *shape*; the amplitude transfers by P/T scaling (±2 K → ±1.2 ppm where it
+  matters, §19.2); an eclipse-specific *shape* anomaly is irreducible from any of this and
+  stays a caveat on step 3 whatever we find.
+- **The mosaic does not sample the science azimuth** below the pole; its matched pairs
+  bound, but do not eliminate, the azimuth question. The horizon sets carry that load.
+- **Night-to-night comparisons are not same-star**: a fixed alt-az at a different clock
+  time is a different star field (N1 vs N2 H1 differ by ~10° of RA). Comparisons live in
+  the sensor/alt-az frame — scale, slope, residual maps — not in per-star differences,
+  except within a block, where the mini-sweep is same-star by construction.
+- **6 s at gain 101 will clip the brightest stars** at these star densities. The step-2
+  session measured the cost of losing single anchors (leverage, not rms); with hundreds of
+  stars per frame the effect is diluted ~10×, and the F16 per-frame mask from
+  `analysis/saturation.py` is reusable if it matters.
+
+## 8. Corrections and additions this recon already owes the record
+
+Proposals for `v1.4.0-dev` (not edits from this branch): §4.4's mosaic window extends to
+00:20:33 UTC (140 logger records, not 80 — the mean moves ≲0.1 K / 0.1 hPa); §4.4 could
+usefully note N2/N3 bracket the mosaic on one night; the pier-flip focus step
+(17041 → 17037 at field 63) belongs wherever §12.4 discusses backlash, whatever M4 finds.
+
+## 9. Branch, code, and effort
+
+- **Branch `refraction-leon-2026`** off `v1.4.0-dev`, created when approved. Contents:
+  `tools/refraction/` (inventory.py, weather.py, drive_horizon.py, drive_mosaic.py,
+  residual_maps.py, step3_rehearsal.py, report.py — thin drivers over the CLI),
+  `docs/REFRACTION_2026.md`. **No changes under `mee2024/`**, so nothing on the branch can
+  alter a pipeline number; if M6 ever graduates into the package, that is a
+  results-changing change and takes the full §6 validation path.
+- Reductions land under `D:\MEE2024 output\MEE_output\refraction\`.
+- Machine time: M2 ≈ 8–10 h + M4 ≈ 4–5 h, both unattended overnight; analysis on top.
+- Everything above is reproducible from `INVENTORY.csv`, the logger file, and the two
+  `.scs` scripts; no hand steps.
