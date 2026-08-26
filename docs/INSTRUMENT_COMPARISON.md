@@ -272,7 +272,52 @@ the mount, and gives §9.3's sweep a control to be measured against.
   positions at ~127 s — 4.2 samples per cycle. Not comparable, and the GP2's reputation for
   low periodic error is neither confirmed nor refuted.
 
-## 12. What to do with this
+## 12. The Leon train against the 2017 experiment, head to head
+
+The natural question once the 16x is withdrawn: how does the Leon rig actually compare with
+the instrument that produced the best eclipse measurement ever made?
+
+**Distortion — Leon is better, not merely comparable.**
+
+| | field | k_TAN | at Bruns' corner (1.19 deg) | usable sky |
+|---|---|---|---|---|
+| Bruns 2017, NP101is + ML8051 | 1.91 x 1.43 deg | +0.772 | **+1.32"** | 1.96 sq deg |
+| Leon 2026, FRA500 + 0.7x + ASI2600 | 3.83 x 2.56 deg | -0.128 | **-0.22"** | **6.30 sq deg** |
+
+Six times less cubic per unit angle, and 3.2x more usable sky on Bruns' own criterion. The
+larger field does not merely rescue the Leon rig; it wins on both terms at once.
+
+**Image quality — the coma is real, and it is not worse than 2017 over the same field.**
+Matched annulus by annulus over Bruns' own radial range:
+
+| r (deg) | Bruns 2017 | Portland | ratio |
+|---|---|---|---|
+| 0.0-0.30 | 3.21" | 4.55" | 1.42 |
+| 0.3-0.60 | 3.30" | 4.70" | 1.42 |
+| 0.6-0.90 | 3.50" | 4.96" | 1.42 |
+| 0.9-1.19 | 3.77" | 5.45" | 1.45 |
+| **growth** | **1.175x** | **1.199x** | |
+
+The field-dependence is the same to 2 %. The FRA500's coma only becomes conspicuous *beyond*
+Bruns' field, reaching 1.32x by 1.45 deg -- territory the 2017 rig never sampled. Ellipticity
+behaves better on the FRA500 too: it falls with radius (0.137 -> 0.091) where Bruns' rises
+(0.130 -> 0.220).
+
+So: **the Leon train's optics are at least as good as the 2017 rig's over comparable field,
+and its distortion is substantially better** -- with the caveat that it is asked to work over
+twice the radius, where the back-focus coma does bite.
+
+Two limits on that. Portland's absolute FWHM is 1.42x worse at *every* radius, flat across
+the field -- that is seeing and focus on a poor night (the batch summary records FWHM 5.9"),
+not optics, but it means this rests on one Portland field and Leon's own zenith stacks would
+be the better test. And **none of it touches the term that actually limits the campaign.**
+Leon's problem was never a bad optic: it is that the cubic moved 4.84 % between calibration
+nights and sits 121-129 focuser steps from the eclipse configuration. The retracted 16x at
+least offered an explanation with a fix ("fit the spacer"); removing it leaves the transfer
+error standing alone, unexplained and unbounded above. That is why section 9.3's focus sweep
+matters more after this week's work than before it.
+
+## 13. What to do with this
 
 Proposals, not changes:
 
