@@ -1,7 +1,8 @@
 # The Leon refraction data: what it is, and a plan for using it
 
 *(Branch record for `refraction-leon-2026`. The original strategy copy lives at
-`D:\MEE2024 output\MEE_outputefraction\REFRACTION_2026_STRATEGY.md`; this file is the
+`D:\MEE2024 output\MEE_output
+efraction\REFRACTION_2026_STRATEGY.md`; this file is the
 living version and will accumulate results as M2–M8 run.)*
 
 **Date:** 2026-08-26. Status: **strategy — nothing here has been measured yet** except the
@@ -324,3 +325,64 @@ usefully note N2/N3 bracket the mosaic on one night; the pier-flip focus step
 - Machine time: M2 ≈ 8–10 h + M4 ≈ 4–5 h, both unattended overnight; analysis on top.
 - Everything above is reproducible from `INVENTORY.csv`, the logger file, and the two
   `.scs` scripts; no hand steps.
+
+
+---
+
+## 10. M2 results — the horizon ladders (run overnight 2026-08-26/27)
+
+All 405 frames of all nine field-windows reduced per frame, corrections ON and OFF,
+zero failures; per-frame results in `refraction/perframe_results.csv`, per-field summary in
+`refraction/m2_fieldwindow_summary.csv`. Corrections-ON zenith references: 08-12 measured
+directly (2.2068874 ″/px); 08-11 derived via §18.1's −221.9 ppm shift (sd 5.4 ppm).
+
+| win/field | UTC | alt mean (°) | ON slope (ppm/deg) | ON offset vs zenith (ppm) | rms, median per frame (″) |
+|---|---|---|---|---|---|
+| N1/H1 | 23:16 | 10.32 | −145 ± 33 | +115 ± 10 | 0.71 |
+| N1/H2 | 23:21 | 12.30 | +2 ± 37 | +65 ± 9 | 0.69 |
+| N1/H3 | 23:26 | 11.21 | +130 ± 23 | +27 ± 8 | 0.69 |
+| N2/H1 | 22:31 | 8.60 | −107 ± 28 | +88 ± 8 | 0.73 |
+| N2/H2 | 22:36 | 11.09 | −52 ± 20 | −78 ± 6 | 0.50 |
+| N2/H3 | 22:41 | 9.45 | +33 ± 21 | +15 ± 5 | 0.62 |
+| N3/H1 | 00:22 | 8.55 | +125 ± 55 | +336 ± 15 | 0.73 |
+| N3/H2 | 00:27 | 10.62 | −71 ± 29 | +107 ± 8 | 0.63 |
+| N3/H3 | 00:32 | 9.45 | +37 ± 31 | +143 ± 8 | 0.62 |
+
+(The mount's alt-az pointing wandered ±0.7–1.0° night to night, so "H1/H2/H3" sample
+different altitudes per window — the table's alt column, from the solves, is the truth.
+Corrections-OFF slopes ran −500 to −920 ppm/deg and the model removes ~85–90 % of them;
+the corrections-ON columns are the residuals. All N3 offsets carry the 4-step focus caveat,
+worth ≲50 ppm common-mode; N3 slopes and within-window differentials are free of it.)
+
+**Findings.**
+
+1. **The standard model leaves scale residuals of −80 to +340 ppm below ~12.5° altitude,
+   structured and non-stationary.** Within one window the mini-sweep residual slope is
+   measured to ±20–55 ppm/deg; across windows those slopes range −145 to +130 ppm/deg with
+   no universal altitude dependence. The residual is weather, not a fixed model defect: it
+   changed by ~100–250 ppm between 22:31 and 00:22 UTC on one night, and the pre-eclipse
+   night's profile does not match either epoch of the post-eclipse night.
+2. **The spatial differential — the Method-1-relevant number — is the stable part.** The
+   focus-free within-window H3−H1 differential, scaled to the ~0.3° cal-to-eclipse
+   altitude separation: **−29.6 ± 12 ppm (N1), −25.5 ± 10 ppm (N2), −64.6 ± 17 ppm (N3)**.
+   Two windows on *different nights* agree at ~−27 ppm; the late-night epoch doubles it.
+   The night-based estimate of the refraction-differential term in the CAL→eclipse
+   transfer is therefore **~25–65 ppm, epoch-dependent** — comparable to or larger than
+   the 23.5 ppm statistical error on the CAL_piLeo plate scale. What protects the eclipse
+   reduction is *simultaneity*: CAL_piLeo and the science frames are within a minute, so
+   the hours-scale wander cancels and only this spatial term survives.
+3. **The daytime-scatter mystery of `CAL_PILEO_STEP2.md` §9/§11 is resolved: it was the
+   sightline all along.** Night per-frame rms at 9.4–9.5° is 0.62″, and the 10-frame pilot
+   stack gave 0.43″ — against CAL_piLeo's daytime 0.53″ (stacked) and the zenith 0.06″.
+   The "8.5× the night-time figure" compared day-at-9.9° against night-at-80°; at matched
+   altitude the day/night ratio is ~1.2. Partial frame-averaging (0.62″ per frame →
+   0.43″ over 10 frames, not the 0.20″ of independent noise) says roughly half the
+   per-star error is quasi-static over minutes — atmospheric microstructure that stacking
+   cannot remove, which is also why CAL_piLeo's error floor (§5 there) is what it is.
+
+**Consequences for the program.** M6's template idea is dead at the lowest altitudes (the
+thing it would template is non-stationary) and weakened everywhere; the effort moves to
+M5 — measuring what step 3 actually inherits, with the ~25–65 ppm differential as the
+input range — and to §16.1's check of the 1/R residual gradient in the eclipse data
+itself. M4 (the mosaic) gains a specific extra job: fields 1–62 vs 63–80 straddle the
+4-step focus change, so the matched pairs calibrate the N3 focus confound directly.
