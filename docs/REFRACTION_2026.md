@@ -451,3 +451,53 @@ advisory; and (c) the spatial part being the *repeated* −27 ppm/0.3° of §10 
 the late-night extreme, which would put the term nearer 0.1″ than 0.6″. Which defence
 holds is measurable only from the eclipse frames themselves — step 3 should be run with
 all three diagnostics from the start.
+
+
+## 12. M3 results — the residual maps (2026-08-27)
+
+Per-star decomposition of all nine field-windows from the M2 corrections-ON quadratic-free
+fits: the **quasi-static** residual (median over the ~45 frames — what stacking keeps) and
+the **per-frame jitter** (scatter about it — what stacking averages), rotated into the
+local alt-az frame. Figures: `refraction/m3_maps/m3_quiver_maps.png`,
+`m3_vertical_profiles.png`; per-field statistics in `m3_stats.csv`.
+
+Condensed (ranges over the nine field-windows, alt 8.5–12.4°):
+
+| component | vertical (″) | horizontal (″) | anisotropy V/H (ratio) |
+|---|---|---|---|
+| quasi-static rms | 0.15–0.32 | 0.07–0.13 | ~2.3 |
+| jitter, median per 6 s frame | 0.43–0.61 | 0.19–0.31 | ~2.5 |
+| jitter after a 45-frame stack | 0.06–0.09 | 0.03–0.05 | — |
+
+**Findings.**
+
+1. **The unabsorbed structure is a wavefield, not a polynomial.** The vertical-residual
+   profiles oscillate with **0.2–0.3″ amplitude on ~0.5–1° altitude scales**, and where
+   two fields overlap in altitude (minutes apart, ~10° apart in azimuth) the curves do
+   not agree — the structure is not a function of altitude alone. The maps show the same
+   thing spatially: coherent patches of common vertical displacement. This is
+   gravity-wave-class modulation of the refracting layers, and it explains at a stroke
+   why §10's within-window slopes wander between windows: a 0.87° mini-sweep samples one
+   or two phases of a wave, and the fitted "slope" is whatever phase it caught. No
+   polynomial order fixes this, and no night template transfers it.
+2. **Stacking hits a floor set by the quasi-static term.** Jitter integrates down
+   (0.5–0.7″ per 6 s frame → 0.07–0.10″ over 45 frames) but the 0.17–0.35″ quasi-static
+   field does not. For the eclipse science frames the same arithmetic applies: beyond
+   ~20–40 frames the error budget is the wavefield, not photon or seeing noise — which
+   also sets the per-star error floor Method 1's fit will see (~0.25″, vertically
+   polarised).
+3. **§10's finding 3 was half right, and the correction sharpens it.** The *vertical*
+   components match perfectly: CAL_piLeo's daytime stacked residual is 0.32″ vertical
+   against the night quasi-static 0.15–0.32″ — the vertical part of the daytime error is
+   fully explained by the sightline atmosphere. **The horizontal does not match: 0.42″
+   by day against 0.07–0.13″ at night, a 3–6× excess.** So the daytime anomaly is
+   specifically an extra ~0.4″ *horizontal* quasi-static term with no night counterpart.
+   Candidates, untested: the totality sky-brightness gradient (the Sun sat ~11° west of
+   the cal field in azimuth — a horizontal gradient pulls centroids horizontally via the
+   background estimate), or wind shake. Testable cheaply from the CAL_piLeo frames
+   themselves by measuring the background gradient direction — flagged for the step-3
+   preparation, since the eclipse field sits even closer to the corona.
+
+Method note: the corr-ON tol-2.0 fits carried zero persistent mismatches into these maps
+(the clip count was 0 in all nine field-windows) — the M5 mismatch problem is specific to
+`tol 999`, which is one more datum for the F16-at-step-3 case.
