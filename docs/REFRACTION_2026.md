@@ -386,3 +386,68 @@ M5 — measuring what step 3 actually inherits, with the ~25–65 ppm differenti
 input range — and to §16.1's check of the 1/R residual gradient in the eclipse data
 itself. M4 (the mosaic) gains a specific extra job: fields 1–62 vs 63–80 straddle the
 4-step focus change, so the matched pairs calibrate the N3 focus confound directly.
+
+
+## 11. M5 results — the step-3 rehearsal (2026-08-27)
+
+The full chain, rehearsed at night where the deflection is absent: same-night zenith cubic
+→ step-2-like fit on a mid-block 10-frame H3 stack (the CAL_piLeo analogue: 470–778 stars,
+rms 0.41–0.46″ — sightline-class, as §10 predicts) → constant-only fits of all 45 H1
+frames per window against that reference, `distortion_fit_tol = 999` as §16 prescribes.
+Per-star median residuals (≥20 frames each), MAD-clipped, smoothed to a cubic surface,
+sampled at the real eclipse-star geometry, and fitted with the Method-1 estimator
+(offsets + roll + L/R). The machinery validates end to end: the empirical sky→sensor
+affine reproduces the 0.74° Sun offset to 3 px, and an injected L = 1.000″ is recovered
+to 1.0000 in both estimator variants.
+
+**The real step-3 field, for the record**: 132 stars G ≤ 11 outside 2 R⊙ (2.0–10.3 R⊙),
+Sun at px (3208, 3293); **F&L h = 19.8 R⊙²**, i.e. **1.07 % of L per ppm** of imported
+plate-scale error by the naive eq.-23 route — the highest-sensitivity row of
+`STAGE3_THEORY.md` §4's table now has its measured value.
+
+| window | stars used | field rms (″) | linear part (ppm) | **δL, Method 1 (″)** | δL (% of L) | δL, scale-free (″) | boot se (″) | clipped |
+|---|---|---|---|---|---|---|---|---|
+| N1 | 212 | 0.604 | −60 | **−0.968** | **−55 %** | −0.066 | 0.051 | 2 |
+| N2 | 106 | 0.662 | −81 | **+0.229** | **+13 %** | −0.723 | 0.100 | 1 |
+| N3 | 115 | 0.849 | −130 | **+0.410** | **+23 %** | +3.419 | 0.261 | 3 |
+
+(The linear parts track §10's independently measured H3−H1 differentials — −88/−73/−193
+ppm — as they must; that is the cross-check that the rehearsal measures the same physics.
+N1's reference sat *above* its field, the inverted geometry, hence its opposite sign and
+stronger shape content.)
+
+**Findings.**
+
+1. **A step-3-style fit inheriting a calibration from a field ~0.9° away picks up δL of
+   0.2–1.0″ (13–55 % of L), sign and size set by that hour's atmosphere.** Scaled to the
+   real CAL-to-eclipse separation (~0.5–0.6° between frame centres), the night-based
+   forecast for the refraction-inheritance term is of order **0.1–0.6″** — the largest
+   single threat to L now quantified anywhere in this project.
+2. **The geometry helps, by a measured factor ~6.** For scale-like residual content the
+   coupling is ~3 mas of δL per ppm (N2: 0.229″/81 ppm; N3: 0.410″/130 ppm) against the
+   naive h·δS bound of 18.7 mas/ppm — the free offsets+roll absorb most of a
+   frame-centred gradient, and the Sun sits well off frame centre. But *shape* content
+   couples up to 5× harder (N1: 16 mas/ppm), so the suppression cannot be assumed, only
+   measured — which is what this rehearsal is for.
+3. **The scale-free estimator is catastrophically fragile here, demonstrated on real
+   residuals**: −0.72″ to +3.42″ (−41 % to +195 % of L) across windows. F&L's eq.-7/12
+   verdict and `STAGE3_THEORY.md` §6's cluster mechanism, reproduced at night with no
+   deflection in the sky. Method 2 at this altitude is a diagnostic, never a result.
+4. **`tol 999` admitted 1–3 persistent catalogue mismatches per window (up to 64.5″),
+   which survive frame averaging** because the same wrong star matches every frame. An
+   early version of this analysis was wrecked by them (δL of −40″) until MAD-clipped.
+   The real step-3 field has 132 stars: expect the same 1–3 junk entries, each reaching
+   the deflection fit unchallenged. **F16-at-step-3 is not optional**, and the eclipse
+   analysis needs the same robust-aggregation protection — this is §16.8's warning with
+   a measured casualty count.
+
+**What this reframes.** With a single one-sided calibration field at this altitude, the
+inheritance term cannot be calibrated away from night data (§10: it is weather). The
+defences that remain are (a) **simultaneity** — CAL_piLeo and the science frames are
+within a minute, killing the temporal part; (b) **the eclipse data's own diagnostics** —
+the Method-1-vs-Method-2 gap (linear in exactly this error, per `STAGE3_THEORY.md` §5.4)
+and §16.1's 1/R-residual-gradient check, both of which are now essential rather than
+advisory; and (c) the spatial part being the *repeated* −27 ppm/0.3° of §10 rather than
+the late-night extreme, which would put the term nearer 0.1″ than 0.6″. Which defence
+holds is measurable only from the eclipse frames themselves — step 3 should be run with
+all three diagnostics from the start.
