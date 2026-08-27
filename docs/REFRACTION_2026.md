@@ -647,3 +647,64 @@ cubic error (≤5.6 % at 2σ, step-2 record §7), a tension that step 3's 1/R-gr
 diagnostic is now required to resolve. The one benign reading — that the mosaic's cubic
 is the *eclipse-relevant* one and the zenith sets are the outliers — would be worth a
 dedicated test on the N2/N3 horizon stacks if a cubic can be coaxed from them.
+
+
+## 16. The cubic step is temperature, not the slew (Douglas' hypothesis, confirmed 2026-08-27)
+
+§15 attributed the −7.3 % cubic step to mechanical settling at the mosaic's opening slew.
+Douglas proposed temperature instead — night 2 has the logger on the spreader in free air,
+one focuser position (17041 steps) across the zenith set and the whole pre-flip mosaic, and
+the air cooled 23.7 → 21.5 °C with a **non-monotonic** curve (a ~1.3 K recovery around
+23:50–00:10), which is exactly the feature that separates temperature from generic time
+drift. Figure: `refraction/night2_temperature.png`.
+
+**Plate scale (corrections ON, refraction removed with each point's own logger weather —
+what remains is the optics), 55 points:**
+
+| test | result |
+|---|---|
+| vs temperature alone | **−39.7 ppm/K, r = −0.82** |
+| vs time alone | +57.7 ppm/h, r = +0.53 |
+| joint fit | dps/dT = **−35.1 ± 3.8 ppm/K**; residual time term +26.5 ± 8.5 ppm/h |
+| within-mosaic only (1.4 K range, bumps included) | −28.8 ppm/K, r = −0.52 |
+| between-sequence (zenith → mosaic) | −43.9 ppm/K |
+
+Temperature beats time outright, the within- and between-sequence slopes agree, and the
+sign is the physical one (cooling contracts the train, shortens the EFL, raises ″/px).
+**The night-2 plate-scale "drift" of §14 is thermal expansion at ~−35 ppm/K at a fixed
+focuser.** This also retires the drift as a mystery: 1.4 K/h of cooling × 35 ppm/K
+reproduces its magnitude.
+
+**Cubic d(3000), 33 points:** the between-sequence step is **+3.7 %/K equivalent**
+(3.026″ at 23.5 °C → 2.810″ at 21.5 °C) — squarely inside the prediction from two
+independently measured couplings, 5–9 focuser steps/K (§12.4) × 0.64 %/step (§9.2) =
+**3.2–5.8 %/K** for a train whose focuser is not moved as it cools. Within the band the
+cubic does *not* track the air's short-term bumps (−1.7 %/K, r = −0.30, wrong sign, weak)
+— which is what a **tube that lags the air by tens of minutes** produces: the optic
+integrates the slow 2 K decline and ignores the 20-minute wiggles. The plate scale's
+partial bump-tracking against the cubic's absence of it suggests the two live in
+different parts of the train (fast-responding spacing vs slower lens-cell temperature).
+The slew hypothesis of §15 is withdrawn as unnecessary; a mechanical component cannot be
+fully excluded but nothing requires it.
+
+**What this changes.** The cubic instability is not a random mechanical event — it is a
+**deterministic temperature dependence at fixed focuser position, ~+3.7 %/K** (warmer =
+larger cubic). Consequences:
+
+1. §18.6's 4.84 % night-to-night gap now has a candidate cause of the right size: the two
+   zenith nights differed by ~1.3 K (24.2 vs 22.9 °C boxed/spreader readings, §4.4) —
+   ~+4.8 % predicted at +3.7 %/K. What §5.1-style nightly refocusing does or does not
+   compensate becomes the sharp question.
+2. **The eclipse transfer question becomes a sign question.** Totality sat at ~30.5 °C
+   against the zenith calibrations' ~23.5–24.2 °C: ΔT ≈ +6–7 K → the eclipse-day cubic
+   was plausibly **~+25 % above the frozen night value** — *before* accounting for the
+   +129-step daytime refocus, which compensates thermal focus shift but compensates the
+   cubic only if the focuser moves the element whose spacing drives F19's mechanism.
+   Which element the EAF moves now decides the sign and size of the largest systematic in
+   the chain; `STAGE3_THEORY.md` §6's over-correction mechanism assumed the opposite sign
+   from focus-position reasoning. The 1/R-gradient diagnostic at step 3 arbitrates
+   empirically.
+3. Preliminary-status caveat, stated plainly: one night, 33 cubic points, sequences and
+   temperature partially confounded, tube-lag inferred not measured. The 08-11 night
+   (17049 steps, warmer) offers one independent check; a purpose-built
+   temperature-vs-cubic monitor belongs on the 2027 list next to §9.3's focus sweep.
