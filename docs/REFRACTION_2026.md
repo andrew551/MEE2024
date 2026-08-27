@@ -749,3 +749,39 @@ plate-scale difference with no third mechanism required. In focal-length languag
 −39.7 ppm/K of plate scale = **EFL +14.4 µm/K** on the 363.5 mm train, against
 ~+8.4 µm/K for an aluminium tube alone — a ratio of 1.7 that the reducer-spacing
 leverage (F19) comfortably supplies.
+
+
+### 16.2 Clarifications and the back-focus hypothesis for night 1 (2026-08-27)
+
+**The regression set.** The quoted −39.7 ppm/K (r = −0.82) never contained the flipped
+fields — they were plotted grey but excluded from the fit, which is why the redrawn
+figure's slope is unchanged (−39.2 ppm/K, r = −0.83, same 55 points; the 0.5 ppm/K is
+rounding in the zenith temperatures). Including the 7 flipped fields *would* change it —
+to −32.2 ppm/K with r collapsing to −0.24, courtesy of the −607 ppm M63/64 outlier — which
+is exactly why they were excluded.
+
+**Night 1: the back-focus re-seat hypothesis.** A change in the objective–reducer spacing
+(the F19 focus mechanism) cannot explain night 1's +197 ppm: that route carries
+0.64 %/step of cubic, so +197 ppm ≈ 60 steps-equivalent would drag the cubic by ~38 %,
+against the measured +4.96 % (fully accounted by the 1.3 K temperature difference). The
+element that moved must be **scale-active but cubic-neutral — which is the
+reducer-to-sensor distance (back-focus)**. For a 0.7× reducer, magnification
+m = 1 − d/f_red; with m ≈ 0.727 and d ≈ 60 mm, f_red ≈ 220 mm and dm/m ≈ 0.62 %/mm =
+**6 200 ppm per mm of back-focus**. The observed +197 ppm therefore corresponds to
+**~32 µm of back-focus re-seat** — and the telescope was dismounted, transported by car,
+and remounted between the nights. The nightly Bahtinov refocus then restores sharpness
+(moving the *focuser*, compensating focus) while the magnification change from the
+altered reducer–sensor spacing remains. This reconciles the two facts: transport does not
+change the objective's focal length, but ~30 µm of camera-assembly re-seating changes the
+*system* EFL by exactly the observed amount, at near-zero cubic cost. It is also F19's
+own mechanism — back-focus error — whose other signature is coma; a night-1-vs-night-2
+comparison of the radial FWHM growth in the zenith stacks is the available confirming
+test.
+
+**The CAL_piLeo table of §16.1, restated.** Both rows are the **plate scale**
+decomposition (the cubic appears nowhere in it); the two rows differ only in **which
+daytime air temperature is assumed**, since the totality reading came from the shaded box
+(30.5 °C as logged; ~28.5 °C if the box ran ~2 K warm in daylight, §19.3). Under either
+assumption the same two-term model — temperature at −39.7 ppm/K plus the 129-step refocus
+— absorbs the full −663 ppm, with the focus coupling landing at −3.0 or −3.6 ppm/step
+respectively.
