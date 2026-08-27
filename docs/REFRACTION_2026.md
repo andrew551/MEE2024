@@ -837,3 +837,54 @@ That is the amount by which the eclipse-day cubic exceeded the frozen night-2 va
 the 129-step daytime refocus does not compensate the spacing* — the §16 sign question,
 now with its number attached. The corresponding CAL_piLeo scale decomposition at 29.2 °C:
 temperature −226 ppm (34 %), refocus −437 ppm at −3.4 ppm/step.
+
+
+### 16.4 The cubic–temperature claim, downgraded on its own evidence (2026-08-28)
+
+Douglas challenged §16's cubic–temperature story on two grounds: night 1 is inadmissible
+as an anchor (the transport re-seat means its cubic may carry a mechanical offset of its
+own), and the night-2-only trend is unconvincing. The decisive check is the tube's own
+sensor: if the cubic responds to the *optic's* temperature, it should track FOCTEMP.
+It does not:
+
+| | FOCTEMP (°C) | d(3000) (″) |
+|---|---|---|
+| zenith sequence (6 fields) | 30.6–30.8 (mean 30.66) | 3.0257 |
+| band (27 fields) | 29.5–30.2 (mean 29.88) | 2.8096 |
+
+The tube cooled only **−0.78 K** between the sequences (the air dropped ~1.9 K — the lag
+is real), so a tube-thermal reading of the −7.1 % cubic step requires **+9.2 %/K** —
+nearly triple the +3.2–5.8 %/K the (5–9 steps/K × 0.64 %/step) chain supplies, and that
+0.64 %/step is itself §9.2's weakly-founded estimate. Within the band, cubic vs FOCTEMP
+gives r = −0.04 — no tracking at all; the pooled r = +0.60 is purely the two-sequence
+contrast, a single data point wearing 33 costumes.
+
+**Status after the downgrade.** What survives, because it survived every methodology
+control: **the cubic stepped −7.3 % between two same-night, same-focus sequences.** What
+does not survive: a confident temperature attribution, and with it §16.3's "+21 %
+day–night cubic" prediction, which rested on the air-temperature coupling. Candidate
+causes for the step, none established: tube-thermal with a coupling ~2–3× the estimated
+chain; a mechanical settling at the inter-sequence slew (resurrected, though disfavoured
+by Douglas and unproven); an unidentified systematic of the mosaic's observing mode
+(the 6 s-vs-4 s exposure difference remains bounded at ≤0.65 % by the clipping test but
+not excluded as a family). The budget statement for step 3 accordingly reverts to the
+robust form: **the cubic is unstable at the ~7 % level within a night on this train, with
+unresolved cause and therefore unknown sign at eclipse time** — the 1/R-gradient and
+M1-vs-M2 diagnostics in the eclipse data are the only arbiter, now without a prior on the
+direction.
+
+**The NP101 contrast (Douglas' first point), endorsed with the recorded numbers.** The
+FRA500 + 0.7× wins on cubic *size* (6× less per unit angle than the NP101 native,
+`INSTRUMENT_COMPARISON.md` §12) — but every stability pathology found this week runs
+through the external reducer: the F19 spacing lever, the −3.4 ppm/step focus–scale
+coupling, the tilt-coma of §16.3, the −7.3 % step. The two no-reducer controls on record
+point the other way: the Leakey 65PHQ moved its cubic by only **+0.0138 ± 0.0075 %/step**
+over a 70-step sweep (46× less than the Leon estimate) with plate scale steady to a few
+ppm over 4–5 K; and Bruns' own NP101 night-to-night cubic change was **+1.66 % ± 7.99 %**
+— weakly constrained, but with nothing demanding instability, and his transfer error was
+protected twice over: a probably-stable train *and* the absolute-error rule of §7 (his
+cubic was small in arcseconds, so even fractional wobble cost little). **Bruns' stability
+assumption was likely sound for his train.** The 2027 design lesson sharpens accordingly:
+the criterion is not cubic size but cubic size × stability, and a reducer-free or
+integral-corrector optic that carries a larger-but-frozen cubic may beat a
+small-but-mobile one — a qualification that now attaches to §6's "usable sky" ranking.
