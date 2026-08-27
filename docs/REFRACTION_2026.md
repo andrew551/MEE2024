@@ -544,3 +544,54 @@ the new one — proven by sky level: `18_29_19/00001` reads 1180 ADU (the 0.3 s 
 universal. Two affected frames sit in the step-2 stack; the effect on the reduction is
 negligible (centroids are exposure-independent and the exposure-weighted mid-time moves
 at the ~1 ppm level) but the headers lie, which matters to anything that trusts EXPTIME.
+
+
+## 14. M4 results — the meridian mosaic (2026-08-27)
+
+78 of 80 fields reduced in both correction states (stage 1 five-frame stacks, stage 2
+quadratic-free over the frozen 08-12 zenith cubic, per-field logger weather). Casualties:
+the alt-5° pair only — M01 failed to platesolve at all (the ~3.7 % vertical compression at
+airmass ~10 exceeds the pattern matcher's tolerance; the solver's own hard floor is
+between alt 5.0° and 5.6° on this rig), and M80's corrections-ON match failed the same
+way. Per-field results: `refraction/m4_mosaic/m4_fields.csv`; curves: `m4_curves.png`.
+A weather-lookup bug in the first pass (the logger axis shifted one hour by a naive
+timestamp on a UTC+1 machine, feeding the late fields pack-up descent pressure) was found,
+fixed, and 77 fields re-reduced; the M2/M5 results never used interpolated weather.
+
+The corrections-ON deviations from the same-focus zenith-ON reference, decomposed jointly
+(74 fields above alt 10°, robust fit, per-field wave scatter 14.4 ppm):
+
+| term | value | independent cross-check |
+|---|---|---|
+| within-night scale drift | **+1.4 ± 0.6 ppm/min** | M2's N2→N3 offsets: +1.2–2.3 ppm/min; Bruns 2017 within-night: +1.5–2.8 ppm/min (§11 of `INSTRUMENT_COMPARISON.md`) |
+| north−south asymmetry, unflipped, equal zenith distance | **−56 ± 14 ppm** | same class as the H3−H1 sightline differentials (60–130 ppm over 10° az + 0.9° alt) |
+| pier flip + 4 EAF focus steps | **−41 ± 30 ppm** | ≈ −10 ± 8 ppm/step against §12.2's ~11 ppm/step |
+| altitude-band residuals, 10–90° | **−49 to +39 ppm (se 21–28)** | the model-validity curve proper |
+
+**Findings.**
+
+1. **The standard model holds to ≲50 ppm everywhere above alt 10°** once drift, asymmetry
+   and the flip are removed — a gentle ≤±40 ppm S-shape at the edge of significance.
+   Below 10° the per-field deviations blow up to the ±900 ppm class (the wavefield at
+   full strength plus genuine model breakdown), and by 5° the plate solver itself dies.
+   The validity boundary of the whole approach at this site is **alt ≈ 10°** — and the
+   eclipse was at 9.6°.
+2. **The within-night drift is now measured three independent ways** and lands at
+   +1.4 ± 0.6 ppm/min here. It also closes the N3 puzzle: N3's +250 ppm offset shift over
+   111 minutes is mostly drift (+155 ppm expected) plus wave noise — the focus confound
+   contributes at most the −41 ± 30 ppm the flip term measures.
+3. **Azimuthal homogeneity fails at the −56 ± 14 ppm level (4σ)** between north and south
+   sky at equal zenith distance. Refraction depends on zenith distance alone only in a
+   horizontally homogeneous atmosphere; this site's atmosphere is not one, at exactly the
+   amplitude the H-field differentials implied. Any transfer of a calibration across ~10°
+   of azimuth carries a ~50–100 ppm atmospheric term — which is the measured, quantitative
+   form of F&L's warning about one-sided calibrations, and applies directly to
+   CAL_piLeo (az 270°) feeding the eclipse field (az 281°).
+4. **The matched-pair scatter (22.4 ppm clean pairs) and the joint-fit scatter
+   (14.4 ppm per 30 s field)** set the wavefield noise floor at mosaic depth — consistent
+   with the M2/M3 quasi-static amplitudes projected onto a plate scale.
+
+With M4 done, the mosaic's three assigned jobs are complete: the model-validity curve
+(≲50 ppm above 10°, breakdown below), the azimuth bound (−56 ± 14 ppm), and the focus-step
+calibration (−10 ± 8 ppm/step). The refraction program's remaining item is the step-3
+reduction itself, with the M5 diagnostics wired in.
