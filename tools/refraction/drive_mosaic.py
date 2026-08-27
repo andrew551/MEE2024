@@ -47,7 +47,12 @@ def load_logger():
             loc = datetime.datetime(int(yy), int(mm), int(dd),
                                     *map(int, p[2].strip().split(':')))
             try:
-                recs.append(((loc - datetime.timedelta(hours=2)).timestamp(),
+                # attach UTC explicitly: a naive .timestamp() uses the MACHINE timezone
+                # (UTC+1 here), which shifted the logger axis an hour and fed late mosaic
+                # fields pack-up descent weather (found 2026-08-27, fields re-reduced)
+                utc = (loc - datetime.timedelta(hours=2)).replace(
+                    tzinfo=datetime.timezone.utc)
+                recs.append((utc.timestamp(),
                              float(p[4]), float(p[6]), float(p[8])))
             except ValueError:
                 pass
