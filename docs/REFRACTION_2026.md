@@ -785,3 +785,55 @@ daytime air temperature is assumed**, since the totality reading came from the s
 assumption the same two-term model — temperature at −39.7 ppm/K plus the 129-step refocus
 — absorbs the full −663 ppm, with the focus coupling landing at −3.0 or −3.6 ppm/step
 respectively.
+
+
+### 16.3 The coma test, the night-2-only workflow, FOCTEMP validated, and the day–night
+cubic number (2026-08-28)
+
+**The coma test detected the transport change — as a tilt.** Radial FWHM growth
+(1.2–1.45° over 0–0.3°) across all twelve zenith stacks: **night 1: 1.216 ± 0.008;
+night 2: 1.335 ± 0.042** — a ~6σ difference, with night 2 at Portland's conspicuous-coma
+value. Both nights prefer the coma law (A + C·r²) over defocus (A + B·r⁴), night 2
+decisively; and the m=1 tilt dipole (the 65PHQ analysis's own tilt fingerprint)
+**doubled**: 0.510″ (8.7 % of mean FWHM) at PA −67° → 0.996″ (15.2 %) at PA −101°. The
+compound picture closes every fingerprint at once: the transport re-seated the
+camera/drawtube assembly **mostly as a tilt** (coma growth and dipole, ~zero scale cost)
+**with a small axial component** (~32 µm → the +197 ppm scale step, ~zero coma cost) —
+and neither moves the isotropic cubic, which stayed on its thermal track. A pure 32 µm
+axial shift would have predicted an invisible coma change; the detection is the tilt.
+
+**Workflow change (Douglas' direction): the chain freezes the cubic from night 2 only.**
+Night 2 shares the eclipse day's mechanical state (no dismount between them); night 1 is
+the pre-transport optic, now measurably different in tilt, coma, scale — and its cubic
+(3.176″) differs from night 2's (3.026″) by the thermal +4.96 %. The canonical CAL_piLeo
+reduction re-run with the six 08-12 references only:
+
+| canonical step 2 (16 frames, night-2 references) | |
+|---|---|
+| stars used | 74 |
+| rms | 0.5318 ″ |
+| **plate scale** | **2.2054043 ″/px** |
+| uncertainty | HC0 21.6 ppm → HC3-class ~25 ppm |
+
+(−7.0 ppm from the 12-reference value — inside noise; the change buys mechanical
+consistency, not precision. Step 3 imports this result and the 08-12 references.)
+
+**The canonical temperature fit, once and for all**: **−39.7 ± 3.8 ppm/K, r = −0.82,
+n = 55** (per-field logger temperatures; the earlier −39.2/−0.83 used bulk zenith
+temperatures, and "−40/−35" were prose roundings of the same fit and its joint-fit
+variant). The chart now carries slope, error and r.
+
+**FOCTEMP validated as a differential thermometer.** Across 46 samples spanning the whole
+of night 2 (22:48–00:13 UTC), FOCTEMP − spreader-logger = **+7.74 ± 0.67 K**, stable.
+Applied to totality's FOCTEMP of 36.9 °C: **daytime air ≈ 29.2 ± 0.7 °C**, against the
+30.5 °C shaded-box reading — Douglas' preference for the focuser thermometer is
+supported, and 29.2 °C becomes the best daytime air estimate. (To be clear on the earlier
+confusion: FOCTEMP itself read 36.9 °C, motor-warmed; 28.5–29.2 °C are *air estimates*
+obtained by subtracting its measured offset; 30.5 °C was the box logger.)
+
+**The day–night cubic change from temperature**: ΔT(air) = 29.2 − 23.5 = **+5.7 K** at
++3.7 %/K gives **+21 %** (range +18 to +33 % across the coupling's 3.2–5.8 %/K span).
+That is the amount by which the eclipse-day cubic exceeded the frozen night-2 value *if
+the 129-step daytime refocus does not compensate the spacing* — the §16 sign question,
+now with its number attached. The corresponding CAL_piLeo scale decomposition at 29.2 °C:
+temperature −226 ppm (34 %), refocus −437 ppm at −3.4 ppm/step.
