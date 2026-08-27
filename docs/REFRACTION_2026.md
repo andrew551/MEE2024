@@ -708,3 +708,44 @@ larger cubic). Consequences:
    temperature partially confounded, tube-lag inferred not measured. The 08-11 night
    (17049 steps, warmer) offers one independent check; a purpose-built
    temperature-vs-cubic monitor belongs on the 2027 list next to §9.3's focus sweep.
+
+
+### 16.1 Figure correction, and the two follow-up tests (2026-08-27)
+
+**Figure erratum**: `night2_temperature.png`'s cubic panel placed the band points at
+~29 °C — a time-of-day wrap bug in that script's temperature lookup (the §16 *numbers*
+came from the corrected decomposition and stand). Superseded by
+`platescale_vs_temperature.png` (no flipped fields, night 1 added, tight scale) and
+`cubic_vs_temperature.png` (correct axis: band at 20.8–22.2 °C).
+
+**Can temperature explain night 1's plate scale? No — and the failure is informative.**
+Six new corrections-ON reductions of the 08-11 zenith fields (FOCUSPOS 17049) give a
+night-1 mean of 2.2073186 ″/px, **+197.5 ppm** above night 2's 2.2068828. At
+−39.7 ppm/K that would need night 1 ~5 K *cooler*; the box logger read it **+0.75 K
+warmer** (unexplained +227 ppm) and even §19.3's box-runs-warm correction (air ~22.15 °C)
+leaves **+144 ppm unexplained**. Meanwhile the *cubic* night-to-night gap (+4.96 %)
+matches the +1.3 K box ΔT at +3.7 %/K almost exactly. So between the two nights the train
+underwent a **scale-only change (~+150–230 ppm of plate scale, cubic-neutral)** that
+temperature does not account for — the 8 focuser steps would need −18 to −28 ppm/step
+against the −3.0 to −3.6 measured below, so §12.4's "something optical did change"
+survives, now sharpened to: something that moved the EFL without moving the cubic.
+
+**Can a reasonable daytime temperature explain CAL_piLeo's focal length? Partly — with
+the refocus carrying the rest at a plausible rate.** CAL_piLeo (corrections ON,
+2.2054197 ″/px, FOCUSPOS 17170) sits **−663 ppm** below the night-2 zenith mean, across
+ΔT ≈ +5–7 K and +129 focuser steps:
+
+| daytime T | temperature share | residual over 129 steps |
+|---|---|---|
+| 30.5 °C (assumed) | −278 ppm (42 %) | **−2.98 ppm/step** |
+| ~28.5 °C (FOCTEMP-corrected, §19.3) | −199 ppm (30 %) | **−3.60 ppm/step** |
+
+The implied focus–scale coupling of −3.0 to −3.6 ppm/step is a new number for this train
+(sign: racking toward daytime focus lowers ″/px), and it cross-checks: the mosaic flip's
+−4 steps contribute ~+13 ppm of its −41 ± 30 ppm term, leaving the flip mechanics at
+−54 ± 30 — plausible. With two unknowns fitted to one equation this is **consistency,
+not proof** — but temperature-plus-refocus now accounts for the entire day–night
+plate-scale difference with no third mechanism required. In focal-length language:
+−39.7 ppm/K of plate scale = **EFL +14.4 µm/K** on the 363.5 mm train, against
+~+8.4 µm/K for an aluminium tube alone — a ratio of 1.7 that the reducer-spacing
+leverage (F19) comfortably supplies.
