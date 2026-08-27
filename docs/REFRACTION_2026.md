@@ -595,3 +595,55 @@ With M4 done, the mosaic's three assigned jobs are complete: the model-validity 
 (≲50 ppm above 10°, breakdown below), the azimuth bound (−56 ± 14 ppm), and the focus-step
 calibration (−10 ± 8 ppm/step). The refraction program's remaining item is the step-3
 reduction itself, with the M5 diagnostics wired in.
+
+
+## 15. The mosaic as an instrument-stability monitor (Douglas' request, 2026-08-27)
+
+The stability band: **27 unflipped fields at solved alt 50–80°** (M23–M36 south, M46–M58
+north) — all at **FOCUSPOS 17041, identical to the same-night zenith set**, 810 s of
+integration against the zenith set's 720 s, well clear of the pier flip and the sub-10°
+zone. Free-cubic reruns in `mosaic/*/freecubic/`; d(3000) extractor validated against the
+handoff (reproduces both nights' means to 0.13 % and the per-field sd to 0.02 pp).
+
+**Plate scale** (corrections ON): mean 2.2070818 ″/px; raw field-to-field sd 23.1 ppm;
+**drift-detrended sd 13.0 ppm** (se 2.5 ppm) against the zenith set's 4.6 ppm — the excess
+consistent with 30 s visits averaging the wavefield 2× less and the band's ±40 ppm
+altitude structure (§14). Band mean sits **+88 ppm above** zenith-2 ON, inside the
++60–130 ppm the measured +1.4 ppm/min nightly drift predicts for the 45–90 min separation.
+**No new instrument term**: the plate scale behaves as the already-measured atmosphere
+plus drift.
+
+**The cubic does not.** Free-cubic d(3000) across the band: **2.8096 ″ ± 0.55 % (se),
+per-field sd 2.83 % — 7.3 % below the same-night, same-focus zenith value of 3.0297 ″**,
+on both branches alike (south −6.7 %, north −7.9 %). The deficit survives every control:
+
+| control | result |
+|---|---|
+| tolerance 0.2 / 0.5 / 1.0 on three fields | moves d(3000) ≤ 1.1 % |
+| stack depth: 08-12 Z1 re-reduced from 5 frames, mosaic-style | 3.124–3.139 ″ vs its 30-frame 3.099 ″ — **+1 %, not −7 %** |
+| time within the band (joint fit with altitude) | −0.6 ± 2.5 %/h — null |
+| altitude | **M36 at solved alt 78.7° — inside the zenith set's own 78.5–83.4° — shows the full deficit** |
+| focus | identical, 17041 steps |
+
+With altitude, time, tolerance, focus and stack depth excluded, what separates the two
+sequences is **the mosaic itself began with a large slew** (zenith neighbourhood →
+az 180°, alt 5°), and the deficit is a **step, not a trend**: the optical train's cubic
+changed by ~7 % at fixed focus within one night, most plausibly a mechanical settling of
+an element at the slew — F19's reducer-spacing mechanism supplies the lever (§9.2's
+~0.64 %-per-focuser-step class sensitivity means a ~0.1 mm shift suffices). A post-flip
+check (M63–M66, a second mechanical event) is **inconclusive** — those fields are too low
+for clean free cubics (one fit collapsed to 46 stars); the residual candidate not excluded
+is the 6 s-vs-4 s exposure difference, whose only identified mechanism (clipped-star
+population) was measured at ≤ 0.65 % on the zenith data.
+
+**What this does to the stability question.** It was "night-to-night 4.84 % at 6σ,
+systematic ≥ 2.4 % and unbounded above" (§18.6/§18.9). It is now: **the cubic can step
+~7 % within a single night at fixed focus on a mechanical event.** The zenith→eclipse
+transfer crosses several slews, 129 focuser steps and nine hours; its cubic systematic
+should be budgeted at the ≥7 % class, not ≥2.4 %. Through the measured propagation of
+`cubic_into_deflection` (2.4 % of frozen cubic → +1.7 % on Method-1 L), a 7 % error is
+worth **~+5 % on L** — in tension with CAL_piLeo's own residual bound on the non-collinear
+cubic error (≤5.6 % at 2σ, step-2 record §7), a tension that step 3's 1/R-gradient
+diagnostic is now required to resolve. The one benign reading — that the mosaic's cubic
+is the *eclipse-relevant* one and the zenith sets are the outliers — would be worth a
+dedicated test on the N2/N3 horizon stacks if a cubic can be coaxed from them.
