@@ -28,8 +28,8 @@ python -m venv .venv
 .venv/Scripts/python.exe -m pytest tests/ -q
 ```
 
-Expect **876 passed, 26 skipped** on a machine with a star catalogue installed, and
-**875 passed, 27 skipped** without one — the extra skip is the offline-provider test, which
+Expect **882 passed, 26 skipped** on a machine with a star catalogue installed, and
+**881 passed, 27 skipped** without one — the extra skip is the offline-provider test, which
 needs a catalogue and says so rather than failing. Most skips need `--runslow`: the 127 MB
 triangle database or a network call.
 
