@@ -888,3 +888,46 @@ assumption was likely sound for his train.** The 2027 design lesson sharpens acc
 the criterion is not cubic size but cubic size × stability, and a reducer-free or
 integral-corrector optic that carries a larger-but-frozen cubic may beat a
 small-but-mobile one — a qualification that now attaches to §6's "usable sky" ranking.
+
+
+### 16.5 The two thermometers reconciled: a lagged tube, and the levers apportioned
+(2026-08-28, from Douglas' tube-length datum and the FOCTEMP refit)
+
+**Plate scale vs FOCTEMP: −109.2 ± 4.7 ppm/K, r = −0.95, n = 55** — a tighter correlation
+than the air fit (−39.7 ± 3.8 ppm/K, r = −0.82) over a 1.3 K FOCTEMP span against the
+air's 2.3 K. The same ~90 ppm of scale swing, correlated better against the slower sensor.
+
+**The reconciliation.** The 535 mm aluminium tube follows the air with a lag of tens of
+minutes; FOCTEMP's motor housing has comparable thermal mass, so FOCTEMP matches the
+tube's *phase* (hence the superior r) while under-representing its *amplitude*; the air
+matches the amplitude but not the phase (hence r = −0.82 with the bumps partially
+smeared). The amplitude anchor is Douglas' tube length: aluminium at 23 ppm/K × **535 mm
+(front lens to focal plane — the tube is physically longer than the focal length)** =
+12.3 µm/K, against the measured 39.7 ppm/K × 363.5 mm = 14.4 µm/K — **a ratio of 1.17**
+(§16.1's "1.7×" wrongly used the EFL as the length). The true tube coupling is therefore
+bracketed −40 to −109 ppm/K with the mechanical arithmetic favouring the air end
+(−40 to −60 ppm/K).
+
+**The levers, apportioned across the train** (the useful engineering summary):
+
+| element | length | thermal expansion | owns |
+|---|---|---|---|
+| tube, lens → reducer | ~480 mm | ~11 µm/K | **plate scale** (the −40…−109 ppm/K) and the **cubic lever** (objective–reducer spacing) |
+| reducer → sensor | **55 mm** | **1.3 µm/K** | ~8 ppm/K of scale (via 6 200 ppm/mm), **~zero cubic** — thermally the *stable* section, exactly as Douglas argued; its risk is mechanical re-seat (§16.2/§16.3), not temperature |
+
+**The cubic question, reopened to leading-hypothesis status — with a softer coupling.**
+The thermometer-independent constraint is the between-sequence *ratio*: scale stepped
++88 ppm while the cubic stepped −7.1 %, i.e. **0.081 %-of-cubic per ppm-of-scale**. If
+both ride the objective–reducer lever, the focuser calibration predicts 0.64/3.4 =
+0.188 %/ppm — a factor 2.3 high. Closure requires **cubic-per-step ≈ 0.27 %/step** (§9.2's
+0.64 was explicitly soft — eight recorded steps inside a 15-step backlash), and/or part of
+the scale's thermal path bypassing the reducer entirely (the objective's own dn/dT moves
+scale with zero cubic, diluting the ratio). Under the lagged-tube reading, §16.4's
+"implausible +9.2 %/K" dissolves: per kelvin *of FOCTEMP* the scale moves −109 ppm, so
+9.2/109 = the same 0.084 %/ppm ratio — no separate implausibility. Status: **thermal via
+the shared lever, with cubic-per-step ~0.3 %/step, is again the leading explanation of
+the −7.3 % step**, unproven (within-sequence cubic tracking remains undetected, though
+the expected signal there is marginal against the 2.3–2.8 % per-field noise); a
+mechanical component is not excluded. The day–night cubic transfer stays a **range, not a
+number** — the daytime tube was sun-heated, so no night-calibrated thermometer constrains
+it — and the eclipse data's 1/R-gradient diagnostic remains the arbiter, unchanged.
