@@ -13,6 +13,7 @@ The plan, data inventory, physics case and pilot result are in
 | script | what it does |
 |---|---|
 | `inventory.py` | header sweep of the horizon sets and meridian mosaic on `G:\Leon Aug 2026` → `INVENTORY.csv` |
+| **`FIGURES.md`** | **which script regenerates which figure in `docs/figures/`, with the two flagged for publication and their caption facts** |
 | `drive_horizon.py` | M2: per-frame stage-1 + stage-2 (corrections ON and OFF) over the 45-frame horizon blocks; resumable; harvests `perframe_results.csv` |
 
 Reductions land under `D:\MEE2024 output\MEE_output\refraction\`. Inputs on `G:` and `I:`

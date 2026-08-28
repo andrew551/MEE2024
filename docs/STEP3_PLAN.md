@@ -73,6 +73,13 @@ this file is the operational contract.
 Branch suggestion: `step3-leon-2026` off `refraction-leon-2026` (which is `v1.4.0-dev`
 plus docs/tools only, so everything rides along and nothing under `mee2024/` changes).
 
+## Figures and the campaign comparison
+
+`docs/figures/` holds the six current figures; `tools/refraction/FIGURES.md` maps each to
+the script that regenerates it and records the caption facts. `docs/STEPS12_LEON_VS_BRUNS2017.md`
+is the like-for-like steps 1–2 comparison against Bruns 2017 (all four zenith datasets with
+three uncertainty estimators, and the calibration-field comparison).
+
 ## Standing traps (each cost this project real time at least once)
 
 - Confirm the data source against `G:\Leon Aug 2026` **before** any reduction.
