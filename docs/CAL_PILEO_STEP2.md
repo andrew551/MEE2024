@@ -41,7 +41,7 @@
 > rival. Three artefacts it refers to moved with it:
 > `cal_pileo_step2_frames.txt` → `calibration/cal_pileo_frames.txt`;
 > `cal_pileo_step2/analysis/` → `tools/cal_pileo_step2/` (with a README recording that its
-> shell drivers still point at `I:` and `H:`, neither of which is a valid source now);
+> shell drivers still point at the superseded `I:\Leon 2026` copy and at `H:`);
 > the zenith references → `calibration/zenith_cubic/`. The **reductions** stay on `D:` —
 > they are regenerable from `G:` and this code, which is the line between the two places.
 
@@ -93,8 +93,12 @@ on it is not.** Nothing here changes a fitted value.
 > plate scale at the measured 1.78 ppm/s, well inside the ±23.5 ppm error. The canonical
 > frame list (`cal_pileo_step2_frames.txt`) now carries G: paths. The zenith reference
 > chain is likewise verified: the 12 handoff files reproduce from local frames to all
-> seven digits, and those frames are pixel-identical to G: (12/12 sampled). `I:` and
-> `J:\Eclipse data` are archival backups and are not to be used for analysis.
+> seven digits, and those frames are pixel-identical to G: (12/12 sampled). For **Leon
+> 2026 data**, the `I:` and `J:\Eclipse data` copies are superseded backups and are not
+> to be used for analysis. (Scoped 2026-08-28: this applies to the 2026 Leon campaign
+> only. `I:` also holds the primary copies of `Don Bruns 2024`, `Kenneth Carrell 2024`,
+> `Leakey 2024` and `Papers`, which have no `G:` counterpart and are legitimate
+> sources; `J:\Eclipse data` likewise holds archival material that has been analysed.)
 
 > **Selection-sensitivity addendum, 2026-08-27** (Douglas' question: should the frame list
 > have been chosen photometrically rather than by the C3 clock?). Two variants, both from

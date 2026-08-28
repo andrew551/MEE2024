@@ -26,19 +26,28 @@ regenerable but the reasoning is not, and because `saturation.py` is named in
 
 ## Three path traps before re-running anything
 
-These scripts are a record of what was run in August 2026. Two of their paths are now
-wrong, and one is forbidden:
+These scripts are a record of what was run in August 2026. All three of these paths are
+now wrong:
 
-1. **`run_stage1.sh` reads from `I:/Leon 2026`.** `I:` and `J:\Eclipse data` are archival
-   backups and are **not** analysis sources — `G:\Leon Aug 2026` is the authoritative tree,
-   and it is where Douglas corrected frames carrying wrong EXPTIME headers or sitting in
-   the wrong exposure folder. The original reduction was verified bit-identical against
-   `G:` after the fact (`docs/CAL_PILEO_STEP2.md`, provenance correction of 2026-08-27),
-   which is why its numbers stand; a fresh run must point at `G:`.
+1. **`run_stage1.sh` reads from `I:/Leon 2026`.** For **Leon 2026 data specifically**,
+   `G:\Leon Aug 2026` is the sole authoritative tree: it is where Douglas corrected frames
+   carrying wrong EXPTIME headers or sitting in the wrong exposure folder, so the `I:` and
+   `J:\Eclipse data` copies of *that* campaign are superseded backups. The original
+   reduction was verified bit-identical against `G:` after the fact
+   (`docs/CAL_PILEO_STEP2.md`, provenance correction of 2026-08-27), which is why its
+   numbers stand; a fresh run must point at `G:`.
+
+   This rule does **not** generalise to `I:` as a whole. `I:` carries primary data for
+   other campaigns that this project legitimately analyses — `I:\Don Bruns 2024`,
+   `I:\Kenneth Carrell 2024`, `I:\Leakey 2024`, and `I:\Papers` — and
+   `J:\Eclipse data` holds archival material that has also been used. Those are historical
+   datasets with no `G:` counterpart; only the 2026 Leon campaign has one.
+
 2. **`common.sh` sets `REFDIR` to `H:/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed`.**
    `H:` is the read-only transfer folder to Andrew. The references now live in
    `calibration/zenith_cubic/`, and the canonical chain uses the **six `08-12` files only**
    — not the twelve that path resolves to.
+
 3. **`run_stage1.sh` sources `common.sh` from a session scratchpad directory** that no
    longer exists. Source it from this folder instead.
 

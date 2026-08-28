@@ -49,3 +49,41 @@ someone will meet them:
 
 Provenance for both sets, and the settings each was produced with, are in
 `zenith_cubic/README.md`. The reduction they feed is `docs/CAL_PILEO_STEP2.md`.
+
+## Where else these files exist, and which pointers are stale
+
+Checked 2026-08-28, on Douglas' question about the same data being pointed at from two
+places. Four copies of the zenith set exist and **all four are byte-identical** (43 files
+per tree, verified by content hash across `best_windowed`, `inpipeline_windowed`,
+`reproducible_threshold` and `summary.json`):
+
+| copy | role |
+|---|---|
+| `calibration/zenith_cubic/` | **this one** — the versioned copy, and the one to cite |
+| `D:\MEE2024 output\MEE_output\Claude Code\HANDOFF_zenith_cubic\` | the working copy the campaign ran against |
+| `H:\Claude Code\HANDOFF_zenith_cubic\` | the transfer copy sent to Andrew (read-only) |
+| `I:\MEE Project files\HANDOFF_zenith_cubic\` | returned from Andrew's machine; was formerly on `H:` |
+
+`I:\MEE Project files\` is **not** a stray duplicate — it is the generation archive, and
+the only place the source trees survive. Beside the handoff it holds
+`v1.4.0-dev_inpipe\<night>\<field>\`, the stage-1 and stage-2 output trees these twelve
+solutions were produced from. That matters because each solution's own `source_data` field
+names `D:\MEE_output\v1.4.0-dev_inpipe\...\centroid_data<stamp>.zip`, and **`D:\MEE_output`
+no longer exists** — the output root was later renamed to `D:\MEE2024 output\MEE_output`.
+The named zips are on `I:` under the identical filenames, so provenance is recoverable;
+it is only the recorded path that rotted.
+
+Two stale pointers to know about, neither of which affects a number:
+
+- **`reference_files.txt`** in each copy (including this one) lists absolute
+  `D:/MEE_output/...` paths, from a machine layout that is gone. The handoff README always
+  said to regenerate it after copying; that instruction is now mandatory rather than
+  advisory.
+- **`source_data`** inside each of the twelve solutions, as above.
+
+The repository itself pointed at three *different* paths for this one dataset before this
+was written: ten `tools/refraction/` scripts at the `D:` path, `tools/cal_pileo_step2/common.sh`
+at the `H:` path, and `docs/LEON_2026-08-11.md` §18.8 at `D:\MEE_output\HANDOFF_zenith_cubic\`,
+which no longer resolves. Since all copies are identical this never moved a result, but it
+is why this folder exists: **new work should cite `calibration/zenith_cubic/` and nothing
+else.**
