@@ -184,7 +184,14 @@ def test_filling_makes_the_star_propagate():
 def test_the_offline_provider_can_return_positions_unpropagated():
     """The fill has to happen before propagation, which needs this mode."""
     from mee2024.starcat import providers as p
-    provider = p.GaiaOfflineProvider.from_installed()
+    try:
+        provider = p.GaiaOfflineProvider.from_installed()
+    except Exception:
+        # The same guard test_platesolve.py has used all along. Without it this is the
+        # one test in the suite that requires a downloaded catalogue, so it failed on
+        # every machine that had never installed one -- every CI runner included.
+        pytest.skip('no offline catalogue installed; build one with '
+                    'tools/build_gaia_offline.py, or `mee2024 catalogue --download`')
     native = provider.lookup((RA - 0.2, RA + 0.2), (DEC - 0.2, DEC + 0.2), 9.0, epoch=None)
     assert native.epoch == pytest.approx(p.GAIA_DR3_EPOCH, abs=0.5)
 

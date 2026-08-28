@@ -14,6 +14,13 @@ def pytest_addoption(parser):
                      help='run tests that need the triangle database or the network')
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        'markers',
+        'provisions_catalogue: exercises catalogue provisioning directly, and so opts '
+        'out of the autouse download guard in tests/test_ui_server.py')
+
+
 def pytest_collection_modifyitems(config, items):
     if config.getoption('--runslow'):
         return
