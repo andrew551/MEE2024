@@ -28,8 +28,10 @@ python -m venv .venv
 .venv/Scripts/python.exe -m pytest tests/ -q
 ```
 
-Expect **874 passed, 26 skipped**. The skips need `--runslow`: the 127 MB triangle database
-or a network call.
+Expect **876 passed, 26 skipped** on a machine with a star catalogue installed, and
+**875 passed, 27 skipped** without one — the extra skip is the offline-provider test, which
+needs a catalogue and says so rather than failing. Most skips need `--runslow`: the 127 MB
+triangle database or a network call.
 
 You do not need any observational data to work on this. The suite generates synthetic star
 fields in `tests/conftest.py`. Nothing to download, nothing to ask for.
