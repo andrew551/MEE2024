@@ -861,6 +861,69 @@ Related discipline, worth stating in the same place because it is the cheaper ha
 calibration field and the eclipse field and cancels to ±1.2 ppm if they share it; it does not
 cancel at all between two reductions made at different assumed temperatures (§19.2).
 
+### F21 — Fall back to the classic solver when v2 fails, not only when it is absent
+
+`platesolve_triangle.platesolve()` already falls back to v1 — but only when `platesolve2.
+preflight` reports a missing pattern database or catalogue. When v2 *runs* and fails, the
+failure is returned and the caller raises `BAD DATA - platesolve failed!`. One condition,
+inside a path that already exists and is already tested.
+
+**Measured on a real field.** Re-reducing Bruns' 2017 night calibration (30 fields, `I:7
+eclipse images Don Bruns`), `EC08` fails to blind-solve under v2 and solves under v1 in the
+same run: RA 303.5889652, DEC 12.1318308, matching the 2024 reduction of the same frames to
+seven decimals. v2 spent 45.6 s, 8.0 M candidates, threshold 38, noise escalated to 0.9 px,
+two anchor rounds, and gave up; 28 of the 30 fields solved under v2 in 2.4-3.2 s. The field
+is not marginal — 3503 centroids, background spread 4 ADU across its ten frames, tighter than
+its neighbours. A 2x2 was run to isolate the cause: **the dark is irrelevant, the solver is
+the whole story.**
+
+**`EC08` is a regression; the other failure is not, and the distinction is the point.** The
+2024 reduction covered only the second night (`EC06`-`RC10`), and it solved `EC08`. The
+second failure, `EC05`, is from the first night — **no version has ever solved it**, and it
+defeats v1 and v2, with and without the dark, and at a deeper detection threshold (3528
+centroids against 2539), on a stack that is healthy by every available measure: 10/10 frames
+aligned, dither 5.0 px, align-rms 0.165 px against `EC03`'s 0.146. So the real-field v2
+failure rate here is 2/30, of which **fallback would recover one**. `EC05` is a separate
+open question and should not be quoted as evidence for this item.
+
+| | v2 | v1 |
+|---|---|---|
+| no dark | fail | **solve** |
+| master dark applied | fail | solve |
+
+**Why fallback and not reordering.** `bench/BENCH.md`: v1 solves 61/80 (76.3%) at 7-13 s
+median, 13-17 s on failure, plus a 14.8 s database load; v2 is at 92.7% and 1.8-4.2 s. Running
+v1 first would make the 93% v2 handles wait on the slower, weaker solver to rescue the 7% it
+does not. Fallback costs **nothing** on success and is paid only where the alternative is
+currently a hard stop.
+
+**The gate this must not breach.** Junk rejection is pinned at zero false positives, and
+`BENCH.md` already shows junk fields costing v2 81 s; a v1 attempt afterwards pushes that
+toward ~95 s and puts a second solver in front of the invariant. v1 rejected 8/8 junk at the
+S0 baseline, so it should hold — but that is exactly the guarantee that may not be argued into
+place. Run `tools/solver_bench.py` on the junk family before merging.
+
+Worth adding `EC08` to the corpus while there: a real-field failure with a known-correct answer,
+against a corpus that currently holds two real fields.
+
+### F22 — Stage 2 should use the solution stage 1 already found
+
+`distortion_fitter.py:287` re-runs the plate solve from scratch, discarding what stage 1
+computed and stored. It wants one thing from it, `initial_guess = plate_solve_result['x']`, and
+`results.txt` already carries `platesolved`, `RA`, `DEC`, `roll` and `platescale/arcsec`.
+`platesolve_triangle.py:309` even holds the empty placeholder `#### try to use hint platescale`,
+so the intent predates this note.
+
+Two costs, both real. **Every field is solved twice**: on the 30-field Bruns re-reduction that
+is roughly 10 s x 30 of pure duplication, and it is the larger share of stage 2's runtime on
+fields whose fit takes 8-14 s. And **the solver choice does not carry through** — `EC08` needed
+`--set platesolver=triangle` passed to *both* stages, because stage 1 succeeding tells stage 2
+nothing. Anyone who fixes a stage-1 solve and then watches stage 2 fail on the same data will
+lose the same hour.
+
+Needs a fallback for archives that predate the stored fields, and a check that the stored
+solution belongs to the centroids it is being applied to.
+
 ---
 
 ## 3a. External sources, and what they do and do not settle
