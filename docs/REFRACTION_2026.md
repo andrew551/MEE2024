@@ -1055,3 +1055,46 @@ The 2027 selection rule of §16.4 gains its mechanism: cubic size × stability, 
 stability is set by the tube-set separations' lever arms — shortest levers (or cemented/
 athermalised spacings) win, and an external reducer on a short back-focus is the worst
 configuration of the ones flown.
+
+
+## 17. 2027 candidate: the SQA85, and its acceptance test (Douglas, 2026-08-28)
+
+Douglas proposes the Askar SQA85 (85 mm f/4.8 quintuplet, 408 mm, total axial length
+440 mm, layout supplied) — short focal length, large aperture, **designed to work without
+an external reducer**. Against this campaign's measured criteria:
+
+| | FRA500 + 0.7× (as flown) | SQA85 (candidate) |
+|---|---|---|
+| plate scale (″/px, IMX571) | 2.134 | 1.901 |
+| field (°) | 3.70 × 2.47 (9.2 sq°) | 3.30 × 2.21 (7.3 sq°, 0.79×) |
+| corner radius | 8.5 R⊙ | 7.5 R⊙ |
+| deflection at limb (px) | 0.82 | 0.92 |
+| tube / focal length | 1.07 | 1.08 |
+| external reducer | **yes — the dominant measured instability** | **none** |
+
+What "no external reducer" removes, in this campaign's measured terms: the 13.2 ppm/µm
+back-focus lever on a 76 mm arm (the −109 ppm/K thermal path's multiplier), the
+−3.3 ppm/step focus–scale coupling, and the threaded-assembly mechanical modes — the
+transport tilt (coma growth 1.216 → 1.335) and the ~32 µm re-seat (+197 ppm). What it
+does **not** remove: the internal levers. The layout shows a rear element close to the
+focal plane — a short-arm, tube-set spacing of exactly the class that gives the NP101is
+its ~+35–50 ppm/K effective coefficient. The NP101 lesson stands: reducer-free is not
+lever-free, and the SQA85's native thermal coefficient must be **measured, not assumed**.
+Costs to note: 21 % less calibration sky per field, and a slightly smaller corner radius
+(7.5 vs 8.5 R⊙ — mildly *lowering* F&L's h, which is favourable for Method 1's scale
+sensitivity).
+
+**The acceptance test, from this branch's toolkit — one night plus a transport cycle:**
+
+1. **Two 6-field zenith sets a few hours apart**, logger on the spreader: free-cubic
+   d(3000) stability, and the thermal plate-scale coupling via the FOCTEMP-analogue +
+   logger (the §16.6 lever analysis then yields the native effective β directly).
+2. **A deliberate ~100-step focus sweep** (Leakey protocol, §10): the focus–scale and
+   focus–cubic couplings, outside backlash.
+3. **A dismount–transport–remount cycle, then repeat one zenith set**: the re-seat modes
+   — scale step, tilt dipole, coma-law growth (§16.2/§16.3 machinery applies unchanged).
+
+Pass criteria worth setting in advance: native |β| ≲ 15 ppm/K, cubic per-night stability
+≲ 1 %, transport-cycle scale step ≲ 50 ppm and dipole change ≲ 3 % of FWHM — numbers the
+FRA500 + 0.7× would have failed on two of four. Douglas is awaiting good zenith data for
+the SQA85; when it exists, items 1–2 run with the existing scripts as-is.
