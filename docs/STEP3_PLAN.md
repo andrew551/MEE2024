@@ -37,8 +37,15 @@ this file is the operational contract.
 - **Per-frame reduction, per tier**, then robust per-star aggregation (medians, MAD clip)
   — never a blind tol-999 stack. The M2/M3 machinery (`tools/refraction/`) is proven on
   810 reductions.
-- **F16 per-frame saturation masks per tier** (`analysis/saturation.py` pattern): short
-  tiers own the unsaturated inner stars, 1.2 s owns depth; combine at catalogue level.
+- **F16 saturation masks, per raw frame** (`tools/cal_pileo_step2/saturation.py` pattern):
+  short tiers own the unsaturated inner stars, 1.2 s owns depth; combine at catalogue level.
+  **Per frame, not per tier** — two independent reasons. A clip carried only by the long
+  exposures is diluted away by the short ones (measured: the CAL_piLeo stack peaks at 43 378
+  ADU where its 2 s frames clip at 65 535). And the totality sky ran 726 → 5700 ADU through
+  the sequence, so a star unclipped early can clip later *within one tier*; clipping is not a
+  static property of a star here, as it is at zenith. The merged F16
+  (`reject_saturated_stars`, off by default) measures the peak on the **stacked** image and
+  so does not yet satisfy this; the per-frame mask is outstanding (ROADMAP F16).
 - **Chain fidelity**: zenith cubic (6 files) → CAL_piLeo low orders →
   `distortion_fixed_coefficients=constant`, corrections ON, per-frame mid-exposure
   `observation_time` (the refraction scale term moves 1.78 ppm/s at this altitude).
@@ -59,8 +66,10 @@ this file is the operational contract.
 ## Phases
 
 - **S0** — SCI_ladder inventory: headers, per-tier counts, timing vs C2/C3, the discard
-  triage, per-frame sky levels (exposure-transition artefacts!), saturation radii per
-  tier, drift; one pilot solve near the Sun. *An evening; read-only.*
+  triage, per-frame sky levels (exposure-transition artefacts!), saturation radii **per
+  frame** — the sky rises through totality, so the radius grows within a tier and one
+  per-tier figure would understate the late frames — drift; one pilot solve near the Sun.
+  *An evening; read-only.*
 - **S1** — nuisance estimator built and gated on the night nulls (above). *The decisive
   phase; analysis only.*
 - **S2** — per-frame reduction of all usable SCI frames through the chain. *Machine

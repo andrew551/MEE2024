@@ -752,6 +752,60 @@ brightest star clipped at the longer exposure" came from the owner's prior per-f
 not from any stacked measurement — the three v1.3.6 stacks show a worst peak of 59612, below a
 60000 cut. Consistent with the dilution above, but the wording should say per-frame.
 
+**Status, 2026-08-28: merged, off by default, and only half implemented.** Stage 1 now records
+`peak (adu)` for every centroid unconditionally, plus `full_scale_adu` so stage 2 need not guess
+65535; stage 2 gained `reject_saturated_stars`, applied after the plate solve and before the fit
+(the solve is a lost-in-space triangle match that wants the brightest stars, and a clipped
+centroid is still good to well inside a pixel — it is the *fit* that cannot afford them).
+`peak_value` measures the **stacked** image, so the per-frame mask specified above is still
+outstanding.
+
+**The tolerance is the mechanism** (Douglas, 2026-08-28). F16's marginal value is inversely
+related to how tight `distortion_fit_tol` is, and that single relation explains every
+measurement in this item:
+
+| field | stars | tolerance | what F16 adds |
+|---|---|---|---|
+| zenith | 1000–3500 | 0.2 ″ | little — a clipped star displaced more than 0.2 ″ is already rejected; F16 catches only those displaced less |
+| CAL_piLeo / L-R calibration | 73–110 | 0.5–1.0 ″ | partial |
+| eclipse field | 20–132 | **999 ″** | **everything — nothing else rejects anything** |
+
+The two regimes differ because the observing constraints do. Zenith fields are unlimited in
+time, so one can be ruthless with outliers and tighten the tolerance until clipping is removed
+as a side effect. The eclipse gives 100–300 s once: every star is precious, the tolerance must be
+loose to admit the real displacements being measured (deflection, coronal gradients, turbulence),
+and F16 becomes the *only* thing standing between a clipped star and the deflection fit. Bruns
+2017 used 0.2 ″ on both his zenith and L/R fields — his L/R had less turbulence than Leon's — and
+essentially infinite tolerance on the eclipse field itself. Station 1 2024, having no independent
+plate scale, had to compromise at 20 ″ because Method 2 measures the scale and the deflection
+from one dataset: another cost of the scale-free route.
+
+**The eclipse sky rises during the sequence, so clipping is not a static property of a star**
+(Douglas, 2026-08-28). Through totality the background ran 726 → 5700 ADU, and post-C3 frames
+saturate whole (65535 by 18:30:05). A star sits at flux-plus-sky, so one that is unclipped early
+can clip later **within a single exposure tier** — which a stacked-image test averages away, and
+which a per-tier mask would also miss. This is a second, independent reason the mask must be
+per *frame* rather than per tier or per stack, and it does not arise at zenith, where the
+background is static. It also means any saturation radius around the corona is time-dependent
+and must be measured through the sequence, not once per tier.
+
+**What it costs where it has been measured.** CAL_piLeo: 1 star of 73, 1.7 % on the error bar,
+and that star sat at leverage h = 0.064 with a residual of 0.333 ″ against the field's 0.529 ″ —
+*better* than average, which is what a fixed centroid window does to a flat top. Zenith: 50
+clipped stars across twelve fields, 0.19 % of those used, carrying 1.0–1.7× the field rms — the
+"454 mas against 124" above is the **pre-F15 centroider**; a fixed window largely tames it.
+Check any star-rejection rule against the leverage distribution rather than the rms: §8 of the
+step-2 record measured that removing any single well-placed star costs ~19 % while the rms barely
+moves, so rms will never reveal this.
+
+**On defaulting to on.** That is the intended end state — the failure is silent, and at tol 999
+nothing else reports it. It is held off only because flipping it moves the frozen zenith cubic
+that every downstream number is pinned to, so the size of that move is being measured rather
+than assumed (`tools/f16_zenith_ab.py`: stage 1 once per field, stage 2 twice off the same
+centroids, against d(3000) = 3.0297 ″ ± 1.30 % field-to-field). The expectation is that it lands
+well inside that scatter and other uncertainties dominate; the measurement is cheap and the
+input is load-bearing.
+
 ### F17 — Report what the fit can actually resolve
 
 Two numbers the pipeline has everything to compute and does not print.
