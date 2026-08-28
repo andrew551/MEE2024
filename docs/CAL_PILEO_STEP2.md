@@ -413,6 +413,31 @@ peak read there:
 | second-brightest star's peak, any frame | 20 253 ADU — a factor of 3 clear |
 | **peak on the combined stack** | **43 378 ADU** |
 
+> **Redone on the canonical reduction, 2026-08-29, and the pipeline's own F16 measured
+> beside it.** The table above is the superseded 17-frame stack against twelve references;
+> `saturation.py` hard-codes both. Repeated on the canonical 16 frames against the six 08-12
+> references (74 stars, rms 0.5318 ″, 2.2054043 ″/px reproduced to ten digits), the per-frame
+> answer is unchanged in character:
+>
+> | | canonical reduction |
+> |---|---|
+> | stars clipped at 65 535 ADU in ≥1 raw frame | **1 of 74** |
+> | that star | clipped in **6 of 16** frames, **all 2.0 s** |
+> | its worst *unclipped* frame | 58 828 ADU |
+> | **worst peak on the stack** | **48 050 ADU** — 73 % of full scale |
+> | rejection threshold (0.95 × full scale) | 62 258 ADU |
+>
+> And the merged, stack-based F16 run on that same archive **rejects nothing**: 74 → 74 stars,
+> plate scale +0.00 ppm, rms unchanged, reporting "no star reached 62258 ADU, so none was
+> rejected". It misses the clip by 14 208 ADU. So §8's argument is no longer an inference from
+> one field's numbers — the stack-based implementation has now been run here and confirmed
+> inert, while the per-frame method finds the clip. `tools/cal_pileo_step2/f16_per_frame_ab.py`;
+> reductions in `f16_cal_pileo_test2/`.
+>
+> A reproduction trap found on the way: the sixteen frames in a *different order* give 112
+> centroids and rms 0.5698 ″, because the stacker aligns to the first frame in the list.
+> `calibration/cal_pileo_frames.txt` is now stored in the canonical order and says so.
+
 **This confirms the ROADMAP's dilution argument quantitatively.** A stack-based test sees 43 378
 and finds nothing to reject; the per-frame test finds a star clipped in six frames. (The ROADMAP
 records the v1.3.6 stacks peaking at 59 612, below a 60 000 cut; the 17-frame stack sits lower

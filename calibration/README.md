@@ -39,7 +39,14 @@ twelve-field mean 3.1048 ″, night-to-night gap 4.84 %.
 Reduced against the six `08-12` references it gives **2.2054043 ″/px**, 74 stars,
 rms 0.5318 ″, HC0 21.6 ppm (quote HC3-class ~25 ppm), at `observation_time 18:29:35`.
 
-Two traps that cost this project time and are recorded here because this file is where
+**The order of the sixteen lines is part of the definition, not presentation.** The stacker
+aligns every frame to the *first* one in the list, so a different first frame changes every
+shift and therefore the stack. Measured 2026-08-29: the same sixteen frames in a different
+order gave **112 centroids instead of 122** and **rms 0.5698 ″ instead of 0.5318 ″**, moving
+the plate scale 0.3 ppm. Fed in the order below they reproduce the canonical reduction to all
+ten digits (2.2054043354 ″/px, rms 0.5318112851, 74 stars). Do not sort this file.
+
+Three traps that cost this project time and are recorded here because this file is where
 someone will meet them:
 
 - The folder organisation on `G:` is the truth about exposure. **EXPTIME headers lie on
