@@ -19,6 +19,44 @@ from mee2024.ui.runner import CancellableProgress, Cancelled, PipelineRunner
 from mee2024.ui.server import Api, UiServer
 
 
+@pytest.fixture(autouse=True)
+def _never_provision_a_catalogue(request, monkeypatch):
+    """No test in this file may download a catalogue or build a pattern database.
+
+    Autouse and unconditional, for the same reason as conftest's
+    `_never_touch_the_real_config`: the failure is silent on a developer machine and
+    only appears where the data is absent.
+
+    `PipelineRunner._work` prepares the catalogue whenever the stage list includes
+    `distortion` -- which is the default when a spec omits `stages` -- and
+    `auto_download_catalogue` is True by default, so a test that fakes `do_stack` and
+    forgets `stages` starts a real 320 MB Gaia DR3 download. It then outlives
+    `thread.join(timeout=30)`, the run is still `running` when the assertion reads it,
+    and the download carries on into whatever test runs next. That is exactly what made
+    CI red on both `main` and `v1.4.0-dev` from 2026-08-20: three failures on every
+    runner, none of them reproducible on a machine with a catalogue installed.
+
+    `ensure_pattern_db` is stubbed for the mirror-image case: on a machine that *has* a
+    catalogue but no pattern database, it builds one, which takes minutes.
+
+    These tests exercise status reporting and the event bus with `do_stack` faked out.
+    Provisioning is not what they are testing, and a unit test should not be able to
+    reach the network at all.
+    """
+    if 'provisions_catalogue' in request.keywords:
+        # the three tests that are *about* provisioning call prepare_catalogue directly
+        # and stub the network themselves; they need the real method
+        return
+
+    from mee2024 import platesolve2
+    from mee2024.ui import runner as runner_module
+
+    monkeypatch.setattr(runner_module.PipelineRunner, 'prepare_catalogue',
+                        lambda self, options: None)
+    monkeypatch.setattr(platesolve2, 'ensure_pattern_db',
+                        lambda *a, **k: False)
+
+
 @pytest.fixture
 def api():
     return Api()
@@ -571,6 +609,7 @@ def test_download_progress_is_labelled_as_bytes():
 
 # ------------------------------------------------------ catalogue preflight
 
+@pytest.mark.provisions_catalogue
 def test_a_run_fetches_a_missing_catalogue_before_stacking(monkeypatch):
     """The download must happen up front, not after minutes of stacking work."""
     from mee2024.starcat import download
@@ -590,6 +629,7 @@ def test_a_run_fetches_a_missing_catalogue_before_stacking(monkeypatch):
     assert fetched == ['gaia_dr3_g12']
 
 
+@pytest.mark.provisions_catalogue
 def test_a_run_refuses_rather_than_downloading_when_told_not_to(monkeypatch):
     from mee2024.starcat import download
 
@@ -604,6 +644,7 @@ def test_a_run_refuses_rather_than_downloading_when_told_not_to(monkeypatch):
                                   'auto_download_catalogue': False})
 
 
+@pytest.mark.provisions_catalogue
 def test_a_run_warns_when_asked_for_stars_the_catalogue_lacks(monkeypatch):
     from mee2024.starcat import download
 

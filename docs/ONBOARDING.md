@@ -28,8 +28,10 @@ python -m venv .venv
 .venv/Scripts/python.exe -m pytest tests/ -q
 ```
 
-Expect **868 passed, 26 skipped**. The skips need `--runslow`: the 127 MB triangle database
-or a network call.
+Expect **869 passed, 26 skipped** on a machine with a star catalogue installed, and
+**868 passed, 27 skipped** without one — the extra skip is the offline-provider test, which
+needs a catalogue and says so rather than failing. Most skips need `--runslow`: the 127 MB
+triangle database or a network call.
 
 You do not need any observational data to work on this. The 3.5 GB of FITS under
 `tests/data/fits/` is gitignored and no test reads it — the suite generates synthetic star
