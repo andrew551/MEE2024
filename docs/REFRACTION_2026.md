@@ -976,3 +976,48 @@ optic's true daytime ΔT is smaller than FOCTEMP implies, and/or the refocus par
 *compensates* thermal expansion — which is what refocusing is for. The daytime
 thermometry cannot be untangled from night data; the step-3 diagnostics remain the
 arbiter of the transferred calibration, unchanged.
+
+
+### 16.7 The day–night plate-scale anomaly: refocus should restore the geometry, and
+never does (Douglas, 2026-08-28)
+
+**The theorem, stated properly.** The daytime refocus exists precisely to compensate tube
+expansion. On this train the focuser moves the reducer+sensor assembly together, so a
+correct refocus restores s (reducer to native focal plane) to the focus condition with d
+mechanically fixed — i.e. it restores the *reducer geometry*, and the refocused day–night
+scale difference should be only the objective's own thermal term:
+
+    Δscale(day−night, refocused) ≈ −β · ΔT_objective ≈ −11 ppm/K × (+5–7 K) ≈ −60 to −80 ppm
+
+**The observation: −663 ppm at Leon — an order more.** And Bruns 2017 shows **−524 ppm**
+day–night on the NP101is. The ideal-restoration picture fails in practice, on both rigs,
+in the same direction and order — the record already called the day–night gap "a property
+of the experiment class, not of one rig"; this section explains why that is the right
+description and what the candidate physics is.
+
+**The NP101 is not actually lever-free.** It is a Petzval: a front objective plus a rear
+group *fixed in the tube*. Tube expansion changes the group separation — an internal
+version of exactly our reducer lever — and the focuser, which moves only the
+camera/drawtube, **cannot restore an element spacing that is set by the tube itself**. So
+"no external reducer" does not mean "no lever": both trains carry a tube-set element
+separation that refocusing cannot touch, and both show ~−500–700 ppm. (The clean control
+remains the Leakey 65PHQ — also a Petzval, but §10's sweep showed its *focus* barely
+moves anything; its day–night behaviour was never measured.)
+
+**The Leon contributor stack for the −663 ppm**, honestly bracketed: the restorable-theory
+term −60 to −80 ppm (β·ΔT); the unrestored lever share if the daytime refocus criterion
+(the Venus-terminator procedure, §18.10) lands tens of steps from true focus (~−100 ppm
+per 30 steps at the measured coupling); sun-load on the objective cell (β acts on the
+*lens* temperature, which under daytime sun-load can exceed air ΔT several-fold —
+unmeasured); and the daytime refraction-model residual at alt 9.87°, which M2 measured at
+the −80 to +340 ppm scale-level on this very sightline class — a contribution of either
+sign that no night data constrains. The gap is over-determined by uncertain terms, which
+is the deep reason it has resisted explanation across campaigns.
+
+**Why this does not threaten L — the design already knew.** The chain discards the night
+plate scale by construction (§18.2) and imports the scale from a calibration field taken
+*in the daytime configuration, simultaneously* (CAL_piLeo; Bruns' L/R) — F&L's italicised
+"same position" rule is precisely the defence against this anomaly, written in 1944. The
+day–night gap is a diagnostic of the train, not an error term in the deflection; its
+lesson lands on 2027 design (measure everything in the flight configuration) rather than
+on the 2026 reduction.
