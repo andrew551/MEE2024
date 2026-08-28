@@ -1179,3 +1179,31 @@ and the 647.7 mm length together put the rear group only ~212 mm behind the obje
 ~436 mm to the CCD — the reverse of the proportion Bruns' schematic shows. Either the f/11
 figure is not the front doublet's true focal ratio, or the 25.5 in excludes some
 back-focus. It does not affect the invariance above, which holds across the whole family.
+
+
+### 16.11 Tension resolved: the back focus (Douglas, 2026-08-28) — closing state
+
+Douglas: the 25.5 in is the tube, and there is **~150 mm more back focus** to the focal
+plane (room for filter wheel, diagonal, sensor spacing). Front lens → focal plane is
+therefore **≈798 mm**, and §16.10's tension disappears: at the specified f/11 the rear
+group lands **506 mm from the objective — 63 % along**, with 292 mm of back focus, which
+is exactly the proportion Bruns' schematic shows. The f/11 spec and the mechanical length
+are consistent after all; my §16.10 flag was an artefact of omitting the back focus.
+
+The invariance survives (−12.0 ppm/K across f/8.9 → f/11.9, group position 81 % → 59 %
+along), and the corrected numbers are:
+
+| train | front lens → focal plane (mm) | EFL (mm) | ratio | aluminium-only |
+|---|---|---|---|---|
+| NP101is | **798** | 540 | 1.48 | **−12.0 ppm/K** |
+| FRA500 + 0.7× | ~540 | 363.5 | 1.49 | −15.7 ppm/K (two-group approximation) |
+
+**Closing statement on the thermal question, superseding the ranking attempts of
+§16.8–16.10.** The two trains have near-identical length-to-EFL ratios (1.48, 1.49) and
+aluminium-only coefficients of −12 and −16 ppm/K — **indistinguishable given that the
+FRA500 + 0.7× is a three-group system its two-group model cannot properly represent**.
+Neither architecture is meaningfully more thermally stable on this arithmetic, and both
+fall a factor 2–3 short of the measured −40 ppm/K (air-referenced), with the remainder in
+glass dn/dT, cell and internal-spacing terms that no mechanical model here reaches. The
+operational conclusion is unchanged and is the one §17 already encodes: **the native
+thermal coefficient of a candidate train must be measured, not inferred from its layout.**
