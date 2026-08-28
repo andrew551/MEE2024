@@ -1021,3 +1021,37 @@ plate scale by construction (§18.2) and imports the scale from a calibration fi
 day–night gap is a diagnostic of the train, not an error term in the deflection; its
 lesson lands on 2027 design (measure everything in the flight configuration) rather than
 on the 2026 reduction.
+
+
+### 16.8 The FRA500 is itself a Petzval (Douglas, with the optical layouts, 2026-08-28)
+
+Douglas supplied the maker's layouts: the FRA500 is a **front triplet apo plus a
+two-element flattener fixed mid-tube** — the same Petzval architecture as the 65PHQ
+(3+2 "quintuplet") and the NP101is. This corrects §16.6/§16.7's framing in one place and
+sharpens it in three:
+
+1. **§16.6's arithmetic survives, but β is reinterpreted.** The lever formula treated
+   "f_obj(T)" as a simple objective with thermal coefficient β. In fact the native 500 mm
+   system's focal length depends on the **tube-set separation between the triplet and the
+   internal flattener**, which no focuser can restore. The fitted β = +11 ppm/K is
+   therefore the native Petzval's *effective* thermal coefficient — glass dn/dT, cell,
+   and the internal-separation lever combined — not a glass property. The external
+   reducer's s-lever term (147 ppm/K on the 75.7 mm arm) is unchanged; the decomposition
+   ds/dT = df_native/dT − dL/dT already routes the internal effects through f_native.
+2. **Every optic in this project is a Petzval; the discriminator is where the leverage
+   sits.** NP101is: internal rear group, no external reducer — its −524 ppm day–night
+   implies an effective native coefficient of ~+35–50 ppm/K over a plausible ΔT, i.e. a
+   stronger internal lever (its rear group sits closer to the focal plane; lever strength
+   scales as 1/s of the group). FRA500 native: internal lever worth ≲ +11 ppm/K
+   effective. FRA500 + 0.7×: the external reducer adds the dominant 13.2 ppm/µm lever on
+   a 76 mm arm. 65PHQ: internal group only, and the Leakey sweep measured its focus/scale
+   response as nearly nil — the most thermally benign architecture of the three as flown.
+3. **The Leakey control's meaning sharpens**: it did not show "Petzvals are stable" — it
+   showed that *moving the camera* on a Petzval whose internal separation is tube-set
+   does little, which is exactly the geometry statement. Its day–night (tube-thermal)
+   behaviour was never measured and remains the missing control for the class.
+
+The 2027 selection rule of §16.4 gains its mechanism: cubic size × stability, where
+stability is set by the tube-set separations' lever arms — shortest levers (or cemented/
+athermalised spacings) win, and an external reducer on a short back-focus is the worst
+configuration of the ones flown.
