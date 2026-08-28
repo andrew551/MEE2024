@@ -1207,3 +1207,36 @@ fall a factor 2–3 short of the measured −40 ppm/K (air-referenced), with the
 glass dn/dT, cell and internal-spacing terms that no mechanical model here reaches. The
 operational conclusion is unchanged and is the one §17 already encodes: **the native
 thermal coefficient of a candidate train must be measured, not inferred from its layout.**
+
+
+### 16.12 The 273.6 mm datum checks out — the NP101is geometry is now over-determined
+
+Douglas supplied a fourth number of uncertain provenance: **10.77 in = 273.6 mm from the
+rear doublet to the focal plane**. It is consistent, and it closes the geometry.
+
+The two-group relations turn d₀ plus EFL into a one-parameter family in f_obj; the
+specified f/11 then fixes everything:
+
+| f_obj (mm) | f/ | objective → group (mm) | front lens → focal plane (mm) | implied back focus (mm) | aluminium-only |
+|---|---|---|---|---|---|
+| 1050 | 10.4 | 518 | 792 | 144 | −12.3 ppm/K |
+| **1100** | **10.9** | **543** | **816** | **169** | **−11.2 ppm/K** |
+| 1111 | 11.0 | 548 | 822 | 174 | −11.0 ppm/K |
+
+At the published f/11 the datum implies **169–174 mm of back focus** — against Douglas'
+independent estimate of ~150 mm from what has to fit there (filter wheel, diagonal, sensor
+spacing). Read the other way, his 150 mm implies f/10.5. **All four data — f/11, the
+25.5 in tube, 540 mm EFL, and 273.6 mm — close within a few percent**, which is as well as
+a schematic-plus-spec-sheet reconstruction can be expected to do. The datum is reliable.
+
+Two small results fall out. The aluminium-only coefficient tightens to **−11.0 to
+−12.3 ppm/K** (from §16.11's −12.0), leaving §16.11's closing statement intact: the two
+trains remain indistinguishable at −11 to −16 ppm/K and both fall a factor 2–3 short of
+measurement. And the back-focus lever (1 − L/f_red) evaluates to **≈ −0.01** — meaning
+L ≈ f_red on this design, so **expansion of the NP101is back focus contributes essentially
+nothing to its plate scale**. Bruns' train was, by that accident of geometry, immune to
+exactly the failure mode that the FRA500's external reducer made dominant (the −3.3 ppm/step
+focus–scale coupling and the 32 µm transport re-seat, §16.2–16.3). That is the sharpest
+architectural contrast this comparison has produced, and unlike the ranking attempts of
+§16.8–16.10 it rests on a lever that is near zero rather than on a small difference between
+two uncertain numbers.
