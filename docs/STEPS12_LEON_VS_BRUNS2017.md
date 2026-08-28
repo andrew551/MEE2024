@@ -42,8 +42,8 @@ table is a stability diagnostic and an estimator test-bench, not an input to L.)
 | geometry | one field, az 270°, alt 9.9° — **one-sided** | −7.4° from Sun | +7.4° from Sun | **bracketing the eclipse field** |
 | stars | 74 | 105 | 110 | 215 |
 | rms (″) | 0.532 | 0.220 | 0.235 | — |
-| plate scale (″/px) | 2.2054197 | 2.0867534 | 2.0868474 | 2.0868004 |
-| HC0 (ppm) | 21.7 | 13.4 | 13.6 | ~9.5 |
+| plate scale (″/px) | 2.2054043 | 2.0867534 | 2.0868474 | 2.0868004 |
+| HC0 (ppm) | 21.6 | 13.4 | 13.6 | ~9.5 |
 | **HC3 (ppm)** | **25.1** | **14.5** | **14.7** | **~10.3** |
 | jackknife (ppm) | 24.9 | 14.4 | 14.6 | — |
 | L−R split | — | | | **45.0 ppm** (half-width 22.5) |
@@ -88,6 +88,16 @@ table is a stability diagnostic and an estimator test-bench, not an input to L.)
    F&L, per Bruns, per every number in this table.
 
 Sources: `refraction/zenith12/` (this batch), `bruns2017_nights/`, `bruns2017_lr/`,
-`cal_pileo_step2/variant_A16_pure_tiers/` (the canonical CAL_piLeo), analysis in
-`refraction/analysis/three_estimators.py`. Bruns' fields re-reduced from his raw frames with
+`cal_pileo_step2/canonical_16f_night2refs/` (the canonical CAL_piLeo), analysis in
+`tools/refraction/three_estimators.py`. Bruns' fields re-reduced from his raw frames with
 the same pipeline and settings as Leon's, so every comparison is like for like.
+
+> **Corrected 2026-08-28.** This document was written on 08-27 against
+> `variant_A16_pure_tiers/` (2.2054197 ″/px, HC0 21.7 ppm), which the next day's switch to
+> the six `08-12` zenith references superseded. The canonical is
+> `canonical_16f_night2refs/` — **2.2054043 ″/px**, HC0 21.6 ppm, same 74 stars and
+> rms 0.5318 ″. The step-2 table above now carries those. The move is **−7.0 ppm**, well
+> inside the ±25 ppm HC3 error, so no conclusion here changes; it was the *pointer* that
+> was wrong, and a reduction following it would have used the wrong reference set. The
+> HC3 and jackknife figures are carried over from the 12-reference variant — they are
+> properties of the star sample, which the reference swap does not change.

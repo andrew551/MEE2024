@@ -1,0 +1,16 @@
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_19\CAL_piLeo_00001 (2).fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_19\CAL_piLeo_00002.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_19\CAL_piLeo_00003.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_19\CAL_piLeo_00004.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_19\CAL_piLeo_00005.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_19\CAL_piLeo_00006.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_51\CAL_piLeo_00001.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_51\CAL_piLeo_00002.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\1.0s\18_29_51\CAL_piLeo_00003.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\2.0s\18_29_27\CAL_piLeo_00002.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\2.0s\18_29_27\CAL_piLeo_00003.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\2.0s\18_29_27\CAL_piLeo_00004.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\2.0s\18_29_27\CAL_piLeo_00005.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\2.0s\18_29_27\CAL_piLeo_00006.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\2.0s\18_29_27\CAL_piLeo_00007.fits
+G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo\2.0s\18_29_27\CAL_piLeo_00008.fits

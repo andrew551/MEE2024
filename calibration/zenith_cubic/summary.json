@@ -1,0 +1,12 @@
+{
+ "n_files": 12,
+ "d3000_mean": 3.104817669843466,
+ "n1": 3.179890389932653,
+ "n2": 3.029744949754281,
+ "scatter_n1": 1.3098360479422164,
+ "scatter_n2": 1.2956404292177233,
+ "random_on_mean_pct": 0.3760737180788922,
+ "night_to_night_pct": 4.8358859084289465,
+ "provenance": "mee2024 v1.4.0-dev, centroid_refine_window=True, sigma 2.0 px; stage 1 + stage 2 in-pipeline; no hand steps",
+ "settings": "corrections off, cubic, distortion_fit_tol 0.2, max_star_mag_dist 13"
+}
