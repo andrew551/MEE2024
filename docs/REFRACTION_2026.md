@@ -1098,3 +1098,46 @@ Pass criteria worth setting in advance: native |β| ≲ 15 ppm/K, cubic per-nigh
 ≲ 1 %, transport-cycle scale step ≲ 50 ppm and dipole change ≲ 3 % of FWHM — numbers the
 FRA500 + 0.7× would have failed on two of four. Douglas is awaiting good zenith data for
 the SQA85; when it exists, items 1–2 run with the existing scripts as-is.
+
+
+### 16.9 CORRECTION to §16.6: the lever arithmetic done properly, and what it does not
+explain (from Douglas' NP101is schematic, 2026-08-28)
+
+Douglas supplied Bruns' own schematic: the NP101is is a **4-element, 2-group
+Nagler-Petzval** — front doublet at ~f/11 (≈1100 mm), rear doublet just ahead of the
+focuser reducing the system to 540 mm at f/5.4, acting natively as the field flattener.
+Confirmed: **every optic in this project is a long-focus objective plus a reducing group**;
+the FRA500 + 0.7× differs only in where that group sits.
+
+**§16.6's arithmetic was wrong, and its "exact closure" was a one-parameter fit.** It used
+lever = 1/s (13.2 ppm/µm) and then solved for the objective coefficient β that reproduced
+the measurement — fitting, not predicting. The correct chief-ray treatment of a two-group
+train (objective f_obj, rear group at L, sensor d₀ beyond it, so EFL = L + d₀(1 − L/f_red))
+gives two levers, the first pleasingly general:
+
+    dEFL/dL = m   (the reduction factor itself)        dEFL/dd₀ = 1 − L/f_red
+
+| train | m | L (mm) | d₀ (mm) | aluminium only, fixed focus |
+|---|---|---|---|---|
+| FRA500 + 0.7× | 0.727 | 424 | 55 | **−15.7 ppm/K** |
+| NP101is | 0.491 | 550 | 270 | **−11.1 ppm/K** |
+
+1. **§16.8's claim that the NP101is has the *stronger* internal lever is withdrawn.** It has
+   the weaker one — but only by 1.4×, because its stronger reduction (m = 0.49 against
+   0.73) largely offsets its longer expanding section. Architecture is a weak
+   discriminator; §16.4's "cubic size × stability" rule survives, but the stability half
+   **cannot be read off a layout** — it has to be measured.
+2. **Aluminium expansion explains at most 40 % of the measured coupling, possibly 14 %.**
+   Predicted −15.7 ppm/K against −39.7 (air-referenced) to −109.2 (FOCTEMP-referenced).
+   The remainder must lie in terms this arithmetic omits: the objective's own thermal
+   focal shift (glass dn/dT plus cell — the real β, unmeasured), the internal doublet
+   air-spacings, and FOCTEMP under-swinging the true optical temperature so its per-K
+   slope over-estimates the physical coefficient. **The physical coupling is bracketed
+   −16 to −40 ppm/K; −109 ppm/K is an empirical FOCTEMP-referenced slope and must be
+   quoted as such, not as a material property.**
+
+**Nothing downstream changes**: step 2 and step 3 use *measured* plate scales, never a
+thermal model. §16.7's day–night anomaly is if anything strengthened — a smaller thermal
+share leaves more of the −663/−524 ppm to the focus criterion, sun-load and the daytime
+refraction residual. And §17's acceptance test already specifies *measuring* a candidate's
+native coefficient, which this section shows is the only reliable route.
