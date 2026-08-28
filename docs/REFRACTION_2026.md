@@ -931,3 +931,48 @@ the expected signal there is marginal against the 2.3–2.8 % per-field noise); 
 mechanical component is not excluded. The day–night cubic transfer stays a **range, not a
 number** — the daytime tube was sun-heated, so no night-calibrated thermometer constrains
 it — and the eclipse data's 1/R-gradient diagnostic remains the arbiter, unchanged.
+
+
+### 16.6 The reducer's lever: −109 ppm/K is the physically correct coupling
+(2026-08-28, prompted by Douglas' challenge and the 540 mm tube length)
+
+§16.5's "amplitude anchor" — measured 14.4 µm/K against aluminium's 12.3, ratio 1.17 —
+was a **category error**: it compared EFL-equivalent microns to mechanical microns, which
+are different quantities once a reducer leverages the geometry. The correct arithmetic:
+
+The chief-ray plate scale of the reduced system is EFL_eff = f_obj · d/s, where d = 55 mm
+(reducer→sensor) and s = 75.7 mm (reducer→native focal plane; from m = 0.727 and d,
+giving f_red = 201.5 mm). Tube expansion acts on the **s arm, not on the EFL**: the
+objective→reducer section (540 − 55 = 485 mm of aluminium) grows 11.15 µm/K, and
+11.15 µm/K over a 75.7 mm arm is **147 ppm/K** from that term alone. In full, with the
+objective's own thermal focal shift β (ppm/K):
+
+    d(scale)/dT = −(170 − 5.6 β) ppm/K        [540 mm tube, aluminium]
+
+| objective df/f (ppm/K) | plate scale (ppm/K) |
+|---|---|
+| 0 (athermal) | −170 |
+| +11 | **−109** |
+| +20 | −58 |
+
+**β = +11 ppm/K — a mildly expanding apo objective, entirely plausible — reproduces the
+measured −109.2 ± 4.7 ppm/K exactly.** The naive no-lever formula (12.4 µm/K ÷ 363.5 mm
+= 34 ppm/K) is wrong by the lever ratio ~s/EFL. Two independent cross-checks close at
+the factor-≤2 level through the same lever: thermal focus travel 11.2 µm/K ≈ **22
+steps/K at ~0.5 µm/step, against §12.4's own on-train measurement of 17–20 steps/K**;
+and the focus–scale coupling predicts 6.6 ppm/step against the measured 3.0–3.6.
+
+**Consequences.** (1) FOCTEMP is vindicated as the tube's thermometer in *amplitude and
+phase*; the air fit's −39.7 ppm/K is the attenuated apparent coupling of a lagging tube
+against an over-swinging air signal (attenuation ≈ 1.3/2.3 ✓). The §16.5 bracket
+collapses: **the train's thermal plate-scale coupling is ~−109 ppm/K of tube
+temperature.** (2) The cubic closes to the same picture at the current precision:
+22 steps/K × ~0.27 %/step ≈ 6 %/K against the observed 9.2 %/K (FOCTEMP-referenced),
+factor 1.5. (3) One honest new tension: at −109 ppm/K, the raw day–night FOCTEMP
+difference (+6.24 K) predicts −681 ppm of scale — the *entire* observed −663 ppm —
+leaving nothing for the 129-step refocus's −430 ppm. The books balance only because
+daytime FOCTEMP is sun-loaded (the +7.74 K offset is a night calibration), so the
+optic's true daytime ΔT is smaller than FOCTEMP implies, and/or the refocus partly
+*compensates* thermal expansion — which is what refocusing is for. The daytime
+thermometry cannot be untangled from night data; the step-3 diagnostics remain the
+arbiter of the transferred calibration, unchanged.
