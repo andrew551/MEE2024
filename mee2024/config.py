@@ -82,6 +82,14 @@ DEFAULT_OPTIONS = {
     # stacked image only -- per-frame alignment is differential and integer-rounded.
     'centroid_refine_window': False,
     'centroid_window_sigma': 2.0,  # px; near the PSF sigma is about right
+    # Reject stars whose peak reaches the sensor's full scale. Nothing else at any stage
+    # tests a peak value -- `sanity_check_centroids` only checks the radial profile
+    # decreases, which a flat-topped star passes -- so a clipped star is rejected only if
+    # its position error happens to exceed `distortion_fit_tol`. On the eclipse field that
+    # tolerance is 999 by design, so nothing stands in the way at all (ROADMAP F16).
+    # Off by default: it moves measured numbers, so it needs its own validation.
+    'reject_saturated_stars': False,
+    'saturation_fraction': 0.95,  # of full scale; below 1 to catch the shoulder of a clip
     'sanity_check_centroids': True,
     'max_star_mag_dist': 12.0,
     'observation_date': '2023-12-01',

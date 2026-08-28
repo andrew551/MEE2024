@@ -9,8 +9,8 @@ the reasoning; this file has the rules.
 ## Commands
 
 ```
-.venv/Scripts/python.exe -m pytest tests/ -q     # 876 pass, 26 skip with a catalogue
-                                                 # installed; 875 pass, 27 skip without.
+.venv/Scripts/python.exe -m pytest tests/ -q     # 885 pass, 26 skip with a catalogue
+                                                 # installed; 884 pass, 27 skip without.
 .venv/Scripts/python.exe -m pytest tests/ -q --runslow   # + triangle DB and network tests
 .venv/Scripts/python.exe -m PyInstaller MEE2024.spec     # -> dist/MEE_v<version>.exe
 ```

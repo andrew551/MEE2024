@@ -118,7 +118,8 @@ plausibly has poor polar alignment; the stacker test there has not been run.
   moved them named. They are pinned precisely so a change of this kind cannot pass quietly.
 - Branch from here for each item — `f7-header-harvest`, not a personal branch — and open a
   pull request back into `v1.4.0-dev`. GitHub Actions runs the fast suite on every PR.
-- Expect **874 passing, 26 skipped**.
+- Expect **885 passing, 26 skipped** with a star catalogue installed; **884 passing,
+  27 skipped** without one.
 - Say which kind of change you are making: additive-only, or capable of moving a measured
   number. That decides which release it can go in and is the first question that will be asked.
 

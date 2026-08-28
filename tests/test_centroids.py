@@ -186,8 +186,11 @@ def test_get_centroids_blur_returns_flux_area_position(options, star_positions):
     mask = np.zeros(img.shape, dtype=bool)
     data = si.get_centroids_blur((img, mask, mask), options=options)
     assert data, 'expected some centroids'
-    flux, area, position = data[0]
+    flux, area, position, peak = data[0]
     assert flux > 0 and area > 0 and len(position) == 2
+    # the peak is the raw image maximum near the star, so it must be at least the star's
+    # amplitude above the background rather than a repeat of the noise-normed flux
+    assert peak > 0 and peak <= img.max()
     # sorted brightest first
     assert [d[0] for d in data] == sorted([d[0] for d in data], reverse=True)
 
@@ -266,3 +269,35 @@ def test_add_img_to_stack_rounds_fractional_shifts():
     si.add_img_to_stack((img, (1.4, 0.0)), out, count)
     assert out[6, 5] == 1.0, 'a 1.4 pixel shift is currently rounded to 1'
     assert out[7, 5] == 0.0
+
+
+# ------------------------------------------------------- saturation (F16)
+
+def test_a_clipped_star_passes_the_radial_sanity_check():
+    """The reason F16 has to exist. `sanity_check_centroids` is the only thing in stage 1
+    that looks at a star's shape, and it asks whether the profile decreases outward -- which
+    a flat-topped, clipped star does. So nothing at any stage was testing a peak value, and
+    a clipped star was removed only if its position error happened to exceed
+    `distortion_fit_tol`. On the eclipse field that tolerance is 999 by design."""
+    full_scale = 65535.0
+    yy, xx = np.mgrid[0:60, 0:60]
+    # amplitude well past full scale, so the top genuinely flattens rather than merely
+    # being bright -- an earlier draft of this test used 60000 on a 100 ADU background and
+    # never clipped at all, which is exactly the failure it is meant to catch
+    star = 100.0 + 90000.0 * np.exp(-((yy - 30) ** 2 + (xx - 30) ** 2) / (2 * 3.0 ** 2))
+    clipped = np.minimum(star, full_scale)
+
+    assert (clipped == full_scale).sum() > 8, 'the star should have a flat top'
+
+    # sanity_check's own test: mean(3x3) > mean(5x5) > mean(7x7) > mean(9x9)
+    means = [clipped[30 - r:30 + r + 1, 30 - r:30 + r + 1].mean() for r in range(1, 5)]
+    assert means == sorted(means, reverse=True), 'the sanity check would pass this star'
+    assert si.peak_value(clipped, 30, 30) == full_scale, 'but the peak says it clipped'
+
+
+def test_peak_value_is_nan_at_the_frame_edge():
+    """nan means "not known", and `_drop_saturated` must read that as grounds to keep a
+    star rather than to reject one."""
+    img = np.ones((20, 20))
+    assert np.isnan(si.peak_value(img, 1, 10))
+    assert not np.isnan(si.peak_value(img, 10, 10))

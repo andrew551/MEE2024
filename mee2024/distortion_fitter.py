@@ -263,6 +263,45 @@ def resolve_epoch(options, data):
     return dict(options, observation_date=str(header_date), guess_date=False)
 
 
+def _drop_saturated(other_stars_df, data, options):
+    """Remove stars whose peak reached the sensor's full scale. Returns (df, note).
+
+    F16. Nothing else at any stage tests a peak value: `sanity_check_centroids` only checks
+    that the radial profile decreases, which a flat-topped star passes, so until now a
+    clipped star was removed only if its position error happened to exceed
+    `distortion_fit_tol`. On the Leon zenith fields a tolerance of 0.2 removed five of six
+    by luck; §16 sets the tolerance to **999** on the eclipse field on purpose, so there the
+    luck runs out entirely and a clipped star is guaranteed to reach the deflection fit.
+
+    Deliberately applied *after* the plate solve. The solve is a lost-in-space triangle
+    match that wants the brightest stars, and a clipped centroid is still good to well
+    inside a pixel -- far better than the solve needs. It is the distortion fit that cannot
+    afford them, so that is where they are removed.
+
+    An archive written before this existed carries no peak column, and one written by the
+    non-sensitive centroider carries nan. Both mean "not known", and neither is grounds for
+    rejecting a star, so both pass through with a note saying so.
+    """
+    if not options.get('reject_saturated_stars'):
+        return other_stars_df, None
+    if 'peak (adu)' not in other_stars_df.columns:
+        return other_stars_df, ('this archive predates the saturation flag, so no star '
+                                'could be tested; re-run stage 1 to use it')
+    full_scale = data.get('full_scale_adu')
+    if not full_scale:
+        return other_stars_df, ('this archive does not record the sensor full scale, so '
+                                'no saturation threshold could be set')
+    threshold = float(full_scale) * float(options.get('saturation_fraction', 0.95))
+    peaks = pd.to_numeric(other_stars_df['peak (adu)'], errors='coerce')
+    clipped = peaks >= threshold          # nan compares False, which is the intent
+    n = int(clipped.sum())
+    if not n:
+        return other_stars_df, f'no star reached {threshold:.0f} ADU, so none was rejected'
+    kept = other_stars_df[~clipped].reset_index(drop=True)
+    return kept, (f'{n} saturated star(s) rejected at >= {threshold:.0f} ADU '
+                  f'({100.0 * n / len(other_stars_df):.2f}% of {len(other_stars_df)})')
+
+
 def match_and_fit_distortion(path_data, options, debug_folder=None):
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     
@@ -291,6 +330,11 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     if plate_solve_result['mirror']:
         other_stars_df['py'], other_stars_df['px'] = other_stars_df['px'], other_stars_df['py']
         image_size = np.array([image_size[1], image_size[0]])
+
+    # after the solve, before the fit -- see _drop_saturated for why that order
+    other_stars_df, saturation_note = _drop_saturated(other_stars_df, data, options)
+    if saturation_note:
+        events.log(f'saturated stars: {saturation_note}')
 
     initial_guess = plate_solve_result['x']
     ### now try to match other stars
@@ -440,6 +484,10 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        # the correlation is unreadable without the distance it was measured
                        # over: 0.3 at 50 px and 0.3 at 500 px are different findings
                        'nearest-neighbour distance (pixels)': nn_r,
+                       # travels with the number: which stars were removed for clipping, or
+                       # why none could be, is not recoverable afterwards from anything else
+                       'saturated stars rejected?': options['reject_saturated_stars'],
+                       'saturation outcome': saturation_note or 'not applied',
                        'aberration/parallax correction enabled?': options['enable_corrections'],
                        'gravitational correction enabled?': options['enable_gravitational_def'],
                        'gravity sweep mode?': options['gravity_sweep'],
