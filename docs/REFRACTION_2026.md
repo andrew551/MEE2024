@@ -1240,3 +1240,52 @@ focus–scale coupling and the 32 µm transport re-seat, §16.2–16.3). That is
 architectural contrast this comparison has produced, and unlike the ranking attempts of
 §16.8–16.10 it rests on a lever that is near zero rather than on a small difference between
 two uncertain numbers.
+
+
+### 16.13 The 65PHQ's factor, from the Leakey focus sweep — and a dissociation explained
+
+The Leakey zenith-2 sweep (§10 of `INSTRUMENT_COMPARISON.md`: 18 sets, focuser moved once,
+16110 → 16040, 70 steps) measured **+8.9 ppm/step of plate scale** and
+**+0.0138 ± 0.0075 %/step of cubic** on the 65PHQ. Those two numbers together are exactly
+a chief-ray measurement, and they explain a dissociation the record had noted without
+accounting for:
+
+**Which spacing the focuser moves decides which observable responds.**
+
+| train | focuser moves | so it changes | plate scale responds via | cubic responds |
+|---|---|---|---|---|
+| 65PHQ (integral flattener) | the **camera only** | d₀ | **(1 − L/f_red)** | barely — measured 0.0138 %/step |
+| FRA500 + 0.7× (reducer on the drawtube) | **reducer + camera** | L | m = 0.727 | strongly — F19's mechanism, ~0.3–0.6 %/step |
+
+That is why the 65PHQ's cubic is 46× less focus-sensitive than Leon's while its *plate
+scale* is nearly 3× more so: they are different levers, and each train exposes a different
+one to the focuser. §10's "46× less" was read as the 65PHQ being intrinsically stabler; it
+is more precisely that **its focuser cannot reach the spacing that moves the cubic**.
+
+**The factor itself needs one number we do not have: the µm per focuser step.**
+
+| assumed µm/step | 65PHQ \|1 − L/f_red\| |
+|---|---|
+| 1.0 | 3.7 |
+| 1.5 | 2.5 |
+| 2.0 | 1.9 |
+
+The FRA500 + 0.7×'s own geometry (factor −1.10) is reproduced by its measured
+3.0–3.6 ppm/step at ~1.1 µm/step, so **if the two focusers are comparable the 65PHQ sits
+near |1 − L/f_red| ≈ 3**, i.e. strongly non-telecentric — the *worst* of the three trains
+on this metric, not the most benign:
+
+    NP101is  ~0.01  (telecentric; immune to focus and back-focus)
+    FRA500 + 0.7x   1.10
+    65PHQ    ~3     (provisional, pending the step size)
+
+This **revises §16.8's characterisation of the 65PHQ as "the most thermally benign
+architecture"** — benign in *cubic* (its focuser can't move that lever), exposed in *plate
+scale*. Since the plate scale is what step 2 delivers to the deflection, that is the wrong
+way round for this experiment.
+
+**To close it**: the µm/step of the Leakey focuser (a spec-sheet or one-time
+ruler-and-dial-indicator measurement) converts 8.9 ppm/step into a number, and the same
+conversion should be run for any 2027 candidate. The Leakey `.CameraSettings` files on
+`I:` were searched and carry no focuser metadata, so this cannot be closed from the
+archive.
