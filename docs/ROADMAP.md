@@ -798,13 +798,28 @@ Check any star-rejection rule against the leverage distribution rather than the 
 step-2 record measured that removing any single well-placed star costs ~19 % while the rms barely
 moves, so rms will never reveal this.
 
-**On defaulting to on.** That is the intended end state — the failure is silent, and at tol 999
-nothing else reports it. It is held off only because flipping it moves the frozen zenith cubic
-that every downstream number is pinned to, so the size of that move is being measured rather
-than assumed (`tools/f16_zenith_ab.py`: stage 1 once per field, stage 2 twice off the same
-centroids, against d(3000) = 3.0297 ″ ± 1.30 % field-to-field). The expectation is that it lands
-well inside that scatter and other uncertainties dominate; the measurement is cheap and the
-input is load-bearing.
+**Defaulted to on, 2026-08-28, with the validation.** The concern was that flipping it moves
+the frozen zenith cubic every downstream number is pinned to. Measured rather than assumed
+(`tools/f16_zenith_ab.py`, six 08-12 fields: stage 1 run once, stage 2 twice off the same
+centroid archive, so rejection is the only variable):
+
+| | rejection off | rejection on | shift |
+|---|---|---|---|
+| d(3000), mean of six | 3.0257 ″ | 3.0254 ″ | **−0.012 %** |
+| plate scale, mean | 2.2073819 ″/px | 2.2073818 ″/px | −0.01 ppm |
+| clipped stars removed | — | 23 (13 of them in the fit) | of 16 397 used |
+
+Against the field-to-field scatter of **1.18 %** that d(3000) already carries, the shift is
+about one part in a hundred of the existing noise; the largest single field moved −0.05 %, and
+one field (Z3) had no star reach the 62 258 ADU threshold at all. So the answer to "does
+defaulting it on disturb the existing calibration chain" is no, by two orders of magnitude, and
+Douglas' prediction that other uncertainties dominate is confirmed. The stage-2 regression
+baselines did not move either.
+
+Read the null correctly, though: it says the *zenith* chain is insensitive, which is exactly
+what the tolerance mechanism predicts at tol 0.2. It says nothing about the eclipse field,
+where tol 999 leaves F16 as the only defence and where the rising sky makes clipping
+time-dependent. The per-frame mask is still required there.
 
 ### F17 — Report what the fit can actually resolve
 

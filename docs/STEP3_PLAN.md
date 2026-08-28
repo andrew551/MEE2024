@@ -43,9 +43,10 @@ this file is the operational contract.
   exposures is diluted away by the short ones (measured: the CAL_piLeo stack peaks at 43 378
   ADU where its 2 s frames clip at 65 535). And the totality sky ran 726 → 5700 ADU through
   the sequence, so a star unclipped early can clip later *within one tier*; clipping is not a
-  static property of a star here, as it is at zenith. The merged F16
-  (`reject_saturated_stars`, off by default) measures the peak on the **stacked** image and
-  so does not yet satisfy this; the per-frame mask is outstanding (ROADMAP F16).
+  static property of a star here, as it is at zenith. F16 (`reject_saturated_stars`) is merged
+  and **on by default** since 2026-08-28, but it measures the peak on the **stacked** image
+  and so does not yet satisfy the per-frame requirement; that mask is outstanding
+  (ROADMAP F16).
 - **Chain fidelity**: zenith cubic (6 files) → CAL_piLeo low orders →
   `distortion_fixed_coefficients=constant`, corrections ON, per-frame mid-exposure
   `observation_time` (the refraction scale term moves 1.78 ppm/s at this altitude).

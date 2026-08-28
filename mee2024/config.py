@@ -87,8 +87,14 @@ DEFAULT_OPTIONS = {
     # decreases, which a flat-topped star passes -- so a clipped star is rejected only if
     # its position error happens to exceed `distortion_fit_tol`. On the eclipse field that
     # tolerance is 999 by design, so nothing stands in the way at all (ROADMAP F16).
-    # Off by default: it moves measured numbers, so it needs its own validation.
-    'reject_saturated_stars': False,
+    # On by default since 2026-08-28, with the validation this needed. Measured on the six
+    # 08-12 zenith fields, stage 1 run once and stage 2 twice off the same centroids so the
+    # rejection is the only variable: d(3000) moved -0.012 % against a 1.18 % field-to-field
+    # scatter, and the plate scale 0.01 ppm. 23 clipped stars removed across six fields, 13
+    # of them in the fit. tools/f16_zenith_ab.py; ROADMAP F16.
+    # It matters where the tolerance is loose, not here: at step 3's tol 999 nothing else
+    # rejects a clipped star at all.
+    'reject_saturated_stars': True,
     'saturation_fraction': 0.95,  # of full scale; below 1 to catch the shoulder of a clip
     'sanity_check_centroids': True,
     'max_star_mag_dist': 12.0,
