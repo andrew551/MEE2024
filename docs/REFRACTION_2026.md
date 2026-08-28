@@ -1141,3 +1141,41 @@ thermal model. §16.7's day–night anomaly is if anything strengthened — a sm
 share leaves more of the −663/−524 ppm to the focus criterion, sun-load and the daytime
 refraction residual. And §17's acceptance test already specifies *measuring* a candidate's
 native coefficient, which this section shows is the only reliable route.
+
+
+### 16.10 The length datum, an invariance, and an unresolved tension (2026-08-28)
+
+Douglas: the NP101is is **25.5 in = 647.7 mm** physically, front lens to focal plane, for
+its 540 mm focal length. That completes a clean comparative metric across the project's
+trains — physical length ÷ EFL, i.e. how much reducing the train does:
+
+| train | physical (mm) | EFL (mm) | ratio |
+|---|---|---|---|
+| FRA500 native | 535 | 500 | 1.07 |
+| **NP101is** | **647.7** | **540** | **1.20** |
+| FRA500 + 0.7× | ~540 | 363.5 | 1.49 |
+
+**An invariance worth recording.** With the physical length and the EFL both pinned, the
+aluminium-only thermal coefficient turns out to be **independent of where the reducing
+group sits**: sweeping the front doublet from f/7 to f/12 moves the group from 471 mm to
+196 mm behind the objective and changes m from 0.77 to 0.45, yet the coefficient stays at
+**−18.4 ppm/K** throughout. Only the length ratio matters, not the internal layout — which
+is a much more useful design statement than §16.8's "where the lever sits", and it
+supersedes that framing.
+
+**This flips §16.9's comparison, softly.** On this footing the NP101is comes out at
+−18.4 ppm/K against the FRA500 + 0.7×'s −15.7 — *slightly less* stable, not more, because
+its greater physical length outweighs its stronger reduction. Caveat, stated rather than
+buried: the FRA500 + 0.7× is really a **three**-group system (triplet + internal flattener
++ external reducer), so the two-group model is only approximate for it, and its own
+L + d₀ from §16.9 (479 mm) sits short of Douglas' 540 mm physical length. The honest
+summary across §16.6→§16.10 is therefore: **both trains land at −15 to −19 ppm/K from
+aluminium alone, indistinguishable at this precision, and both fall factor 2–7 short of
+the measured coupling** — the shortfall is glass/cell/internal-spacing physics that no
+mechanical arithmetic here reaches. Measurement, not modelling (§17).
+
+**One unresolved tension, flagged for whoever revisits this.** The f/11 front-doublet spec
+and the 647.7 mm length together put the rear group only ~212 mm behind the objective with
+~436 mm to the CCD — the reverse of the proportion Bruns' schematic shows. Either the f/11
+figure is not the front doublet's true focal ratio, or the 25.5 in excludes some
+back-focus. It does not affect the invariance above, which holds across the whole family.
