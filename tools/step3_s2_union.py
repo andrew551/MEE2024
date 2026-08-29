@@ -19,6 +19,14 @@ Per-star combination, per the plan's doctrine:
 all87 is deliberately NOT a union member: its frames are the same photons as the tiers,
 so including it would double-count, not deepen.
 
+S2_LIMIT_MAG (env var, default 11.0) sets the catalogue limiting magnitude. Stars fainter
+than 11.0 are admitted ONLY when detected in >= 2 tiers, so the cross-tier consistency vet
+actually applies to them -- a single-tier faint match has no second witness and stays out.
+Note a deeper catalogue also tightens the doubles and blend filters on the BRIGHT stars
+(an 11-12 mag companion inside 10 arcsec now flags its primary), so the mag <= 11 subset
+under a deeper catalogue is not guaranteed identical to the default run; measure the
+drift, don't assume it.
+
 Outputs: L (base and vertical-deg-2 nuisance) for the full union and for the 0.6+1.2
 subset Douglas asked about, each with a star-resampling bootstrap for the statistical
 error, with and without the below-Sun anchor.
@@ -38,6 +46,7 @@ V4 = r"D:/MEE2024 output/MEE_output/step3_s0_v4"
 PS, NX, NY, W_NORM = 2.2054043, 6248, 4176, 3124.0
 SUNPX, SUNPY = 3171.0, 3232.0
 R_SUN_AS, L_REF = 947.1, 1.7512
+LIMIT_MAG = float(os.environ.get('S2_LIMIT_MAG', '11.0'))
 MIDT = {'0p1s':'18:28:32','0p3s':'18:28:34','0p6s':'18:28:33','1p2s':'18:28:32'}
 OPTS = dict(observation_date='2026-08-12', observation_lat=42.740470,
             observation_long=-5.613780, observation_height=1101.0,
@@ -69,7 +78,7 @@ def chain(det_pypx):
 prov = providers.GaiaOfflineProvider.from_installed()
 epoch = date_string_to_float(OPTS['observation_date'])
 cat = prov.lookup((res['RA']-2.6, res['RA']+2.6), (res['DEC']-2.2, res['DEC']+2.2),
-                  11.0, epoch=epoch)
+                  LIMIT_MAG, epoch=epoch)
 not_dbl = ~np.asarray(cat.is_double(10.0))
 corrs = {}
 for t, tm in MIDT.items():
@@ -179,7 +188,9 @@ def build_union(tiers):
     U = U[~bad]
     rx, ry = (U.px.values-SUNPX)*PS, (U.py.values-SUNPY)*PS
     R = np.hypot(rx, ry)
-    ok = (R > 2.0*R_SUN_AS) & (U.mag.values <= 11.0)
+    # mag > 11 only with >= 2 tiers (the vet must apply); identical to mag <= 11 at default
+    okmag = (U.mag.values <= 11.0) | ((U.mag.values <= LIMIT_MAG) & (U.ntier.values >= 2))
+    ok = (R > 2.0*R_SUN_AS) & okmag
     return U[ok], rx[ok], ry[ok], R[ok]
 
 def fit_L(U, rx, ry, R, nuis_deg=None):
