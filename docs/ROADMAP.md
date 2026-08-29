@@ -995,6 +995,42 @@ solution belongs to the centroids it is being applied to.
 
 ---
 
+### F23 — Choose the alignment reference from the data, not from the list order
+
+`add_img_to_stack` aligns every frame to the **first frame in the caller's list**, and the
+shifts are rounded to integers. Integer rounding is deliberate and should stay — sub-pixel
+resampling interpolates, and interpolation biases centroids, which is the one thing stage 1
+must not do. The *reference* is the problem: it is an artefact of list order rather than a
+property of the data.
+
+**Measured, 2026-08-29, on the canonical CAL_piLeo 16-frame stack.** The same sixteen frames
+in a different order gave **112 centroids instead of 122** and **rms 0.5698 ″ instead of
+0.5318 ″**, moving the plate scale 0.3 ppm. Reordered to match the original run it reproduced
+the canonical reduction to ten digits.
+
+The mechanism is not the shift *span*, which is identical either way (~5.3 × 6.7 px here) —
+it is that `round(a − r) − round(b − r)` is not always `round(a − b)`, so a different
+reference changes the **relative integer placement** of frames by up to 1 px. Mean rounding
+residual was 0.21 px under one reference and 0.24 px under the other.
+
+**What it does and does not do.** The displacement is per *frame*, not per star: every star in
+a frame moves together, so relative astrometry is not biased. What changes is the effective
+stacked PSF, slightly broadened by the rounding distribution, which flips marginal detections
+and therefore the star sample. That is why rms moved 7 % while the fitted plate scale moved
+only 0.3 ppm — a sample-selection effect, not an astrometric one.
+
+**The fix**: reference the shifts to the **mean pointing** of the set before rounding.
+Order-independent by construction, and it minimises shift magnitudes symmetrically, so less
+of the frame is lost to edge trimming and `remove_edgy_centroids` discards fewer stars.
+Sorting the input by `DATE-OBS` inside the stacker would also remove the order dependence,
+more cheaply and just as arbitrarily.
+
+**Priority: low, and it is results-changing.** Every frozen calibration would need
+re-deriving — the zenith cubic, CAL_piLeo — for an improvement of order 0.3 ppm on a number
+that carries a ±25 ppm bar. Worth doing when something else already forces a re-derivation,
+not on its own account. Until then the defence is the frame list: `calibration/README.md`
+records that its order is part of the definition, and says not to sort it.
+
 ## 3a. External sources, and what they do and do not settle
 
 Three documents in `I:\Papers` constrain this work and were not previously cited anywhere in
