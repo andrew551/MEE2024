@@ -157,6 +157,32 @@ contributes ≤ 0.014″ — the E2 stack's alignment (11 frames, few usable sta
 measured common jitter) is the prime suspect; shallow tiers should carry per-frame
 values wherever a star matters (F23-adjacent pipeline note).
 
+### The all-45 stack (2026-08-30, `b17_all45.py` — Douglas' request: the original path)
+
+Every preprocessed frame in one unweighted stack (the Leon all87 doctrine: a depth
+probe and consistency check, NOT a union member — same photons, would double-count).
+Frame order EA → EB → E2 (the stacker aligns to the first frame, F23; EA is the
+best-detected tier). 78 centroids (the original-era analysis counted 255, but with the
+hull blob, no blur-subtraction and that era's thresholds — not comparable); 41 matched
+to mag 13, rms 0.584″; 26 stars at G ≤ 11.
+
+| path | R cut | N | L v-deg2 ± stat (″) |
+|---|---|---|---|
+| tier union (default) | 2.0 | 25 | +1.556 ± 0.135 |
+| **all45** | 2.0 | 24 | **+1.569 ± 0.163** |
+| inner union, per-frame-verified | 1.45 | 27 | +1.519 ± 0.153 |
+| **all45** | 1.45 | 26 | **+1.473 ± 0.233** |
+
+**Every reduction path lands in [1.47, 1.57] — the cell-1 result is path-stable.**
+
+The all-45 stack also settles the G 7.52 dispute with a third, independent path: it
+reads **+0.450″** radial where the per-frame treatment read +0.463 — the two agree to
+0.013″, isolating the E2-only stack's +0.04 as that stack's alignment artifact (the
+all-45 stack aligns on EA's plentiful stars; the 11-frame 0.09 s stack had almost
+none). G 7.09 reads +1.096 here (dead on GR's 1.078) vs +1.63 per-frame / +1.44
+E2-stack — single inner stars are path-dependent at the ±0.5″ level on this structured
+background, which is their honest weight; the L fit barely feels it (2 stars of 26–27).
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive
