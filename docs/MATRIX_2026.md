@@ -183,6 +183,33 @@ none). G 7.09 reads +1.096 here (dead on GR's 1.078) vs +1.63 per-frame / +1.44
 E2-stack — single inner stars are path-dependent at the ±0.5″ level on this structured
 background, which is their honest weight; the L fit barely feels it (2 stars of 26–27).
 
+### Procedure identity with Bruns 2018 (verified in code, 2026-08-30)
+
+Douglas asked whether the chain reproduces Bruns' published calibration-transfer
+procedure. Verified against `distortion_polynomial.py` (the freeze semantics at
+`_cubic_helper`, the multi-reference averaging at `_open_distortion_files`, the
+constant-only branch at line 298) and the stored reference lists:
+
+| Bruns' published step | this chain | verified |
+|---|---|---|
+| cubic distortion measured on August night fields (his Table 2), then frozen | the L/R fits pass **15 night fields** (EC06–10, LC06–10, RC06–10) as `--fix-distortion` refs with `fixed_coefficients=quadratic`: the cubic terms are the coefficient-by-coefficient **average of the 15 night fits**, held fixed | ✓ |
+| "leaving only linear and quadratic plate scale terms to fit these calibration images" | `quadratic` freeze frees exactly the basis columns of order ≤ 2 (constant + linear + quadratic); code partitions the basis at n_free and fits OLS on the free block only | ✓ |
+| "plate constants were averaged over the RIGHT and LEFT calibration fields because the ECLIPSE field was midway" | the eclipse fits pass **both** L and R8 as references; `_open_distortion_files` averages every coefficient (`coeff += v/n`) and the plate scale (mean → 2.0868004, matching the stored EA value to 10 digits) | ✓ |
+| "these plate constants were then used in polynomials used in the ECLIPSE field images" | `fixed_coefficients=constant`: the fit solves pointing, then **discards the fitted stretch/skew and overwrites the plate scale with the reference mean** (line 301) and applies the averaged polynomial verbatim | ✓ |
+
+Disclosed differences, none of which change the transfer:
+1. **Roll is refit per eclipse stack** (the constant branch keeps RA/DEC/ROLL from
+   its linear helper). On a clamped mount over 90 s this is µrad-class, and the
+   estimator's Θ column makes rotation L-neutral regardless.
+2. **Gauge**: his Table 2 coefficients are TAN-projection (Astrometrica-convention)
+   rad/px³; MEE's are in MEE's angular gauge — the two differ by the universal radial
+   term (k_TAN ≈ k_MEE + ~0.4 ″/deg³, ROADMAP §gauge), so coefficient VALUES cannot be
+   compared table-to-table without conversion. The procedure itself is gauge-invariant.
+3. Bruns registered and measured **per image**; we stack per tier and drop to
+   per-frame where a star demands it (the E2 lesson above).
+4. His cubic average came from his own August night set; ours from the 15 re-reduced
+   night fields of the comparison week — same instrument, same month, our reduction.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive
