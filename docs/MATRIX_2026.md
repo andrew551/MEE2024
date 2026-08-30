@@ -213,7 +213,7 @@ Disclosed differences, none of which change the transfer:
 ### The 2024 reanalysis compared, and the plate-scale levers measured (2026-08-30)
 
 Douglas located the 2024-era outputs (`I:\2017 eclipse data analysis\analysis\
-distortion_results{L,R,E}.txt`, produced 2024-03 by the v1.2-era pipeline). They prove
+distortion_results{L,R,E}.txt`, produced 2024-03 by the v0.4.0-era pipeline (the UI screenshot Douglas kept shows MEE2024 v0.4.0)). They prove
 the 2024 reanalysis already followed Bruns' procedure — same three-level chain: 15
 Aug-19 night calibrations quadratic-frozen into L/R, eclipse field constant-frozen on
 the L+R mean (its stored 2.0867322 IS the exact mean of its L and R), all 45 frames in
@@ -221,7 +221,7 @@ one stack (58 stars at tol 5.0″). So 2024, 2026, and Bruns 2018 are one proced
 
 The numbers, era to era:
 
-| quantity | 2024 (v1.2-era) | 2026 (v1.4.0-dev) | Δ |
+| quantity | 2024 (v0.4.0) | 2026 (v1.4.0-dev) | Δ |
 |---|---|---|---|
 | L scale (″/px) | 2.0866996 (75 stars, tol 0.2, 8 fr) | 2.0867534 (105 stars, tol 0.5, 7 fr) | **+25.8 ppm** |
 | R scale (″/px) | 2.0867649 (77 stars, tol 0.2, 6 fr) | 2.0868386 (R6, like-for-like) | **+35.3 ppm** |
@@ -241,15 +241,40 @@ refraction_lever/`, `tol02_lever/`):
 | refraction correction ON → OFF | **+266.8 ppm** | **+265.9 ppm** | huge, common-mode |
 | fit tolerance 0.5 → 0.2″ | +7.9 ppm | +7.9 ppm | small, common-mode, wrong sign for the gap |
 
-Attribution: the refraction correction at alt 53–54° is a **266 ppm lever on the
-fitted scale**, and v1.2's implementation — "enabled" in the 2024 files but broken
-until `v1.4.0-dev` rewrote it (`docs/V1_4_0_TESTING.md`) — needed only a ~15 % defect
-to produce the era gap (the tol lever actually deepens the required defect to ~41 ppm,
-since 2024's tighter tol pushes the other way). The remaining era differences (the
-night-cubic reduction version — frozen y³ differs by 5 % — and the Oct-2024 weighted
-centroids) are secondary. The v1.4.0-dev refraction model is the one validated at
-ppm-class against real night fields in its 54° regime during the Leon refraction
-campaign (M4), so **the 2026 scale is the trusted one**.
+> **SUPERSEDED 2026-08-30 (same day), on Douglas' question.** The paragraph that stood
+> here attributed the era gap to "the broken pre-v1.4.0 refraction correction". That
+> was WRONG on the history: the famous breakage (`0468e22`, fixed 2026-08-20 —
+> `AttributeError: 'StarTable' object has no attribute 'c'`) was born with the
+> **StarTable catalogue layer**, i.e. the v1.3.x era, and it *crashed loudly* rather
+> than corrupting numbers; it was invisible only because corrections were off by
+> default. The 2024 reanalysis (**v0.4.0**, March 2024 — the era note "v1.2" above is
+> also corrected) predates StarTable: its catalogue object was StarData, which had
+> `.c`, and **its refraction correction ran**. The 2024 results files record
+> corrections enabled and computed alt/az, consistent with that.
+
+Attribution, from the three levers measured (all A/B on the 2026 fits, everything
+else pinned):
+
+| candidate | measured effect on fitted scale | verdict |
+|---|---|---|
+| refraction correction ON→OFF | +266.8 / +265.9 ppm (L / R8) | the *pathway* is huge, but both eras ran it |
+| fit tolerance 0.5→0.2″ | +7.9 / +7.9 ppm | wrong sign — deepens the unexplained gap to ~41 ppm |
+| night references 2026→2024 (`refswap_2024/`) | **+1.0 / +1.1 ppm** | the frozen-cubic difference is NOT the owner |
+
+**The ~33–41 ppm era gap is therefore currently UNATTRIBUTED.** The surviving
+candidates act through the star positions or the correction implementation itself:
+the v0.4.0 → v1.4.0-dev evolution of the correction code (`erfa.ld` error-path
+restore, the 9-bug pass, astropy version) and of the centroid machinery (weighted
+centroids Oct-2024, gaussian-subtract defaults). A ~12–15 % implementation difference
+in a 266 ppm correction, or a ~0.1 px systematic centroid trend across the field,
+would each suffice. The decisive next measurement is a **star-by-star comparison of
+the 2024 stored matched tables against ours** — the 2024 `DISTORTION_OUTPUT*` folders
+survive on `I:\2017 eclipse data analysis\`.
+
+The v1.4.0-dev chain remains the reduction of record (current tested code, refraction
+model validated on the Leon M-campaign, 105/110 vs 75/77 stars) — but the era gap is
+now an **open measured discrepancy worth 0.33″ of L**, not an explained one, and cell
+1's GR-agreement precision inherits it until the star-by-star audit closes it.
 
 Design note the A/Bs demonstrate for free: both levers move L and R almost
 identically (266.8 vs 265.9; 7.9 vs 7.9), so **the L−R split is immune to them — the
