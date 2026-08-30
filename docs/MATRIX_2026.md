@@ -210,6 +210,57 @@ Disclosed differences, none of which change the transfer:
 4. His cubic average came from his own August night set; ours from the 15 re-reduced
    night fields of the comparison week — same instrument, same month, our reduction.
 
+### The 2024 reanalysis compared, and the plate-scale levers measured (2026-08-30)
+
+Douglas located the 2024-era outputs (`I:\2017 eclipse data analysis\analysis\
+distortion_results{L,R,E}.txt`, produced 2024-03 by the v1.2-era pipeline). They prove
+the 2024 reanalysis already followed Bruns' procedure — same three-level chain: 15
+Aug-19 night calibrations quadratic-frozen into L/R, eclipse field constant-frozen on
+the L+R mean (its stored 2.0867322 IS the exact mean of its L and R), all 45 frames in
+one stack (58 stars at tol 5.0″). So 2024, 2026, and Bruns 2018 are one procedure.
+
+The numbers, era to era:
+
+| quantity | 2024 (v1.2-era) | 2026 (v1.4.0-dev) | Δ |
+|---|---|---|---|
+| L scale (″/px) | 2.0866996 (75 stars, tol 0.2, 8 fr) | 2.0867534 (105 stars, tol 0.5, 7 fr) | **+25.8 ppm** |
+| R scale (″/px) | 2.0867649 (77 stars, tol 0.2, 6 fr) | 2.0868386 (R6, like-for-like) | **+35.3 ppm** |
+| imported eclipse scale | 2.0867322 | 2.0868004 | **+32.7 ppm** |
+| L−R split | −31.3 ppm | −45.1 ppm (R8) / −40.8 (R6) | |
+
+At h = 10.6 R⊙², 32.7 ppm of scale is **0.33″ of L** (eq-23): with the 2024 scale,
+cell 1's headline would read ≈ 1.88 instead of 1.556 — GR (1.751) sits between the
+eras. The Newton exclusion is era-proof (both values ≫ 0.876, and the 2024 scale
+strengthens it); the GR-agreement precision hangs on this 33 ppm.
+
+**The levers, measured by direct A/B on the 2026 L/R fits** (`matrix_bruns2017/
+refraction_lever/`, `tol02_lever/`):
+
+| lever | L | R8 | character |
+|---|---|---|---|
+| refraction correction ON → OFF | **+266.8 ppm** | **+265.9 ppm** | huge, common-mode |
+| fit tolerance 0.5 → 0.2″ | +7.9 ppm | +7.9 ppm | small, common-mode, wrong sign for the gap |
+
+Attribution: the refraction correction at alt 53–54° is a **266 ppm lever on the
+fitted scale**, and v1.2's implementation — "enabled" in the 2024 files but broken
+until `v1.4.0-dev` rewrote it (`docs/V1_4_0_TESTING.md`) — needed only a ~15 % defect
+to produce the era gap (the tol lever actually deepens the required defect to ~41 ppm,
+since 2024's tighter tol pushes the other way). The remaining era differences (the
+night-cubic reduction version — frozen y³ differs by 5 % — and the Oct-2024 weighted
+centroids) are secondary. The v1.4.0-dev refraction model is the one validated at
+ppm-class against real night fields in its 54° regime during the Leon refraction
+campaign (M4), so **the 2026 scale is the trusted one**.
+
+Design note the A/Bs demonstrate for free: both levers move L and R almost
+identically (266.8 vs 265.9; 7.9 vs 7.9), so **the L−R split is immune to them — the
+bracket cancels common-mode systematics exactly as designed**, and the split's
+era-change (31 → 45 ppm) is a star-set/version effect, not atmosphere.
+
+For reference, Bruns' own Table 4 linear terms convert to ≈ 2.08677 (X, AST) and
+≈ 2.08661 (Y, AST) ″/px — same 40–90 ppm class as everything above, but his
+convention embeds his own refraction handling and an axis asymmetry, so a
+table-to-table comparison beyond the class level is not meaningful.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive
