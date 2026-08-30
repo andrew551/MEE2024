@@ -276,6 +276,52 @@ model validated on the Leon M-campaign, 105/110 vs 75/77 stars) — but the era 
 now an **open measured discrepancy worth 0.33″ of L**, not an explained one, and cell
 1's GR-agreement precision inherits it until the star-by-star audit closes it.
 
+### The star-by-star audit: the gap lives in the centroids (2026-08-31)
+
+Douglas pointed at the surviving 2024 data (`I:\2017 eclipse data analysis\`) and the
+two decisive experiments ran.
+
+**(A) 2024 centroids through 2026 code** (`xera_2024centroids/`): today's stage 2 with
+today's 15-night references, run on the 2024 `dataL.zip`/`dataR.zip` centroid
+archives, reproduces the **2024** scales — R to 3 ppm (2.0867674 vs the 2024 fit's
+2.0867649 at like tolerance), L to −8/+6 ppm — i.e. ~35 ppm below the 2026-stack
+values. **The code, the correction implementation, and the references are exonerated;
+the era gap lives in the stage-1 stacks/centroids themselves.** (R6 is frame-identical
+between eras, so frame selection is excluded too.)
+
+**(B) the star-by-star affine** between the two eras' stacked centroid lists (same
+fields, 104–108 matched pairs, residual scatter after affine only 0.08 px on R6):
+
+| field | isotropic scale 2024→2026 | bright half only | faint half only |
+|---|---|---|---|
+| R6 | **−31.6 ppm** | −18.7 ppm | −48.9 ppm |
+| L | **−37.0 ppm** | −19.1 ppm | −53.2 ppm |
+
+The −32/−37 ppm matches the fitted-scale gap exactly — and it is **brightness-
+dependent, factor ~2.6 between bright and faint halves**: the signature of the two
+eras' centroiders weighting the asymmetric off-axis PSF wings differently (v0.4.0:
+plain moments over the threshold area; v1.4.0-dev: Gaussian-subtracted, windowed).
+The within-era arbiter (bright-vs-faint radial split against the catalogue in each
+era's own fit) is **inconclusive** — the splits are noise-level (−17.5 to +17.8 ppm at
+±15–30 ppm sensitivity) and change sign between fields.
+
+**The transfer-cancellation insight, which reframes the stakes.** A *uniform* centroid
+scale convention cancels exactly in the calibration→science transfer: if every pixel
+position is magnified by (1+e), the calibration fit returns S/(1+e) and the science
+positions carry (1+e), so the sky angles — and L — are unchanged. Each era is
+internally consistent; **the absolute 33 ppm never reaches L**. What leaks is only the
+**brightness-dependent part**: the calibration scale is fitted on a mag 7–13 mix
+(faint-weighted) while the science stars are the bright end, so the convention
+mismatch entering L is ≈ (49−19)/2 ≈ **15 ppm ≈ 0.15″ of L** — a centroid systematic
+present in BOTH eras (with era-dependent sign), half the naively-feared 0.33″. The
+earlier sentence "0.33″ of L hangs on this" is hereby corrected to that mechanism.
+
+Closure path (logged, not yet run): the truth-referenced arbiter is the synthetic-PSF
+centroid benchmark (`docs/bench/psf/`, which validated the v1.4.0-dev centroider), plus
+a targeted A/B — re-run the 2026 stage 1 with the windowing/subtraction disabled to
+emulate the v0.4.0 centroider on identical frames and measure the brightness slope
+against the catalogue with full-field statistics.
+
 Design note the A/Bs demonstrate for free: both levers move L and R almost
 identically (266.8 vs 265.9; 7.9 vs 7.9), so **the L−R split is immune to them — the
 bracket cancels common-mode systematics exactly as designed**, and the split's
