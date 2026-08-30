@@ -104,29 +104,111 @@ Leon's ~0.4″-class term — the bracket + higher leverage cut it 4×.
 
 **The two inner stars (E2-only, single-witness — the vet cannot arbitrate, so each is
 measured individually, per the anchor doctrine):**
-- **G 7.09 at 1.62 R⊙: raw radial displacement +1.439″ vs GR's +1.079″** — a real
-  inner-annulus deflection detection, +0.36″ (≈1.6 σ) high, admitted-candidate.
-- **G 7.52 at 1.49 R⊙: +0.037″ vs GR's +1.174″ — a mask-edge casualty.** It sits
-  13 px outside E2's painted disk (edge at 1.47 R⊙) in a 49 kADU sky; the
-  coronal-gradient residual after blur-subtraction pulls its centroid sunward and eats
-  the deflection. This is precisely the regime Bruns' own continuity correction was
-  built for. Excluded pending per-frame verification; admitting it un-verified would
-  drag L to 1.39 for a demonstrably instrumental reason.
 
-**Cell-1 first-pass verdict: L = 1.56 ± 0.14 (stat) ± 0.10 (scale) ″ on the
-held-constant default (GR at +1.2 σ), and 1.66 ± 0.14 ± 0.09 ″ with the inner annulus
-handled per the anchor doctrine (GR at +0.6 σ). Newton (0.876″) is excluded at
-≈ 4.0–4.6 σ — the Eddington discrimination Leon's atmosphere forbade, delivered by
-altitude 54° plus the L/R bracket, exactly the 2027 forecast.** Bruns' own published
-result (GR to ~3 %) remains far tighter: he used many more stars (his analysis reached
-fainter magnitudes on single well-modelled images) and his continuity correction
-recovered the inner annulus this chain currently masks.
+> **SUPERSEDED 2026-08-30.** The first-pass paragraph here blamed G 7.52's +0.04″
+> reading on the painted disk edge ("mask-edge casualty"). Douglas rejected the
+> exclusion and demanded the redo; the follow-up measurements cleared the suspects one
+> by one: NOT saturation (raw peak 24.6 kADU, zero clipped pixels — F16 innocent), NOT
+> an oversized mask (the saturated-fraction radial profile shows 2 % of pixels in its
+> 650–700 px ring genuinely saturating; the disk edge was honestly placed), and NOT
+> the blur-subtraction either — the per-frame path-bias measurement
+> (`b17_perframe2.py`, identical measurement run on raw and on preprocessed frames)
+> puts the held-constant preprocessing's centroid bias at **≤ 0.014″ on every star,
+> both inner ones included**. The stacked chain's +0.04″ was a *stack-path* artifact
+> (prime suspect: the 0.09 s stack's alignment quality — few usable stars, ±1″ of
+> measured common frame-to-frame jitter), not a preprocessing casualty.
+
+The verified measurements (`b17_perframe2.py`: each raw E2 frame measured
+independently — quadratic local background on the window border ring, saturated pixels
+excluded, Gaussian-weighted centroid σ 2.0 px — each frame referenced to the median
+offset of its own R > 2 R⊙ stars; median of 11 frames, MAD/√n error):
+
+- **G 7.09 at 1.62 R⊙: +1.632 ± 0.204″ radial** (GR: +1.079) — robust inner-annulus
+  deflection detection, running +0.55″ high (local quasi-static structure suspected;
+  the stacked value +1.44 agrees to 0.19″).
+- **G 7.52 at 1.49 R⊙: +0.463 ± 0.229″ radial** (GR: +1.174) — a real, non-zero
+  deflection, 3 σ low of GR. ~2.7 kADU of star on a ~22 kADU structured sky: the
+  spread across measurement paths (~0.4″) is its honest systematic. Kept, with that
+  weight understood — one noisy star among 27, not an anchor.
+
+With both stars carried at their per-frame-verified vectors
+(`b17_inner_refit.py`): **INNER union N = 27, h = 8.4 R⊙²,
+L base +1.363 ± 0.274, L v-deg2 +1.519 ± 0.153 (stat) ± 0.083 (scale) ″.**
+
+**Cell-1 verdict (revised 2026-08-30 after the per-frame redo): L = 1.556 ± 0.135
+(stat) ± 0.103 (scale) ″ on the held-constant default (25 outer stars, GR at +1.2 σ),
+and L = 1.519 ± 0.153 ± 0.083 ″ with the full inner annulus carried at per-frame-verified
+values (27 stars, GR at +1.35 σ). The two variants agree to 0.04″. Newton (0.876″) is
+excluded at ≈ 3.7–4.0 σ — the Eddington discrimination Leon's atmosphere forbade,
+delivered by altitude 54° plus the L/R bracket, exactly the 2027 forecast.** (The
+first-pass "1.66 sans G 7.52" variant is superseded — its exclusion rationale was
+wrong.) Bruns' own published result (GR to ~3 %) remains far tighter: more stars,
+fainter magnitudes, and his continuity correction working per image.
 
 Charts: `matrix_bruns2017/deflection_b17.png`, `field_b17.png` (D:).
 Union table: `matrix_bruns2017/union_full_r145.csv`.
 
-Open items for this cell: (1) per-frame E2 verification of both inner stars (the
-anchor treatment — 11 frames each); (2) the honest atmospheric systematic via the
-S1-style gate run on Bruns' own 29 night fields (`bruns2017_nights/`) instead of
-quoting Leon's ±0.33; (3) the mask-edge exclusion margin (disk radius + centroid
-window) should become an explicit rule in the S0 tool rather than a post-hoc catch.
+Open items for this cell: (1) ~~per-frame E2 verification~~ **done 2026-08-30**
+(`b17_perframe2.py`, `b17_inner_refit.py`); (2) the honest atmospheric systematic via
+the S1-style gate run on Bruns' own 29 night fields (`bruns2017_nights/`) instead of
+quoting Leon's ±0.33; (3) the 0.09 s stack-path bias: per-frame medians disagree with
+the stacked centroid by up to ~0.4″ on the weakest star while the preprocessing
+contributes ≤ 0.014″ — the E2 stack's alignment (11 frames, few usable stars, ±1″
+measured common jitter) is the prime suspect; shallow tiers should carry per-frame
+values wherever a star matters (F23-adjacent pipeline note).
+
+### Appendix — every parameter in effect (cell 1)
+
+The CLI merges `--set` overrides ON TOP of the operator's interactive
+`MEE_config.txt` (the measured Leon trap), so this table records the *effective* value
+and its provenance for every parameter that can matter. Source of truth: the merged
+options dumps in `matrix_bruns2017/*/stage1.log` and the stored
+`distortion_results.txt` files.
+
+**S0 preprocessing (`b17_s0.py` — outside the pipeline):** coronal model = unshifted
+per-tier mean, Gaussian blur σ 10 px, subtracted per frame; pedestal +2000 ADU; clip
+[0, 65535] uint16; saturated pixels (≥ 65535) dilated 10 iterations and painted to
+pedestal; forbidden disk painted at max(1.25 R⊙ = 568 px, tier 99th-pct saturation
+radius + 20 px) → EA 921 px (2.03 R⊙), E2 666 px (1.47 R⊙), EB 922 px, centred on the
+per-tier saturated-pixel centroid; no darks, no flats (held from the canonical L/R
+chain, which used none).
+
+**Stage 1 (stack + centroids), pinned by the tool:** `sensitive_mode_stack=True`,
+`centroid_gaussian_subtract=True`, `centroid_gaussian_thresh=4.0` (σ, locally
+adaptive), `min_area=2` px, `sigma_subtract=0.0`, `delete_saturated_blob=False` (the
+hull blob is OFF — the forbidden disk replaces it), `remove_edgy_centroids=True`,
+`centroid_refine_window=True`, `centroid_window_sigma=2.0`, `--no-scan`.
+**Inherited from the interactive config (disclosed, not pinned):** `m=30`, `n=30`,
+`d=100`, `cutoff=100`, `pxl_tol=10`, `img_edge_distance=5`; hot pixels: `sigmas=20`,
+`min_adu=10`, `dark_free=True`; `background_subtraction_mode=annular`;
+`sanity_check_centroids=True`; **`reject_saturated_stars=True` with
+`saturation_fraction=0.95` (F16, active — verified harmless here: no unsaturated-tier
+star clips; both inner stars peak ≤ 29.5 kADU in E2)**; solver `v2`,
+`platesolve_noise_px=0.3`, `k=12`; `blob_radius_extra=500` and `centroid_gap_blob=150`
+leaked in but are INACTIVE with the blob off. Frame order: lexicographic (so `*_10_of`
+frames lead — the stack's alignment reference; F23 note applies).
+
+**Stage 2 (constant-only fit):** `--order cubic`; `--date-from-header` (2017-08-21);
+`--fix-distortion` = the canonical L **and** R8 results (frozen mean = the bracket,
+imported plate scale 2.0868004 ″/px); `distortion_fixed_coefficients=constant` (only
+the two pointing constants free); `distortion_fit_tol=2.0`″ (verified in the stored
+results); `max_star_mag_dist=13`; `rough_match_threshhold=36`″; corrections ON
+(refraction + aberration/parallax): 42°44′11″ N, 106°19′05″ W, 2400 m, 13.0 °C,
+770.0 mb, humidity 0.4, λ 0.625 µm; observation_time 17:43:22 / 17:43:47 / 17:44:13 UT
+per tier (from DATE-OBS, mid-series).
+
+**Union + estimator (`b17_union.py`):** Gaia offline catalogue, **G ≤ 11.0** (the
+magnitude limit in force), epoch 2017.64 with proper motions, refraction/aberration
+corrected per tier time; doubles dropped at `is_double(10″)`; blends (two catalogue
+claims on one detection) dropped; association gates 8.0″ (wide pass, sets the per-tier
+constant offset) then 4.5″ (collect); per-star median across tiers; cross-tier vet at
+3×MAD with a 1.5″ floor; science cuts R > 2.0 R⊙ (default) / 1.45 (inner variant),
+mag ≤ 11.0; estimator columns [N1, N2, Θ, L·(R⊙/R)û] + deg-2 polynomial nuisance along
+the computed local vertical (+153.5° from sensor +y); plain lstsq; 200-star-resample
+bootstrap, seed 3.
+
+**Per-frame anchor treatment (`b17_perframe2.py`, `b17_inner_refit.py`):** window
+±10 px; background = quadratic fit to the 3-px border ring, saturated pixels excluded;
+Gaussian-weighted centroid σ 2.0 px, 5 iterations; acceptance peak-above-background
+> 250 ADU; per-frame reference = median offset of that frame's R > 2 R⊙ stars (≥ 5
+required); star value = median over 11 frames, error = MAD/√n.

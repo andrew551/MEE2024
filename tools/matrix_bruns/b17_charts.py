@@ -41,11 +41,12 @@ defl = clean[:n]*(rx/R) + clean[n:]*(ry/R)
 fig, axd = plt.subplots(figsize=(9.5, 6.5))
 axd.axhline(0, color='black', lw=1)
 axd.scatter(R/R_SUN_AS, defl, s=30, label='0.62 s union (R > 2)')
-# the two E2 inner stars, marked by fate
-axd.scatter([1.62], [1.439], s=60, marker='s', color='tab:green',
-            label='G 7.09 (E2, admitted-candidate)')
-axd.scatter([1.49], [0.037], s=60, marker='x', color='tab:red',
-            label='G 7.52 (E2, mask-edge casualty)')
+# the two E2 inner stars at their per-frame-verified values (b17_perframe2.py:
+# same-frame reference, quadratic local background, 11 raw frames each)
+axd.errorbar([1.62], [1.632], yerr=[0.204], fmt='s', ms=8, color='tab:green',
+             capsize=3, label='G 7.09 (E2, per-frame verified)')
+axd.errorbar([1.49], [0.463], yerr=[0.229], fmt='s', ms=8, color='tab:olive',
+             capsize=3, label='G 7.52 (E2, per-frame verified)')
 xx = np.linspace(1.3, 5.3, 100)
 axd.plot(xx, c[iL]/xx, color='black', label=f'fit L = {c[iL]:.3f}"')
 axd.plot(xx, L_REF/xx, color='green', lw=1, alpha=0.7, label='GR 1.751"')
