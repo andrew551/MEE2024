@@ -71,8 +71,25 @@ DEFAULT_OPTIONS = {
     # pixels, no false positives, about 4% of stage 1's runtime). Declines and says so when
     # the field barely moved between frames, since then the two are indistinguishable.
     'hot_pixel_dark_free': True,
-    'blob_radius_extra': 100,  # delete pixels near saturated moon/sun region
-    'centroid_gap_blob': 30,  # ignore centroids within this distance of saturated region + radius_extra
+    'blob_radius_extra': 100,  # delete pixels near saturated moon/sun region ('blob' mode only)
+    'centroid_gap_blob': 30,  # ignore centroids within this distance of the painted mask
+    # The shape of the Sun/Moon mask. 'disk' is a circle on the saturated core -- what the
+    # geometry actually is. 'blob' is the pre-v1.4.0 convex hull, which followed streamers
+    # into lobes that masked sky at some azimuths while leaving others at the core's edge;
+    # kept only so an older reduction can be reproduced. Switching the default is
+    # results-changing on any field with a saturated Sun or Moon (docs/ROADMAP.md F26).
+    'eclipse_mask_mode': 'disk',  # 'disk' | 'blob'
+    # how far outside the measured saturated core the disk is painted. 10 px is Douglas'
+    # 2026-08-31 choice, halved from 20 after a Bruns 2017 star at 1.49 R_sun cleared the
+    # edge by only 11 px. Note the centre itself carries ~4-11 px of streamer bias, so a
+    # star within ~15 px of the painted edge deserves a per-frame check.
+    'eclipse_disk_margin_px': 10,
+    # Subtract a heavily blurred copy of each frame, flattening the coronal gradient before
+    # detection -- Bruns' 2017 method, and what makes stars inside ~2 R_sun measurable. Off
+    # by default because it is results-changing and only wanted on eclipse fields.
+    'coronal_subtract': False,
+    'coronal_subtract_sigma_px': 10.0,
+    'coronal_pedestal_adu': 2000.0,  # keeps the subtracted frame positive for integer output
     'centroid_gaussian_subtract': False,  # use the "sensitive mode" of custom centroid detection
     'centroid_gaussian_thresh': 5.0,  # threshhold for detecting centroids (sensitive mode)
     'min_area': 4,  # minimum area for found centroids (sensitive mode)

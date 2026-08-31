@@ -140,26 +140,46 @@ of any configuration tried, and satisfies the project's founding design criterio
 star counts are in the thousands — but the same A/B has not been run there, so that is
 inherited practice rather than a measured choice.
 
-## The blob and the forbidden disk
+## The Sun/Moon mask
 
-**The forbidden disk is not in the program.** It lives in this project's analysis tools as
-a preprocessing step. The program still ships only the convex-hull blob:
-`blob_saturation_level` (percent of frame maximum, setting the saturation threshold) →
-largest connected saturated region at 8× downscale → **convex hull** → dilate by
-`blob_radius_extra` (painted dark) → dilate again by `+centroid_gap_blob` (detection
-exclusion). So `delete_saturated_blob=True` remains the default and remains live for
-anyone running the program on an eclipse field without these tools.
+**In the program since 2026-08-31** (ROADMAP F26). `delete_saturated_blob` is the on/off
+switch — "Mask the Sun/Moon" in both interfaces — and `eclipse_mask_mode` chooses the
+shape:
 
-The tools' rule, since 2026-08-31:
+* **`disk`** (default): a circle centred on the saturated core. Centre = centroid of the
+  eroded saturated component; radius = the 90th percentile of 36 azimuthal sector maxima,
+  measured at full resolution, plus `eclipse_disk_margin_px` (10). The detection mask is
+  that disk plus `centroid_gap_blob`, OR-ed with any saturated pixel the disk misses, so
+  nothing clipped reaches detection.
+* **`blob`**: the pre-v1.4.0 convex hull dilated by `blob_radius_extra`. Kept only to
+  reproduce an older reduction — the hull followed streamers into lobes.
 
-> radius = max(1.25 R⊙, that tier's 99th-percentile saturation radius + **10 px**)
+**Turning the mask off is a legitimate mode, not just a diagnostic**: it gives a plain
+stack of the eclipse field aligned on the stars, which is often what you want to look at.
 
-The margin was 20 px until Douglas cut it: on the Bruns data G 7.52 at 1.49 R⊙ cleared
-E2's disk edge by only 11 px. Leon's numbers of record were measured at 20 px and are
-unaffected — its innermost admitted star is 570 px outside its tier's disk.
+Known limit: the disk centre carries 4–11 px of streamer bias (measured against the
+ephemeris on Bruns' three tiers), comparable to the 10 px margin, so a star within ~15 px
+of the painted edge deserves a per-frame check.
 
-Promoting this to a pipeline feature is a ROADMAP item, and should reuse the existing
-`object_centre_moon` flag so Moon fields get the same treatment.
+The analysis tools (`tools/step3_s0_v4.py`, `tools/matrix_bruns/b17_s0.py`) still carry
+their own copy of this preprocessing, with the radius rule
+`max(1.25 R⊙, 99th-percentile saturation radius + 10 px)` and the Sun centre taken from
+the ephemeris rather than from saturation. They and the pipeline agree on the Bruns
+frames to within ~25 px of radius; the tools' numbers are the ones behind
+`docs/MATRIX_2026.md`.
+
+## Coronal subtraction in the pipeline
+
+`coronal_subtract` (off by default) subtracts a σ = `coronal_subtract_sigma_px` (10 px)
+blurred copy of each frame and adds `coronal_pedestal_adu` (2000). The stacked FITS is
+then the flattened image — the same view Bruns published and Richard Berry reproduced,
+with the coronal structure enhanced and the field stars visible against it.
+
+It differs from the tools' version in one way, stated so the numbers are comparable: the
+tools build the blur model from the **tier mean**, this builds it per frame. The mean
+carries √N less noise into the subtraction, but needs every frame in hand before any can
+be preprocessed. At σ = 10 px the blur already averages ~1200 pixels, so the per-frame
+model adds ~3 % of a single frame's noise against ~0.4 % for a 45-frame mean.
 
 ## Edge filtering: keep it on
 

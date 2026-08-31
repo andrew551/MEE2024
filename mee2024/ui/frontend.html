@@ -448,6 +448,14 @@ under a chosen folder, mirroring its layout into the output">
             <span>Sensitive centroid finder (slower, finds fainter stars)</span>
           </label>
           <label class="check">
+            <input type="checkbox" id="mask-sun" checked>
+            <span>Mask the Sun/Moon (off gives a plain stack of the field)</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="coronal">
+            <span>Subtract the coronal background (eclipse fields)</span>
+          </label>
+          <label class="check">
             <input type="checkbox" id="rm-double" checked>
             <span>Drop stars with a close companion (double stars)</span>
           </label>
@@ -2050,6 +2058,8 @@ function buildSpec(){
   options.max_star_mag_dist = parseFloat($('magmax').value) || 13.0;
   options.distortion_field_plot = true;
   options.sensitive_mode_stack = $('sensitive').checked;
+  options.delete_saturated_blob = $('mask-sun').checked;
+  options.coronal_subtract = $('coronal').checked;
   options.remove_double_tab2 = $('rm-double').checked;
   options.remove_missing_pm = $('rm-nopm').checked;
 

@@ -945,10 +945,176 @@ def add_img_to_stack(data, output_array=None, count_array=None, valid=None):
     output_array += roll_fillzero(img, shift)
     count_array += roll_fillzero(contributes, shift)
 
+def _largest_saturated_component(img, blob_saturation, downscale=8, min_size=20000):
+    """The Sun's or Moon's saturated core, as a *downscaled* boolean mask.
+
+    Measured on the raw frame: saturation is a statement about the sensor reaching full
+    scale, so it must be read before dark/flat correction or coronal subtraction move
+    those values. Returns None when nothing large enough saturates, which is the normal
+    case for a zenith field and for a short exposure of an unsaturated Moon.
+    """
+    sat_val = np.max(img) * blob_saturation
+    small = downscale_local_mean(img, (downscale, downscale))
+    labels = measure.label(small >= sat_val, connectivity=1)
+    areas = [region.area for region in measure.regionprops(labels)]
+    if not areas or max(areas) * downscale**2 < min_size:
+        return None
+    return labels == (int(np.argmax(areas)) + 1)
+
+
+def _disk_from_component(small, sat_full, downscale, margin_px):
+    """(centre_y, centre_x, radius) in full-resolution pixels for the forbidden disk.
+
+    The centre is the centroid of the *eroded* downscaled component -- erosion drops thin
+    streamer arms that would otherwise pull the centre off the Sun. The radius is then
+    measured at **full resolution**, and *azimuthally*: the frame is cut into 36 sectors
+    about the centre, each sector's furthest saturated pixel is found, and the radius is
+    the 90th percentile of those 36 distances.
+
+    Three decisions, each with a measurement behind it:
+
+    * **Full resolution, not the downscaled mask.** `downscale_local_mean` averages 8x8
+      blocks, so a block straddling the core's edge falls below the saturation threshold
+      and drops out; a radius taken from the downscaled mask lands ~12 px inside the true
+      edge and the painted disk then stops *short* of the saturated core. Saturated pixels
+      reaching the detector are what produced 773 fake stars on the Leon rim.
+    * **Per sector, not a plain percentile of all radii.** A streamer holding ~10% of the
+      saturated pixels drags a 99th-percentile radius out with it -- 216 px for a 90 px
+      core in the synthetic case. One number per sector makes a streamer cost a few
+      sectors instead of a tail, which is the property the convex hull never had.
+    * **The 90th percentile of the sector maxima.** Chosen by measurement on the Bruns
+      2017 frames, where the saturated region is not a disc with streamers but an
+      irregular blob whose sector maxima run 733-956 px (EA). The percentile trades
+      leakage against masked sky: p75 leaves 38 765 saturated pixels outside the paint,
+      p90 leaves 1 680, p95 leaves 526, and the maximum leaves none at the cost of 55 px
+      of extra radius everywhere. p90 is the knee -- and what leaks past it is inside the
+      further `centroid_gap_blob` ring, so nothing saturated reaches detection on either
+      tier. Still robust to a streamer occupying up to ~3 of the 36 sectors.
+
+    Accuracy of the centre, measured on Bruns 2017 against the astropy ephemeris
+    projected through the fitted plate: 4-11 px on the three tiers. **That is comparable
+    to a 10 px margin**, so on one side the margin can be locally consumed -- worth
+    knowing before trusting a star within ~15 px of the painted edge. A radial
+    saturated-fraction profile would place the edge better; considered and rejected as
+    too complicated for the gain (2026-08-31).
+    """
+    core = scipy.ndimage.binary_erosion(small)
+    if not core.any():
+        core = small
+    yy, xx = np.nonzero(core)
+    cy = (yy.mean() + 0.5) * downscale
+    cx = (xx.mean() + 0.5) * downscale
+    sy, sx = np.nonzero(sat_full)
+    if sy.size == 0:                            # nothing saturated at full scale after all
+        return cy, cx, margin_px
+    radii = np.hypot(sy - cy, sx - cx)
+    n_sectors = 36
+    sector = (np.arctan2(sy - cy, sx - cx) + np.pi) * (n_sectors / (2 * np.pi))
+    sector = np.clip(sector.astype(int), 0, n_sectors - 1)
+    reach = np.zeros(n_sectors)
+    np.maximum.at(reach, sector, radii)
+    reach = reach[reach > 0]
+    r = np.percentile(reach, 90) if reach.size else radii.max()
+    return cy, cx, r + margin_px
+
+
+def _disk_mask(shape, cy, cx, radius):
+    """A filled circle at full resolution, built without a full-size coordinate grid."""
+    dy = (np.arange(shape[0], dtype=np.float32) - np.float32(cy))[:, None]
+    dx = (np.arange(shape[1], dtype=np.float32) - np.float32(cx))[None, :]
+    return (dy * dy + dx * dx) <= np.float32(radius * radius)
+
+
+def subtract_coronal_background(img, options):
+    """Flatten the corona: subtract a heavily blurred copy of the frame, add a pedestal.
+
+    Bruns' 2017 method, and the reason his inner-annulus stars were measurable at all. The
+    corona falls by orders of magnitude over a few solar radii, and a gradient that steep
+    under a star biases any centroid that estimates its background locally.
+
+    Per frame rather than from a multi-frame mean, which is what this project's analysis
+    tools use (`tools/step3_s0_v4.py`): the mean carries sqrt(N) less noise into the
+    subtraction, but it needs every frame in hand before any can be preprocessed, and the
+    stacker preprocesses them one at a time. The difference is small because blurring at
+    sigma = 10 px already averages ~1200 pixels: the noise the per-frame model adds is
+    ~3% of a single frame's, against ~0.4% for a 45-frame mean.
+
+    The pedestal exists because the result is negative wherever the frame was below its
+    own blur, and the stack is written as unsigned integers unless `float_fits` is set.
+    """
+    sigma = float(options.get('coronal_subtract_sigma_px', 10.0))
+    pedestal = float(options.get('coronal_pedestal_adu', 2000.0))
+    k = int(max(3, round(sigma * 6))) | 1          # odd kernel, ~6 sigma wide
+    blur = cv2.GaussianBlur(img.astype(np.float32), (k, k), sigma)
+    return img - blur + pedestal
+
+
+def mask_bright_object(img, raw, options):
+    """Paint over the Sun or Moon. Returns (painted image, paint mask, detection mask).
+
+    Two shapes, chosen by `eclipse_mask_mode`:
+
+    * ``disk`` (default since v1.4.0) -- a circle centred on the saturated core, radius
+      the core's 99th-percentile radius plus `eclipse_disk_margin_px`. What the eclipse
+      geometry actually is, and it does not follow streamers.
+    * ``blob`` (the pre-v1.4.0 method) -- the convex hull of the saturated component,
+      dilated by `blob_radius_extra`. Kept so an older reduction can be reproduced.
+
+    Why the hull was replaced: it wraps whatever saturates, so bright streamers pull it
+    into long lobes that mask sky far from the Sun while leaving other azimuths at the
+    core's edge -- a mask whose radius depends on coronal structure rather than on the
+    instrument. On the Leon 2026 field its lobes reached inside the innermost usable
+    stars. The disk was validated across two eclipses before it moved here
+    (docs/MATRIX_2026.md, docs/STEP3_2026.md).
+
+    `delete_saturated_blob` is the on/off switch. Off leaves the frame untouched, which
+    is also how to get a plain stack of the eclipse field for inspection.
+    """
+    if not options['delete_saturated_blob']:
+        zero = np.zeros(img.shape, dtype=int)
+        return img, zero, zero
+    downscale = 8
+    sat_val = np.max(raw) * (options['blob_saturation_level'] / 100)
+    small = _largest_saturated_component(raw, options['blob_saturation_level'] / 100,
+                                         downscale)
+    if small is None:
+        zero = np.zeros(img.shape, dtype=int)
+        return img, zero, zero
+    if options.get('eclipse_mask_mode', 'disk') == 'blob':
+        chull = convex_hull_image(small)
+        mask_1 = expand_mask(chull, options['blob_radius_extra'] // downscale, img.shape)
+        mask_2 = expand_mask(chull, (options['blob_radius_extra']
+                                     + options['centroid_gap_blob']) // downscale, img.shape)
+    else:
+        margin = float(options['eclipse_disk_margin_px'])
+        full = resize(small.astype(np.float32), raw.shape, order=0,
+                      anti_aliasing=False, preserve_range=True) > 0.5
+        sat_full = full & (raw >= sat_val)
+        cy, cx, radius = _disk_from_component(small, sat_full, downscale, margin)
+        print(f'forbidden disk: centre ({cx:.0f}, {cy:.0f}) px, radius {radius:.0f} px '
+              f'(saturated core {radius - margin:.0f} px + {margin:.0f} px margin)')
+        mask_1 = _disk_mask(img.shape, cy, cx, radius)
+        # the detection mask is the disk plus its gap, OR any saturated pixel the disk
+        # does not reach. The disk is a shape choice; letting a clipped pixel into
+        # detection is not, and on the Bruns EB frames the p90 disk leaves 59 of them
+        # outside. Belt and braces, at the cost of one dilation.
+        mask_2 = (_disk_mask(img.shape, cy, cx, radius + options['centroid_gap_blob'])
+                  | expand_mask(sat_full, options['centroid_gap_blob']))
+    out = np.copy(img)
+    out[mask_1] = np.percentile(img, 5)
+    return out, mask_1, mask_2
+
+
 def open_img_and_preprocess(file, options = {}, dark=0, flat=1, hot=None):
     img = open_image(file)
-    desatblob_img, mask, mask2 = remove_saturated_blob(img, sat_val=None, radius = options['blob_radius_extra'], radius2 = options['blob_radius_extra']+options['centroid_gap_blob'], blob_saturation=options['blob_saturation_level']/100, perform=options['delete_saturated_blob'])
-    reg_img = (desatblob_img - dark) / flat
+    # order: correct, then flatten the corona, then paint the mask. The mask's *geometry*
+    # is read from the raw frame (saturation is a sensor statement, and after subtraction
+    # the core is no longer at full scale), but it is painted onto the corrected frame so
+    # the fill matches its surroundings.
+    reg_img = (img - dark) / flat
+    if options.get('coronal_subtract'):
+        reg_img = subtract_coronal_background(reg_img, options)
+    reg_img, mask, mask2 = mask_bright_object(reg_img, img, options)
     if hot is not None and np.any(hot):
         # flatten them into the background so they cannot be detected as stars; the stack
         # excludes them outright via `valid`, but centroid finding runs on this array
@@ -1520,6 +1686,16 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
                          'blob saturation level':options['blob_saturation_level'],
                          'blob_radius_extra':options['blob_radius_extra'],
                          'centroid_gap_blob':options['centroid_gap_blob'],
+                         # which mask shape, and whether the corona was flattened. Both
+                         # change where stars can be measured at all, so both travel with
+                         # the archive rather than living only in a log
+                         'eclipse mask mode':options['eclipse_mask_mode'],
+                         'eclipse_disk_margin_px':options['eclipse_disk_margin_px'],
+                         'coronal subtraction?':options['coronal_subtract'],
+                         'coronal_subtract_sigma_px':(options['coronal_subtract_sigma_px']
+                                                      if options['coronal_subtract'] else None),
+                         'coronal_pedestal_adu':(options['coronal_pedestal_adu']
+                                                 if options['coronal_subtract'] else None),
                          'sensitive stacking mode?':options['centroid_gaussian_subtract'],
                          'use sensitive on stacked result?':options['sensitive_mode_stack'],
                          'background stubtraction mode':options['background_subtraction_mode'],

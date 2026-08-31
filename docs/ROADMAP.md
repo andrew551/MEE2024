@@ -1084,6 +1084,64 @@ Two parts:
   Replacing them with the two measured field presets — plus custom — would make the app
   window's preset list mean something.
 
+### F26 — The circular forbidden zone replaces the blob — **done, 2026-08-31**
+
+Andrew and Douglas agreed the convex-hull blob needed replacing. It wrapped whatever
+saturated, so streamers pulled it into lobes that masked sky far from the Sun while
+leaving other azimuths at the core's edge — a mask whose radius depended on coronal
+structure rather than on the instrument. On the Leon 2026 field its lobes reached inside
+the innermost usable stars.
+
+**What landed.** `eclipse_mask_mode` = `disk` (new default) or `blob` (kept so an older
+reduction can be reproduced), with `delete_saturated_blob` unchanged as the on/off.
+`eclipse_disk_margin_px` = 10. The disk's centre is the centroid of the eroded saturated
+component; its radius is measured at full resolution as the **90th percentile of 36
+azimuthal sector maxima**, plus the margin.
+
+Three measurements shaped it, all on the Bruns 2017 frames:
+
+* a radius read off the 8× downscaled mask lands ~12 px *inside* the true edge, because
+  `downscale_local_mean` drops blocks straddling it — the painted disk would then stop
+  short of the saturated core, which is how the Leon rim produced 773 fake stars;
+* a plain 99th percentile of all radii is dragged out by a streamer holding ~10 % of the
+  saturated pixels (216 px for a 90 px core, synthetic);
+* the real saturated region is not a disc with streamers but an irregular blob whose
+  sector maxima run 733–956 px (EA). Leakage outside the paint: p75 → 38 765 px,
+  p90 → 1 680, p95 → 526, max → 0 at the cost of 55 px of extra radius everywhere.
+
+p90 is the knee, and the **detection** mask is additionally OR-ed with any saturated
+pixel the disk misses, so on all three Bruns tiers **zero** saturated pixels reach
+detection while the paint stays tight. Also new: `coronal_subtract` (off by default),
+which subtracts a σ = 10 px blurred copy of each frame and adds a pedestal — Bruns' 2017
+method, in the pipeline, so the stacked FITS is the flattened image the user can look at.
+Both are recorded in `results.txt`. Toggles in both interfaces; turning the mask off
+gives a plain stack of the eclipse field, which Douglas notes is useful in itself.
+
+**Results-changing** on any field with a saturated Sun or Moon: `disk` is the default and
+the mask geometry differs from the hull's. The four-dataset matrix must be re-run under
+it (cell 1 already needs re-running for the convention finding).
+
+Still open, and stated so a user is not misled: the disk *centre* carries 4–11 px of
+streamer bias, measured against the ephemeris on the three Bruns tiers, which is
+comparable to the 10 px margin. A star within ~15 px of the painted edge deserves a
+per-frame check. A radial saturated-fraction profile would place the edge better;
+rejected 2026-08-31 as too complicated for the gain.
+
+### F27 — The vertical nuisance estimator is not in the pipeline
+
+Douglas, 2026-08-31: "the current nuisance filter is also something not really in
+v1.4.0". Confirmed — `eclipse_analysis.py` contains no nuisance or vertical term at all;
+stage 3 fits Method 1 and Method 2 and nothing else. Every deflection number this project
+has quoted with a `v-deg2` label came from the analysis tools
+(`tools/step3_s1_estimator.py`, `tools/step3_s2_union.py`, `tools/matrix_bruns/*`), which
+also hold the per-star cross-tier vet, the two-pass rematch and the union build.
+
+That is three results-critical pieces of machinery living outside the product, and it is
+why `docs/MATRIX_2026.md` numbers cannot be reproduced from the exe. Bringing them in is a
+larger job than one feature — it wants the union/vet/rematch as a stage-2.5 and the
+nuisance as a stage-3 option — but the gap should be named rather than discovered later.
+Related: stage 3 still ignores `flag_is_outlier` (§2), which is the same class of problem.
+
 ## 3a. External sources, and what they do and do not settle
 
 Three documents in `I:\Papers` constrain this work and were not previously cited anywhere in

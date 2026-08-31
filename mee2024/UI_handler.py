@@ -31,6 +31,16 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['save_dark_flat'] = ui_values['save_dark_flat']
     options['sensitive_mode_stack'] = ui_values['sensitive_mode_stack']
     options['background_subtraction_mode'] = ui_values['background_subtraction_mode']
+    options['eclipse_mask_mode'] = ui_values['eclipse_mask_mode']
+    options['coronal_subtract'] = ui_values['coronal_subtract']
+    try :
+        options['eclipse_disk_margin_px'] = int(ui_values['-eclipse_disk_margin_px-']) if ui_values['-eclipse_disk_margin_px-'] else 10
+    except ValueError :
+        raise Exception('invalid disk margin value!')
+    try :
+        options['coronal_subtract_sigma_px'] = float(ui_values['-coronal_subtract_sigma_px-']) if ui_values['-coronal_subtract_sigma_px-'] else 10.0
+    except ValueError :
+        raise Exception('invalid coronal blur sigma value!')
     try :
         options['d'] = int(ui_values['-d-']) if ui_values['-d-'] else 10
     except ValueError : 
@@ -231,10 +241,14 @@ def inputUI(options):
          sg.Checkbox('save_dark_flat', default=options['save_dark_flat'], key='save_dark_flat'),
      ],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
-    [sg.Checkbox('Remove big bright object (blob)', default=options['delete_saturated_blob'], key='delete_saturated_blob',enable_events=True)],
+    [sg.Checkbox('Mask the Sun/Moon (off gives a plain stack of the field)', default=options['delete_saturated_blob'], key='delete_saturated_blob',enable_events=True)],
+    [sg.Text('    mask shape',size=(32,1), key='eclipse_mask_mode_label'), sg.Combo(['disk', 'blob'], default_value=options['eclipse_mask_mode'], key='eclipse_mask_mode', size=(12, 1))],
     [sg.Text('    saturation level (%)', size=(32, 1)), sg.Spin(list(range(80, 101)), initial_value=options['blob_saturation_level'], key='blob_saturation_level')],
-    [sg.Text('    blob_radius_extra',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True, disabled_readonly_background_color="Gray")],
+    [sg.Text('    disk margin (pixels) [disk]',size=(32,1), key='eclipse_disk_margin_px'), sg.Input(default_text=str(options['eclipse_disk_margin_px']),size=(8,1),key='-eclipse_disk_margin_px-',enable_events=True, disabled_readonly_background_color="Gray")],
+    [sg.Text('    blob_radius_extra [blob]',size=(32,1), key='blob_radius_extra'), sg.Input(default_text=str(options['blob_radius_extra']),size=(8,1),key='-blob_radius_extra-',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Text('    centroid_gap_blob',size=(32,1), key='centroid_gap_blob'), sg.Input(default_text=str(options['centroid_gap_blob']),size=(8,1),key='-centroid_gap_blob-',enable_events=True, disabled_readonly_background_color="Gray")],
+    [sg.Checkbox('Subtract the coronal background (Bruns 2017 method; flattens the corona)', default=options['coronal_subtract'], key='coronal_subtract',enable_events=True)],
+    [sg.Text('    blur sigma (pixels)',size=(32,1), key='coronal_subtract_sigma_px'), sg.Input(default_text=str(options['coronal_subtract_sigma_px']),size=(8,1),key='-coronal_subtract_sigma_px-',enable_events=True, disabled_readonly_background_color="Gray")],
     [sg.Checkbox('Sensitive stacking mode (use if close to sun or moon; do not use for zenith or fields with >> 100 stars)', default=options['centroid_gaussian_subtract'], key='centroid_gaussian_subtract',enable_events=True)],
     [sg.Checkbox('    Use sensitive mode on stacked result (more accurate for dimmer stars but slower)', default=options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], key='sensitive_mode_stack', enable_events=True)],
     [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1), disabled_readonly_background_color="Gray")],
@@ -309,12 +323,16 @@ def inputUI(options):
     def check_file(s):
         return s and not s == options['workDir']
 
-    def update_tab1_enabled(v, w):
+    def update_tab1_enabled(v, w, c=None):
         window['-sigma_thresh-'].update(disabled= not v)
         window['-min_area-'].update(disabled= not v)
         window['sigma_subtract'].update(disabled= not v)
         window['-blob_radius_extra-'].update(disabled = not w)
         window['-centroid_gap_blob-'].update(disabled = not w)
+        window['eclipse_mask_mode'].update(disabled = not w)
+        window['-eclipse_disk_margin_px-'].update(disabled = not w)
+        if c is not None:
+            window['-coronal_subtract_sigma_px-'].update(disabled = not c)
         
 
     def update_corrections_enabled(v, w, x):
@@ -329,7 +347,7 @@ def inputUI(options):
         window['observation_date'].update(disabled=x)
 
     update_corrections_enabled(options['enable_corrections'] or options['enable_gravitational_def'], options['enable_corrections_ref'], options['guess_date'])
-    update_tab1_enabled(options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], options['delete_saturated_blob'])
+    update_tab1_enabled(options['centroid_gaussian_subtract'] or options['sensitive_mode_stack'], options['delete_saturated_blob'], options['coronal_subtract'])
     while True:
         event, values = window.read()
         if event==sg.WIN_CLOSED or event=='Cancel' or event=='Cancel2':
@@ -413,12 +431,13 @@ def inputUI(options):
                 except Exception as inst:
                     traceback.print_exc()
                     sg.Popup('Error: ' + inst.args[0], keep_on_top=True)
-        if event == 'centroid_gaussian_subtract' or event == 'sensitive_mode_stack' or event == 'delete_saturated_blob':
+        if event in ('centroid_gaussian_subtract', 'sensitive_mode_stack',
+                     'delete_saturated_blob', 'coronal_subtract'):
             if event == 'centroid_gaussian_subtract' and values['centroid_gaussian_subtract']:
                 window['sensitive_mode_stack'].update(True)
             v = values['centroid_gaussian_subtract'] or values['sensitive_mode_stack']
             w = values['delete_saturated_blob']
-            update_tab1_enabled(v, w)      
+            update_tab1_enabled(v, w, values['coronal_subtract'])
         if event == 'enable_corrections' or event == 'enable_corrections_ref' or event == 'guess_date' or event == 'enable_gravitational_def':
             v = values['enable_corrections']
             w = values['enable_corrections_ref']
