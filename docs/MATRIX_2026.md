@@ -477,6 +477,92 @@ brightness-dependent, measured in his own data.
 headline (1.98 ± 0.60 ± 0.33) was reduced windowed+annular — it needs re-measuring in the
 Bruns-compatible convention before the cells can be compared.
 
+### Four questions answered, and one honest failure (2026-08-31)
+
+**Why the Leon star count fell 42 → 39 under Gaussian+moments.** Not the estimator, and
+not the matching — fewer stars were *detected*. The two background models differ in how
+much of a star's own light they put into its background: `annular` excludes the inner 3 px
+before averaging, `Gaussian` does not, so a star is partly subtracted from itself. Peak
+retained, measured on a synthetic star:
+
+| FWHM (px) | Gaussian 17 px | annular 17/3 |
+|---|---|---|
+| 1.5 | 0.954 | 1.000 |
+| 2.5 | 0.881 | 0.993 |
+| 4.0 | 0.743 | 0.961 |
+
+At Leon's seeing that is 10–20 % of peak SNR, and detections fell accordingly: 0.1 s
+673 → 507, 0.3 s 474 → 323, 0.6 s 257 → 142, 1.2 s 101 → 79. Gaussian buys the cleaner
+radial behaviour that reproduces Bruns **at a real cost in depth** — worth saying whenever
+the preset is chosen.
+
+**The magnitude limit: Douglas' 2017-era finding, reproduced.** He reported that beyond
+mag 11 the error began to rise. Scanning the cut on the cell-1 union (`b17_magscan.py`,
+catalogue opened to G 13):
+
+| mag cut | N | L v-deg2 (″) | ± stat (″) | rms of the newly-admitted stars (″) |
+|---|---|---|---|---|
+| 10.0 | 15 | +1.765 | 0.064 | 0.084 |
+| 10.5 | 20 | +1.708 | 0.057 | 0.091 |
+| **11.0** | **25** | **+1.719** | **0.077** | 0.199 |
+| 11.5 | 29 | +1.695 | 0.080 | 0.332 |
+| 12.0 | 31 | +1.630 | **0.211** | 0.572 |
+
+Per-bin residual scatter about the fitted model is flat to G 11 — 0.128 ″ (G 6–9), 0.156
+(9–10), 0.160 (10–11) — then jumps to **0.418 ″ at G 11–12**, a factor 2.6. The
+statistical error stops improving around G 10.5–11 and triples by G 12, while L itself
+drifts 0.09 ″ downward. **Mag 11 is the last cut that does not hurt** — exactly where
+`eclipse_limiting_mag` and every union in this matrix already sit. Inherited practice,
+now measured on this data.
+
+**Why the full union sits higher than the 0.6+1.2 union — Leon only.** Not a general
+property: on Bruns the full union sits *lower* (1.675 vs 1.720). On Leon it was traced to
+individual stars rather than to the shallow tiers as a class — the G 9.10 corrupted
+centroid alone owned −0.36 of the −0.37 ″ correction once a deeper catalogue let the
+auto-vet catch it, leaving a 0.26 ″ residual gap, inside the quoted atmospheric term. The
+shallow tiers add stars whose cross-tier medians one or two bad centroids can pull; the
+vet is what decides, and it works.
+
+**The atmospheric term for cell 1: attempted twice, invalid twice — so cell 1's error bar
+is still incomplete.** Leon's ±0.33 ″ is an empirical null: the estimator run on real
+fields with zero true deflection, reduced the same way as the science field, with the
+Sun's frame position imposed. Cell 1 was quoted with no such term
+(1.720 ± 0.069 stat ± 0.105 scale), which understates it. Two attempts on Bruns' 29 night
+fields both failed, and both are recorded because each looked plausible:
+
+1. **Their existing residuals: ±0.018 ″.** Withdrawn — those come from a *free cubic* fit
+   at tolerance 0.2 (rms 0.059 ″), and a free cubic absorbs the smooth atmospheric
+   structure the test exists to measure. Leon's M5 fields are fitted constant-only against
+   a frozen reference (rms 1.60 ″), which is what the eclipse field itself does.
+2. **Refitting constant-only: ±1.04 ″, then ±1.40 ″ after pairing consecutive fields.**
+   Both withdrawn. The first froze each group's field 01 for all nine others — but fields
+   06–10 are from the *following night*, so it measured the documented +85 ppm
+   night-to-night plate-scale gap (~0.85 ″ of L at h = 10.6). The second paired same-night
+   neighbours 6–7 minutes apart and returned a *larger*, uniformly **positive** result
+   (mean +1.24, all 22 pairs positive, clustered by pointing: RC ≈ +2.0, EC ≈ +1.1,
+   LC ≈ +0.6). Atmosphere scatters about zero; a one-signed pointing-dependent offset does
+   not. Remaining suspect: differential refraction across the 6–7 minute gap — a vertical
+   compression change the design matrix has no term for, and which the science chain never
+   sees (CAL_piLeo and the eclipse field are two minutes apart, and Bruns' L/R bracket
+   cancels it by construction).
+
+**What cell 1 should carry meanwhile.** The dataset already holds a direct, eclipse-day,
+right-altitude measurement of its own atmospheric differential: the **L−R bracket split of
+45.0 ppm**, half-width 22.5 ppm. Quoting the scale term at that bound rather than at the
+10.3 ppm statistical HC3 gives **±0.23 ″ instead of ±0.105 ″** — the honest way to carry
+the atmosphere until a valid null exists. On that basis:
+
+> **Cell 1: L = 1.720 ± 0.069 (stat) ± 0.23 (scale incl. atmosphere) ″**, total σ ≈ 0.24.
+> GR at 0.13 σ; **Newton excluded at 3.5 σ**. The Eddington discrimination survives; the
+> earlier **6.7 σ figure is withdrawn** — it omitted the atmosphere.
+
+A second, independent handle agrees: EA and EB are the same configuration 51 s apart and
+differ by 0.107 ″ in L, a direct measure of what a couple of minutes of this atmosphere
+does to the answer.
+
+A valid null needs either a scale/compression term in the null estimator, or night pairs
+~1–2 minutes apart rather than 6–7. Logged, not done.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive

@@ -38,6 +38,7 @@ from mee2024.MEE2024util import date_string_to_float
 B = r"D:/MEE2024 output/MEE_output/matrix_bruns2017"
 PS, NX, NY, W_NORM = 2.0868004, 3296, 2472, 1648.0
 L_REF = 1.7512
+LIMIT_MAG = float(os.environ.get('B17_LIMIT_MAG', '11.0'))
 MIDT = {'EA': '17:43:22', 'E2': '17:43:47', 'EB': '17:44:13'}
 HOST = 'EA'
 OPTS = dict(observation_date='2017-08-21', observation_lat=42.7363889,
@@ -85,7 +86,7 @@ assert rt < 0.05, 'reconstruction failed the round-trip gate'
 prov = providers.GaiaOfflineProvider.from_installed()
 epoch = date_string_to_float(OPTS['observation_date'])
 cat = prov.lookup((res['RA']-1.5, res['RA']+1.5), (res['DEC']-1.2, res['DEC']+1.2),
-                  11.0, epoch=epoch)
+                  LIMIT_MAG, epoch=epoch)
 not_dbl = ~np.asarray(cat.is_double(10.0))
 corrs = {}
 for t, tm in MIDT.items():
@@ -203,7 +204,7 @@ def build_union(tiers, rcut):
     U = U[~bad]
     rx, ry = (U.px.values-SUNPX)*PS, (U.py.values-SUNPY)*PS
     R = np.hypot(rx, ry)
-    ok = (R > rcut*R_SUN_AS) & (U.mag.values <= 11.0)
+    ok = (R > rcut*R_SUN_AS) & (U.mag.values <= LIMIT_MAG)
     return U[ok], rx[ok], ry[ok], R[ok]
 
 def fit_L(U, rx, ry, R, nuis_deg=None):
@@ -240,7 +241,7 @@ for t in ('EA', 'E2', 'EB'):
     tab = tier_tabs[t]
     rx, ry = (tab.px.values-SUNPX)*PS, (tab.py.values-SUNPY)*PS
     R = np.hypot(rx, ry)
-    ok = (R > 2.0*R_SUN_AS) & (tab.mag.values <= 11.0)
+    ok = (R > 2.0*R_SUN_AS) & (tab.mag.values <= LIMIT_MAG)
     if ok.sum() >= 12:
         A, labels = design(tab.px.values[ok], tab.py.values[ok], rx[ok], ry[ok], R[ok], 2)
         c, *_ = np.linalg.lstsq(A, np.concatenate([tab.dx.values[ok], tab.dy.values[ok]]),
