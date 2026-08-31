@@ -362,6 +362,47 @@ carries a **centroid-convention systematic spanning the two internally-consisten
 reductions: L = 1.56 (2026 windowed) to 1.74 (2024 moments), i.e. ± ~0.09″ about
 their midpoint** — quoted alongside the stat and scale terms, not hidden inside them.
 
+### The design ruling and the rollback (2026-08-31)
+
+**Douglas' ruling**: MEE2024's founding design constraint is that it must reproduce
+Bruns 2018 on the Bruns 2017 data. The windowed-convention result (1.556 ± 0.135)
+falls outside Einstein at ~1 σ and outside the constraint; the project rolls back to
+the moment-based convention that Bruns' own tools shared. **The convention question is
+settled by design authority, not by the (still-logged) PSF-truth benchmark; if that
+benchmark someday rules against the moment convention, the finding will have to be
+reconciled with Bruns' own analysis at that level.**
+
+**The options-level rollback FAILED its checkpoints** (`b17_moment.py`,
+`matrix_bruns2017_moment/`): with `sensitive_mode_stack=False`,
+`centroid_gaussian_subtract=False`, `centroid_refine_window=False`, the star-by-star
+affine against the 2024 centroid lists does NOT collapse (L −23.0 ppm; R8 −29.7 ppm,
+now brightness-*uniform* −31.8/−31.2), the bracket mean stays at 2.0868062 (vs 2024's
+2.0867322), and moment-mode science stacks drown in coronal junk (1173–1527
+detections, every plate solve fails). Two conclusions: (a) **v1.4.0-dev minus its
+centroid flags is not v0.4.0** — a large share of the convention gap lives in the
+stack/detection layer, beyond what options reach; (b) the windowed flags are
+*required* for eclipse-field detection in the current code.
+
+**Implementation of the ruling, today**: cell 1's L-of-record is the Bruns-convention
+reduction that already exists and is fully traceable — the 2024 star table (v0.4.0
+centroids, the convention Bruns' tools shared) through the current estimator:
+
+> **Cell 1 (design-constraint convention): L = 1.741 ± 0.089 (stat) ± 0.103 (scale)
+> ″** — vs Bruns 2018's 1.752 ± 0.060. Constraint satisfied. The 2026-windowed
+> reduction (1.556 ± 0.135) stands in the record as the measured convention
+> alternative, not the number of record.
+
+Follow-ups logged, in order of value: (1) isolate WHERE in the stack/detection layer
+the remaining −25/−30 ppm lives (candidates: alignment interpolation, background
+handling in detection, hot-pixel filtering) — a true `MEE2024Stacker_v0.4.4`-tag
+reduction of one field would give the reference stack; (2) the synthetic-PSF
+benchmark with `psf_bruns2017` PSF shapes; (3) **matrix-wide implication**: every
+other cell (Mexico, Leon, Portland) currently uses the windowed convention; the
+convention systematic measured here (~0.2″ of L on Bruns' optics) must be either
+bounded or corrected per-instrument before cross-cell comparison — for Leon this is
+now an open item against the 1.98 ± 0.60 ± 0.33 headline (likely smaller — different
+optics, cleaner PSFs — but "likely" is not a measurement).
+
 Design note the A/Bs demonstrate for free: both levers move L and R almost
 identically (266.8 vs 265.9; 7.9 vs 7.9), so **the L−R split is immune to them — the
 bracket cancels common-mode systematics exactly as designed**, and the split's
