@@ -18,7 +18,7 @@ cannot serve both.
 | `centroid_gaussian_thresh` | 5.0 σ | **4.0 σ** |
 | `min_area` | 4 px | **2 px** |
 | `sigma_subtract` | 3.0 | **0.0** |
-| `background_subtraction_mode` | annular | annular |
+| `background_subtraction_mode` | annular | **Gaussian** (see below) |
 | `centroid_refine_window` | True | True |
 | `centroid_window_sigma` | 2.0 px | 2.0 px |
 | `delete_saturated_blob` | True (inert: no blob present) | **False** — forbidden disk instead |
@@ -119,11 +119,26 @@ They operate at different scales and compose:
   stage 1. It models the **corona** — Bruns' own 2017 method — and everything downstream
   sees flattened data.
 
-They work together, and that is the configuration of record: the coronal subtraction
-removes the large-scale gradient, then `annular` estimates what is left locally. The ring
-background is at its best on an already-flat field, since a ring mean is biased on a steep
-gradient. Measured cost of the preprocessing: ≤ 0.014 ″ of centroid shift on every star
-tested, inner-annulus stars included (`docs/MATRIX_2026.md`).
+They work together: the coronal subtraction removes the large-scale gradient, then the
+in-pipeline mode estimates what is left locally. Measured cost of the preprocessing:
+≤ 0.014 ″ of centroid shift on every star tested, inner-annulus stars included
+(`docs/MATRIX_2026.md`).
+
+**Which in-pipeline mode is not a free choice — it is worth ~19 ppm of plate scale.**
+Measured on the Bruns 2017 calibration fields, `annular` versus `Gaussian` moves the
+fitted scale by 19.1 ppm (frame-identical stacks, everything else pinned), against 1.6
+ppm for the windowed-versus-moment estimator. The mechanism is the same for both — how
+much of an asymmetric off-axis PSF's wings a measurement sees — but the 17 px ring
+reaches further into the coma than the Gaussian kernel does, so its bias grows with field
+radius and reads as a scale error.
+
+For **eclipse-day fields the standard is therefore `Gaussian`**, with `footprint moments`
+as the estimator: that combination reproduces Bruns 2018 end to end
+(L = 1.720 ± 0.069 ″ against his 1.752 ± 0.060), gives the lowest calibration residuals
+of any configuration tried, and satisfies the project's founding design criterion.
+`annular` remains the zenith standard, where the PSF is small, the field is flat and the
+star counts are in the thousands — but the same A/B has not been run there, so that is
+inherited practice rather than a measured choice.
 
 ## The blob and the forbidden disk
 

@@ -413,6 +413,70 @@ For reference, Bruns' own Table 4 linear terms convert to ≈ 2.08677 (X, AST) a
 convention embeds his own refraction handling and an axis asymmetry, so a
 table-to-table comparison beyond the class level is not meaningful.
 
+### The rollback succeeds, and the lever was the BACKGROUND, not the estimator (2026-08-31)
+
+Douglas asked whether moment centroiding can coexist with the background subtract. The
+code's answer is yes — and acting on it overturned the previous section's attribution.
+
+`centroid_gaussian_subtract=True` with `centroid_refine_window=False` gives flux-weighted
+moments over each detected footprint of the background-subtracted image: **moment
+centroiding inside the sensitive detector**, which is also the config default. Rollback
+attempt 1 failed because it turned the sensitive flag *off*, dropping to
+`simple_get_centroids` — a different detector with a global threshold, which is why it
+drowned in corona. That was a mis-designed experiment, not a property of the convention.
+
+Three A/Bs on the calibration fields then decomposed the ~+33 ppm era gap:
+
+| configuration | bracket mean (″/px) | vs the 2026 standard |
+|---|---|---|
+| windowed + annular (2026 standard) | 2.0868004 | — |
+| footprint moments + annular | 2.0867970 | **−1.6 ppm** ← the *estimator* |
+| windowed + Gaussian (R6, frame-identical to 2024) | — | **−19.1 ppm** ← the *background* |
+| footprint moments + Gaussian | 2.0867533 | **−22.6 ppm** (both) |
+| the 2024 chain | 2.0867322 | (+10.1 ppm still unattributed) |
+
+**The centroid estimator is worth under 2 ppm. The background-subtraction mode is worth
+~19.** Both act through the same physics — how much of an asymmetric off-axis PSF's wings
+each measurement sees — but the 17 px annular ring reaches further into the coma than the
+Gaussian kernel, and that is where the radial scale difference lives. `annular` became
+the default only in July 2026 (`4bacfc4`); the 2024 archives record no detection settings
+at all, which is the provenance gap now closed (F25).
+
+**The end-to-end reduction in the 2024 convention** (`b17_like2024.py` — Gaussian
+background + footprint moments applied to the calibration *and* the science field, since
+changing only the calibration is the meaningless cross-mix):
+
+| variant | N | L base (″) | L v-deg2 (″) ± stat |
+|---|---|---|---|
+| **0.62 union, R > 2.0** | 25 | **+1.755 ± 0.065** | **+1.720 ± 0.069** |
+| FULL union, R > 2.0 | 25 | +1.721 | +1.675 ± 0.080 |
+| FULL union, R > 1.45 | 27 | +1.775 | +1.667 ± 0.080 |
+| *(per tier)* | | | EA +1.666, E2 +1.850, EB +1.773 |
+
+> **Cell 1, reduction of record (revised): L = 1.720 ± 0.069 (stat) ± 0.105 (scale) ″**,
+> total σ ≈ 0.126. Bruns 2018: 1.752 ± 0.060. **GR at 0.25 σ; Newton excluded at 6.7 σ.**
+> The founding design criterion is met by a genuine end-to-end v1.4.0-dev reduction — the
+> 2024-star-table workaround of the previous section is superseded and withdrawn.
+
+Everything improves together, which is the sign that this is the right convention for
+this instrument rather than a number chosen for agreement: calibration rms falls (L
+0.2087″ vs 0.2170 windowed+annular, on more stars), the statistical error halves
+(±0.069 vs ±0.135), per-tier spread narrows (0.11″ vs 0.11″ but around a higher, more
+consistent mean), and E2 matches 16 stars instead of 12.
+
+**What is still open.** +10.1 ppm of the era gap remains unattributed (candidates: 2024's
+unrecorded thresholds, hot-pixel handling, alignment/reference choice — F23). And the
+convention is still chosen by *design authority plus residual quality*, not by
+truth: the synthetic-PSF benchmark with `psf_bruns2017` shapes remains the arbiter that
+could rule independently, and it has not been run. Bruns' own §2.3 comparison — moment
+versus Gaussian-fit centroids differing 0.039 px on an SNR-13 star and 0.003 px on an
+SNR-48 star — is corroborating evidence that this class of difference is real and
+brightness-dependent, measured in his own data.
+
+**Matrix-wide**: cells 2–4 must use the convention cell 1 is quoted in, and Leon's
+headline (1.98 ± 0.60 ± 0.33) was reduced windowed+annular — it needs re-measuring in the
+Bruns-compatible convention before the cells can be compared.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive
