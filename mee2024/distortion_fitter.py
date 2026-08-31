@@ -494,6 +494,14 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'refraction correction enabled?': options['enable_corrections_ref'],
                        'source_files':str(data['source_files']) if 'source_files' in data else 'unknown',
                        'source_data':str(path_data),
+                       # carried through from stage 1 so a fitted plate scale states the
+                       # centroid convention it was measured in: the windowed and moment
+                       # conventions differ by ~30 ppm on real data, brightness-dependent,
+                       # and a scale imported into another field's fit takes that with it
+                       # (docs/MATRIX_2026.md). 'unknown (pre-v1.4.0 archive)' for archives
+                       # written before stage 1 recorded it.
+                       'centroid estimator': data.get('centroid estimator',
+                                                      'unknown (pre-v1.4.0 archive)'),
                        'fixed distortion order':options['distortion_fixed_coefficients'],
                        'fixed distortion reference files':str(options['distortion_reference_files']),
                        'simultaneous_deflection_and_platescale':str(options['gravity_sweep']),

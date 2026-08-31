@@ -742,6 +742,29 @@ def windowed_centroid(sub, y0, x0, sigma, R=8, iters=12, tol=1e-5):
     return i0 + cy, j0 + cx
 
 
+def _estimator_name(options):
+    """Which centroid estimator the stacked positions came from, as a recorded string.
+
+    Three are reachable, and they are not interchangeable at the precision this project
+    works to:
+
+    * ``tetra-simple moments`` -- `simple_get_centroids`, taken when neither sensitive
+      flag is set. Its own hardcoded 25 px uniform background and a *global* 2-sigma
+      threshold, so `background_subtraction_mode` never applies to it.
+    * ``footprint moments`` -- the sensitive detector's flux-weighted moment over each
+      detected footprint, on the background-subtracted image. Same shape as MaxIm DL's
+      method (a moment over an inner region with an annulus background), which is one of
+      the two conventions Bruns 2018 section 2.3 compared.
+    * ``windowed`` -- `windowed_centroid`, a fixed-Gaussian-window iterated centroid that
+      replaces the footprint moment. Removes the brightness dependence the moment has on
+      an asymmetric PSF; see that function's docstring.
+    """
+    sensitive = options.get('centroid_gaussian_subtract') or options.get('sensitive_mode_stack')
+    if not sensitive:
+        return 'tetra-simple moments'
+    return 'windowed' if options.get('centroid_refine_window') else 'footprint moments'
+
+
 def peak_value(img, y, x, r=4):
     """The brightest raw pixel within +/-r of a centroid, or nan too near the edge.
 
@@ -1500,6 +1523,18 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
                          'sensitive stacking mode?':options['centroid_gaussian_subtract'],
                          'use sensitive on stacked result?':options['sensitive_mode_stack'],
                          'background stubtraction mode':options['background_subtraction_mode'],
+                         # Which estimator produced these positions. Recorded because the
+                         # convention is worth real deflection: on the Bruns 2017 data the
+                         # windowed and moment conventions differ by ~30 ppm of scale,
+                         # brightness-dependent, which is ~0.2 arcsec of L
+                         # (docs/MATRIX_2026.md). An archive that does not say which
+                         # estimator made it cannot be audited later -- the 2024-vs-2026
+                         # investigation only worked because separate logs happened to
+                         # survive.
+                         'centroid estimator': _estimator_name(options),
+                         'centroid_window_sigma': (float(options.get('centroid_window_sigma', 2.0))
+                                                   if options.get('centroid_refine_window')
+                                                   else None),
                     }
     if options['centroid_gaussian_subtract'] or options['sensitive_mode_stack']:
         results_dict.update({'sigma threshold detection':options['centroid_gaussian_thresh'], 'min_area':options['min_area'], 'sigma_subtract':options['sigma_subtract']})

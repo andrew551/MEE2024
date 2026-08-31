@@ -1031,6 +1031,59 @@ that carries a ±25 ppm bar. Worth doing when something else already forces a re
 not on its own account. Until then the defence is the frame list: `calibration/README.md`
 records that its order is part of the definition, and says not to sort it.
 
+### F24 — Never drop a detection that is a bright catalogue star
+
+Requested by Douglas, 2026-08-31, after the Leon anchor scare. The rule: **a detection
+matching a catalogue star brighter than mag 8 is never discarded by a detection-side
+filter.** Cheap insurance on the stars that carry the most leverage — the below-Sun
+anchor and Bruns' inner-annulus pair are all V 7–8.
+
+**The ordering is the whole difficulty.** `filter_very_edgy_centroids` and
+`filter_edgy_centroids` run *before* the plate solve, so stage 1 has no magnitude to test
+against at the moment it decides. The design that resolves it follows F16's shape — stage
+1 records evidence, stage 2 decides:
+
+1. stage 1's edge filters **tag rather than delete**: a `flag_edge_dropped` column in
+   `STACKED_CENTROIDS_DATA.csv`, with the plate-solve input unchanged (still the untagged
+   set, since the solver benefits from clean input), and the drop count in `results.txt`;
+2. stage 2 drops tagged rows by default — byte-identical to today — and, under
+   `protect_bright_detections`, admits a tagged row when it matches a catalogue star
+   brighter than `protect_bright_mag` (8.0).
+
+**Results-changing, and it must not land mid-matrix**: the four-dataset matrix's entire
+value is that every cell ran identical detection behaviour, so this belongs after the
+matrix closes or in a deliberate re-run of all four cells.
+
+Worth recording alongside it: on the Leon reduction the edge filter dropped **nothing at
+all** (zero "deleting edgy centroid" lines, anchor present in both tiers' centroid lists
+13 px from the frame edge), so this is insurance against a future field, not a repair.
+The cheap half — *recording* what the filters dropped, so the question is answerable from
+the archive instead of by investigation — is additive and can land at any time.
+
+### F25 — Expose the centroid estimator, and preset the two field configurations
+
+`centroid_refine_window` and `centroid_window_sigma` are applied by every reduction and
+shown by neither interface: config file or `--set` only. That is exactly what F12's rule
+("an interface should only apply settings it can show") exists to prevent, and it now has
+a measured price — the windowed and moment conventions differ by ~30 ppm of plate scale,
+brightness-dependent, worth ~0.2 ″ of L on the Bruns 2017 data (`docs/MATRIX_2026.md`).
+
+Two parts:
+
+* **The selector**: "centroid estimator: windowed / footprint moments" in the classic
+  UI's sensitive-mode group, sigma enabled only for windowed; mirrored in the app window.
+  (The recording half is **done, 2026-08-31**: stage 1 writes `centroid estimator` and
+  `centroid_window_sigma` to `results.txt`, stage 2 carries the estimator into
+  `distortion_results.txt`.)
+* **The presets**: the two standard configurations in `docs/FIELD_PRESETS.md` defined
+  once in code and offered by both interfaces, with the preset name recorded in
+  `results.txt`. The app window's existing `auto`/`quick`/`deep` presets do not do this —
+  they set only `sensitive_mode_stack`, `distortionOrder` and `guess_date`, they say
+  nothing about the eclipse cluster, and Douglas does not use them (2026-08-31: "I only
+  ever use the manual setup; I don't think auto/quick/deep are well enough defined").
+  Replacing them with the two measured field presets — plus custom — would make the app
+  window's preset list mean something.
+
 ## 3a. External sources, and what they do and do not settle
 
 Three documents in `I:\Papers` constrain this work and were not previously cited anywhere in

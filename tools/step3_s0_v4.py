@@ -9,8 +9,12 @@ darkening step (honest MAD on un-blobbed subtracted frames: 75 ADU at 1.5-1.7, 3
 
 So V4 drops the hull blob entirely and implements the forbidden region: a Sun-centred disk
 painted flat at the pedestal, radius max(1.25 R_sun, that tier's measured saturation radius
-+ 20 px), plus any remaining saturated pixels (streamer tips) dilated 10 px and painted
-too. Nothing else is masked; detection's own locally-adaptive threshold (4 sigma of local
++ DISK_MARGIN_PX), plus any remaining saturated pixels (streamer tips) dilated 10 px and
+painted too. The margin was 20 px through the Leon reduction of record; Douglas cut it to
+10 on 2026-08-31 after the Bruns cell showed an inner-annulus star (G 7.52 at 1.49 R_sun)
+clearing E2's disk edge by only 11 px. The Leon numbers in docs/STEP3_2026.md were
+measured at 20 and are NOT re-derived by this change: Leon's innermost admitted star sits
+at 2.07 R_sun, 570 px outside its tier's disk, so the margin cannot reach it. Nothing else is masked; detection's own locally-adaptive threshold (4 sigma of local
 variance) is left to price the fine-structure band, which the honest numbers say it can.
 
 Sun centre: (3171, 3232), the astropy ephemeris projected through the V3 affine -- the
@@ -42,6 +46,7 @@ REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12
 SUN = (3171.0, 3232.0)                 # (x, y) px, ephemeris through the V3 affine
 PS, RSUN, PED = 2.2054043, 947.1, 2000.0
 RSAT_PX = {'0p1s': 612, '0p3s': 679, '0p6s': 736, '1p2s': 801}   # measured 99th-pct radii
+DISK_MARGIN_PX = 10                            # was 20; see the module docstring
 assert len(REFS) == 6
 
 STAGE1 = ['--set','sensitive_mode_stack=True','--set','centroid_gaussian_subtract=True',
@@ -107,7 +112,7 @@ def stages(name, pframes, obstime):
 MIDT = {'0p1s':'18:28:32','0p3s':'18:28:34','0p6s':'18:28:33','1p2s':'18:28:32'}
 all_frames = []
 for tier in ('0p1s','0p3s','0p6s','1p2s'):
-    radius = max(1.25*RSUN/PS, RSAT_PX[tier] + 20)
+    radius = max(1.25*RSUN/PS, RSAT_PX[tier] + DISK_MARGIN_PX)
     pre = os.path.join(OUT, tier, 'preprocessed')
     os.makedirs(pre, exist_ok=True)
     src = sorted(glob.glob(os.path.join(FROZEN, tier, 'preprocessed', '*.fits')))

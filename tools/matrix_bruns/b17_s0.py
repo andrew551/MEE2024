@@ -4,7 +4,11 @@ Held constant from Leon step 3 (tools/step3_s0_v4.py, step3_prelim_L.py):
   - coronal subtraction: unshifted per-tier mean, 10 px Gaussian blur, subtract per
     frame, +2000 ADU pedestal (Bruns' own 2017 method, returned to his data);
   - forbidden disk: painted flat at the pedestal, radius max(1.25 R_sun, measured
-    99th-pct saturation radius + 20 px); residual saturated tips dilated 10 px;
+    99th-pct saturation radius + 10 px). The margin was 20 px until 2026-08-31: on this
+    dataset G 7.52 at 1.49 R_sun landed only 11 px outside E2's disk edge, close enough
+    to being masked that Douglas cut the margin in half. 10 px still clears the
+    saturation shoulder (the 99th-percentile radius already sits outside the solidly
+    clipped core) while giving an inner-annulus star twice the room; residual saturated tips dilated 10 px;
   - stage-1 flags identical to Leon V4 (sensitive stack, gaussian-subtract 4 sigma,
     min_area 2, no hull blob);
   - stage-2: constant-only (distortion_fixed_coefficients=constant), cubic, tol 2.0,
@@ -43,6 +47,7 @@ PS, PED = 2.0868004, 2000.0
 R_SUN_AS = 948.0                       # 2017-08-21 apparent; refined in the union tool
 RSUN_PX = R_SUN_AS/PS                  # ~454 px
 RSAT_PX = {'EA': 901, 'E2': 646, 'EB': 902}    # measured, b17_inventory.py
+DISK_MARGIN_PX = 10                            # was 20; see the module docstring
 MIDT = {'EA': '17:43:22', 'E2': '17:43:47', 'EB': '17:44:13'}
 
 SITE = ['--set','observation_lat=42 44 11 N','--set','observation_long=106 19 05 W',
@@ -81,7 +86,7 @@ for tier in ('EA', 'E2', 'EB'):
             sat_any = s if sat_any is None else (sat_any | s)
         yy, xx = np.nonzero(sat_any)
         cx, cy = float(xx.mean()), float(yy.mean())
-        radius = max(1.25*RSUN_PX, RSAT_PX[tier] + 20)
+        radius = max(1.25*RSUN_PX, RSAT_PX[tier] + DISK_MARGIN_PX)
         print(f'{tier}: subtracting blurred mean; disk r={radius:.0f} px '
               f'({radius*PS/R_SUN_AS:.2f} R_sun) at sat centroid ({cx:.0f},{cy:.0f})', flush=True)
         ny, nx = mean.shape
