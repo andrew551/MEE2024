@@ -128,8 +128,10 @@ and `starttime`; the rest is provenance:
 | `#frames stacked`, `source_files`, `starttime` | provenance |
 | blob / sensitive-mode / background keys | the centroid parameters used |
 
-> Note: the key `background stubtraction mode` is misspelled in the written output and
-> must be matched exactly by any consumer.
+> Note: this key was written as `background stubtraction mode` — misspelled — up to and
+> including v1.3.9. It is `background subtraction mode` from v1.4.0. A consumer that
+> must read both should try the correct spelling first and fall back to the old one; the
+> value is unchanged either way.
 
 `STACKED_CENTROIDS_DATA.csv` — **this is the file stage 2 actually consumes**:
 

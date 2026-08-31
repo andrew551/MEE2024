@@ -9,6 +9,11 @@ zenith field has thousands of stars on a flat sky, and an eclipse-day field has 
 stars on a steep bright gradient beside a saturated object. The same detector settings
 cannot serve both.
 
+**They are in the code**, since 2026-08-31: `mee2024/field_presets.py` defines them once,
+both interfaces offer them by name, and `results.txt` records which one a reduction ran
+under — recomputed from the settings, so a preset that was then edited reads `custom`
+rather than claiming a standard it no longer matches.
+
 ## The two standards
 
 | option | **zenith / night calibration** | **eclipse day** (science *and* L/R calibration) |

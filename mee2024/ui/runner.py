@@ -10,6 +10,7 @@ import traceback
 from pathlib import Path
 
 from mee2024 import events
+from mee2024 import field_presets
 from mee2024 import ser
 from mee2024.MEE2024util import _version
 from mee2024.config import get_default_options
@@ -69,12 +70,19 @@ class _NarrativeSink(events.JsonlSink):
 class PipelineRunner:
     """Owns at most one run at a time and the events it produced."""
 
-    #: How to process: let the pipeline decide, or decide yourself. There used to be three
-    #: presets, but each was only a frozen combination of controls the settings panel
-    #: already exposes, so choosing between them meant guessing which frozen combination
-    #: was nearest what you wanted. 'quick' and 'deep' are still honoured so a saved
-    #: config from an older version keeps running.
+    #: How to process: let the pipeline decide, name the kind of field, or decide
+    #: yourself. There used to be three presets (auto/quick/deep), but each was only a
+    #: frozen combination of controls the settings panel already exposes, so choosing
+    #: between them meant guessing which frozen combination was nearest what you wanted.
+    #: The two field presets replace that guess with the question the data answers: is
+    #: this a night calibration or an eclipse-day field? Their contents are measured, not
+    #: preferred -- see mee2024/field_presets.py. 'quick' and 'deep' are still honoured so
+    #: a saved config from an older version keeps running.
     PRESETS = {
+        'zenith': {'label': field_presets.FIELD_PRESETS['zenith']['label'],
+                   'note': field_presets.FIELD_PRESETS['zenith']['blurb']},
+        'eclipse': {'label': field_presets.FIELD_PRESETS['eclipse']['label'],
+                    'note': field_presets.FIELD_PRESETS['eclipse']['blurb']},
         'auto': {'label': 'Auto (recommended)',
                  'note': 'no settings needed -- sensitive centroids, cubic distortion, '
                          'date recovered from proper motions'},
@@ -274,7 +282,10 @@ class PipelineRunner:
         options.update(flag_display=False, flag_display2=False, flag_display3=False)
         # 'custom' takes the defaults and lets spec['options'] below say everything;
         # every other preset pins the choices it names
-        if preset == 'auto':
+        if preset in field_presets.FIELD_PRESETS:
+            field_presets.apply_field_preset(options, preset)
+            options.update(distortionOrder='cubic', guess_date=True)
+        elif preset == 'auto':
             options.update(sensitive_mode_stack=True, distortionOrder='cubic',
                            guess_date=True)
         elif preset == 'quick':

@@ -79,6 +79,10 @@ DEFAULT_OPTIONS = {
     # kept only so an older reduction can be reproduced. Switching the default is
     # results-changing on any field with a saturated Sun or Moon (docs/ROADMAP.md F26).
     'eclipse_mask_mode': 'disk',  # 'disk' | 'blob'
+    # which standard configuration produced a reduction: 'zenith', 'eclipse', or 'custom'
+    # when the settings were assembled by hand. Written to results.txt so an archive says
+    # which standard it was reduced under. See mee2024/field_presets.py.
+    'field_preset': 'custom',
     # how far outside the measured saturated core the disk is painted. 10 px is Douglas'
     # 2026-08-31 choice, halved from 20 after a Bruns 2017 star at 1.49 R_sun cleared the
     # edge by only 11 px. Note the centre itself carries ~4-11 px of streamer bias, so a

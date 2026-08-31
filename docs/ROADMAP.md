@@ -1068,21 +1068,27 @@ shown by neither interface: config file or `--set` only. That is exactly what F1
 a measured price — the windowed and moment conventions differ by ~30 ppm of plate scale,
 brightness-dependent, worth ~0.2 ″ of L on the Bruns 2017 data (`docs/MATRIX_2026.md`).
 
-Two parts:
+**Done, 2026-08-31.** Three parts:
 
-* **The selector**: "centroid estimator: windowed / footprint moments" in the classic
-  UI's sensitive-mode group, sigma enabled only for windowed; mirrored in the app window.
-  (The recording half is **done, 2026-08-31**: stage 1 writes `centroid estimator` and
-  `centroid_window_sigma` to `results.txt`, stage 2 carries the estimator into
-  `distortion_results.txt`.)
-* **The presets**: the two standard configurations in `docs/FIELD_PRESETS.md` defined
-  once in code and offered by both interfaces, with the preset name recorded in
-  `results.txt`. The app window's existing `auto`/`quick`/`deep` presets do not do this —
-  they set only `sensitive_mode_stack`, `distortionOrder` and `guess_date`, they say
-  nothing about the eclipse cluster, and Douglas does not use them (2026-08-31: "I only
-  ever use the manual setup; I don't think auto/quick/deep are well enough defined").
-  Replacing them with the two measured field presets — plus custom — would make the app
-  window's preset list mean something.
+* **The recording**: stage 1 writes `centroid estimator` and `centroid_window_sigma` to
+  `results.txt`; stage 2 carries the estimator into `distortion_results.txt`.
+* **The selector**: "Windowed centroids (off = moments over the detected footprint)" in
+  the classic UI's sensitive-mode group, and the background mode now carries a plain-words
+  note ("Gaussian: smooth blur. annular: ring around each star.") rather than standing as
+  two unexplained words.
+* **The presets**: `mee2024/field_presets.py` defines the two standard configurations
+  once; both interfaces offer them, and `results.txt` records `field preset` —
+  *recomputed from the options*, so a preset the user then edited reads `custom` rather
+  than claiming to be a standard it no longer is. Douglas' rule for the background mode
+  is what they encode: **zenith → annular, eclipse day → Gaussian**. The app window's
+  `auto`/`quick`/`deep` are superseded by them (`quick`/`deep` still honoured for saved
+  configs); Douglas does not use those — 2026-08-31: "I only ever use the manual setup;
+  I don't think auto/quick/deep are well enough defined."
+
+What the presets deliberately do **not** do is decide the background mode by measurement:
+`annular` at zenith is inherited practice, since the A/B that measured 19.1 ppm on Bruns'
+eclipse fields has not been run on a zenith field. The synthetic-PSF benchmark remains the
+independent arbiter for both.
 
 ### F26 — The circular forbidden zone replaces the blob — **done, 2026-08-31**
 

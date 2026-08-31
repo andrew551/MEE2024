@@ -9,6 +9,7 @@ import traceback
 from PIL import Image, ImageTk
 import io
 import datetime
+from mee2024 import field_presets
 from mee2024.MEE2024util import _version
 from mee2024 import MEE2024util
 from mee2024 import distortion_fitter
@@ -33,6 +34,10 @@ def interpret_UI_values(options, ui_values, no_file = False):
     options['background_subtraction_mode'] = ui_values['background_subtraction_mode']
     options['eclipse_mask_mode'] = ui_values['eclipse_mask_mode']
     options['coronal_subtract'] = ui_values['coronal_subtract']
+    options['centroid_refine_window'] = ui_values['centroid_refine_window']
+    # what the user picked; `results.txt` records what the settings actually are, which
+    # differs as soon as one control is edited afterwards
+    options['field_preset'] = ui_values['field_preset']
     try :
         options['eclipse_disk_margin_px'] = int(ui_values['-eclipse_disk_margin_px-']) if ui_values['-eclipse_disk_margin_px-'] else 10
     except ValueError :
@@ -241,6 +246,8 @@ def inputUI(options):
          sg.Checkbox('save_dark_flat', default=options['save_dark_flat'], key='save_dark_flat'),
      ],
     [sg.Text('Show the brightest stars in stack',size=(32,1), key='Show the brightest stars in stack'), sg.Input(default_text=str(options['d']),size=(8,1),key='-d-',enable_events=True)],
+    [sg.Text('Field preset', size=(12,1)), sg.Combo(['custom'] + list(field_presets.FIELD_PRESETS), default_value=options.get('field_preset','custom'), key='field_preset', size=(14,1), enable_events=True),
+     sg.Text('(applies the standard settings below; edit any of them afterwards)', font=('Any', 8))],
     [sg.Checkbox('Mask the Sun/Moon (off gives a plain stack of the field)', default=options['delete_saturated_blob'], key='delete_saturated_blob',enable_events=True)],
     [sg.Text('    mask shape',size=(32,1), key='eclipse_mask_mode_label'), sg.Combo(['disk', 'blob'], default_value=options['eclipse_mask_mode'], key='eclipse_mask_mode', size=(12, 1))],
     [sg.Text('    saturation level (%)', size=(32, 1)), sg.Spin(list(range(80, 101)), initial_value=options['blob_saturation_level'], key='blob_saturation_level')],
@@ -254,7 +261,9 @@ def inputUI(options):
     [sg.Text('    sigma_thresh [sensitive-mode]', key='sigma_thresh', size=(32,1)), sg.Input(default_text=str(options['centroid_gaussian_thresh']), key = '-sigma_thresh-', size=(8,1), disabled_readonly_background_color="Gray")],
     [sg.Text('    min_area (pixels) [sensitive-mode]', key='min_area (pixels)', size=(32,1)), sg.Input(default_text=str(options['min_area']), key = '-min_area-', size=(8,1), disabled_readonly_background_color="Gray")],
     [sg.Text('    sigma_subtract',size=(32,1)), sg.Input(default_text=str(options['sigma_subtract']),size=(8,1),key='sigma_subtract',enable_events=True, disabled_readonly_background_color="Gray")],
-    [sg.Text('    background subtraction mode',size=(32,1)), sg.Combo(['Gaussian', 'annular'], default_value=options['background_subtraction_mode'], key='background_subtraction_mode', size=(12, 1))],
+    [sg.Text('    background subtraction mode',size=(32,1)), sg.Combo(['Gaussian', 'annular'], default_value=options['background_subtraction_mode'], key='background_subtraction_mode', size=(12, 1)),
+     sg.Text('Gaussian: smooth blur. annular: ring around each star.', font=('Any', 8))],
+    [sg.Checkbox('    Windowed centroids (off = moments over the detected footprint)', default=options['centroid_refine_window'], key='centroid_refine_window')],
     [sg.Checkbox('Remove centroids near edges', default=options['remove_edgy_centroids'], key='remove_edgy_centroids')],
     [sg.Push(), sg.Button('OK'), sg.Cancel(), sg.Button("Open output folder", key='Open output folder', enable_events=True)]
     ]
@@ -431,6 +440,28 @@ def inputUI(options):
                 except Exception as inst:
                     traceback.print_exc()
                     sg.Popup('Error: ' + inst.args[0], keep_on_top=True)
+        if event == 'field_preset' and values['field_preset'] in field_presets.FIELD_PRESETS:
+            # a preset is a starting point: push its values into the controls so the user
+            # can see and then change every one of them. Silently applying settings the
+            # window does not show is the failure this replaces.
+            chosen = field_presets.FIELD_PRESETS[values['field_preset']]['options']
+            for key, widget in (('sensitive_mode_stack', 'sensitive_mode_stack'),
+                                ('centroid_gaussian_subtract', 'centroid_gaussian_subtract'),
+                                ('centroid_gaussian_thresh', '-sigma_thresh-'),
+                                ('min_area', '-min_area-'),
+                                ('sigma_subtract', 'sigma_subtract'),
+                                ('background_subtraction_mode', 'background_subtraction_mode'),
+                                ('centroid_refine_window', 'centroid_refine_window'),
+                                ('delete_saturated_blob', 'delete_saturated_blob'),
+                                ('eclipse_mask_mode', 'eclipse_mask_mode'),
+                                ('coronal_subtract', 'coronal_subtract')):
+                if key in chosen:
+                    window[widget].update(chosen[key])
+            values = {**values, **{k: chosen[k] for k in chosen if k in values}}
+            update_tab1_enabled(chosen.get('centroid_gaussian_subtract', False)
+                                or chosen.get('sensitive_mode_stack', False),
+                                chosen.get('delete_saturated_blob', False),
+                                chosen.get('coronal_subtract', False))
         if event in ('centroid_gaussian_subtract', 'sensitive_mode_stack',
                      'delete_saturated_blob', 'coronal_subtract'):
             if event == 'centroid_gaussian_subtract' and values['centroid_gaussian_subtract']:

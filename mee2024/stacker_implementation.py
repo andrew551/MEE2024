@@ -14,6 +14,7 @@ from mee2024.MEE2024util import (output_path, _version, environment_line, setup_
                                  close_logger, date_string_to_float)
 from mee2024 import calibration
 from mee2024 import events
+from mee2024 import field_presets
 from mee2024 import framescan
 from mee2024 import hotpixels
 from mee2024 import ser
@@ -1698,7 +1699,12 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
                                                  if options['coronal_subtract'] else None),
                          'sensitive stacking mode?':options['centroid_gaussian_subtract'],
                          'use sensitive on stacked result?':options['sensitive_mode_stack'],
-                         'background stubtraction mode':options['background_subtraction_mode'],
+                         'background subtraction mode':options['background_subtraction_mode'],
+                         # which standard configuration this was, or 'custom'. Recomputed
+                         # from the options rather than trusted: a preset the user then
+                         # edited is no longer that preset, and saying otherwise would
+                         # make the label worse than useless
+                         'field preset':field_presets.matching_preset(options),
                          # Which estimator produced these positions. Recorded because the
                          # convention is worth real deflection: on the Bruns 2017 data the
                          # windowed and moment conventions differ by ~30 ppm of scale,
