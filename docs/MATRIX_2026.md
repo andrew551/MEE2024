@@ -563,6 +563,70 @@ does to the answer.
 A valid null needs either a scale/compression term in the null estimator, or night pairs
 ~1–2 minutes apart rather than 6–7. Logged, not done.
 
+> **Resolved the same day — the cause was mine.** The constant-only refits were run with
+> `observation_time=08:00`, a placeholder I passed to every field, so the refraction
+> correction was applied at the wrong altitude — differently wrong for each pointing,
+> which is precisely the uniformly-positive, group-clustered signature. With each field's
+> own recorded time the nulls become sane, and the nuisance now *helps* rather than hurts
+> (rms 0.177 → 0.150), which is the sanity signature that was missing. See below.
+
+### The atmosphere at the eclipse geometry, and why Leon was limited (2026-08-31)
+
+Douglas' observation, which turns out to be the key to the whole comparison: **Bruns
+rehearsed the identical three pointings on both preceding nights.** Measured from the fits:
+
+| night field | alt / az | eclipse-day counterpart | alt / az |
+|---|---|---|---|
+| EC | 54.56° / 143.4° | the ECLIPSE field | 54.35° / 142.71° |
+| LC | 53.56° / 131.0° | LEFT calibration | 53.47° / 130.63° |
+| RC | 54.30° / 156.2° | RIGHT calibration | 54.20° / 155.58° |
+
+0.1–0.2° in altitude, under a degree in azimuth. Same airmass, same optics, same site — a
+night-time replica of the eclipse-day geometry. **Leon had nothing comparable**: its
+rehearsal fields were at the zenith while the eclipse sat at 9.7°, so its atmospheric term
+had to be transported across a factor of six in airmass.
+
+**M3-style maps, built the same way Leon's were** (`b17_m3_maps.py`: cubic frozen from the
+same 15-field average the L/R calibration used, quadratic free — i.e. exactly how a
+calibration field is reduced; vectors rotated into alt-az through each field's own affine).
+Figure: `matrix_bruns2017_m3/b17_m3_quiver_maps.png`; table: `b17_m3_stats.csv`.
+
+| | alt | quasi-static rms (″) | alt component | az component | V/H |
+|---|---|---|---|---|---|
+| **Bruns EC** | 54.5° | 0.103 | 0.074 | 0.071 | 1.0 |
+| **Bruns LC** | 53.5° | 0.100 | 0.072 | 0.068 | 1.1 |
+| **Bruns RC** | 54.3° | 0.103 | 0.075 | 0.070 | 1.1 |
+| **Leon (M3)** | 8.5–12.4° | 0.167–0.349 (mean 0.261) | 0.153–0.323 | 0.066–0.134 | ~2.3 |
+
+**This is the answer to why Leon was limited, and it is sharper than "worse seeing".** The
+*horizontal* components are nearly the same — 0.070 ″ at Bruns' altitude against
+0.066–0.134 at Leon's. What explodes toward the horizon is the **vertical** component:
+0.074 → 0.153–0.323 ″, a factor 2–4, turning an isotropic residual (V/H ≈ 1.0) into a
+strongly polarised one (V/H ≈ 2.3). The horizontal number is the instrument-and-model
+floor common to both; the vertical excess is refraction-driven atmospheric structure — and
+it is the component that couples to a radial deflection signal.
+
+**The atmospheric term for cell 1, now measured** (`b17_atmosphere2.py`, corrected):
+22 constant-only nulls from consecutive same-night pairs, true L = 0 in every one —
+residual rms 0.038–0.157 ″/axis, **L v-deg2 rms ±0.150 ″** (max 0.283) against a bootstrap
+floor of 0.037, so it is real structure rather than noise.
+
+Two independent routes agree on the Leon/Bruns ratio to 20 %:
+
+* M3 quasi-static residual: 0.261 / 0.102 = **2.6×**
+* null-test L systematic: 0.33 / 0.150 = **2.2×**
+
+> **Cell 1, error budget completed: L = 1.720 ± 0.069 (stat) ± 0.105 (scale)
+> ± 0.15 (atmosphere) ″ — total σ ≈ 0.20.** GR at 0.16 σ; **Newton excluded at 4.3 σ**.
+> Taking instead the conservative L−R bracket bound (22.5 ppm) in place of the separate
+> scale and atmosphere terms gives ±0.24 and 3.5 σ. Either way the Eddington
+> discrimination holds and the earlier 6.7 σ stays withdrawn.
+
+**One caveat on the 0.15, stated because it matters for 2027**: these are *night* fields.
+Daytime convective turbulence is generally worse than night at the same altitude, so 0.15 ″
+is a **best case** for the eclipse-day atmosphere at this geometry — which is exactly what
+Douglas asked for, and it is the number a 2027 site should be judged against.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive

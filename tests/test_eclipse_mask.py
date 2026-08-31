@@ -78,6 +78,26 @@ def test_masking_off_leaves_the_frame_untouched():
     assert not paint.any() and not detect.any()
 
 
+def test_the_disk_is_a_logical_gate_and_never_touches_a_pixel():
+    """The reason fake centroids clustered on the mask perimeter: painting the region flat
+    puts a hard edge in the data, and the 17 px background blur straddling that edge makes
+    `img - blur` spuriously positive just outside it. The disk gates detection instead."""
+    img = frame_with_saturated_disc(streamer=True)
+    before = img.copy()
+    out, paint, detect = si.mask_bright_object(img, img, opts(eclipse_mask_mode='disk'))
+    assert out is img or np.array_equal(out, before)   # not a pixel changed
+    assert np.array_equal(img, before)                 # and the input was not mutated
+    assert paint.any() and detect.sum() > paint.sum()  # the gate is still there
+
+
+def test_the_legacy_blob_still_paints():
+    """`blob` exists to reproduce pre-v1.4.0 reductions, so it must keep its behaviour."""
+    img = frame_with_saturated_disc()
+    out, paint, _ = si.mask_bright_object(img, img, opts(eclipse_mask_mode='blob'))
+    assert not np.array_equal(out, img)
+    assert out[paint].max() < 65535
+
+
 def test_no_saturated_object_means_no_mask():
     img = np.full(SHAPE, 1000.0)
     img[300, 400] = 5000.0                     # a star, not a Sun

@@ -36,7 +36,7 @@ import numpy as np, pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 NIGHTS = r"D:/MEE2024 output/MEE_output/bruns2017_nights"
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_atmosphere2"
+OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_atmosphere3"
 PS, NX, NY, W_NORM = 2.0868004, 3296, 2472, 1648.0
 R_SUN_AS = 948.7
 SUNPX, SUNPY = 1645.0, 1741.0
@@ -53,7 +53,14 @@ def run(cmd, log):
         return subprocess.run(cmd, cwd=REPO, stdout=fh, stderr=subprocess.STDOUT).returncode
 
 
-def refit(field, reference):
+def refit(field, reference, obstime):
+    """Constant-only re-fit against `reference`, at the field's OWN observation time.
+
+    The time is load-bearing: it sets the altitude at which the refraction correction is
+    applied. An earlier version passed a placeholder 08:00 to every field, which put the
+    correction at the wrong altitude and left a per-pointing systematic in the residuals --
+    the likeliest cause of that version's uniformly positive, group-clustered nulls.
+    """
     d = os.path.join(OUT, field)
     os.makedirs(d, exist_ok=True)
     hit = glob.glob(os.path.join(d, '**', 'TWOD_RESIDUALS.csv'), recursive=True)
@@ -66,7 +73,7 @@ def refit(field, reference):
          '--fix-distortion',reference,'--set','distortion_fixed_coefficients=constant',
          '--set','distortion_fit_tol=2.0','--set','max_star_mag_dist=13',
          '--set','rough_match_threshhold=36','--set','enable_corrections=True',
-         '--set','enable_corrections_ref=True',*SITE,'--set','observation_time=08:00',
+         '--set','enable_corrections_ref=True',*SITE,'--set','observation_time=' + obstime,
          '--no-display','--quiet','-o',d], os.path.join(d, 'stage2.log'))
     hit = glob.glob(os.path.join(d, '**', 'TWOD_RESIDUALS.csv'), recursive=True)
     return hit[0] if hit else None
@@ -105,7 +112,9 @@ def field_epoch(field):
         return None
     j = json.load(open(p[0], encoding='utf-8'))
     t = (j.get('observation_time (UTC)') or '0:0:0').split(':')
-    return j.get('observation_date'), int(t[0])*60 + int(t[1]) + float(t[2] if len(t) > 2 else 0)/60, p[0]
+    tm = j.get('observation_time (UTC)') or '08:00:00'
+    return (j.get('observation_date'), int(t[0])*60 + int(t[1]) + float(t[2] if len(t) > 2 else 0)/60,
+            p[0], tm)
 
 
 rows = []
@@ -115,16 +124,16 @@ for group in ('EC', 'LC', 'RC'):
     for i in range(1, 11):
         got = field_epoch('%s%02d' % (group, i))
         if got:
-            epochs.append(('%s%02d' % (group, i), got[0], got[1], got[2]))
+            epochs.append(('%s%02d' % (group, i), got[0], got[1], got[2], got[3]))
     by_night = {}
-    for name, date, minute, res in epochs:
-        by_night.setdefault(date, []).append((minute, name, res))
+    for name, date, minute, res, tm in epochs:
+        by_night.setdefault(date, []).append((minute, name, res, tm))
     for date in sorted(by_night):
         seq = sorted(by_night[date])
-        print('%s %s: %d fields, %s' % (group, date, len(seq), ' '.join(n for _, n, _ in seq)),
-              flush=True)
-        for (m0, ref_name, ref_path), (m1, name, _) in zip(seq, seq[1:]):
-            path = refit(name, ref_path)
+        print('%s %s: %d fields, %s' % (group, date, len(seq),
+                                        ' '.join(n for _, n, _, _ in seq)), flush=True)
+        for (m0, ref_name, ref_path, _t0), (m1, name, _p, tm) in zip(seq, seq[1:]):
+            path = refit(name, ref_path, tm)
             if path is None:
                 print('  %s: no residuals' % name, flush=True)
                 continue

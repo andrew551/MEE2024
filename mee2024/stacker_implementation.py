@@ -1068,8 +1068,23 @@ def mask_bright_object(img, raw, options):
     stars. The disk was validated across two eclipses before it moved here
     (docs/MATRIX_2026.md, docs/STEP3_2026.md).
 
-    `delete_saturated_blob` is the on/off switch. Off leaves the frame untouched, which
-    is also how to get a plain stack of the eclipse field for inspection.
+    **`disk` does not modify a single pixel.** It is a logical gate: the returned image is
+    the input, and the masks tell detection where not to look. Painting the region flat --
+    what `blob` does, and what `disk` did when it landed -- manufactures a hard circular
+    edge in the data, and an edge is exactly what a detector looking for compact bright
+    structure will find. Douglas, 2026-08-31: the fake centroids always cluster on the
+    perimeter of the painted circle. They do, and for a reason worth writing down: the
+    17 px background blur straddling the rim is pulled *down* by the painted floor, so
+    `img - blur` just outside it is spuriously positive -- the mask was generating the
+    very detections it existed to suppress. Leaving the true saturated core in place pulls
+    the blur *up* there instead, which suppresses rather than invents. The visible circle
+    in the stage-1 preview was never drawn: it was the painted region, and it disappears
+    with this change.
+
+    `blob` still paints, because its purpose is reproducing pre-v1.4.0 reductions.
+
+    `delete_saturated_blob` is the on/off switch. Off leaves the frame untouched *and*
+    ungated, which is how to get a plain stack of the eclipse field for inspection.
     """
     if not options['delete_saturated_blob']:
         zero = np.zeros(img.shape, dtype=int)
@@ -1101,6 +1116,9 @@ def mask_bright_object(img, raw, options):
         # outside. Belt and braces, at the cost of one dilation.
         mask_2 = (_disk_mask(img.shape, cy, cx, radius + options['centroid_gap_blob'])
                   | expand_mask(sat_full, options['centroid_gap_blob']))
+        # no painting: see the docstring. The image goes back untouched and the mask does
+        # the work, so no edge is created for the detector to find.
+        return img, mask_1, mask_2
     out = np.copy(img)
     out[mask_1] = np.percentile(img, 5)
     return out, mask_1, mask_2
