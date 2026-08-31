@@ -322,6 +322,46 @@ a targeted A/B — re-run the 2026 stage 1 with the windowing/subtraction disabl
 emulate the v0.4.0 centroider on identical frames and measure the brightness slope
 against the catalogue with full-field statistics.
 
+### The L triangulation: 1.74 vs 1.56 is the centroid convention, not the program (2026-08-31)
+
+Douglas: Bruns published L = 1.752″ ± 3.4 %; the 2024 rerun gave ~1.74; our chain
+gives 1.47–1.57 — are we mixing old and new files inconsistently? The audit says the
+chain is era-pure (every stage-1/2 product in the science path is a 2026 reduction;
+2024 files entered only the labelled comparison experiments). The four-way
+triangulation then splits data from method exactly:
+
+| star table | reduction chain | L v-deg2, R > 2, G ≤ 11 (″) |
+|---|---|---|
+| 2024 eclipse table (58 stars) | 2024's own (as stored, ps 2.0867322) | **+1.741 ± 0.089** |
+| 2024 eclipse centroids | 2026 chain (our cal, ps 2.0868004) | +1.981 ± 0.094 |
+| 2026 stacks | 2026 chain | **+1.556 ± 0.135** |
+
+Row 1: **our estimator on their table reproduces the 2024/Bruns value exactly — the
+method is exonerated.** Row 2 is the deliberate cross-mix, and it shows what
+inconsistency *would* look like: +0.24″ of artifact, the imported-scale mismatch
+(+32.7 ppm × h·R⊙) applied to centroids of the other convention. We are NOT doing
+this anywhere. Rows 1 and 3 are each internally consistent and differ by **0.18″ —
+the star-dependent (brightness-dependent) part of the centroid-convention difference,
+which the calibration transfer cannot cancel.**
+
+Mechanism, sharpened: the v0.4.0 centroider (plain moments over the threshold area)
+has a *structural* brightness–radius coupling on asymmetric off-axis PSFs — a bright
+star's threshold area extends into the coma wings, a faint star's covers only the
+core — and Bruns' own tools were moment-based too. The 2026 windowed centroider
+applies the same weighting to every star and measured **mag-stable to ±3 ppm** in the
+bright-cal test (`brightcal/`: bright-only calibration moves the bracket +2.4 ppm →
+−0.024″ of L, refuting the cal-side leak). Their inner stars also scatter wildly
+between conventions at the star level (G 7.09: +0.87″ in their table vs +1.63/+1.44/
++1.10 across our paths; G 7.52: +1.31″ vs our +0.46) — ±0.4″ single-star path
+dependence, as found before.
+
+**Agreement with GR must not arbitrate** — picking the convention that lands on
+1.75 would be circular in a deflection experiment. Until the synthetic-PSF benchmark
+(run with THIS instrument's measured PSF shapes, `psf_bruns2017/`) rules, cell 1
+carries a **centroid-convention systematic spanning the two internally-consistent
+reductions: L = 1.56 (2026 windowed) to 1.74 (2024 moments), i.e. ± ~0.09″ about
+their midpoint** — quoted alongside the stat and scale terms, not hidden inside them.
+
 Design note the A/Bs demonstrate for free: both levers move L and R almost
 identically (266.8 vs 265.9; 7.9 vs 7.9), so **the L−R split is immune to them — the
 bracket cancels common-mode systematics exactly as designed**, and the split's
