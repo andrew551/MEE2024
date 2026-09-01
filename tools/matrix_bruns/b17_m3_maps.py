@@ -187,10 +187,6 @@ if maps:
         ax.quiver([300], [300], [1.0], [0.0], angles='xy', scale_units='xy',
                   scale=LSCALE, width=0.006, color='crimson')
         ax.annotate('1"', (330, 430), fontsize=8, color='crimson')
-        ua = np.array(e_alt)*620
-        ax.annotate('', xy=(2950 + ua[0], 400 + ua[1]), xytext=(2950, 400),
-                    arrowprops=dict(arrowstyle='->', color='green', lw=1.4))
-        ax.annotate('up', (2700, 330), fontsize=8, color='green')
         ax.set_title('%s  (alt %.1f deg, %d stars)' % (field, alt, len(px)), fontsize=10)
         ax.set_xlim(0, NX); ax.set_ylim(NY, 0); ax.set_aspect(1)
         ax.set_xticks([]); ax.set_yticks([])
@@ -198,9 +194,9 @@ if maps:
         ax.axis('off')
     fig.suptitle('Bruns 2017 night calibrations at the eclipse-day pointings: residual '
                  'structure a calibration fit cannot absorb\n'
-                 '(cubic frozen, quadratic free; arrows and positions both in SENSOR axes, north up '
-                 '(ROLL ~0.3 deg); green arrow = increasing altitude, which differs per '
-                 'pointing; scale identical to the Leon m3 maps)', fontsize=12)
+                 '(cubic frozen, quadratic free; arrows and positions both in SENSOR axes, which for '
+                 'this instrument is RA/DEC with north up (ROLL ~0.3 deg); arrow scale '
+                 'identical to the Leon m3 maps)', fontsize=12)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, 'b17_m3_quiver_maps.png'), dpi=120)
     plt.close(fig)

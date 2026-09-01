@@ -1193,6 +1193,31 @@ Two ways out, in order of preference: close F28 so the mask can simply be left o
 the tool chain as it stands, pass the painted radius into stage 1 so `mask2` is populated
 even when the pipeline is not doing the masking.
 
+### F30 — The stage-3 chart set, the atmospheric floor, and the field presets for eclipse cells
+
+Specified in `docs/STEP3_CHARTS_AND_SETTINGS.md` (2026-09-01), from the Bruns 2017 work.
+Three pieces the product should absorb from `tools/matrix_bruns/`:
+
+* **four stage-3 charts** — deflection vs radius, **displacement vectors** (new: the only
+  one that exposes tangential scatter, which is how measurement noise is told from
+  deflection), L-vs-plate-scale covariance, and **atmosphere night maps** (new). The
+  hard-won rules go with them: arrows are vectors not radial projections; lengths
+  asserted at runtime; positions and vectors in one frame; the variant named in the
+  title; every chart writes a versioned copy and superseded ones are never deleted.
+* **the atmospheric error floor**, measured per campaign by the constant-only night-null
+  method rather than inherited. Two traps are load-bearing: pass each field's own
+  observation time (a placeholder puts the refraction correction at the wrong altitude
+  and manufactures ±1.40″ of fake systematic), and pair fields within one night.
+  Reference values: Bruns ±0.15″ (V/H 1.0 at alt 54°), Leon ±0.33″ (V/H 2.3 at alt 10°).
+* **an eclipse-cell settings preset** recording the Bruns-compatible convention
+  (Gaussian background + footprint moments), the magnitude cut with its justification,
+  and the close-in-star link, so Leon 2026 and Mexico 2024 reduce identically and the
+  three datasets can be compared.
+
+Prerequisite for the charts to be reproducible from the exe: **F27** (the union, vet,
+rematch and nuisance are all still outside the program) and **F28** (the per-frame
+coronal model). Until those close, the charts can be added but their inputs cannot.
+
 ## 3a. External sources, and what they do and do not settle
 
 Three documents in `I:\Papers` constrain this work and were not previously cited anywhere in

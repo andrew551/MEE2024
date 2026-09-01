@@ -38,7 +38,7 @@ from matplotlib.patches import Circle, Ellipse, Polygon, FancyBboxPatch
 OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
 VER = os.path.join(OUT, 'chart_versions')
 os.makedirs(VER, exist_ok=True)
-REV = 'rev08'
+REV = 'rev09'
 RAWDIR = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
 PS, NX, NY = 2.0868004, 3296, 2472
 R_SUN_AS = 948.7
@@ -156,8 +156,8 @@ def deflection_chart(table_csv, fname, title, se_stat):
     return t, rx_, ry_, R_, c, l, cov, dxc, dyc, L, tot
 
 
-deflection_chart('bruns_method_star_table_mag10.5.csv', 'record_deflection.png',
-                 'Deflection vs radius \u2014 Bruns 2017, G $\\leq$ 10.5, 7-star link', 0.067)
+deflection_chart('bruns_method_star_table_mag10.5_link14.csv', 'record_deflection.png',
+                 'Deflection vs radius \u2014 Bruns 2017, G $\\leq$ 10.5, 14-star link', 0.062)
 deflection_chart('bruns_method_star_table_link14.csv', 'record_deflection_link14.png',
                  'Deflection vs radius \u2014 Bruns 2017, G $\\leq$ 11, 14-star link', 0.060)
 deflection_chart('bruns_method_star_table_mag13_link14.csv', 'record_deflection_g13.png',
@@ -195,7 +195,9 @@ for k in range(n):
     ax.annotate('', xy=(x1, y1), xytext=(x0, y0),
                 arrowprops=dict(arrowstyle='-|>,head_width=0.22,head_length=0.45',
                                 color=col, lw=1.5, shrinkA=0, shrinkB=0))
-    ax.annotate(' %.1f' % tab.mag.values[k], (x0, y0), fontsize=6.5,
+    # the linked pair's markers are large diamonds, so their labels need clearing
+    dx_lab = 0.030 if linked[k] else 0.008
+    ax.annotate('%.1f' % tab.mag.values[k], (x0 + dx_lab, y0), fontsize=6.5,
                 color=('tab:red' if linked[k] else 'black'))
 ax.scatter(sra[~linked], sdec[~linked], s=22, color='tab:blue', zorder=5,
            label='0.62 s master (%d stars)' % int((~linked).sum()))
@@ -214,10 +216,10 @@ ax.set_xlim(lo_ra, hi_ra); ax.set_ylim(lo_de, hi_de)
 ax.set_aspect(1/np.cos(np.radians(de0)))
 ax.set_xlabel('RA (degrees)', fontsize=12)
 ax.set_ylabel('DEC (degrees)', fontsize=12)
-ax.set_title('Displacement vectors \u2014 Bruns 2017, G $\\leq$ 11, 7-star link\n'
-             'each arrow = the star\u2019s measured shift after subtracting the camera\u2019s '
-             'pointing offset and rotation; deflection + measurement noise remain',
-             fontsize=10)
+ax.set_title('Displacement vectors \u2014 Bruns 2017, G $\\leq$ 11, 14-star link', fontsize=12)
+fig.text(0.06, 0.020, 'each arrow = the star\u2019s measured shift after subtracting the '
+         'camera\u2019s pointing offset and rotation; deflection + measurement noise remain',
+         fontsize=9)
 ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.75))
 bar_deg = ARROW_DEG/np.cos(np.radians(de0))
 from matplotlib.patches import FancyBboxPatch
@@ -256,15 +258,21 @@ def draw(cov, mu, color, name):
 draw(C1, mu1, 'darkred', 'Method 1 (scale imported)')
 draw(C2, mu2, 'tab:blue', 'Method 2 (scale free)')
 ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
-ax.annotate('Method 1:  L = %.3f $\\pm$ %.3f" (stat+scale)' % (L1, np.sqrt(C1[0, 0])),
-            (0.03, 0.95), xycoords='axes fraction', fontsize=9.5, color='darkred')
-ax.annotate('Method 2:  L = %.3f $\\pm$ %.3f",  scale %+.1f ppm from imported'
-            % (L2, np.sqrt(C2[0, 0]), mu2[1]),
-            (0.03, 0.90), xycoords='axes fraction', fontsize=9.5, color='tab:blue')
+ax.add_patch(FancyBboxPatch((0.020, 0.030), 0.545, 0.165, boxstyle='round,pad=0.010',
+                            transform=ax.transAxes, fill=True, facecolor='white',
+                            edgecolor='gray', lw=0.9, zorder=6))
+ax.text(0.038, 0.150, 'Method 1:  L = %.3f $\\pm$ %.3f" (stat+scale)'
+        % (L1, np.sqrt(C1[0, 0])), transform=ax.transAxes, fontsize=9.5,
+        color='darkred', zorder=7)
+ax.text(0.038, 0.100, 'Method 2:  L = %.3f $\\pm$ %.3f",  scale %+.1f ppm'
+        % (L2, np.sqrt(C2[0, 0]), mu2[1]), transform=ax.transAxes, fontsize=9.5,
+        color='tab:blue', zorder=7)
+ax.text(0.038, 0.050, 'Imported plate scale: %.7f "/px' % PS, transform=ax.transAxes,
+        fontsize=9.5, color='black', zorder=7)
 ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
 ax.set_ylabel('Plate scale (ppm difference from imported value)', fontsize=12)
-ax.set_title('L and plate scale \u2014 Bruns 2017, G $\\leq$ 11, 7-star link', fontsize=12)
-ax.legend(fontsize=9, loc='lower left')
+ax.set_title('L and plate scale \u2014 Bruns 2017, G $\\leq$ 11, 14-star link', fontsize=12)
+ax.legend(fontsize=9, loc='upper right')
 ax.autoscale_view()
 ax.margins(0.15)
 save(fig, 'record_covariance.png')

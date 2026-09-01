@@ -1,0 +1,131 @@
+# Stage-3 charts and settings to carry into the MEE program
+
+**Written 2026-09-01**, at Douglas' request, as the specification for what the Bruns 2017
+work should leave behind in the product rather than in `tools/`. Three things are wanted:
+the charts, the atmospheric machinery, and the exact processing settings, all reusable
+for the Leon 2026 and Mexico 2024 reductions so the three datasets can be compared
+directly.
+
+## 1. The charts to add to stage 3
+
+All four are produced today by `tools/matrix_bruns/b17_charts_record.py` (chart revision
+9; every revision archived under `chart_versions/revNN_*`). They are dataset-agnostic
+apart from the constants listed in §3.
+
+| chart | what it shows | why it earns its place |
+|---|---|---|
+| **deflection vs radius** | per-star radial deflection against R/R⊙, the Method-1 curve, the total-error band, Einstein and Newton | the headline result; outliers beyond 2.5 σ are labelled with magnitude and σ |
+| **displacement vectors** (NEW) | each star's measured shift after the fitted pointing offset and rotation are removed, drawn as a true vector on the sky in RA/Dec | the only chart that shows the *tangential* scatter, which is what separates measurement noise from deflection. Bruns' data: tangential rms 0.114″ vs radial-about-fit 0.085″ |
+| **L and plate scale** | 1σ covariance ellipses for Method 1 and Method 2 against the imported scale, in ppm | makes the scale/L degeneracy visible and shows why Method 1 is primary |
+| **atmosphere night maps** (NEW) | quadratic-free residual quiver maps for every night calibration field, in sensor axes | the atmospheric error floor, measured rather than assumed — see §2 |
+
+Chart rules learned the hard way this session, all of which the implementation must keep:
+
+* **arrows are vectors, not projections.** Plotting the radial *projection* makes every
+  arrow point outward by construction and hides the tangential scatter entirely;
+* **arrow lengths are asserted against the data at runtime**, and the axes are padded
+  beyond the sensor — arrows leaving the axes were being silently clipped, which looked
+  like missing stars;
+* **positions and vectors must share one frame.** An early atmosphere map plotted the
+  alt/az decomposition as arrow components over sensor-pixel positions;
+* **state the variant in the title** (magnitude cut, link size) — a chart that does not
+  say which fit it describes gets quoted as the wrong number;
+* **every chart writes a versioned copy**; superseded versions are never deleted.
+
+## 2. The atmospheric error floor
+
+`tools/matrix_bruns/b17_atmosphere2.py` is the reference implementation, and the method
+generalises to any campaign that has night calibration fields:
+
+1. re-fit each night field **constant-only against the previous field of the same night**
+   — the same construction the science field uses against its calibration;
+2. impose the eclipse Sun's frame position, apply the science radial and magnitude cuts;
+3. fit L. True deflection is zero, so whatever comes back is manufactured by that
+   atmosphere and that estimator;
+4. the rms over fields is the systematic.
+
+**Two traps, both of which produced wrong answers first** (§ the record):
+
+* the field's **own observation time** must be passed — the refraction correction is
+  applied at the altitude it implies, and a placeholder time leaves a per-pointing
+  systematic that masquerades as atmosphere (it produced ±1.40″ instead of ±0.15″);
+* pair fields **within one night**. Fields 06–10 of each Bruns group are the *following*
+  night, and pairing across the gap measures the +85 ppm night-to-night plate-scale step.
+
+Measured results, for reuse as reference values:
+
+| campaign | geometry | quasi-static residual | V/H | null-test L systematic |
+|---|---|---|---|---|
+| Bruns 2017 | alt 53–55°, same pointings as the eclipse | 0.102″ (alt 0.074, az 0.069) | 1.0 | **±0.15″** |
+| Leon 2026 | alt 8.5–12.4° (zenith rehearsal, 6× airmass away) | 0.261″ (alt 0.153–0.323, az 0.066–0.134) | 2.3 | ±0.33″ |
+
+The horizontal components are nearly equal; the **vertical** component is what grows
+toward the horizon, and it is the component that couples to a radial deflection signal.
+That is the whole explanation for why Leon was limited and Bruns was not.
+
+## 3. The Bruns 2017 processing settings, as run
+
+Reduction of record: `tools/matrix_bruns/b17_bruns_method.py`, tree
+`D:\MEE2024 output\MEE_output\matrix_bruns2017_brunsmethod\`.
+
+**Stage 1** (both masters, and the L/R calibration fields):
+
+```
+sensitive_mode_stack=True        centroid_gaussian_subtract=True
+centroid_gaussian_thresh=4.0     min_area=2          sigma_subtract=0.0
+centroid_refine_window=False     background_subtraction_mode=Gaussian
+delete_saturated_blob=False      remove_edgy_centroids=True
+```
+
+`Gaussian` + `centroid_refine_window=False` is the **Bruns-compatible convention**: it is
+what reproduces his published value. The background mode is worth ~19 ppm of plate scale
+and the estimator under 2 ppm — the background is the lever, not the estimator.
+
+**Preprocessing** (tool-level, `b17_s0.py`): tier-mean coronal model, 10 px Gaussian blur,
+subtracted per frame, +2000 ADU pedestal, forbidden disk painted at the pedestal with
+radius max(1.25 R⊙, 99th-percentile saturation radius + 10 px). Bruns' own method.
+
+**Stage 2**: `--order cubic`, `distortion_fixed_coefficients=constant`,
+`distortion_fit_tol=2.0`, `max_star_mag_dist=13`, `rough_match_threshhold=36`,
+corrections ON; site 42°44′11″N 106°19′05″W, 2400 m, 13.0 °C, 770.0 mb, humidity 0.4,
+λ 0.625 µm; frozen reference = the L+R8 bracket (imported scale **2.0867533 ″/px**).
+
+**Stage 3 / estimator**: Method 1 (imported scale), no nuisance term (Bruns had none);
+catalogue G ≤ 11 (the standard; the error rises sharply beyond — 0.418″ per-star scatter
+at G 11–13 against 0.16″ below), doubles dropped at 10″, blends dropped, R > 1.45 R⊙;
+close-in pair linked from the 0.09 s master by the **14-star** offset (the new standard;
+Bruns used 7, and the choice is L-neutral at 0.013″).
+
+**Variants on record** (all tables in the same tree):
+
+| cut | link | N | L (″) | total σ |
+|---|---|---|---|---|
+| G ≤ 10.5 | 14 | 22 | 1.794 ± 0.062 | 0.180 |
+| **G ≤ 11** | **14** | **27** | **1.764 ± 0.060** | **0.182** |
+| G ≤ 11 | 7 (Bruns') | 27 | 1.777 ± 0.064 | 0.183 |
+| G ≤ 13 | 14 | 39 | 1.718 ± 0.086 | 0.195 |
+
+Bruns 2018 published **1.752 ± 0.060**. Every variant agrees within 0.05″.
+
+## 4. What has to be true before the three datasets are compared
+
+* **one convention across cells.** Leon's headline was reduced windowed+annular; measured
+  in this convention it moves −0.08″, so the two are already comparable, but Mexico must
+  be reduced here from the start;
+* **one chart set.** These four charts, same construction, same error decomposition;
+* **the atmosphere floor measured per campaign** by §2, not inherited;
+* **the magnitude cut justified per instrument** — G ≤ 11 is measured for Bruns, and the
+  same scan should be run on each new dataset rather than assumed.
+
+## 5. Known defects the reductions of record still carry
+
+1. **The coronal-model trench**: the tool-level preprocessing blurs the tier mean with the
+   saturated core included, over-subtracting a ~30 px ring just outside it. Fixed in the
+   pipeline (`subtract_coronal_background`, masked blur), not yet in the tools.
+2. **Rim artefacts in the alignment** (ROADMAP F29): with the pipeline mask off, per-frame
+   centroids are unfiltered, and 0.8 rim detections per frame reach the alignment against
+   12.8 real stars. Per-frame, not per-star, so it moves the star sample rather than
+   biasing astrometry.
+3. **F28** blocks the pipeline path from replacing the tool chain: the per-frame coronal
+   model leaves too few stars to plate solve. Until it is closed these results cannot be
+   reproduced from the exe.
