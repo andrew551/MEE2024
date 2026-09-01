@@ -31,6 +31,13 @@ footprint moments, the L+R8 bracket frozen):
 import glob, json, os, subprocess, zipfile
 import numpy as np, pandas as pd
 
+# variants, so Douglas' what-ifs run without editing the file:
+#   B17M_LIMIT_MAG -- catalogue depth and the science-magnitude cut (default 11.0)
+#   B17M_LINK_N    -- how many common stars set the master-to-master offset (default 7,
+#                     Bruns' own choice; 14 exist)
+LIMIT_MAG = float(os.environ.get('B17M_LIMIT_MAG', '11.0'))
+LINK_N = int(os.environ.get('B17M_LINK_N', '7'))
+
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 import sys
@@ -123,7 +130,7 @@ rt = float((np.hypot((got[:, 1]-dh['RA(obs)'])*np.cos(np.radians(dh['DEC(obs)'])
 assert rt < 0.05, 'round-trip gate failed: %.4f' % rt
 
 prov = providers.GaiaOfflineProvider.from_installed()
-cat = prov.lookup((j['RA']-1.5, j['RA']+1.5), (j['DEC']-1.2, j['DEC']+1.2), 11.0,
+cat = prov.lookup((j['RA']-1.5, j['RA']+1.5), (j['DEC']-1.2, j['DEC']+1.2), LIMIT_MAG,
                   epoch=date_string_to_float('2017-08-21'))
 not_dbl = ~np.asarray(cat.is_double(10.0))
 cc, _, _ = refraction_correction.AstroCorrect().correct_ra_dec(cat, OPTS)
@@ -155,12 +162,12 @@ for _, r in detE2.iterrows():
     k = int(np.argmin(dd))
     if dd[k] < 25.0:                        # inter-master pointing drift is ~7-14 px
         pairs.append((det['px'].values[k] - r.px, det['py'].values[k] - r.py))
-    if len(pairs) == 7:
+    if len(pairs) == LINK_N:
         break
-assert len(pairs) == 7, 'only %d common stars found' % len(pairs)
+assert len(pairs) == LINK_N, 'only %d common stars found' % len(pairs)
 offx = float(np.mean([p[0] for p in pairs])); offy = float(np.mean([p[1] for p in pairs]))
 sx7 = float(np.std([p[0] for p in pairs], ddof=1)); sy7 = float(np.std([p[1] for p in pairs], ddof=1))
-print('offset from the 7 brightest common stars: (%.2f, %.2f) px, scatter (%.2f, %.2f) px '
+print('offset from the %d brightest common stars' % LINK_N + ': (%.2f, %.2f) px, scatter (%.2f, %.2f) px '
       '-> se of the link (%.2f, %.2f) arcsec'
       % (offx, offy, sx7, sy7, sx7*PS/np.sqrt(7), sy7*PS/np.sqrt(7)), flush=True)
 
@@ -220,9 +227,14 @@ tab = pd.DataFrame([dict(cat_i=i, px=v[0], py=v[1], dx=v[2], dy=v[3], src=v[4],
 tab['dx'] -= tab['dx'].median(); tab['dy'] -= tab['dy'].median()
 rx, ry = (tab.px.values-SUNPX)*PS, (tab.py.values-SUNPY)*PS
 R = np.hypot(rx, ry)
-keep = (R > 1.45*R_SUN_AS) & (tab.mag.values <= 11.0)
+keep = (R > 1.45*R_SUN_AS) & (tab.mag.values <= LIMIT_MAG)
 tab, rx, ry, R = tab[keep].reset_index(drop=True), rx[keep], ry[keep], R[keep]
-tab.to_csv(os.path.join(OUT, 'bruns_method_star_table.csv'), index=False)
+suffix = ''
+if LIMIT_MAG != 11.0:
+    suffix += '_mag%g' % LIMIT_MAG
+if LINK_N != 7:
+    suffix += '_link%d' % LINK_N
+tab.to_csv(os.path.join(OUT, 'bruns_method_star_table%s.csv' % suffix), index=False)
 print('final table: %d stars (%d from the long master, %d E2-linked)'
       % (len(tab), (tab.src == 'master062').sum(), (tab.src == 'E2-linked').sum()), flush=True)
 

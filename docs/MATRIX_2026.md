@@ -689,6 +689,31 @@ which is why both his and our Method-2 errors are larger. F&L's own remark under
 that the weight "is very sensitive to any asymmetry in the star field", is the
 mathematical form of what the Leon anchor demonstrated empirically.
 
+
+### Chart review round 2, and three variants (2026-09-01, later)
+
+* **The missing vectors are explained and fixed**: arrows whose endpoints left the
+  sensor area were silently clipped at the axes limits (G 7.09's ends at py ≈ 2714 on a
+  2472 px axis; every "missing" outer star sat near an edge with an outward arrow). The
+  axes now extend past the sensor, whose edge is drawn, and a runtime assertion fails
+  the script if any endpoint leaves the axes. Both scale bars (1″ and the measured
+  per-star scatter, 0.14″) sit with the legend.
+* **The error-consistency point**: the covariance chart's ±0.107″ was stat+scale while
+  the deflection band's ±0.18″ was the total including atmosphere. Both charts now say
+  which they carry, and the covariance chart quotes the total beside its ellipses.
+  One-sigma ellipses only; the y-axis is now ppm offset from the imported scale, which
+  also removes the orphaned axis-offset text.
+* **The r ≈ 4.7 outlier costs +0.014″ if removed** — negligible at its leverage, as
+  Douglas guessed; annotated on the chart.
+* **G ≤ 13 variant** (`record_deflection_g13.png`): N = 39, L = 1.728 ± 0.088 — the
+  statistical error grows 37 % and L drifts down 0.05″. The mag-11 finding, now visible
+  as a picture; one star beyond 3σ (G 11.60, −3.0σ), labelled.
+* **The 14-star link**: L = 1.764 ± 0.060 against the 7-star 1.777 ± 0.064 — a
+  −0.013″ shift, inside the link error. Bruns' 7 stays, as ruled.
+* The 0.09 s master now lives beside the 0.62 s one as
+  `matrix_bruns2017_brunsmethod/master009/` (a copy of the E2 stack in the convention of
+  record), so the reduction's tree is self-contained.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive
