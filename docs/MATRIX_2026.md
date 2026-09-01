@@ -9,7 +9,7 @@ the accusation of manipulation. The convex-hull blob retires when this passes.
 |---|---|---|---|
 | 1. Bruns 2017 (Casper, WY) | `I:\2017 eclipse images Don Bruns\2017 Eclipse images\eclipse` | L/R bracket (±7.4° both sides) | Bruns 2018: GR to ~3 % |
 | 2. Mexico 2024 (Station 1) | `G:\Mexico April 2024\Station-1-Eclipse-Data` | pure Method 2 | GR-consistent (v1.3.x) |
-| 3. Leon 2026 | done — `docs/STEP3_2026.md` | one-sided CAL_piLeo | L = 1.98 ± 0.60 ± 0.33 ″ |
+| 3. Leon 2026 | done — `docs/STEP3_2026.md` | one-sided CAL_piLeo | L = 1.98 ± 0.60 (stat) ± 0.70 (scale) ± 0.33 (atm) ″ — the scale term was added 2026-09-01 |
 | 4. Portland moon 2026-07-29 | `J:\Eclipse data\Toby Portland data\2026-07-29` | Moon-centric solver | **L = 0** (null check) |
 
 Rule: everything that CAN be held constant from Leon IS; every departure is listed with
@@ -802,3 +802,37 @@ bootstrap, seed 3.
 Gaussian-weighted centroid σ 2.0 px, 5 iterations; acceptance peak-above-background
 > 250 ADU; per-frame reference = median offset of that frame's R > 2 R⊙ stars (≥ 5
 required); star value = median over 11 frames, error = MAD/√n.
+
+
+## Cell 3 — Leon 2026, brought to the cell-1 standard (2026-09-01/02)
+
+The full account is the section of the same name in `docs/STEP3_2026.md`; this is the
+matrix-level summary so the three cells can be read side by side.
+
+> **Leon 2026: L = 1.98 ± 0.60 (stat) ± 0.70 (scale) ± 0.33 (atmosphere) ″, total σ ≈
+> 0.97.** GR at 0.2 σ; Newton at 1.1 σ. Tree `step3_record/`, charts and tables copied
+> into `RECORD/leon2026/`.
+
+| | cell 1 (Bruns 2017) | cell 3 (Leon 2026) |
+|---|---|---|
+| L (Method 1) | 1.764 | 1.976 |
+| stat | ±0.060 (27 stars, per-star scatter 0.14 ″) | ±0.60 (42 stars, per-star scatter 0.75 ″) |
+| scale | ±0.084 (10.3 ppm bracket, h = 10.6) | **±0.70** (25 ppm one-sided CAL, h = 27.1, leverage 0.0278 ″/ppm measured by injection) |
+| atmosphere | ±0.15 (22 same-night nulls, rms) | ±0.33 (3 night windows, max; cell-1 statistic ±0.22) |
+| night maps | 0.102 ″ quasi-static, V/H 1.0, alt 54° | 0.260 ″, V/H 2.4, alt 8.5–12.4°; zenith floor 0.067 ″ |
+| estimator | Method 1, no nuisance | Method 1 + vertical-deg-2 nuisance |
+| structure | one 0.62 s master + linked close-in pair | per-star union of the 0.6 s and 1.2 s tiers (a single master was built and rejected: it re-admits the G 9.10 corrupted centroid) |
+| convention | moments + Gaussian (Bruns' own) | windowed + annular; −0.08 ″ under cell 1's convention; the 2×2 on Leon: background axis +0.14 ″, estimator axis −0.38 ″ (the estimator is the lever here, the reverse of Bruns) |
+
+Three things came out of the levelling that the earlier Leon record did not have: the
+imported-scale term (it had been dropped from the quote; on a one-sided field the free
+offsets and rotation do not suppress a uniform scale error, and the term is the budget's
+largest), the star table on disk, and a defect in cell 1's own field chart (arrows drawn
+2.087× longer than their scale bar through nine reviewed revisions; fixed as revision 10
+with a runtime round-trip assertion in both chart tools).
+
+The exposure decision stands as the handoff stated it: only the 0.6 s and 1.2 s tiers
+carry the eclipse field; the 0.1 s tier's unique annulus yielded nothing, its innermost
+recovery is no better than the 0.3 s tier's, and Leon had no bright star close in for the
+short tiers to reach. The full four-tier union (2.58 ± 0.60, or 2.21 after the G 12
+hygiene) is drawn as a cross-check chart, not quoted.

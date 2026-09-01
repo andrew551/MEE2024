@@ -1,6 +1,6 @@
 # Which reduction is the record, and where its output lives
 
-**Written 2026-09-01**, because several variants were run over 2026-08-29..09-01 and only
+**Written 2026-09-01, cell 3 revised the same night**, because several variants were run over 2026-08-29..09-01 and only
 two of them are quoted. Anything not listed here is an experiment, not a result.
 
 ## The two numbers, and the chain that produced each
@@ -36,24 +36,44 @@ there precisely so it can be found):
   `matrix_bruns2017_like2024/{L,R8}/`
 * the M3-style atmosphere maps: `RECORD/bruns2017/atmosphere_night_maps.png`
 
-### Cell 3 — Leon 2026: **L = 1.98 ± 0.60 (stat) ± 0.33 (atmosphere) ″**
+### Cell 3 — Leon 2026: **L = 1.98 ± 0.60 (stat) ± 0.70 (scale) ± 0.33 (atmosphere) ″**
 
-Quoted in the windowed+annular convention. Re-reduced in cell 1's convention it gives
-1.897 — a **−0.08 ″** shift, so the headline is convention-robust and the two cells are
-comparable.
+Total σ ≈ 0.97. GR at 0.2 σ; Newton at 1.1 σ. **Revised 2026-09-01**: the scale term is
+new — the quoted headline had carried only stat and atmosphere, and the imported plate
+scale's HC3-class 25 ppm, measured on this field's geometry by injection (0.0278 ″ of L per
+ppm with the nuisance on), is the largest term in the budget. The value of L is unchanged.
+
+Quoted in the windowed+annular convention. Re-reduced end to end in cell 1's convention
+(Gaussian + moments) it gives 1.897 — a **−0.08 ″** shift. The 2×2 on Leon alone
+(`tools/step3_background_ab.py`, `step3_bg_ab/`, 2026-09-02): the background axis is
+worth +0.14 ″ (windowed+Gaussian 2.115, three union stars fewer), the estimator axis
+−0.38 ″ (moments+annular 1.595) — on Leon the estimator is the larger lever, the
+reverse of Bruns; details in `docs/STEP3_2026.md` ("Leon brought to the cell-1
+standard"). The headline is convention-robust and the two cells are comparable; they do
+not share a convention, and the choice is per-instrument on purpose (Leon's optics carry a
+brightness-dependent centroid bias the windowed estimator exists to remove).
 
 | step | what | where |
 |---|---|---|
-| calibration | six 08-12 zenith cubics → CAL_piLeo 16 frames, 2.2054043 ″/px | `cal_pileo_step2/canonical_16f_night2refs/` |
+| calibration | six 08-12 zenith cubics → CAL_piLeo 16 frames, 2.2054043 ″/px ± 25 ppm | `cal_pileo_step2/canonical_16f_night2refs/` |
 | preprocessing | coronal subtraction + forbidden disk | `step3_s0_v4/` (frames frozen) |
 | stage 1 + 2 | constant-only against CAL_piLeo | `step3_prelim_L/{0p6s,1p2s}/` |
-| stage 3 | union estimator + two-pass rematch (**tools**) | `tools/step3_s2_union.py`, `step3_rematch.py` |
-| atmosphere term | M5 night nulls, S1 gate (failed honestly → ±0.33 quoted) | `tools/step3_s1_estimator.py` |
+| stage 3 | union estimator + two-pass rematch (**tools**, F27) | `tools/step3_s2_union.py`, `step3_rematch.py` |
+| the star table | the 42 stars, written to disk 2026-09-01 | `step3_record/leon_union_star_table.csv` (+ `_sans_anchor`, `_full4`, `leon_union_meta.json`) |
+| atmosphere term | M5 night nulls, S1 gate (max over three windows, ±0.33); re-derived by cell 1's construction ±0.22 rms / 0.31 max | `tools/step3_s1_estimator.py`, `tools/step3_atmosphere.py`, `step3_record/atmosphere_nulls.csv` |
+| scale term | 25 ppm × the leverage measured by injection on the record's geometry | `tools/step3_charts_record.py`, `step3_record/record_summary.json` |
+| structure | one 0.6+1.2 s master built and rejected (re-admits the G 9.10 corrupted centroid; 2.52 ± 0.61) | `tools/step3_master_vs_union.py`, `step3_record/master0612/` |
 
-**Graphical output**
-* summary charts: `step3_s2_plots/` — `field_radec.png`, `field_altaz.png`, `covariance.png`, `deflection_method1.png`, `deflection_method2.png`
+**Graphical output — start at `RECORD/leon2026\`** (a copy of `step3_record/`):
+* the four charts of the spec: `record_deflection.png` (variants `_sans_anchor`,
+  `_no_nuisance`, `_full4`), `record_field.png` (displacement vectors, nuisance removed) and
+  `record_field_raw.png` (nuisance left in — the vertical atmosphere visible),
+  `record_covariance.png`, `atmosphere_night_maps.png` (9 horizon windows + 12 zenith
+  fields, Bruns style); every revision under `step3_record/chart_versions/`
+* the 2026-08-29 chart set (`field_radec`, `field_altaz`, `covariance`,
+  `deflection_method1/2`) is kept under `RECORD/leon2026/superseded_2026-09-01_2312/`
 * the program's own plots (65 files): `step3_prelim_L/*/stage2_constant/DISTORTION_OUTPUT*/` and `*/stage3/`
-* convention cross-check: `step3_bruns_convention/`
+* convention cross-checks: `step3_bruns_convention/` (both axes switched), `step3_bg_ab/` (one axis at a time)
 
 ## What is NOT the record
 

@@ -371,7 +371,12 @@ print('charts ->', OUT)
 
 if os.environ.get('L26_COPY_RECORD') == '1':
     os.makedirs(RECORD, exist_ok=True)
-    old = [f for f in os.listdir(RECORD) if f.endswith(('.png', '.csv', '.json'))]
+    import filecmp
+    # only files that actually differ from what is about to be copied are superseded;
+    # re-running with the same output must not bury identical copies under a new date
+    old = [f for f in os.listdir(RECORD) if f.endswith(('.png', '.csv', '.json'))
+           and not (os.path.exists(os.path.join(OUT, f))
+                    and filecmp.cmp(os.path.join(OUT, f), os.path.join(RECORD, f), shallow=False))]
     if old:
         sup = os.path.join(RECORD, 'superseded_' + pd.Timestamp.now().strftime('%Y-%m-%d_%H%M'))
         os.makedirs(sup, exist_ok=True)
