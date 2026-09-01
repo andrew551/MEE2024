@@ -1,6 +1,11 @@
 """The summary chart set for cell 1's reduction of record (L = 1.777).
 
-Seventh revision (Douglas' fourth chart review, 2026-09-01). This round:
+Eighth revision (Douglas' fifth chart review, 2026-09-01). This round: the record
+deflection chart moves to G <= 10.5; the covariance, field and G13 charts move to the
+14-star link; the master images get their legends below the frame; and the layout notes
+below. Earlier revisions are archived under chart_versions/revNN_*.
+
+Seventh revision items retained:
 
   * every produced chart is ALSO archived under chart_versions/rev07_* -- and older
     revisions are regenerated from git history into the same folder, because deleting
@@ -28,12 +33,12 @@ import numpy as np, pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Ellipse, Polygon
+from matplotlib.patches import Circle, Ellipse, Polygon, FancyBboxPatch
 
 OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
 VER = os.path.join(OUT, 'chart_versions')
 os.makedirs(VER, exist_ok=True)
-REV = 'rev07'
+REV = 'rev08'
 RAWDIR = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
 PS, NX, NY = 2.0868004, 3296, 2472
 R_SUN_AS = 948.7
@@ -143,18 +148,23 @@ def deflection_chart(table_csv, fname, title, se_stat):
     ax.set_title(title, fontsize=12)
     ax.legend(fontsize=8.5, loc='upper right')
     fig.tight_layout()
-    save(fig, fname)
+    if fname.startswith('_scratch'):
+        plt.close(fig)
+    else:
+        save(fig, fname)
     print('%s: N=%d L=%.3f tot=%.3f' % (fname, len(t), L, tot))
     return t, rx_, ry_, R_, c, l, cov, dxc, dyc, L, tot
 
 
-rec = deflection_chart('bruns_method_star_table.csv', 'record_deflection.png',
-                       'Deflection vs radius \u2014 Bruns 2017, G $\\leq$ 11, 7-star link',
-                       0.064)
+deflection_chart('bruns_method_star_table_mag10.5.csv', 'record_deflection.png',
+                 'Deflection vs radius \u2014 Bruns 2017, G $\\leq$ 10.5, 7-star link', 0.067)
 deflection_chart('bruns_method_star_table_link14.csv', 'record_deflection_link14.png',
                  'Deflection vs radius \u2014 Bruns 2017, G $\\leq$ 11, 14-star link', 0.060)
-deflection_chart('bruns_method_star_table_mag13.csv', 'record_deflection_g13.png',
-                 'Deflection vs radius \u2014 Bruns 2017, G $\\leq$ 13, 7-star link', 0.088)
+deflection_chart('bruns_method_star_table_mag13_link14.csv', 'record_deflection_g13.png',
+                 'Deflection vs radius \u2014 Bruns 2017, G $\\leq$ 13, 14-star link', 0.086)
+# the covariance, field and master charts below all run on the 14-star link
+rec = deflection_chart('bruns_method_star_table_link14.csv', '_scratch.png', 'scratch',
+                       0.060)
 
 tab, rx, ry, R, c1, l1, cov1, dxc, dyc, L1, tot = rec
 linked = (tab.src == 'E2-linked').values
@@ -210,14 +220,18 @@ ax.set_title('Displacement vectors \u2014 Bruns 2017, G $\\leq$ 11, 7-star link\
              fontsize=10)
 ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.75))
 bar_deg = ARROW_DEG/np.cos(np.radians(de0))
+from matplotlib.patches import FancyBboxPatch
 for y_fr, ln, txt in ((0.44, 1.0, '1 arcsec of displacement'),
-                      (0.36, star_rms, 'per-star scatter (%.2f")' % star_rms)):
-    xa, ya = 1.03, y_fr
+                      (0.34, star_rms, 'per-star scatter (%.2f")' % star_rms)):
+    xa, ya = 1.04, y_fr
     ax.annotate('', xy=(xa + ln*bar_deg/(hi_ra-lo_ra), ya), xytext=(xa, ya),
                 xycoords='axes fraction', textcoords='axes fraction',
                 arrowprops=dict(arrowstyle='-', color='black', lw=3))
-    ax.annotate(txt, (xa, ya + 0.025), xycoords='axes fraction', fontsize=8)
-fig.subplots_adjust(right=0.74)
+    ax.annotate(txt, (xa, ya + 0.028), xycoords='axes fraction', fontsize=8)
+ax.add_patch(FancyBboxPatch((1.02, 0.29), 0.30, 0.22, boxstyle='round,pad=0.012',
+                            transform=ax.transAxes, fill=False, color='gray', lw=0.9,
+                            clip_on=False))
+fig.subplots_adjust(right=0.74, bottom=0.13)
 save(fig, 'record_field.png')
 
 # ---- L and plate scale, annotations pinned in axes coordinates
@@ -292,10 +306,11 @@ def master_figure(img, circles, fname, title):
         for x0, y0 in zip(xs, ys):
             ax.add_patch(Circle((x0, y0), size, fill=False, color=colr, lw=1.4))
         handles.append(plt.Line2D([], [], color=colr, label=lab))
-    ax.legend(handles=handles, fontsize=9, loc='center left', bbox_to_anchor=(1.01, 0.9))
+    ax.legend(handles=handles, fontsize=9, loc='upper left', bbox_to_anchor=(0.0, -0.09),
+              borderaxespad=0, frameon=True)
     ax.set_title(title, fontsize=11)
     ax.set_xlabel('px'); ax.set_ylabel('py')
-    fig.subplots_adjust(right=0.72)
+    fig.subplots_adjust(bottom=0.20)
     save(fig, fname)
 
 

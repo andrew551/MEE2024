@@ -148,11 +148,11 @@ for group in ('EC', 'LC', 'RC'):
         v_az = dx*e_az[0] + dy*e_az[1]
         j = json.load(open(respath, encoding='utf-8'))
         rows.append(dict(group=group, field=field, date=j['observation_date'], n=len(d),
-                         alt=alt, az=az,
+                         alt=alt, az=az, e_alt_x=e_alt[0], e_alt_y=e_alt[1],
                          qs_rms=float(np.sqrt(np.mean(dx**2 + dy**2))),
                          qs_alt=float(np.sqrt(np.mean(v_alt**2))),
                          qs_az=float(np.sqrt(np.mean(v_az**2)))))
-        maps.append((field, d['px'].values, d['py'].values, v_alt, v_az, alt))
+        maps.append((field, d['px'].values, d['py'].values, dx, dy, alt, e_alt))
         print('%s: N=%4d alt %.2f az %.2f  rms %.3f (alt %.3f, az %.3f) arcsec'
               % (field, len(d), alt, az, rows[-1]['qs_rms'], rows[-1]['qs_alt'],
                  rows[-1]['qs_az']), flush=True)
@@ -173,24 +173,34 @@ if maps:
     # two figures compare side by side at a glance -- Douglas' request. The old
     # 'arrow length x250' annotation is gone with the old scale.
     LSCALE = 0.0018
-    for ax, (field, px, py, va, vz, alt) in zip(axes.ravel(), sel):
-        ax.quiver(px, py, vz, va, angles='xy', scale_units='xy', scale=LSCALE,
+    for ax, (field, px, py, dxs, dys, alt, e_alt) in zip(axes.ravel(), sel):
+        # SENSOR axes for both positions and vectors, exactly as Leon's m3_maps does.
+        # An earlier version plotted the alt/az DECOMPOSITION as the arrow components
+        # while leaving the positions in sensor pixels -- two different frames on one
+        # panel -- and drew the same 'up' arrow on every field. Douglas caught it from
+        # the geometry: Bruns' ROLL is ~0.3 deg, so the sensor is aligned to RA/DEC, and
+        # the altitude direction in sensor axes therefore differs per pointing (measured:
+        # EC +153.7 deg, LC +145.3, RC +162.8 from sensor +y). The alt/az decomposition
+        # is still what the STATS table reports -- that part was always right.
+        ax.quiver(px, py, dxs, dys, angles='xy', scale_units='xy', scale=LSCALE,
                   width=0.004, color='tab:blue')
-        ax.quiver([260], [2150], [1.0], [0.0], angles='xy', scale_units='xy',
+        ax.quiver([300], [300], [1.0], [0.0], angles='xy', scale_units='xy',
                   scale=LSCALE, width=0.006, color='crimson')
-        ax.annotate('1"', (300, 2260), fontsize=8, color='crimson')
-        ax.annotate('', xy=(180, 2000), xytext=(180, 1720),
-                    arrowprops=dict(arrowstyle='->', color='green'))
-        ax.annotate('up', (60, 1830), fontsize=8, color='green', rotation=90)
+        ax.annotate('1"', (330, 430), fontsize=8, color='crimson')
+        ua = np.array(e_alt)*620
+        ax.annotate('', xy=(2950 + ua[0], 400 + ua[1]), xytext=(2950, 400),
+                    arrowprops=dict(arrowstyle='->', color='green', lw=1.4))
+        ax.annotate('up', (2700, 330), fontsize=8, color='green')
         ax.set_title('%s  (alt %.1f deg, %d stars)' % (field, alt, len(px)), fontsize=10)
-        ax.set_xlim(0, NX); ax.set_ylim(0, NY); ax.set_aspect(1)
+        ax.set_xlim(0, NX); ax.set_ylim(NY, 0); ax.set_aspect(1)
         ax.set_xticks([]); ax.set_yticks([])
     for ax in axes.ravel()[len(sel):]:
         ax.axis('off')
     fig.suptitle('Bruns 2017 night calibrations at the eclipse-day pointings: residual '
                  'structure a calibration fit cannot absorb\n'
-                 '(cubic frozen, quadratic free; each vector decomposed into azimuth (x) and altitude (y) components; '
-                 'arrow scale identical to the Leon m3 maps)', fontsize=12)
+                 '(cubic frozen, quadratic free; arrows and positions both in SENSOR axes, north up '
+                 '(ROLL ~0.3 deg); green arrow = increasing altitude, which differs per '
+                 'pointing; scale identical to the Leon m3 maps)', fontsize=12)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, 'b17_m3_quiver_maps.png'), dpi=120)
     plt.close(fig)

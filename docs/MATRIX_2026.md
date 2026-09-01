@@ -714,6 +714,39 @@ mathematical form of what the Leon anchor demonstrated empirically.
   `matrix_bruns2017_brunsmethod/master009/` (a copy of the E2 stack in the convention of
   record), so the reduction's tree is self-contained.
 
+
+### Chart review round 5, and a frame error in the atmosphere maps (2026-09-01)
+
+**The maps were mixing two frames, and Douglas caught it from the instrument geometry.**
+Bruns' ROLL is ~0.25–0.38°, so his sensor is aligned to RA/Dec — north up — and the
+direction of increasing altitude in sensor axes is therefore the parallactic angle, which
+differs per pointing. Measured: **EC +153.7°, LC +145.3°, RC +162.8°** from sensor +y. The
+first version drew the same green "up" arrow on every panel, and worse, plotted the
+*alt/az decomposition* as the arrow components while leaving the star positions in sensor
+pixels — two different frames on one panel. Now matched to Leon's construction exactly:
+positions and arrows both in sensor axes, with each panel's green arrow along its own
+measured altitude direction. The alt/az decomposition remains what the **stats table**
+reports (it is how the V/H ratio is computed) — that part was always right.
+
+**Variants now on the charts** (all tables in `matrix_bruns2017_brunsmethod/`):
+
+| chart | cut | link | N | L (″) | total σ |
+|---|---|---|---|---|---|
+| `record_deflection` | G ≤ 10.5 | 7-star | 22 | **1.809 ± 0.067** | 0.182 |
+| `record_deflection_link14` | G ≤ 11 | 14-star | 27 | 1.764 ± 0.060 | 0.182 |
+| `record_deflection_g13` | G ≤ 13 | 14-star | 39 | 1.718 ± 0.086 | 0.195 |
+| `record_covariance`, `record_field` | G ≤ 11 | 14-star | 27 | 1.764 | 0.182 |
+
+The monotone drift with depth — 1.809 at G ≤ 10.5, 1.764 at 11, 1.718 at 13 — is the
+magnitude finding seen from a third angle: each fainter tranche pulls L down and widens
+the error, which is why the cut sits where it does.
+
+Also this round: `master009`/`master062` legends moved below the frame at px = 0; the
+earlier greyscale master009 recovered from git as `chart_versions/rev05_*`; the field
+chart's caption moved under the axis with both scale bars boxed; the covariance chart's
+method text boxed at bottom-left with the imported plate scale stated, its legend moved
+top-right.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive
