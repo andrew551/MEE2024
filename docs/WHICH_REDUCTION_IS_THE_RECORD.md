@@ -5,22 +5,36 @@ two of them are quoted. Anything not listed here is an experiment, not a result.
 
 ## The two numbers, and the chain that produced each
 
-### Cell 1 — Bruns 2017: **L = 1.720 ± 0.069 (stat) ± 0.105 (scale) ± 0.15 (atmosphere) ″**
+### Cell 1 — Bruns 2017: **L = 1.777 ± 0.065 (stat) ± 0.084 (scale) ± 0.15 (atmosphere) ″**
 
-Total σ ≈ 0.20. Bruns 2018 published 1.752 ± 0.060. GR at 0.16 σ; Newton excluded at 4.3 σ.
+Total σ ≈ 0.18. Bruns 2018 published 1.752 ± 0.060 — agreement to 0.025″ (0.4 σ).
+GR at 0.14 σ; Newton excluded at 4.9 σ.
+
+**Reduced by Bruns' own procedure** (his § quoted by Douglas, 2026-09-01): ONE 0.62 s
+master from all 34 EA+EB frames; the two close-in stars carried from the 0.09 s master by
+the seven-brightest-common-stars offset link (measured link se 0.08″); Method 1 with the
+imported bracket scale, no nuisance term (his method had none). The v-deg2 variant gives
+1.680 ± 0.081 and Method 2 gives 1.842 ± 0.116 (scale −9.5 ppm from imported), both
+reported alongside.
 
 | step | what | where |
 |---|---|---|
 | calibration | 15 night fields → cubic frozen; L and R8 refit, **Gaussian bg + footprint moments**; bracket mean 2.0867533 ″/px | `matrix_bruns2017_like2024/{L,R8}/stage2/` |
 | preprocessing | tier-mean blur-10px coronal subtraction, forbidden disk painted at the pedestal | `matrix_bruns2017/{EA,E2,EB}/preprocessed/` (shared) |
-| stage 1 + 2 | same convention; constant-only against the bracket | `matrix_bruns2017_like2024/{EA,E2,EB}/` |
-| stage 3 | the union estimator (**tools, not the program** — see F27) | `tools/matrix_bruns/b17_like2024.py` |
+| the 0.62 s master | all 34 EA+EB frames, one stack; constant-only against the bracket (39 matched, rms 0.4993″) | `matrix_bruns2017_brunsmethod/master062/` |
+| the 0.09 s master | the E2 stack in the same convention | `matrix_bruns2017_like2024/E2/` |
+| the link + the fit | Bruns' 7-star offset + Method 1 (**tools, not the program** — F27) | `tools/matrix_bruns/b17_bruns_method.py` |
 | atmosphere term | 22 constant-only night nulls, consecutive same-night pairs | `tools/matrix_bruns/b17_atmosphere2.py`, `matrix_bruns2017_atmosphere3/` |
 
-**Graphical output**
-* summary charts (**the ones that match 1.720**): `matrix_bruns2017_like2024/record_deflection.png`, `record_field.png`, `record_covariance.png`
-* the program's own plots, per tier and per calibration field (32 files): `matrix_bruns2017_like2024/*/CENTROID_OUTPUT*/` — `CentroidsStackGood`, `CentroidsALL`, `USEDSTARS`, `TWOD_RESIDUALS`, `triangle_matches`; and `*/stage2/DISTORTION_OUTPUT*/` — `Distortion_field.png`, `Error_graphs.png`
-* the M3-style atmosphere maps: `matrix_bruns2017_m3/b17_m3_quiver_maps.png`, `b17_m3_stats.csv`
+**Graphical output — start at `RECORDruns2017\`** (a copy of the summary set lives
+there precisely so it can be found):
+* summary charts: `RECORD/bruns2017/record_deflection.png`, `record_field.png`,
+  `record_covariance.png` (originals beside the reduction in
+  `matrix_bruns2017_brunsmethod/`), plus the star table `bruns_method_star_table.csv`
+* the program's own plots: `matrix_bruns2017_brunsmethod/master062/CENTROID_OUTPUT*/` and
+  `master062/stage2/DISTORTION_OUTPUT*/`; the calibration fields under
+  `matrix_bruns2017_like2024/{L,R8}/`
+* the M3-style atmosphere maps: `RECORD/bruns2017/atmosphere_night_maps.png`
 
 ### Cell 3 — Leon 2026: **L = 1.98 ± 0.60 (stat) ± 0.33 (atmosphere) ″**
 
@@ -46,6 +60,7 @@ comparable.
 | tree | what it was | why not quoted |
 |---|---|---|
 | `matrix_bruns2017/` (windowed) | the first cell-1 reduction, L = 1.556 | superseded by the convention ruling; its two charts are renamed `SUPERSEDED_windowed_1.556_*` |
+| `matrix_bruns2017_like2024/{EA,EB}` per-tier | the like-2024 convention with EA/EB stacked separately, L = 1.720 | superseded 2026-09-01: Bruns stacked all 0.62 s frames as ONE master and linked the inner pair in, so the record now follows his procedure (`_brunsmethod/`) |
 | `matrix_bruns2017_moment/` | rollback attempt 1 | mis-designed — turned the sensitive flag off, giving a different detector |
 | `matrix_bruns2017_gate/`, `step3_gate/` | mask-as-gate rerun | preserving the saturated core created a high-variance patch; detections collapsed |
 | `matrix_bruns2017_modelfix/`, `step3_modelfix/` | masked-blur rerun | stopped part-way, superseded by the pipeline-path attempt |
