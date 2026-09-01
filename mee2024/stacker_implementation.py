@@ -1042,12 +1042,33 @@ def subtract_coronal_background(img, options):
 
     The pedestal exists because the result is negative wherever the frame was below its
     own blur, and the stack is written as unsigned integers unless `float_fits` is set.
+
+    **The blur is masked**, which is the whole difficulty. Blurring the frame as it stands
+    puts the saturated core's plateau into the model, so for a few tens of pixels outside
+    the core the model is still near full scale while the frame has already dropped to the
+    corona -- and the subtraction then cuts a ring of badly over-subtracted pixels exactly
+    where the inner stars are. It is ~3 sigma (30 px at the default) wide, so a forbidden
+    disk that clears the core by 10-20 px leaves part of it exposed, which is where fake
+    detections were found clustering. Estimating the model from unsaturated pixels only,
+
+        model = blur(img * valid) / blur(valid)
+
+    makes it follow the true coronal trend to the edge of the core instead. Measured on
+    the Bruns 2017 frames: stacked sky sigma 2385 ADU the naive way against 66 this way.
+    Where `valid` is empty over a whole kernel -- deep inside the core -- the model falls
+    back to the saturation level, so the result there is the pedestal rather than a
+    divide-by-almost-zero.
     """
     sigma = float(options.get('coronal_subtract_sigma_px', 10.0))
     pedestal = float(options.get('coronal_pedestal_adu', 2000.0))
     k = int(max(3, round(sigma * 6))) | 1          # odd kernel, ~6 sigma wide
-    blur = cv2.GaussianBlur(img.astype(np.float32), (k, k), sigma)
-    return img - blur + pedestal
+    f = img.astype(np.float32)
+    sat_val = np.float32(f.max() * (options.get('blob_saturation_level', 100) / 100.0))
+    valid = (f < sat_val).astype(np.float32)
+    num = cv2.GaussianBlur(f * valid, (k, k), sigma)
+    den = cv2.GaussianBlur(valid, (k, k), sigma)
+    model = np.where(den > 0.05, num / np.maximum(den, np.float32(1e-9)), sat_val)
+    return img - model + pedestal
 
 
 def mask_bright_object(img, raw, options):

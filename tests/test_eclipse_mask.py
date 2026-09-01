@@ -107,15 +107,19 @@ def test_no_saturated_object_means_no_mask():
 
 
 def test_mask_geometry_is_read_from_the_raw_frame():
-    """After coronal subtraction the core is no longer at full scale, so the mask has to
-    be measured on the raw frame or it silently stops finding the Sun at all."""
+    """Saturation is a statement about the sensor, so the mask is measured on the raw
+    frame. Coronal subtraction rescales everything and moves the apparent full-scale
+    level, so reading the geometry off the subtracted frame gives a different -- and
+    wrong -- disk even when it finds one at all."""
     raw = frame_with_saturated_disc()
     subtracted = si.subtract_coronal_background(raw, opts(coronal_subtract=True))
-    assert subtracted.max() < 65535 * 0.95     # the premise: no longer saturated
     _, paint_raw, _ = si.mask_bright_object(subtracted, raw, opts())
     _, paint_self, _ = si.mask_bright_object(subtracted, subtracted, opts())
     assert paint_raw.any()
-    assert not paint_self.any()
+    # the raw-measured disk covers the true saturated core
+    assert (raw[paint_raw] >= 65535).sum() >= (raw >= 65535).sum() * 0.99
+    # the self-measured one is materially different -- it is not the same mask
+    assert abs(int(paint_self.sum()) - int(paint_raw.sum())) > 0.1 * paint_raw.sum()
 
 
 def test_coronal_subtraction_flattens_a_steep_gradient():
@@ -132,6 +136,29 @@ def test_coronal_subtraction_flattens_a_steep_gradient():
     after = out[ring].std()
     assert after < before / 20, f'gradient not flattened: {before:.0f} -> {after:.0f} ADU'
     assert abs(np.median(out[ring]) - 2000.0) < 60      # sits on the pedestal
+
+
+def test_coronal_subtraction_does_not_carve_a_ring_outside_a_saturated_core():
+    """The defect that put fake detections on the mask perimeter.
+
+    Blurring the frame with the saturated core included leaves the model near full scale
+    for ~3 sigma outside the core, so the subtraction digs a trench there -- right where
+    the inner stars are, and wider than the forbidden disk's margin. The masked blur must
+    hand back a flat background all the way to the core's edge.
+    """
+    yy, xx = np.mgrid[0:SHAPE[0], 0:SHAPE[1]]
+    r = np.hypot(yy - CENTRE[0], xx - CENTRE[1]) + 1.0
+    img = 1000.0 + 4.0e6/r**2
+    img[r <= CORE_R] = 65535.0                      # the saturated core
+    out = si.subtract_coronal_background(img, opts(coronal_subtract=True))
+    # just outside the core, the background must sit at the pedestal, not in a trench
+    for lo, hi in ((CORE_R + 5, CORE_R + 20), (CORE_R + 20, CORE_R + 50),
+                   (CORE_R + 50, CORE_R + 100)):
+        ring = (r > lo) & (r < hi)
+        med = float(np.median(out[ring]))
+        assert abs(med - 2000.0) < 250, (
+            'ring %.0f-%.0f px outside the core sits at %.0f ADU, not the 2000 pedestal'
+            % (lo, hi, med))
 
 
 def test_coronal_subtraction_keeps_a_star_measurable():

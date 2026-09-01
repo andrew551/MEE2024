@@ -1148,6 +1148,51 @@ larger job than one feature — it wants the union/vet/rematch as a stage-2.5 an
 nuisance as a stage-3 option — but the gap should be named rather than discovered later.
 Related: stage 3 still ignores `flag_is_outlier` (§2), which is the same class of problem.
 
+### F28 — A two-pass coronal model, so the pipeline can replace the tool chain
+
+`coronal_subtract` (F26) builds its model from **one frame at a time**, because
+`open_img_and_preprocess` sees one frame at a time. The analysis tools build theirs from
+the **tier mean**, which carries √N less noise and leaves far less residual structure near
+the Sun. Measured on Bruns EA, raw frames straight through the pipeline: **99 detections
+ungated, 22 after the disk gate — too few to plate solve**, against 38 from the tool chain
+with the same convention. The difference is not the gate (which is right) but the model.
+
+Until this is closed the pipeline cannot replace `tools/step3_s0_v4.py` and
+`tools/matrix_bruns/b17_s0.py` for an eclipse field, and that matters beyond convenience:
+**a result the exe cannot reproduce is not a released capability** (`CLAUDE.md`, "the
+executable is the product"). It is also what forces the reductions of record to keep the
+mask off, which is what lets rim artefacts into the alignment (below).
+
+The shape of the fix: stage 1 already walks every frame once for alignment. A first pass
+can accumulate the unshifted mean, and the masked blur of that mean becomes the model for
+the second pass. Costs one extra read per frame.
+
+### F29 — Rim artefacts reach the alignment whenever the mask is off
+
+Douglas, 2026-09-01: "a lot of fake stars at the circular boundary are being used for
+stacking. That does not look like a good idea."
+
+Confirmed. `open_img_and_find_centroids` filters per-frame centroids through `mask2`, but
+with `delete_saturated_blob=False` — which every reduction of record uses, because the
+disk is painted at tool level instead — `mask2` is all zeros and nothing is filtered. The
+artefacts left around the painted rim therefore enter the centroid list that drives the
+alignment, and because the tool paints at one fixed pixel position for the whole tier they
+sit at fixed **detector** coordinates while real stars dither with the sky. They behave
+like hot pixels, pulling the fitted shift toward zero, and the alignment's loss is a plain
+least squares with no robustness.
+
+Measured on Bruns EA: **0.8 rim detections per frame against 12.8 real ones**, about one in
+fourteen of the alignment's input.
+
+Impact is bounded, and it is F23's class of problem rather than a new one: the displacement
+is per *frame*, not per star, so relative astrometry is not biased — what moves is the
+effective stacked PSF, which flips marginal detections and changes the star sample. That is
+a sample-selection effect of the same size F23 measured (7 % on rms, 0.3 ppm on scale).
+
+Two ways out, in order of preference: close F28 so the mask can simply be left on; or, for
+the tool chain as it stands, pass the painted radius into stage 1 so `mask2` is populated
+even when the pipeline is not doing the masking.
+
 ## 3a. External sources, and what they do and do not settle
 
 Three documents in `I:\Papers` constrain this work and were not previously cited anywhere in
