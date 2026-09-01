@@ -677,6 +677,18 @@ Notes that came out of building the table:
   series means; our frames were preprocessed per tier (17+17+11) before the master was
   stacked. Same exposure 51 s apart — the models differ negligibly.
 
+**Verified against the source (2026-09-01)**: Douglas pointed at the F&L 1944 paper
+itself (`I:\Papers\The problem of an accurate determination of the relativistic light
+deflection.pdf`), and the three equation usages in the table check out: eq (23) is the
+imported-scale propagation ("its standard deviation multiplied by h does not give rise to
+an uncertainty in L which surpasses the preassigned limit" — our δL = h·R⊙·δS); eq (20)
+is the weight of L with the scale imported, dominated by the n·h⁻¹ term (Bruns' 3.1 %
+star error and our fit covariance are the same construction); eq (12) is the weight with
+the scale fitted simultaneously — Method 2 — carrying the smaller ½(κ⁻¹ − h⁻¹) term,
+which is why both his and our Method-2 errors are larger. F&L's own remark under (23),
+that the weight "is very sensitive to any asymmetry in the star field", is the
+mathematical form of what the Leon anchor demonstrated empirically.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive
