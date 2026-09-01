@@ -26,7 +26,7 @@ reported alongside.
 | the link + the fit | Bruns' 7-star offset + Method 1 (**tools, not the program** — F27) | `tools/matrix_bruns/b17_bruns_method.py` |
 | atmosphere term | 22 constant-only night nulls, consecutive same-night pairs | `tools/matrix_bruns/b17_atmosphere2.py`, `matrix_bruns2017_atmosphere3/` |
 
-**Graphical output — start at `RECORDruns2017\`** (a copy of the summary set lives
+**Graphical output — start at `RECORD/bruns2017\`** (a copy of the summary set lives
 there precisely so it can be found):
 * summary charts: `RECORD/bruns2017/record_deflection.png`, `record_field.png`,
   `record_covariance.png` (originals beside the reduction in
