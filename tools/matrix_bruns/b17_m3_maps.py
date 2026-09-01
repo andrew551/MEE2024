@@ -167,10 +167,21 @@ if maps:
     ncol = 6
     nrow = int(np.ceil(len(sel)/ncol))
     fig, axes = plt.subplots(nrow, ncol, figsize=(4.2*ncol, 3.2*nrow))
-    scale = 4.0
+    # Arrow scale IDENTICAL to Leon's m3_quiver_maps (tools/refraction/m3_maps.py:
+    # scale=0.0018, i.e. one arcsec of residual draws as ~556 px), with the same crimson
+    # 1-arcsec reference arrow and green increasing-altitude arrow in every panel, so the
+    # two figures compare side by side at a glance -- Douglas' request. The old
+    # 'arrow length x250' annotation is gone with the old scale.
+    LSCALE = 0.0018
     for ax, (field, px, py, va, vz, alt) in zip(axes.ravel(), sel):
-        ax.quiver(px, py, vz, va, angles='xy', scale_units='xy', scale=scale/1000.0,
-                  width=0.005, color='tab:blue')
+        ax.quiver(px, py, vz, va, angles='xy', scale_units='xy', scale=LSCALE,
+                  width=0.004, color='tab:blue')
+        ax.quiver([260], [2150], [1.0], [0.0], angles='xy', scale_units='xy',
+                  scale=LSCALE, width=0.006, color='crimson')
+        ax.annotate('1"', (300, 2260), fontsize=8, color='crimson')
+        ax.annotate('', xy=(180, 2000), xytext=(180, 1720),
+                    arrowprops=dict(arrowstyle='->', color='green'))
+        ax.annotate('up', (60, 1830), fontsize=8, color='green', rotation=90)
         ax.set_title('%s  (alt %.1f deg, %d stars)' % (field, alt, len(px)), fontsize=10)
         ax.set_xlim(0, NX); ax.set_ylim(0, NY); ax.set_aspect(1)
         ax.set_xticks([]); ax.set_yticks([])
@@ -178,8 +189,8 @@ if maps:
         ax.axis('off')
     fig.suptitle('Bruns 2017 night calibrations at the eclipse-day pointings: residual '
                  'structure a calibration fit cannot absorb\n'
-                 '(cubic frozen, quadratic free; vectors in alt-az, arrow length x%.0f)'
-                 % (1000/scale), fontsize=12)
+                 '(cubic frozen, quadratic free; each vector decomposed into azimuth (x) and altitude (y) components; '
+                 'arrow scale identical to the Leon m3 maps)', fontsize=12)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, 'b17_m3_quiver_maps.png'), dpi=120)
     plt.close(fig)
