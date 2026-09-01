@@ -161,8 +161,12 @@ R = pd.DataFrame(rows)
 R.to_csv(os.path.join(OUT, 'b17_m3_stats.csv'), index=False)
 
 if maps:
-    sel = maps[:9]
-    fig, axes = plt.subplots(3, 3, figsize=(15, 11))
+    # ALL fields (Douglas 2026-09-01: the first version sampled nine of the 28 and the
+    # RECORD copy looked like fields had gone missing)
+    sel = maps
+    ncol = 6
+    nrow = int(np.ceil(len(sel)/ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(4.2*ncol, 3.2*nrow))
     scale = 4.0
     for ax, (field, px, py, va, vz, alt) in zip(axes.ravel(), sel):
         ax.quiver(px, py, vz, va, angles='xy', scale_units='xy', scale=scale/1000.0,
@@ -177,7 +181,7 @@ if maps:
                  '(cubic frozen, quadratic free; vectors in alt-az, arrow length x%.0f)'
                  % (1000/scale), fontsize=12)
     fig.tight_layout()
-    fig.savefig(os.path.join(OUT, 'b17_m3_quiver_maps.png'), dpi=140)
+    fig.savefig(os.path.join(OUT, 'b17_m3_quiver_maps.png'), dpi=120)
     plt.close(fig)
 
 if len(R):
