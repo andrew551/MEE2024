@@ -627,6 +627,56 @@ Daytime convective turbulence is generally worse than night at the same altitude
 is a **best case** for the eclipse-day atmosphere at this geometry — which is exactly what
 Douglas asked for, and it is the number a 2027 site should be judged against.
 
+
+### Bruns 2018 against this reduction, number for number (2026-09-01)
+
+Douglas asked for the full table. Every row is his published figure against ours from the
+same variant of the same data (`tools/matrix_bruns/b17_bruns_comparison.py`):
+
+| quantity | Bruns 2018 | this reduction | agreement |
+|---|---|---|---|
+| Method 1, close-in pair IN | **1.752** (± 3.4 %) | **1.777 ± 0.064 (stat)** | 0.025″ = 0.4 σ |
+| Method 1, close-in pair OUT | 1.731 (± 4.1 %) | 1.705 ± 0.071 | 0.026″; both DROP without the pair |
+| Method 2 (scale free), pair IN | 1.86 (± ~4 %) | 1.842 ± 0.105 | 0.018″ |
+| Method 2, pair OUT | 1.711 (± ~8 %) | 1.768 ± 0.164 | 0.057″, well inside errors |
+| star-fit error in L | 0.088″ = 3.1 % (his eq-20) | 0.064″ boot / 0.067″ analytic = 3.7–3.8 % | same class |
+| plate-scale error in L | 3.34 ppm → 1.23 % (his moment formula) | 10.3 ppm (HC3) → 4.8 %; **at his 3.34 ppm we get 1.6 %** | the known ×3 reported-vs-honest factor |
+| effect of dropping the pair on the error | +21 % (3.4 → 4.1 %) | +7 % (0.184 → 0.197 total) | same direction |
+| roll parameter | not fitted ("only … L and simple RA and Dec offsets") | fitted; removing it moves L by **−0.002″** | immaterial either way |
+| stars used | 18 + 2 close-in, hand-vetted ("several stars were eliminated because of very poor fits or nearby stars") | 25 + 2, rule-based (G ≤ 11, doubles at 10″ dropped, blends dropped, R > 1.45 R⊙) | rule vs hand; see the outlier note |
+
+Notes that came out of building the table:
+
+* **The close-in pair pulls L up in both analyses** (ours +0.072″, his +0.021), and both
+  Method-2 values land within hundredths of each other's. Four variants, two analyses
+  nine years apart, one consistent picture.
+* **The rotation term answers Douglas' question about roll**: Bruns did not fit one, we
+  do, and the difference is −0.002″ — the constant-only stage 2 has already fixed the
+  orientation, so the estimator's Θ has almost nothing to absorb.
+* **The 7-star link scanned from N = 3 to 14** (14 common stars exist): the link se is
+  essentially flat, 0.13″ at N = 3, 0.107″ at Bruns' 7, best 0.098″ at 14, with a bump
+  at N = 9 where a discrepant faint star enters. Moving 7 → 14 shifts the pair by
+  −0.05 px in x — and because the two stars sit on opposite sides of the Sun the shift
+  nearly cancels in L. **The link choice is L-neutral at the 0.01″ level; 7 stays, as
+  Bruns had it.**
+* **The r ≈ 4.7 outlier is G 10.64 at px (3012, 108)**: radial +0.147″ vs GR's 0.374,
+  tangential −0.171″. Forensics: NOT a double (no catalogue neighbour to G 13 within
+  30″), not near coronal structure — it is simply faint (area 3 px, the smallest
+  footprint in the table) and in the field corner where the PSF is worst. Its tangential
+  error is as large as its radial one, which is the signature of noise, not of deflection
+  physics. Bruns would likely have hand-eliminated it ("very poor fits"); our rule keeps
+  it, which costs symmetric noise rather than bias.
+* **The tangential column is why the old field chart looked wrong**: tangential rms is
+  0.114″ against a radial-about-fit rms of 0.085″. The earlier arrows pointed exactly
+  outward because the chart projected onto the radial direction before drawing — an
+  artifact of the plotting, now fixed (full vectors drawn, lengths asserted at runtime).
+* **The blur subtraction is exactly Bruns' method and still in use**: his "averaged
+  without translations, then a 10-pixel wide Gaussian blur … subtracted from all of the
+  individual ECLIPSE images" is our preprocessing verbatim (plus a +2000 ADU pedestal for
+  unsigned output). One small difference, recorded: he blurred the 34-frame and 11-frame
+  series means; our frames were preprocessed per tier (17+17+11) before the master was
+  stacked. Same exposure 51 s apart — the models differ negligibly.
+
 ### Appendix — every parameter in effect (cell 1)
 
 The CLI merges `--set` overrides ON TOP of the operator's interactive
