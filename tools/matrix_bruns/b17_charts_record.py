@@ -1,5 +1,10 @@
 """The summary chart set for cell 1's reduction of record (L = 1.777).
 
+Tenth revision (2026-09-01, while building the Leon copy): the field chart's arrows
+were drawn 2.087x too long relative to their own scale bar -- sensor_vec_to_sky
+multiplied arcseconds by the plate scale. Fixed and asserted at runtime; nothing
+else changes, and no number changes (the arrows are drawing, not fitting).
+
 Eighth revision (Douglas' fifth chart review, 2026-09-01). This round: the record
 deflection chart moves to G <= 10.5; the covariance, field and G13 charts move to the
 14-star link; the master images get their legends below the frame; and the layout notes
@@ -38,7 +43,7 @@ from matplotlib.patches import Circle, Ellipse, Polygon, FancyBboxPatch
 OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
 VER = os.path.join(OUT, 'chart_versions')
 os.makedirs(VER, exist_ok=True)
-REV = 'rev09'
+REV = 'rev10'
 RAWDIR = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
 PS, NX, NY = 2.0868004, 3296, 2472
 R_SUN_AS = 948.7
@@ -74,8 +79,20 @@ def px_to_sky(px, py):
 
 
 def sensor_vec_to_sky(dx_as, dy_as):
-    v = Minv @ np.vstack([dx_as/PS, dy_as/PS])
-    return v[0]*3600*PS, v[1]*3600*PS
+    """Sensor-axis displacement (arcsec) -> sky displacement (arcsec of RA*cos(dec), Dec).
+
+    Revision 10: this returned v*3600*PS, i.e. arcsec multiplied by the plate scale, so
+    every arrow on the field chart was drawn 2.087x longer than the "1 arcsec" bar beside
+    it (the runtime assertion only checked that arrows stayed inside the axes, not their
+    scale). Found while copying the construction for Leon; the round-trip check below
+    now fails the script if a unit sensor displacement does not come back as one arcsec.
+    """
+    v = Minv @ np.vstack([np.asarray(dx_as, float)/PS, np.asarray(dy_as, float)/PS])
+    return v[0]*3600, v[1]*3600
+
+
+_rt = np.hypot(*sensor_vec_to_sky(np.array([1.0]), np.array([0.0])))[0]
+assert abs(_rt - 1.0) < 0.01, 'a 1 arcsec sensor displacement maps to %.3f arcsec' % _rt
 
 
 def load(name):

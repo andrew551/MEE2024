@@ -31,6 +31,13 @@ Chart rules learned the hard way this session, all of which the implementation m
 * **state the variant in the title** (magnitude cut, link size) — a chart that does not
   say which fit it describes gets quoted as the wrong number;
 * **every chart writes a versioned copy**; superseded versions are never deleted.
+* **arrow lengths are asserted against their own scale bar, not only against the axes.**
+  Found 2026-09-01 while copying the construction for Leon: the Bruns field chart's
+  sensor-to-sky conversion returned arcseconds multiplied by the plate scale, so every
+  arrow was drawn 2.087× longer than the "1 arcsec" bar beside it, through nine
+  revisions of review. The in-axes assertion could not see it. Revision 10 fixes it and
+  asserts that a unit sensor displacement round-trips to one arcsec of sky; the Leon
+  chart carries the same assertion from its first revision.
 
 ## 2. The atmospheric error floor
 
@@ -129,3 +136,58 @@ Bruns 2018 published **1.752 ± 0.060**. Every variant agrees within 0.05″.
 3. **F28** blocks the pipeline path from replacing the tool chain: the per-frame coronal
    model leaves too few stars to plate solve. Until it is closed these results cannot be
    reproduced from the exe.
+
+## 6. The Leon 2026 processing settings, as run (added 2026-09-01)
+
+Reduction of record: the tool chain of `docs/STEP3_2026.md`, tables and charts in
+`D:\MEE2024 output\MEE_output\step3_record\`, copied into `RECORD/leon2026/`.
+
+**Stage 1** (CAL_piLeo and the four science tiers alike; `step3_s0_v4.py`,
+`cal_pileo_step2/canonical_16f_night2refs`):
+
+```
+sensitive_mode_stack=True        centroid_gaussian_subtract=True
+centroid_gaussian_thresh=4.0     min_area=2          sigma_subtract=0.0
+centroid_refine_window=True      centroid_window_sigma=2.0
+background_subtraction_mode=annular
+delete_saturated_blob=False      remove_edgy_centroids=True
+```
+
+`annular` + `centroid_refine_window=True` is Leon's convention. The estimator choice is
+per-instrument on purpose: Leon's optics show a brightness-dependent centroid bias of
+172–299 mas beyond r = 2500 px in twelve zenith fields out of twelve
+(`docs/LEON_2026-08-11.md` §18.3), which the windowed estimator removes. The background
+mode was an inherited default until the A/B of 2026-09-01 (`tools/step3_background_ab.py`,
+`step3_bg_ab/`) measured it on Leon alone; see `docs/STEP3_2026.md` for the numbers.
+
+**Preprocessing** (tool-level, `step3_s0_blursub.py` then `step3_s0_v4.py`): per-tier
+unshifted mean, 10 px Gaussian blur, subtracted per frame, +2000 ADU pedestal; saturated
+pixels dilated 10 px and painted; forbidden disk at max(1.25 R⊙, tier 99th-percentile
+saturation radius + 20 px) → 0.1 s 632, 0.3 s 699, 0.6 s 756, 1.2 s 821 px (the record
+was measured at margin 20; the margin is 10 in the current tool), centred on the
+ephemeris Sun (3171, 3232).
+
+**Stage 2**: `--order cubic`, six 08-12 zenith references frozen at
+`distortion_fixed_coefficients=quadratic` for CAL_piLeo (`distortion_fit_tol=1.0`,
+imported scale **2.2054043 ″/px**, 74 stars, rms 0.5318 ″, observation_time 18:29:35);
+the science tiers `distortion_fixed_coefficients=constant` against that CAL result,
+`distortion_fit_tol=2.0`, `max_star_mag_dist=13`, `rough_match_threshhold=36`,
+corrections ON; site 42.740470 N, −5.613780 E, 1101 m; CAL 30.5 °C / 896.6 hPa, science
+29.2 °C / 896.7 hPa, humidity 0.208, λ 0.62 µm; tier mid-times 0.1 s 18:28:32, 0.3 s
+18:28:34, 0.6 s 18:28:33, 1.2 s 18:28:32.
+
+**Stage 3 / estimator** (`tools/step3_s2_union.py`, the union of the 0.6 s and 1.2 s
+tiers): Gaia G ≤ 11, epoch 2026.61, refraction/aberration corrected per tier time;
+doubles dropped at 10 ″; blends dropped; gates 8 ″ (offset pass) then 4.5 ″ (collect — it
+must exceed the anchor's 2.4–2.9 ″ physical displacement); per-star median across
+tiers; cross-tier vet at 3×MAD with a 1.5 ″ floor (it removes G 9.10); R > 2 R⊙ about
+(3171, 3232); Method 1 with the imported scale; **vertical-deg-2 nuisance on** (the S1
+gate's verdict); the below-Sun anchor G 7.71 at 2.17 R⊙ in; 200-star bootstrap, seed 3.
+
+**Error decomposition, matching cell 1's**: stat from the bootstrap; **scale** = the
+CAL_piLeo HC3-class 25 ppm × the leverage measured by injecting a 1 ppm uniform scale
+error into this field's geometry with this estimator (0.0278 ″/ppm with the nuisance;
+naive eq-23 h·R⊙ gives 0.0257); **atmosphere** = the S1 gate's max over the three M5
+night windows (±0.33), with the cell-1 statistic (rms over windows, ±0.22) stated beside
+it. The scale term had been left out of the quoted Leon headline; it is the largest term.
+
