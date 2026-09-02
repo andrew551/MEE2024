@@ -95,6 +95,20 @@ filled in:
   Quote the total, report the decomposition beside it, and do not subtract the floor — it
   is measured on one instrument at one focus with corrections off.
 
+**The floor is angular, not a sampling artefact, and the magnitude cut is what mixes
+photon noise into it** (`tools/floor_vs_sampling.py`). Binning the same residuals by
+magnitude splits the structure from the noise, because structure displaces bright and faint
+stars alike while centroid noise does not. At G 8-10 the three floors agree to 1.4x in
+ARCSEC (Leakey 0.072, Leon 0.068, Bruns 0.052) and spread 2.5x in PIXELS (0.063, 0.031,
+0.025) — so it is an angle, and Leakey's 1.9x finer sampling buys nothing. At the G ≤ 11
+science cut, though, Bruns' number is about half his own faint-star noise (0.100 against a
+0.052 structure floor; faint/bright 2.88, he being the one undersampled instrument at
+1.64 px FWHM) while Leon's is untouched (0.067 against 0.068, faint/bright 0.97). **So the
+G ≤ 11 column is not a structure ordering** — at the bright end it reverses to Bruns <
+Leon ≈ Leakey. Keep the G ≤ 11 cut, because the budgets are computed at it, and read the
+bright-end column beside it. The nulls already price each instrument's own photon noise in
+their bootstrap floors.
+
 **Two instruments now anchor the zenith row** (`tools/leakey_zenith_floor.py`): Leon's
 FRA500 gives 0.067″ and ±0.12″, Leakey's Askar 65PHQ at another site in another year gives
 0.078″ and ±0.12″, both isotropic. A zenith floor measured on one instrument may therefore
