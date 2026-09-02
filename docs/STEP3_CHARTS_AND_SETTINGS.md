@@ -74,10 +74,11 @@ Measured results, for reuse as reference values:
 |---|---|---|---|---|---|---|---|
 | Leon 2026 zenith | alt 79–83° | 12 | **0.067″** (0.058–0.075) | 0.048″ | 0.046″ | 1.1 | **±0.12″** one-sided |
 | Leakey 2024 zenith | alt 79–88°, a second instrument | 21 | **0.078″** (0.035–0.212) | 0.050″ | 0.059″ | 0.9 | **±0.12″** one-sided |
+| Station 1 (Mexico 2024) zenith | z 1–3°, ASI6200MM full frame, 2024 moments | 17 | **0.076″** (0.070–0.085) | 0.047″ (sensor y) | 0.061″ (sensor x) | — | **±0.30″** Method 1 one-sided (±0.21″ sans the 45 ppm event); **±0.10″ Method 2** |
 | Bruns 2017 night | alt 53–55°, the eclipse-day pointings | 29 | **0.100″** (0.041–0.175) | 0.072″ | 0.068″ | 1.1 | **±0.150″** one-sided, **±0.059″ R-E-L bracketed** |
 | Leon 2026 horizon | alt 8.5–12.4°, the eclipse geometry | 9 | **0.260″** (0.177–0.350) | 0.240″ | 0.098″ | 2.4 | ±0.33″ one-sided |
 
-Built by `tools/step3_atmosphere_table.py` and `tools/step3_zenith_floor.py`. **Every
+Built by `tools/step3_atmosphere_table.py`, `tools/step3_zenith_floor.py` and, for Station 1, `tools/matrix_station1/s1_zenith_floor.py` (consecutive-field pairs with the 2024 corrections flags matched — see the −163 ppm trap in `STEP3_2026.md` §"Cell 2 opened"). **Every
 campaign needs a zenith row**, for two reasons that only became clear once Leon's was
 filled in:
 

@@ -8,7 +8,7 @@ the accusation of manipulation. The convex-hull blob retires when this passes.
 | cell | data | calibration geometry | known answer |
 |---|---|---|---|
 | 1. Bruns 2017 (Casper, WY) | `I:\2017 eclipse images Don Bruns\2017 Eclipse images\eclipse` | L/R bracket (±7.4° both sides) | Bruns 2018: GR to ~3 % |
-| 2. Mexico 2024 (Station 1) | `G:\Mexico April 2024\Station-1-Eclipse-Data` | pure Method 2 | GR-consistent (v1.3.x) |
+| 2. Mexico 2024 (Station 1) | `G:\Mexico April 2024\Station-1-Eclipse-Data` | pure Method 2 — opened 2026-09-02: zenith floor 0.076″, Method-2 null ±0.10″, moment bias worth 0.011″ | GR-consistent (2024: 1.854 on 74 stars; eclipse scale −600 ppm from the zenith, Method 1 impossible) |
 | 3. Leon 2026 | done — `docs/STEP3_2026.md` | one-sided CAL_piLeo | L = 1.914 ± 0.637 (stat) ± 0.675 (scale) ± 0.33 (atm) ″ — scale term added 2026-09-01, two-witness rule adopted 2026-09-02 |
 | 4. Portland moon 2026-07-29 | `J:\Eclipse data\Toby Portland data\2026-07-29` | Moon-centric solver | **L = 0** (null check) |
 
@@ -848,3 +848,28 @@ carry the eclipse field; the 0.1 s tier's unique annulus yielded nothing, its in
 recovery is no better than the 0.3 s tier's, and Leon had no bright star close in for the
 short tiers to reach. The full four-tier union (2.58 ± 0.60, or 2.21 after the G 12
 hygiene) is drawn as a cross-check chart, not quoted.
+
+## Cell 2 — Mexico 2024 (Station 1), opened 2026-09-02
+
+Full record in `docs/STEP3_2026.md` §"Cell 2 opened". Tools in `tools/matrix_station1/`;
+outputs in `D:\MEE2024 output\MEE_output\station1_record\`. Measured on the 2024-era
+archives, since the raw zenith frames are not on this machine (only ASICap sidecars in
+`C:\Users\dpesm\Cloud-Drive\Station1Preliminary\Zenith\Zenith\`); the raw eclipse frames
+are on `G:`.
+
+| measurement | result |
+|---|---|
+| §18.3 moment bias (17 zenith fits) | radial only, +3/+12/+22/+31/+10 mas/mag by radius bin, 17/17 same sign, bright inward, −34 mas beyond 2500 px (Leon +299) |
+| worth in L through Station 1's geometry | Method 1 −0.035″, **Method 2 −0.011″** (dS −1 ppm); 5× → −0.057″ |
+| quasi-static floor (quadratic free) | **0.076″** (0.070–0.085), sensor x 0.061″ / y 0.047″ |
+| null, Method 1 vertical-deg-2 | ±0.30″ (16 pairs), ±0.21″ without the +45 ppm event |
+| **null, Method 2** | **±0.10″** (photon floor 0.026″); the 45 ppm event alone cost 0.19″ |
+| corrections mismatch (first pass) | −163 ppm self-null; Method 1 −3.9″ in every pair, Method 2 absorbed it exactly |
+| eclipse field, Method 1 | +15.9″ — the eclipse scale is −600 ppm from the zenith mean (daytime refocus + 5 °C) |
+| eclipse field, Method 2 isotropic | 1.677 ± 0.278″ (base), 1.815 ± 0.287″ (vertical-deg-2), S +599 ppm, 156 stars, rms 0.39″/axis |
+| anisotropy test | Sy − Sx = +10 ± 16 ppm, skew +8 ± 6 ppm, ΔL −0.009″ — one isotropic S is enough |
+
+Strategy adopted: Method 2 with the pipeline's isotropic S; windowed + annular for the
+eclipse re-stack, verified by a 2 × 2 on the eclipse stack; the 2024 moment quintic kept
+until the raw zenith frames are found; corrections flags matched on import and checked by a
+zenith null; the first task of the reduction is the frozen-cubic-at-a-different-focus test.
