@@ -30,7 +30,16 @@ Chart rules learned the hard way this session, all of which the implementation m
   alt/az decomposition as arrow components over sensor-pixel positions;
 * **state the variant in the title** (magnitude cut, link size) — a chart that does not
   say which fit it describes gets quoted as the wrong number;
-* **every chart writes a versioned copy**; superseded versions are never deleted.
+* **every chart writes a versioned copy**; superseded versions are never deleted;
+* **draw the field chart in the frame the physics lives in.** Leon's moved to alt/az
+  (2026-09-02): the instrument sits 3.6° from that frame, so the footprint comes out
+  nearly axis-aligned and the chart's vertical axis is the direction the atmosphere is
+  polarised along, which is what the nuisance-in view exists to show. RA/Dec hid it at a
+  45° roll. Bruns' chart stays in RA/Dec because his ROLL is ~0.3° and the two frames
+  coincide there;
+* **annotate an outlier with the evidence, not just the sigma** — Leon's charts name how
+  many exposure tiers saw the star, which is what says whether the consistency vet could
+  have acted on it at all.
 * **arrow lengths are asserted against their own scale bar, not only against the axes.**
   Found 2026-09-01 while copying the construction for Leon: the Bruns field chart's
   sensor-to-sky conversion returned arcseconds multiplied by the plate scale, so every
@@ -61,10 +70,17 @@ generalises to any campaign that has night calibration fields:
 
 Measured results, for reuse as reference values:
 
-| campaign | geometry | quasi-static residual | V/H | null-test L systematic |
-|---|---|---|---|---|
-| Bruns 2017 | alt 53–55°, same pointings as the eclipse | 0.102″ (alt 0.074, az 0.069) | 1.0 | **±0.15″** |
-| Leon 2026 | alt 8.5–12.4° (zenith rehearsal, 6× airmass away) | 0.261″ (alt 0.153–0.323, az 0.066–0.134) | 2.3 | ±0.33″ |
+| set | geometry | fields | quasi-static residual | vertical | horizontal | V/H | null-test L systematic |
+|---|---|---|---|---|---|---|---|
+| Leon 2026 zenith | alt 85–89° | 12 | **0.067″** (0.058–0.075) | — | — | — | — |
+| Bruns 2017 night | alt 53–55°, the eclipse-day pointings | 29 | **0.100″** (0.041–0.175) | 0.072″ | 0.068″ | 1.1 | **±0.15″** |
+| Leon 2026 horizon | alt 8.5–12.4°, the eclipse geometry | 9 | **0.260″** (0.177–0.350) | 0.240″ | 0.098″ | 2.4 | ±0.33″ |
+
+Built by `tools/step3_atmosphere_table.py`. **The zenith row is the instrument-and-model
+floor** — nearly isotropic (sensor y/x = 0.77) — and every campaign needs one, because
+without it a night field's residual cannot be split into instrument and atmosphere. Bruns
+at alt 54° sits only 1.5× above it; Leon at alt 9–12° sits 3.9× above it. The science
+field's own displacements reproduce the split (V/H 2.5 raw, 2.1 after the nuisance).
 
 The horizontal components are nearly equal; the **vertical** component is what grows
 toward the horizon, and it is the component that couples to a radial deflection signal.

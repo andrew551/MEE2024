@@ -65,11 +65,13 @@ brightness-dependent centroid bias the windowed estimator exists to remove).
 | structure | one 0.6+1.2 s master built and rejected (re-admits the G 9.10 corrupted centroid; 2.52 ± 0.61) | `tools/step3_master_vs_union.py`, `step3_record/master0612/` |
 
 **Graphical output — start at `RECORD/leon2026\`** (a copy of `step3_record/`):
-* the four charts of the spec: `record_deflection.png` (variants `_sans_anchor`,
-  `_no_nuisance`, `_full4`), `record_field.png` (displacement vectors, nuisance removed) and
-  `record_field_raw.png` (nuisance left in — the vertical atmosphere visible),
+* the four charts of the spec, **chart revision 2**: `record_deflection.png` (variants
+  `_sans_anchor`, `_no_nuisance`, `_full4`, `_two_witness`), `record_field.png`
+  (displacement vectors in **alt/az**, nuisance removed) and `record_field_raw.png`
+  (nuisance left in — the vertical atmosphere visible, V/H 2.5),
   `record_covariance.png`, `atmosphere_night_maps.png` (9 horizon windows + 12 zenith
-  fields, Bruns style); every revision under `step3_record/chart_versions/`
+  fields, Bruns style) with `atmosphere_floor_table.csv` beside it; every revision under
+  `step3_record/chart_versions/`, superseded copies under `RECORD/leon2026/superseded_*`
 * the 2026-08-29 chart set (`field_radec`, `field_altaz`, `covariance`,
   `deflection_method1/2`) is kept under `RECORD/leon2026/superseded_2026-09-01_2312/`
 * the program's own plots (65 files): `step3_prelim_L/*/stage2_constant/DISTORTION_OUTPUT*/` and `*/stage3/`

@@ -38,6 +38,24 @@ chart_versions/<rev>_*, and superseded revisions are never deleted.
 
 Set L26_COPY_RECORD=1 to also copy the record set into RECORD/leon2026/ (older charts
 there are moved into a dated superseded/ folder, not deleted).
+
+Revision 2 (Douglas' review, 2026-09-02):
+  * the field charts move to ALT/AZ. The sensor sits within a few degrees of that frame,
+    so the footprint is nearly axis-aligned and the vertical axis is the direction the
+    atmosphere is polarised along -- which is what the raw view exists to show;
+  * the below-Sun star G 7.71 loses its red diamond and becomes an ordinary member. It is
+    not the analogue of Bruns' close-in pair: those sat at 1.49 and 1.62 R_sun and had to
+    be carried from a different exposure tier by a measured link, while this one is in the
+    same two tiers as everything else at 2.17 R_sun. The sans-anchor chart survives as a
+    leverage test, retitled;
+  * the covariance text box is packed around its own text (VPacker) instead of being given
+    a hand-guessed size, and every entry wraps onto a second line;
+  * outlier labels now name the number of tiers the star was seen in, and a two-witness
+    variant chart is drawn: the rule that admits only stars detected in BOTH tiers, so the
+    cross-tier consistency vet can act on every member. That is what removes the G 10.00
+    outlier -- a single-tier, 2-px-footprint detection the vet never had a second witness
+    for. It is a detection-quality rule, not a rule about the answer, and it moves L by
+    -0.06 " (a tenth of the statistical error).
 """
 import glob, json, os, shutil
 import numpy as np, pandas as pd
@@ -45,6 +63,10 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse, Polygon, FancyBboxPatch
+from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord
+from astropy.time import Time
+import astropy.units as u
 
 OUT = r"D:/MEE2024 output/MEE_output/step3_record"
 VER = os.path.join(OUT, 'chart_versions')
@@ -158,8 +180,11 @@ def scale_leverage(t, rx_, ry_, R_, nuis_deg=2):
     return float(c[labels.index('L')])
 
 
-def deflection_chart(table_csv, fname, title, nuis_deg=2):
+def deflection_chart(table_csv, fname, title, nuis_deg=2, two_witness=False):
     t, rx_, ry_, R_ = load(table_csv)
+    if two_witness:
+        keep = t.ntier.values >= 2
+        t, rx_, ry_, R_ = t[keep].reset_index(drop=True), rx_[keep], ry_[keep], R_[keep]
     anchor = t.is_anchor.values.astype(bool)
     c, l, cov, dxc, dyc, _, _ = solve(t, rx_, ry_, R_, nuis_deg)
     L = c[l.index('L')]
@@ -175,14 +200,15 @@ def deflection_chart(table_csv, fname, title, nuis_deg=2):
     rms = float(np.sqrt(np.mean(resid**2)))
     fig, ax = plt.subplots(figsize=(12.5, 6.8))
     ax.axhline(0, color='black', lw=1)
-    ax.scatter(R_[~anchor]/R_SUN_AS, rad[~anchor], s=38, color='tab:blue', zorder=4,
-               label='0.6+1.2 s union (%d stars)' % int((~anchor).sum()))
-    if anchor.any():
-        ax.scatter(R_[anchor]/R_SUN_AS, rad[anchor], s=80, marker='D', color='tab:red',
-                   zorder=5, label='below-Sun anchor, G 7.71 at %.2f R$_\\odot$'
-                   % (R_[anchor][0]/R_SUN_AS))
+    # every star carries the same marker: unlike Bruns' close-in pair, which came from a
+    # different exposure tier and had to be linked in, Leon's innermost star is an ordinary
+    # member of the same two tiers as the rest (Douglas, 2026-09-02)
+    ax.scatter(R_/R_SUN_AS, rad, s=38, color='tab:blue', zorder=4,
+               label='0.6+1.2 s union (%d stars)' % len(t))
     for k in np.where(np.abs(resid) > 2.5*rms)[0]:
-        ax.annotate('  G %.2f (%+.1f$\\sigma$)' % (t.mag.values[k], resid[k]/rms),
+        nt = int(t.ntier.values[k])
+        ax.annotate('  G %.2f (%+.1f$\\sigma$, %d tier%s)'
+                    % (t.mag.values[k], resid[k]/rms, nt, '' if nt == 1 else 's'),
                     (R_[k]/R_SUN_AS, rad[k]), fontsize=7.5, color='crimson')
     xx = np.linspace(1.9, (R_/R_SUN_AS).max()+0.3, 300)
     ax.fill_between(xx, (L-tot)/xx, (L+tot)/xx, color='black', alpha=0.10,
@@ -213,75 +239,121 @@ def deflection_chart(table_csv, fname, title, nuis_deg=2):
                 star_rms=float(np.sqrt(np.mean(resid**2 + tanc**2))))
 
 
-TITLE = 'Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, anchor in, vertical-deg-2 nuisance'
+TITLE = 'Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, 42 stars, vertical-deg-2 nuisance'
 rec = deflection_chart('leon_union_star_table.csv', 'record_deflection.png',
                        'Deflection vs radius \u2014 ' + TITLE)
 deflection_chart('leon_union_star_table_sans_anchor.csv', 'record_deflection_sans_anchor.png',
-                 'Deflection vs radius \u2014 Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, '
-                 'anchor OUT, vertical-deg-2 nuisance')
+                 'Deflection vs radius \u2014 Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, the '
+                 'innermost star (G 7.71 at 2.17 R$_\\odot$) dropped \u2014 leverage test')
 deflection_chart('leon_union_star_table.csv', 'record_deflection_no_nuisance.png',
                  'Deflection vs radius \u2014 Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, '
-                 'anchor in, NO nuisance (Method 1 base)', nuis_deg=None)
+                 '42 stars, NO nuisance (Method 1 base)', nuis_deg=None)
 deflection_chart('leon_union_star_table_full4.csv', 'record_deflection_full4.png',
                  'Deflection vs radius \u2014 Leon 2026, FULL 4-tier union (cross-check, not '
-                 'the record), G $\\leq$ 11, anchor in, vertical-deg-2 nuisance')
+                 'the record), G $\\leq$ 11, vertical-deg-2 nuisance')
+# the two-witness variant: admit only stars detected in BOTH tiers, so the cross-tier
+# consistency vet can actually act on every member. It is the rule that removes the
+# G 10.00 outlier, and it is a detection-quality rule, not a rule about the answer.
+deflection_chart('leon_union_star_table.csv', 'record_deflection_two_witness.png',
+                 'Deflection vs radius \u2014 Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, '
+                 'TWO-WITNESS rule (both tiers), vertical-deg-2 nuisance', two_witness=True)
 
-# ---- the field: displacement vectors in RA/Dec, two views
+# ---- the field: displacement vectors in ALT/AZ, two views
+#
+# Douglas, 2026-09-02: put the field chart into alt/az. The sensor is within a few degrees
+# of that frame already (ROLL 315.5 deg against a parallactic angle that nearly cancels it),
+# so the footprint comes out almost axis-aligned -- and the vertical axis is then the
+# direction the atmosphere is polarised along, which is the whole point of the raw view.
+# Positions come from each star's own catalogue position transformed to alt/az; the vectors
+# are projected onto the alt and az directions measured at the field centre. Azimuth
+# increases to the right and altitude upward, which is the sky as the observer sees it.
 tab, rx, ry, R = rec['t'], rec['rx'], rec['ry'], rec['R']
-anchor = rec['anchor']
 n = len(tab)
 _, _, _, dxc_L, dyc_L, dxc_raw, dyc_raw = solve(tab, rx, ry, R, 2)
-sra, sdec = px_to_sky(tab.px.values, tab.py.values)
-corners = px_to_sky(np.array([0, NX, NX, 0]), np.array([0, 0, NY, NY]))
+T_SCI = Time(meta['OPTS']['observation_date'] + 'T' + meta['MIDT']['0p6s'], scale='utc')
+SITE = EarthLocation(lat=meta['OPTS']['observation_lat']*u.deg,
+                     lon=meta['OPTS']['observation_long']*u.deg,
+                     height=meta['OPTS']['observation_height']*u.m)
+
+
+def sky_to_altaz(ra, dec):
+    """Geometric alt/az (no refraction: pressure defaults to zero) at the science mid-time."""
+    aa = SkyCoord(np.atleast_1d(ra)*u.deg, np.atleast_1d(dec)*u.deg).transform_to(
+        AltAz(obstime=T_SCI, location=SITE))
+    return np.asarray(aa.az.deg), np.asarray(aa.alt.deg)
+
+
+def altaz_basis():
+    """Unit vectors of increasing altitude and azimuth, in sensor pixel axes."""
+    ra_c, dec_c = px_to_sky(np.array([NX/2.0]), np.array([NY/2.0]))
+    fc = SkyCoord(float(ra_c[0])*u.deg, float(dec_c[0])*u.deg)
+    aa = fc.transform_to(AltAz(obstime=T_SCI, location=SITE))
+    out = {}
+    for key, off in (('alt', dict(alt=aa.alt + 0.05*u.deg, az=aa.az)),
+                     ('az', dict(alt=aa.alt, az=aa.az + 0.05*u.deg/np.cos(aa.alt)))):
+        p = SkyCoord(AltAz(obstime=T_SCI, location=SITE, **off)).icrs
+        dv = np.array([(p.ra.deg - fc.ra.deg)*np.cos(np.radians(de0)), p.dec.deg - fc.dec.deg])
+        v = np.array([dv @ ax_[:2], dv @ ay_[:2]])          # sky degrees -> sensor pixels
+        out[key] = v/np.linalg.norm(v)
+    return out['alt'], out['az'], float(aa.alt.deg), float(aa.az.deg)
+
+
+E_ALT, E_AZ, ALT_C, AZ_C = altaz_basis()
+TILT = np.degrees(np.arctan2(E_ALT[0], -E_ALT[1]))   # sensor -y against the local vertical
+saz, salt = sky_to_altaz(tab.ra_cat.values, tab.dec_cat.values)
+corner_ra, corner_dec = px_to_sky(np.array([0, NX, NX, 0]), np.array([0, 0, NY, NY]))
+caz, calt = sky_to_altaz(corner_ra, corner_dec)
 sun_ra, sun_dec = px_to_sky(np.array([SUNPX]), np.array([SUNPY]))
+sunaz, sunalt = sky_to_altaz(sun_ra, sun_dec)
+COSA = np.cos(np.radians(ALT_C))
 ARROW_DEG = 0.34          # degrees of chart per arcsec of displacement: twice the Bruns
                           # chart's 0.17, because this frame is twice as wide (3.8 vs 1.9
                           # deg) -- the arrows keep the same size relative to the frame
+print('field centre alt %.3f deg az %.3f deg; sensor -y sits %.1f deg from the local '
+      'vertical' % (ALT_C, AZ_C, TILT))
 
 
 def field_chart(dxv, dyv, fname, title, caption, scatter_label):
-    vra, vdec = sensor_vec_to_sky(dxv, dyv)
+    v_alt = dxv*E_ALT[0] + dyv*E_ALT[1]
+    v_az = dxv*E_AZ[0] + dyv*E_AZ[1]
     fig, ax = plt.subplots(figsize=(11.5, 8))
-    ax.add_patch(Polygon(np.c_[corners[0], corners[1]], fill=False, color='gray', lw=1.2,
+    ax.add_patch(Polygon(np.c_[caz, calt], fill=False, color='gray', lw=1.2,
                          label='sensor footprint'))
-    ends_ra, ends_de = [], []
+    ends_az, ends_alt = [], []
     for k in range(n):
-        col = 'tab:red' if anchor[k] else 'tab:blue'
-        x0, y0 = sra[k], sdec[k]
-        x1 = x0 + vra[k]*ARROW_DEG/np.cos(np.radians(de0))
-        y1 = y0 + vdec[k]*ARROW_DEG
-        ends_ra.append(x1); ends_de.append(y1)
+        x0, y0 = saz[k], salt[k]
+        x1 = x0 + v_az[k]*ARROW_DEG/COSA
+        y1 = y0 + v_alt[k]*ARROW_DEG
+        ends_az.append(x1); ends_alt.append(y1)
         ax.annotate('', xy=(x1, y1), xytext=(x0, y0),
                     arrowprops=dict(arrowstyle='-|>,head_width=0.22,head_length=0.45',
-                                    color=col, lw=1.5, shrinkA=0, shrinkB=0))
-        ax.annotate('%.1f' % tab.mag.values[k], (x0 + (0.030 if anchor[k] else 0.010), y0),
-                    fontsize=6.5, color=('tab:red' if anchor[k] else 'black'))
-    ax.scatter(sra[~anchor], sdec[~anchor], s=22, color='tab:blue', zorder=5,
-               label='0.6+1.2 s union (%d stars)' % int((~anchor).sum()))
-    ax.scatter(sra[anchor], sdec[anchor], s=70, marker='D', color='tab:red', zorder=5,
-               label='below-Sun anchor, G 7.71')
-    ax.add_patch(Ellipse((float(sun_ra[0]), float(sun_dec[0])),
-                         2*R_SUN_AS/3600/np.cos(np.radians(de0)), 2*R_SUN_AS/3600,
-                         color='black', zorder=3, label='the Sun, 1 R$_\\odot$ to scale'))
-    lo_ra = min(min(corners[0]), min(ends_ra)) - 0.08
-    hi_ra = max(max(corners[0]), max(ends_ra)) + 0.08
-    lo_de = min(min(corners[1]), min(ends_de)) - 0.06
-    hi_de = max(max(corners[1]), max(ends_de)) + 0.06
-    for x1, y1 in zip(ends_ra, ends_de):
-        assert lo_ra < x1 < hi_ra and lo_de < y1 < hi_de, 'an arrow leaves the axes'
-    ax.set_xlim(lo_ra, hi_ra); ax.set_ylim(lo_de, hi_de)
-    ax.set_aspect(1/np.cos(np.radians(de0)))
-    ax.set_xlabel('RA (degrees)', fontsize=12)
-    ax.set_ylabel('DEC (degrees)', fontsize=12)
+                                    color='tab:blue', lw=1.5, shrinkA=0, shrinkB=0))
+        ax.annotate('%.1f' % tab.mag.values[k], (x0 + 0.010, y0), fontsize=6.5, color='black')
+    ax.scatter(saz, salt, s=22, color='tab:blue', zorder=5,
+               label='0.6+1.2 s union (%d stars)' % n)
+    ax.add_patch(Ellipse((float(sunaz[0]), float(sunalt[0])), 2*R_SUN_AS/3600/COSA,
+                         2*R_SUN_AS/3600, color='black', zorder=3,
+                         label='the Sun, 1 R$_\\odot$ to scale'))
+    lo_az = min(caz.min(), min(ends_az)) - 0.10
+    hi_az = max(caz.max(), max(ends_az)) + 0.10
+    lo_alt = min(calt.min(), min(ends_alt)) - 0.08
+    hi_alt = max(calt.max(), max(ends_alt)) + 0.08
+    for x1, y1 in zip(ends_az, ends_alt):
+        assert lo_az < x1 < hi_az and lo_alt < y1 < hi_alt, 'an arrow leaves the axes'
+    ax.set_xlim(lo_az, hi_az); ax.set_ylim(lo_alt, hi_alt)
+    ax.set_aspect(1/COSA)
+    ax.set_xlabel('azimuth (degrees, increasing to the right as seen by the observer)',
+                  fontsize=12)
+    ax.set_ylabel('altitude (degrees)', fontsize=12)
     ax.set_title(title, fontsize=12)
     fig.text(0.06, 0.020, caption, fontsize=9)
     ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.75))
-    bar_deg = ARROW_DEG/np.cos(np.radians(de0))
+    bar_deg = ARROW_DEG/COSA
     sc = float(np.sqrt(np.mean(dxv**2 + dyv**2)))
     for y_fr, ln, txt in ((0.44, 1.0, '1 arcsec of displacement'),
                           (0.34, sc, '%s (%.2f")' % (scatter_label, sc))):
         xa, ya = 1.04, y_fr
-        ax.annotate('', xy=(xa + ln*bar_deg/(hi_ra-lo_ra), ya), xytext=(xa, ya),
+        ax.annotate('', xy=(xa + ln*bar_deg/(hi_az-lo_az), ya), xytext=(xa, ya),
                     xycoords='axes fraction', textcoords='axes fraction',
                     arrowprops=dict(arrowstyle='-', color='black', lw=3))
         ax.annotate(txt, (xa, ya + 0.028), xycoords='axes fraction', fontsize=8)
@@ -290,8 +362,10 @@ def field_chart(dxv, dyv, fname, title, caption, scatter_label):
                                 clip_on=False))
     fig.subplots_adjust(right=0.72, bottom=0.13)
     save(fig, fname)
-    print('%s: arrows %.2f-%.2f", rms vector %.3f"' % (fname, float(np.hypot(vra, vdec).min()),
-                                                        float(np.hypot(vra, vdec).max()), sc))
+    print('%s: vertical rms %.3f", horizontal rms %.3f" (V/H %.1f), arrows %.2f-%.2f"'
+          % (fname, float(np.sqrt(np.mean(v_alt**2))), float(np.sqrt(np.mean(v_az**2))),
+             float(np.sqrt(np.mean(v_alt**2))/np.sqrt(np.mean(v_az**2))),
+             float(np.hypot(v_alt, v_az).min()), float(np.hypot(v_alt, v_az).max())))
 
 
 field_chart(dxc_L, dyc_L, 'record_field.png', 'Displacement vectors \u2014 ' + TITLE,
@@ -300,7 +374,7 @@ field_chart(dxc_L, dyc_L, 'record_field.png', 'Displacement vectors \u2014 ' + T
             'noise remain (the L-view)', 'rms vector')
 field_chart(dxc_raw, dyc_raw, 'record_field_raw.png',
             'Displacement vectors, nuisance left IN \u2014 Leon 2026, 0.6+1.2 s union, '
-            'G $\\leq$ 11, anchor in',
+            'G $\\leq$ 11, 42 stars',
             'each arrow = the star\u2019s measured shift after subtracting only the fitted '
             'pointing offset and rotation;\ndeflection + the vertically polarised atmosphere + '
             'noise remain', 'rms vector')
@@ -334,20 +408,28 @@ draw(C1, mu1, 'darkred', 'Method 1 (scale imported; stat + scale)')
 draw(C2, mu2, 'tab:blue', 'Method 2 (scale free)')
 ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
 ax.axvline(NEWTON, color='orange', lw=1.2, ls='--', label='Newton 0.876"')
-ax.add_patch(FancyBboxPatch((0.020, 0.030), 0.60, 0.215, boxstyle='round,pad=0.010',
-                            transform=ax.transAxes, fill=True, facecolor='white',
-                            edgecolor='gray', lw=0.9, zorder=6))
-ax.text(0.038, 0.205, 'Method 1:  L = %.3f $\\pm$ %.3f" (stat %.3f + scale %.3f); '
-        '$\\pm$ %.2f" with atmosphere %.2f' % (L1, np.sqrt(C1[0, 0]), se1, abs(pc), tot1, ATM_ERR),
-        transform=ax.transAxes, fontsize=9.5, color='darkred', zorder=7)
-ax.text(0.038, 0.150, 'Method 2:  L = %.3f $\\pm$ %.3f",  scale %+.1f ppm from imported'
-        % (L2, np.sqrt(C2[0, 0]), mu2[1]), transform=ax.transAxes, fontsize=9.5,
-        color='tab:blue', zorder=7)
-ax.text(0.038, 0.100, 'Imported plate scale: %.7f "/px (CAL_piLeo, $\\pm$%.0f ppm HC3-class)'
-        % (PS, SCALE_PPM), transform=ax.transAxes, fontsize=9.5, color='black', zorder=7)
-ax.text(0.038, 0.050, 'scale leverage measured by injection: %+.4f "/ppm (naive eq-23: '
-        '%.4f "/ppm)' % (g, rec['h']*R_SUN_AS*1e-6), transform=ax.transAxes, fontsize=9.0,
-        color='black', zorder=7)
+# the text box: each entry wraps onto a second, indented line, and the frame is packed
+# around the text rather than given a hand-guessed size -- the hand-sized box of revision 1
+# was too small for its own contents (Douglas, 2026-09-02)
+BOXLINES = [
+    ('Method 1:  L = %.3f $\\pm$ %.3f"' % (L1, np.sqrt(C1[0, 0])), 'darkred'),
+    ('      (stat %.3f + scale %.3f);  $\\pm$ %.2f" with atmosphere %.2f'
+     % (se1, abs(pc), tot1, ATM_ERR), 'darkred'),
+    ('Method 2:  L = %.3f $\\pm$ %.3f"' % (L2, np.sqrt(C2[0, 0])), 'tab:blue'),
+    ('      scale %+.1f ppm from imported' % mu2[1], 'tab:blue'),
+    ('Imported plate scale: %.7f "/px' % PS, 'black'),
+    ('      (CAL_piLeo, $\\pm$%.0f ppm HC3-class)' % SCALE_PPM, 'black'),
+    ('Scale leverage measured by injection:', 'black'),
+    ('      %+.4f "/ppm  (naive eq-23: %.4f "/ppm)' % (g, rec['h']*R_SUN_AS*1e-6), 'black'),
+]
+_pack = VPacker(children=[TextArea(t, textprops=dict(color=c, size=9.5))
+                          for t, c in BOXLINES], pad=0, sep=3, align='left')
+_box = AnchoredOffsetbox(loc='lower left', child=_pack, pad=0.45, borderpad=0.6,
+                         frameon=True, bbox_to_anchor=(0.0, 0.0),
+                         bbox_transform=ax.transAxes)
+_box.patch.set(facecolor='white', edgecolor='gray', linewidth=0.9, alpha=1.0)
+_box.set_zorder(6)
+ax.add_artist(_box)
 ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
 ax.set_ylabel('Plate scale (ppm difference from imported value)', fontsize=12)
 ax.set_title('L and plate scale \u2014 ' + TITLE, fontsize=12)
@@ -384,11 +466,12 @@ if os.environ.get('L26_COPY_RECORD') == '1':
             shutil.move(os.path.join(RECORD, f), os.path.join(sup, f))
     for f in ('record_deflection.png', 'record_deflection_sans_anchor.png',
               'record_deflection_no_nuisance.png', 'record_deflection_full4.png',
+              'record_deflection_two_witness.png',
               'record_field.png', 'record_field_raw.png', 'record_covariance.png',
               'atmosphere_night_maps.png', 'leon_union_star_table.csv',
               'leon_union_star_table_sans_anchor.csv', 'leon_union_star_table_full4.csv',
               'leon_union_meta.json', 'atmosphere_nulls.csv', 'atmosphere_maps_stats.csv',
-              'record_summary.json'):
+              'atmosphere_floor_table.csv', 'record_summary.json'):
         p = os.path.join(OUT, f)
         if os.path.exists(p):
             shutil.copy2(p, os.path.join(RECORD, f))

@@ -831,6 +831,17 @@ largest), the star table on disk, and a defect in cell 1's own field chart (arro
 2.087× longer than their scale bar through nine reviewed revisions; fixed as revision 10
 with a runtime round-trip assertion in both chart tools).
 
+**The admission rule is the open matrix-wide question**, and it must be fixed before
+Mexico rather than after. Leon's record admits every catalogue match; six of its 42 stars
+are single-witness (detected in one tier only), and the cross-tier consistency vet — the
+filter that removed the corrupted G 9.10 centroid — cannot act on those at all. The
+visible cost is one star: G 10.00 at 6.35 R☉, a 2-px-footprint single-tier detection that
+the pipeline's own stage-2 fit had already flagged, sitting +3.5 σ off the curve. A
+**two-witness rule** (admit only stars seen in both tiers) removes it and everything else
+beyond 2.5 σ, costs six stars and ±0.04 ″ of statistical error, and moves L by −0.06 ″.
+It generalises a rule the union already applies to stars fainter than G 11. Recommended
+for the matrix, and stated here so it is fixed before cell 2's outliers are known.
+
 The exposure decision stands as the handoff stated it: only the 0.6 s and 1.2 s tiers
 carry the eclipse field; the 0.1 s tier's unique annulus yielded nothing, its innermost
 recovery is no better than the 0.3 s tier's, and Leon had no bright star close in for the
