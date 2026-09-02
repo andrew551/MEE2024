@@ -14,7 +14,7 @@ field type. This records what is **measured**, what is merely **observed**, and 
 | L/R eclipse-day calibration (2017) | **unresolved at 30 ppm** | one candidate for an unexplained offset |
 | the eclipse field itself | **untested, and there is a specific risk** | see below |
 | Mexico 2024 eclipse field — flat | **not needed** | measured, 2.4–3.3 mas by PSF injection |
-| Mexico 2024 eclipse field — dark | **needed, for hot pixels only** | measured: zero dither, so the dark-free path declines |
+| Mexico 2024 eclipse field — dark | **needed, for hot pixels only** | measured: sub-pixel dither leaves the dark-free search without leverage |
 
 ## Measured: CAL_piLeo, the 2026 L calibration
 
@@ -138,23 +138,44 @@ This document's outstanding item was that a hot pixel promoted to a star reaches
 deflection fit unchallenged, and that dark-free identification "correctly declines" below
 `hotpixels.MIN_DITHER_PX` = 3 px. Station 1 falls exactly into that hole.
 
-**The dither is zero.** Measured straight from the raw frames by phase correlation on a
-2048 px window with the 64 px block background removed — necessary, because with the fixed
-pattern left in, the correlation locks onto the vignetting and returns zero for the wrong
-reason. With a genuine correlation peak 25–29× the median, the shift is **0 integer pixels
-between frame 0 and frames 1, 5, 20, 40, 61, 90 and 122**, and the same across all four
-tiers: sixty seconds of sub-pixel tracking per block. So:
+**The dither is sub-pixel — and the gate did not notice.** Tracked stars in two opposite
+2048 px corner windows (x 400 y 4000, and x 7000 y 400) put the frame-to-frame motion within
+±0.25 px across all 123 frames of the 0.4 s tier: sixty seconds of sub-pixel tracking. The
+stacker's own aligner agrees for most of them — the recorded shifts sit a median of 0.45 px
+from their own median, with 90 of 123 frames inside 1 px — but places about five frames
+(89, 90, 91, 106, 107) **3–4 px out in y**, which both star windows say did not move. Those
+frames matched 18–25 stars against a typical 30–31, with roughly double the alignment
+residual: degraded frames, mis-solved.
 
-* the **dark-free persistence search cannot run**, and correctly declines. Without a master
-  dark there is no hot-pixel rejection on this field at all.
-* hot pixels **do not smear**. They land on the same stacked pixel in all 123 frames.
+That matters here because `hotpixels.dither_span` is the largest **pairwise** offset between
+any two frames, so those few bad shifts carry it to **5.39 px**, past the 3 px
+`MIN_DITHER_PX`. The dark-free search therefore **ran**, and reported *"0 hot pixel(s)
+identified from the dither (5.4 px) out of 4 bright candidates"*. On a field whose real
+dither is sub-pixel that is precisely the regime the gate exists to prevent — a hot pixel
+and a star are nearly indistinguishable — so **the search had no leverage and its verdict is
+not evidence of absence.** Four candidates from a 61-megapixel frame says the same thing.
+
+So the practical conclusion is unchanged, by a different route: there is no trustworthy
+hot-pixel rejection on this field without a master dark. And because the real dither is
+sub-pixel, hot pixels **do not smear**: they land within a pixel of the same stacked position
+in every frame.
+
+> **Correction.** The first version of this section said the dither was zero, measured by
+> phase correlation, and that the dark-free search "cannot run, and correctly declines". Both
+> halves were wrong. The phase correlation was locking onto the fixed pattern — vignetting
+> times a bright corona is high-contrast and fixed to the detector — so it returned zero
+> however the field moved; and the search did run, because a handful of bad shifts opened the
+> gate. The tracked-star measurement replaces it. The robustness of `dither_span` against a
+> few mis-solved frames, and the aligner's silent 3–4 px errors on degraded ones, are filed
+> as separate work.
 
 **And the hot pixels are really there at −10 °C.** At the 93 positions the 25 °C master calls
 hot (> 200 ADU over bias), the eclipse frames themselves sit **+41.5 ADU** above a local
 background — 3.3 σ of a single frame, with 44 % of them above 5 σ against 5.4 % at random
 positions. They are at about **1/30** the amplitude the warm dark predicts, which is the
-temperature difference doing its work. In a 123-frame stack with no dither the noise falls as
-√123 while a fixed excess does not, so a 41 ADU pixel arrives at roughly **37 σ** on the
+temperature difference doing its work. In a 123-frame stack, with the dither too small to
+move them off their pixel, the noise falls as √123 while a fixed excess does not, so a 41 ADU
+pixel arrives at roughly **37 σ** on the
 stacked image, far above the 4 σ detection threshold.
 
 **Why the temperature mismatch does not matter for this use.** The pipeline does not scale the
@@ -168,13 +189,18 @@ dark identifies the same defective sites as a −10 °C one and identifies them 
 |---|---|---|
 | flat | **not needed** | measured, 2.4–3.3 mas by injection against a 47–56 mas residual |
 | dark, as a pedestal | not needed | measured, 0.00 ADU median excess at 0.4 s |
-| **dark, as a hot-pixel map** | **needed** | measured: zero dither, so the dark-free path declines and hot pixels stack coherently to ~37 σ |
+| **dark, as a hot-pixel map** | **needed** | measured: sub-pixel dither, so hot pixels stack coherently to ~37 σ and the dark-free search has no leverage |
 
 **Use `--dark` on every eclipse tier, matched by exposure** (250 / 300 / 400 ms are all
 present), and expect the library build to warn about the 35 °C setpoint difference — that
 warning is correct and, for hot-pixel masking at 0.4 s, can be accepted deliberately. The
 flat may be skipped. The test this document asked for — *compare the star list, not the
 plate scale* — is `tools/matrix_station1/s1_hotpixel_risk.py`.
+
+**Do not rely on the dark-free path on a well-tracked field.** It is built for a dithered
+sequence and says so; the failure here is that it was not asked to decline. Until
+`dither_span` is made robust, check the reported dither against the shift distribution
+before believing a "0 hot pixels" result.
 
 ## What this does not say
 
