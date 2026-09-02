@@ -853,9 +853,9 @@ hygiene) is drawn as a cross-check chart, not quoted.
 
 Full record in `docs/STEP3_2026.md` §"Cell 2 opened". Tools in `tools/matrix_station1/`;
 outputs in `D:\MEE2024 output\MEE_output\station1_record\`. Measured on the 2024-era
-archives, since the raw zenith frames are not on this machine (only ASICap sidecars in
-`C:\Users\dpesm\Cloud-Drive\Station1Preliminary\Zenith\Zenith\`); the raw eclipse frames
-are on `G:`.
+archives; two of the seventeen raw zenith blocks were then found and put in
+`I:\Mexico 2024\Station 1 Zenith\` (fields 1–2, 05:32:53Z and 05:35:48Z); the other fifteen
+are not on this machine. The raw eclipse frames and their bias/dark/flat sets are on `G:`.
 
 | measurement | result |
 |---|---|
@@ -868,8 +868,11 @@ are on `G:`.
 | eclipse field, Method 1 | +15.9″ — the eclipse scale is −600 ppm from the zenith mean (daytime refocus + 5 °C) |
 | eclipse field, Method 2 isotropic | 1.677 ± 0.278″ (base), 1.815 ± 0.287″ (vertical-deg-2), S +599 ppm, 156 stars, rms 0.39″/axis |
 | anisotropy test | Sy − Sx = +10 ± 16 ppm, skew +8 ± 6 ppm, ΔL −0.009″ — one isotropic S is enough |
+| **2 × 2 on the raw zenith pair** (`I:\Mexico 2024\Station 1 Zenith`, fields 1–2 of 17) | outer-field bias, mas/mag: moments + annular +13–17, moments + Gaussian +1–16, **windowed + annular +1–4**, windowed + Gaussian +0–10; 2024 σ_sub-3 moments +26–32. Precision identical (rms G ≤ 12: 47–56 mas in every cell). Null pair: windowed within 0.01″ on every estimator, moments within 0.05″, 2024 within 0.09″ |
+| modern stack vs its own 2024 quintic, same frames | scale residual −2.6 / −2.0 ppm, transfer rms 0.11–0.12″/axis (G ≤ 13): the right files, and the pipelines agree |
 
-Strategy adopted: Method 2 with the pipeline's isotropic S; windowed + annular for the
-eclipse re-stack, verified by a 2 × 2 on the eclipse stack; the 2024 moment quintic kept
+Strategy adopted: Method 2 with the pipeline's isotropic S; **windowed + annular, now
+measured on the raw zenith pair** (the estimator is the lever; the background matters only
+for the moments); the 2024 moment quintic kept
 until the raw zenith frames are found; corrections flags matched on import and checked by a
 zenith null; the first task of the reduction is the frozen-cubic-at-a-different-focus test.
