@@ -88,10 +88,24 @@ filled in:
 * it is the **floor under the null test**. The zenith null — ten constant-only pairs of
   consecutive same-night fields, 2 min 34 s apart, which is the science chain's own
   cadence — returns **±0.12″** (±0.14 at a 42-star sample) from a residual field with
-  essentially no atmosphere in it. That is what the estimator manufactures on its own.
-  Above it, Bruns' ±0.15 leaves only **±0.05″** of atmosphere and Leon's ±0.33 leaves
-  ±0.30. Quote the total, report the decomposition beside it, and do not subtract the
-  floor — it is measured on one instrument at one focus with corrections off.
+  essentially no atmosphere in it. Refitted with the scale free it falls to ±0.06: half of
+  that floor is plate-scale *drift* over the 2.6 minutes (7 ppm), the rest is shape. Above
+  it, Bruns' ±0.15 leaves only **±0.05″** of atmosphere and Leon's ±0.33 leaves ±0.30.
+  Quote the total, report the decomposition beside it, and do not subtract the floor — it
+  is measured on one instrument at one focus with corrections off.
+
+**Match the null's construction to the science design, or it charges the wrong thing.**
+The one-sided null (field against the previous field) is the analogue of Leon's one-sided
+CAL_piLeo. Bruns' eclipse field was fitted against the *mean* of L (before) and R (after),
+which cancels anything linear in time across the gap; redone that way, his night null is
+**±0.087″** instead of ±0.150 and does not move when the scale is freed — a bracket
+removes the drift and leaves pure shape (`tools/matrix_bruns/b17_bracket_null.py`). The
+one-sided ±0.150 stays in the record as what a one-sided design would have inherited.
+**The null does not double-count the scale term**: its overlap is leverage × the
+reference field's own scale uncertainty, which is 0.02–0.03″ for the Bruns and zenith sets
+(references at 1–5 ppm) and 0.05–0.10″ inside Leon's ±0.33 (H3 references at 5–9 ppm) —
+under 0.02″ in quadrature on any total. Its overlap with the stat term is its own bootstrap
+floor, 0.03–0.10″, likewise negligible in quadrature.
 
 The horizontal components are nearly equal; the **vertical** component is what grows
 toward the horizon, and it is the component that couples to a radial deflection signal.

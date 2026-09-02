@@ -818,7 +818,7 @@ matrix-level summary so the three cells can be read side by side.
 | L (Method 1) | 1.764 | 1.914 |
 | stat | ±0.060 (27 stars, per-star scatter 0.14 ″) | ±0.64 (36 stars, two-witness, per-star scatter 0.73 ″) |
 | scale | ±0.084 (10.3 ppm bracket, h = 10.6) | **±0.68** (25 ppm one-sided CAL, h = 25.9, leverage 0.027 ″/ppm measured by injection) |
-| atmosphere | ±0.15 (22 same-night nulls, rms) — of which only ±0.05 is above the machinery floor | ±0.33 (3 night windows, max; cell-1 statistic ±0.22), ±0.30 above the floor |
+| atmosphere | ±0.15 (22 one-sided same-night nulls, rms); **±0.087 bracketed the way his L/R was used, no scale-like part left** (proposed) | ±0.33 (3 one-sided night windows, max; rms ±0.22), of which ≤0.10 overlaps the scale term |
 | night maps | 0.100 ″ quasi-static, V/H 1.1, alt 54° | 0.260 ″, V/H 2.4, alt 8.5–12.4°; Leon's zenith floor 0.067 ″, V/H 1.1, null ±0.12 ″ |
 | estimator | Method 1, no nuisance | Method 1 + vertical-deg-2 nuisance |
 | structure | one 0.62 s master + linked close-in pair | per-star union of the 0.6 s and 1.2 s tiers, two-witness admission (a single master was built and rejected: it re-admits the G 9.10 corrupted centroid) |
