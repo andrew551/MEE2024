@@ -13,6 +13,8 @@ field type. This records what is **measured**, what is merely **observed**, and 
 | L/R eclipse-day calibration (2026 CAL_piLeo) | **not needed** | measured, 4-arm ladder + paired test |
 | L/R eclipse-day calibration (2017) | **unresolved at 30 ppm** | one candidate for an unexplained offset |
 | the eclipse field itself | **untested, and there is a specific risk** | see below |
+| Mexico 2024 eclipse field — flat | **not needed** | measured, 2.4–3.3 mas by PSF injection |
+| Mexico 2024 eclipse field — dark | **needed, for hot pixels only** | measured: zero dither, so the dark-free path declines |
 
 ## Measured: CAL_piLeo, the 2026 L calibration
 
@@ -92,9 +94,94 @@ else, and it is cheap insurance rather than a measured need.
 just the plate scale. The failure mode here is a spurious detection entering the fit, which a
 plate-scale comparison would not reveal.
 
+## Measured: Mexico 2024 (Station 1) — the first cell where the answer is *yes*
+
+**Date:** 2026-09-03. Douglas asked whether calibration frames, immaterial for Bruns 2017 and
+Leon 2026, would be needed for Mexico 2024. They are — but for the one reason this document
+predicted, and not for either of the usual ones. Tools: `tools/matrix_station1/s1_darks_flats.py`
+and `s1_hotpixel_risk.py`; masters in `station1_record/darks_flats/`.
+
+The set is complete and lives on `G:\Mexico April 2024\Station-1-Eclipse-Data`: bias,
+`dark-250ms`, `dark-300ms`, `dark-400ms`, `darkflats`, `flat`, 40 frames each. The eclipse
+tiers are 0.25 / 0.3 / 0.4 / 0.3 s, so every tier has an exactly matching dark. Two things
+about the set matter: it was shot **19:00–19:26 UTC, 50–75 minutes after totality**, and at
+**CCD-TEMP 25–27 °C against the eclipse frames' −10 °C**.
+
+### Dark current: still a non-issue, even 35 °C warm
+
+The 400 ms master's median excess over bias is **0.00 ADU** at 25 °C. At this exposure the
+master is a bias plus a defect map, exactly as at −20 °C and +10 °C, and the pedestal-plus-rate
+argument of `calibration.py` covers it. The temperature mismatch does **not** disqualify these
+darks. It would matter for a long-exposure campaign; it does not matter at 0.4 s.
+
+### The flat: 2–3 mas, measured by injection
+
+22.8 % vignetting from centre to corner, which sounds like a lot. The smooth-field estimate
+σ²·d ln F/dx is the wrong tool for pixel-scale PRNU, so this was measured by **injection**: a
+Gaussian PSF of the field's measured FWHM 3.74 px placed at 4000 random sub-pixel positions,
+multiplied by the real master flat there, and centroided both ways.
+
+| estimator | centroid shift from the flat |
+|---|---|
+| footprint moment | rms **2.4 mas**, median 1.9, 99th 5.3, max 12 |
+| windowed, σ 2.0 px | rms **3.3 mas**, median 2.7, 99th 7.2, max 14 |
+
+A quintic in position removes almost none of it (2.4 → 2.4 mas), so it is not the vignetting;
+it is pixel-scale PRNU, random per star position, entering the per-star scatter rather than
+biasing L. Against Station 1's per-star residual of 47–56 mas at G ≤ 12 that is **0.4 % in
+quadrature**. Consistent in spirit with the flat-dark measurement above. **The flat is not
+needed.**
+
+### The hot pixels: the flagged risk is real here, and the dark is the only defence
+
+This document's outstanding item was that a hot pixel promoted to a star reaches the
+deflection fit unchallenged, and that dark-free identification "correctly declines" below
+`hotpixels.MIN_DITHER_PX` = 3 px. Station 1 falls exactly into that hole.
+
+**The dither is zero.** Measured straight from the raw frames by phase correlation on a
+2048 px window with the 64 px block background removed — necessary, because with the fixed
+pattern left in, the correlation locks onto the vignetting and returns zero for the wrong
+reason. With a genuine correlation peak 25–29× the median, the shift is **0 integer pixels
+between frame 0 and frames 1, 5, 20, 40, 61, 90 and 122**, and the same across all four
+tiers: sixty seconds of sub-pixel tracking per block. So:
+
+* the **dark-free persistence search cannot run**, and correctly declines. Without a master
+  dark there is no hot-pixel rejection on this field at all.
+* hot pixels **do not smear**. They land on the same stacked pixel in all 123 frames.
+
+**And the hot pixels are really there at −10 °C.** At the 93 positions the 25 °C master calls
+hot (> 200 ADU over bias), the eclipse frames themselves sit **+41.5 ADU** above a local
+background — 3.3 σ of a single frame, with 44 % of them above 5 σ against 5.4 % at random
+positions. They are at about **1/30** the amplitude the warm dark predicts, which is the
+temperature difference doing its work. In a 123-frame stack with no dither the noise falls as
+√123 while a fixed excess does not, so a 41 ADU pixel arrives at roughly **37 σ** on the
+stacked image, far above the 4 σ detection threshold.
+
+**Why the temperature mismatch does not matter for this use.** The pipeline does not scale the
+dark's hot pixels: `stacker_implementation.py` finds them once and they are *"excluded from
+the stack rather than subtracted"*. It needs to know **which** pixels, not how much. A 25 °C
+dark identifies the same defective sites as a −10 °C one and identifies them more easily.
+
+### Verdict for cell 2
+
+| | verdict | basis |
+|---|---|---|
+| flat | **not needed** | measured, 2.4–3.3 mas by injection against a 47–56 mas residual |
+| dark, as a pedestal | not needed | measured, 0.00 ADU median excess at 0.4 s |
+| **dark, as a hot-pixel map** | **needed** | measured: zero dither, so the dark-free path declines and hot pixels stack coherently to ~37 σ |
+
+**Use `--dark` on every eclipse tier, matched by exposure** (250 / 300 / 400 ms are all
+present), and expect the library build to warn about the 35 °C setpoint difference — that
+warning is correct and, for hot-pixel masking at 0.4 s, can be accepted deliberately. The
+flat may be skipped. The test this document asked for — *compare the star list, not the
+plate scale* — is `tools/matrix_station1/s1_hotpixel_risk.py`.
+
 ## What this does not say
 
 None of the above bears on **flats for photometry**, on **hot-pixel maps for stage 1
 alignment**, or on campaigns at higher sensor temperature where dark current is measurable.
-The measurements here are all at −20 °C (2017) or +10 °C (2026) with sub-2 s to 10 s
-exposures.
+The measurements here are all at −20 °C (2017), +10 °C (2026) or +25 °C
+(2024, against −10 °C lights) with sub-2 s to 10 s exposures. The 2024 pair is the one
+case where the temperatures were badly mismatched, and it still came out fine, because
+at 0.4 s a master dark is a bias plus a defect map and neither part is temperature
+sensitive enough to matter.
