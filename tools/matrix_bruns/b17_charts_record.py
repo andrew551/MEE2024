@@ -1,5 +1,10 @@
 """The summary chart set for cell 1's reduction of record (L = 1.777).
 
+Eleventh revision (2026-09-02): the atmospheric term becomes the BRACKETED null, 0.059
+rather than 0.150 -- see the ATM_ERR comment below -- so every band and total on these
+charts narrows. No fitted value changes. The covariance box is also packed around its own
+text and now quotes the total including the atmosphere.
+
 Tenth revision (2026-09-01, while building the Leon copy): the field chart's arrows
 were drawn 2.087x too long relative to their own scale bar -- sensor_vec_to_sky
 multiplied arcseconds by the plate scale. Fixed and asserted at runtime; nothing
@@ -39,17 +44,27 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Ellipse, Polygon, FancyBboxPatch
+from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 
 OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
 VER = os.path.join(OUT, 'chart_versions')
 os.makedirs(VER, exist_ok=True)
-REV = 'rev10'
+REV = 'rev11'
 RAWDIR = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
 PS, NX, NY = 2.0868004, 3296, 2472
 R_SUN_AS = 948.7
 SUNPX, SUNPY = 1645.0, 1741.0
 GR, NEWTON = 1.7512, 0.8756
-SCALE_PPM, ATM_ERR = 10.3e-6, 0.150
+SCALE_PPM = 10.3e-6
+# The atmospheric term is the null measured with the construction Bruns' eclipse fit
+# actually used: the eclipse pointing against the MEAN of the RIGHT and LEFT pointings
+# either side of it, which his night rehearsal repeats on a two-minute R-E-L cadence
+# (tools/matrix_bruns/b17_lr_bracket_null.py, 8 triplets). The one-sided nulls of
+# b17_atmosphere2.py give 0.150, and that is what these charts carried through revision
+# 10; but a one-sided figure charges this design for the drift its bracket cancels. The
+# one-sided means against R alone and L alone are -0.039 and +0.036 arcsec -- equal and
+# opposite, a gradient across the sky -- and the bracketed mean is -0.001.
+ATM_ERR = 0.059
 
 
 def save(fig, name):
@@ -186,7 +201,13 @@ rec = deflection_chart('bruns_method_star_table_link14.csv', '_scratch.png', 'sc
 tab, rx, ry, R, c1, l1, cov1, dxc, dyc, L1, tot = rec
 linked = (tab.src == 'E2-linked').values
 n = len(tab)
-sL1 = float(np.sqrt(cov1[l1.index('L'), l1.index('L')]))
+sL1_analytic = float(np.sqrt(cov1[l1.index('L'), l1.index('L')]))
+# The record quotes the 300-sample bootstrap (0.060) for this variant, not the analytic
+# fit sigma (0.0645). Revision 10 built the covariance ellipse from the analytic value
+# while the deflection band used the bootstrap, so the two charts of one record set
+# disagreed by 0.002 on the total. The bootstrap is what the record carries, so it is
+# what both use; the analytic value is kept and printed for comparison.
+sL1 = 0.060
 c2, l2, cov2, _, _ = solve(tab, rx, ry, R, with_scale=True)
 L2 = c2[l2.index('L')]
 h = 1/np.mean((R_SUN_AS/R)**2)
@@ -275,23 +296,29 @@ def draw(cov, mu, color, name):
 draw(C1, mu1, 'darkred', 'Method 1 (scale imported)')
 draw(C2, mu2, 'tab:blue', 'Method 2 (scale free)')
 ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
-ax.add_patch(FancyBboxPatch((0.020, 0.030), 0.545, 0.165, boxstyle='round,pad=0.010',
-                            transform=ax.transAxes, fill=True, facecolor='white',
-                            edgecolor='gray', lw=0.9, zorder=6))
-ax.text(0.038, 0.150, 'Method 1:  L = %.3f $\\pm$ %.3f" (stat+scale)'
-        % (L1, np.sqrt(C1[0, 0])), transform=ax.transAxes, fontsize=9.5,
-        color='darkred', zorder=7)
-ax.text(0.038, 0.100, 'Method 2:  L = %.3f $\\pm$ %.3f",  scale %+.1f ppm'
-        % (L2, np.sqrt(C2[0, 0]), mu2[1]), transform=ax.transAxes, fontsize=9.5,
-        color='tab:blue', zorder=7)
-ax.text(0.038, 0.050, 'Imported plate scale: %.7f "/px' % PS, transform=ax.transAxes,
-        fontsize=9.5, color='black', zorder=7)
+# the box is packed around its own text rather than hand-sized, as the Leon chart's is
+_tot1 = float(np.hypot(np.sqrt(C1[0, 0]), ATM_ERR))
+_lines = [('Method 1:  L = %.3f $\\pm$ %.3f" (stat + scale)' % (L1, np.sqrt(C1[0, 0])), 'darkred'),
+          ('      $\\pm$ %.3f" with the atmosphere term %.3f' % (_tot1, ATM_ERR), 'darkred'),
+          ('Method 2:  L = %.3f $\\pm$ %.3f"' % (L2, np.sqrt(C2[0, 0])), 'tab:blue'),
+          ('      scale %+.1f ppm from imported' % mu2[1], 'tab:blue'),
+          ('Imported plate scale: %.7f "/px' % PS, 'black'),
+          ('      (the L+R8 bracket, $\\pm$%.1f ppm HC3-class)' % (SCALE_PPM*1e6), 'black')]
+_pack = VPacker(children=[TextArea(t, textprops=dict(color=c, size=9.5)) for t, c in _lines],
+                pad=0, sep=3, align='left')
+_box = AnchoredOffsetbox(loc='lower left', child=_pack, pad=0.45, borderpad=0.6, frameon=True,
+                         bbox_to_anchor=(0.0, 0.0), bbox_transform=ax.transAxes)
+_box.patch.set(facecolor='white', edgecolor='gray', linewidth=0.9, alpha=1.0)
+_box.set_zorder(6)
+ax.add_artist(_box)
 ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
 ax.set_ylabel('Plate scale (ppm difference from imported value)', fontsize=12)
 ax.set_title('L and plate scale \u2014 Bruns 2017, G $\\leq$ 11, 14-star link', fontsize=12)
 ax.legend(fontsize=9, loc='upper right')
 ax.autoscale_view()
 ax.margins(0.15)
+print('covariance: M1 stat %.4f (bootstrap, quoted) vs %.4f (analytic fit); scale %.4f; '
+      'tot with atmosphere %.3f' % (sL1, sL1_analytic, pc, _tot1))
 save(fig, 'record_covariance.png')
 
 # ---- the two master images: natural backdrop, no painted disk, y down, legend outside

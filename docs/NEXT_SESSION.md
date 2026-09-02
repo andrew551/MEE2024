@@ -24,7 +24,7 @@ a headline number and an older chart set that does not match. Bring it level.
 
 **Cell 1 as it stands** (for the target format):
 
-> L = 1.764 ± 0.060 (stat) ± 0.084 (scale) ± 0.15 (atmosphere) ″, total 0.182.
+> L = 1.764 ± 0.060 (stat) ± 0.084 (scale) ± 0.059 (atmosphere) ″, total 0.119.
 > Bruns 2018 published 1.752 ± 0.060. Tree `matrix_bruns2017_brunsmethod/`, charts and
 > tables copied into `RECORD/bruns2017/`.
 

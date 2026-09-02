@@ -169,12 +169,14 @@ Bruns used 7, and the choice is L-neutral at 0.013″).
 
 | cut | link | N | L (″) | total σ |
 |---|---|---|---|---|
-| G ≤ 10.5 | 14 | 22 | 1.794 ± 0.062 | 0.180 |
-| **G ≤ 11** | **14** | **27** | **1.764 ± 0.060** | **0.182** |
-| G ≤ 11 | 7 (Bruns') | 27 | 1.777 ± 0.064 | 0.183 |
-| G ≤ 13 | 14 | 39 | 1.718 ± 0.086 | 0.195 |
+| G ≤ 10.5 | 14 | 22 | 1.794 ± 0.062 | 0.116 |
+| **G ≤ 11** | **14** | **27** | **1.764 ± 0.060** | **0.119** |
+| G ≤ 11 | 7 (Bruns') | 27 | 1.777 ± 0.064 | 0.121 |
+| G ≤ 13 | 14 | 39 | 1.718 ± 0.086 | 0.138 |
 
-Bruns 2018 published **1.752 ± 0.060**. Every variant agrees within 0.05″.
+Bruns 2018 published **1.7512 ± 3.4 % = ±0.060 ″**. Every variant agrees within 0.05″. The
+totals are chart revision 11 (2026-09-02), carrying the **R-E-L bracketed** atmosphere term
+±0.059 rather than the one-sided ±0.150; see §2.
 
 ## 4. What has to be true before the three datasets are compared
 

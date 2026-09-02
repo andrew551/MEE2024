@@ -732,10 +732,10 @@ reports (it is how the V/H ratio is computed) — that part was always right.
 
 | chart | cut | link | N | L (″) | total σ |
 |---|---|---|---|---|---|
-| `record_deflection` | G ≤ 10.5 | 7-star | 22 | **1.809 ± 0.067** | 0.182 |
-| `record_deflection_link14` | G ≤ 11 | 14-star | 27 | 1.764 ± 0.060 | 0.182 |
+| `record_deflection` | G ≤ 10.5 | 14-star | 22 | **1.794 ± 0.062** | 0.116 |
+| `record_deflection_link14` | G ≤ 11 | 14-star | 27 | 1.764 ± 0.060 | 0.119 |
 | `record_deflection_g13` | G ≤ 13 | 14-star | 39 | 1.718 ± 0.086 | 0.195 |
-| `record_covariance`, `record_field` | G ≤ 11 | 14-star | 27 | 1.764 | 0.182 |
+| `record_covariance`, `record_field` | G ≤ 11 | 14-star | 27 | 1.764 | 0.119 |
 
 The monotone drift with depth — 1.809 at G ≤ 10.5, 1.764 at 11, 1.718 at 13 — is the
 magnitude finding seen from a third angle: each fainter tranche pulls L down and widens
