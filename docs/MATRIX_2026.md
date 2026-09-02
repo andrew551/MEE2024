@@ -9,7 +9,7 @@ the accusation of manipulation. The convex-hull blob retires when this passes.
 |---|---|---|---|
 | 1. Bruns 2017 (Casper, WY) | `I:\2017 eclipse images Don Bruns\2017 Eclipse images\eclipse` | L/R bracket (±7.4° both sides) | Bruns 2018: GR to ~3 % |
 | 2. Mexico 2024 (Station 1) | `G:\Mexico April 2024\Station-1-Eclipse-Data` | pure Method 2 | GR-consistent (v1.3.x) |
-| 3. Leon 2026 | done — `docs/STEP3_2026.md` | one-sided CAL_piLeo | L = 1.98 ± 0.60 (stat) ± 0.70 (scale) ± 0.33 (atm) ″ — the scale term was added 2026-09-01 |
+| 3. Leon 2026 | done — `docs/STEP3_2026.md` | one-sided CAL_piLeo | L = 1.914 ± 0.637 (stat) ± 0.675 (scale) ± 0.33 (atm) ″ — scale term added 2026-09-01, two-witness rule adopted 2026-09-02 |
 | 4. Portland moon 2026-07-29 | `J:\Eclipse data\Toby Portland data\2026-07-29` | Moon-centric solver | **L = 0** (null check) |
 
 Rule: everything that CAN be held constant from Leon IS; every departure is listed with
@@ -815,13 +815,13 @@ matrix-level summary so the three cells can be read side by side.
 
 | | cell 1 (Bruns 2017) | cell 3 (Leon 2026) |
 |---|---|---|
-| L (Method 1) | 1.764 | 1.976 |
-| stat | ±0.060 (27 stars, per-star scatter 0.14 ″) | ±0.60 (42 stars, per-star scatter 0.75 ″) |
-| scale | ±0.084 (10.3 ppm bracket, h = 10.6) | **±0.70** (25 ppm one-sided CAL, h = 27.1, leverage 0.0278 ″/ppm measured by injection) |
-| atmosphere | ±0.15 (22 same-night nulls, rms) | ±0.33 (3 night windows, max; cell-1 statistic ±0.22) |
-| night maps | 0.102 ″ quasi-static, V/H 1.0, alt 54° | 0.260 ″, V/H 2.4, alt 8.5–12.4°; zenith floor 0.067 ″ |
+| L (Method 1) | 1.764 | 1.914 |
+| stat | ±0.060 (27 stars, per-star scatter 0.14 ″) | ±0.64 (36 stars, two-witness, per-star scatter 0.73 ″) |
+| scale | ±0.084 (10.3 ppm bracket, h = 10.6) | **±0.68** (25 ppm one-sided CAL, h = 25.9, leverage 0.027 ″/ppm measured by injection) |
+| atmosphere | ±0.15 (22 same-night nulls, rms) — of which only ±0.05 is above the machinery floor | ±0.33 (3 night windows, max; cell-1 statistic ±0.22), ±0.30 above the floor |
+| night maps | 0.100 ″ quasi-static, V/H 1.1, alt 54° | 0.260 ″, V/H 2.4, alt 8.5–12.4°; Leon's zenith floor 0.067 ″, V/H 1.1, null ±0.12 ″ |
 | estimator | Method 1, no nuisance | Method 1 + vertical-deg-2 nuisance |
-| structure | one 0.62 s master + linked close-in pair | per-star union of the 0.6 s and 1.2 s tiers (a single master was built and rejected: it re-admits the G 9.10 corrupted centroid) |
+| structure | one 0.62 s master + linked close-in pair | per-star union of the 0.6 s and 1.2 s tiers, two-witness admission (a single master was built and rejected: it re-admits the G 9.10 corrupted centroid) |
 | convention | moments + Gaussian (Bruns' own) | windowed + annular; −0.08 ″ under cell 1's convention; the 2×2 on Leon: background axis +0.14 ″, estimator axis −0.38 ″ (the estimator is the lever here, the reverse of Bruns) |
 
 Three things came out of the levelling that the earlier Leon record did not have: the
@@ -831,16 +831,17 @@ largest), the star table on disk, and a defect in cell 1's own field chart (arro
 2.087× longer than their scale bar through nine reviewed revisions; fixed as revision 10
 with a runtime round-trip assertion in both chart tools).
 
-**The admission rule is the open matrix-wide question**, and it must be fixed before
-Mexico rather than after. Leon's record admits every catalogue match; six of its 42 stars
+**The admission rule is now fixed matrix-wide** (Douglas, 2026-09-02), before cell 2 is
+reduced rather than after its outliers are known. Leon's record admits every catalogue match; six of its 42 stars
 are single-witness (detected in one tier only), and the cross-tier consistency vet — the
 filter that removed the corrupted G 9.10 centroid — cannot act on those at all. The
 visible cost is one star: G 10.00 at 6.35 R☉, a 2-px-footprint single-tier detection that
 the pipeline's own stage-2 fit had already flagged, sitting +3.5 σ off the curve. A
 **two-witness rule** (admit only stars seen in both tiers) removes it and everything else
 beyond 2.5 σ, costs six stars and ±0.04 ″ of statistical error, and moves L by −0.06 ″.
-It generalises a rule the union already applies to stars fainter than G 11. Recommended
-for the matrix, and stated here so it is fixed before cell 2's outliers are known.
+It generalises a rule the union already applies to stars fainter than G 11. **Adopted:
+it is Leon's reduction of record from 2026-09-02, and Mexico and Portland are to be
+reduced under it from the start.**
 
 The exposure decision stands as the handoff stated it: only the 0.6 s and 1.2 s tiers
 carry the eclipse field; the 0.1 s tier's unique annulus yielded nothing, its innermost

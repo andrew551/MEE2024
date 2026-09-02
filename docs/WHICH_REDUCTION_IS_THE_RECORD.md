@@ -36,12 +36,23 @@ there precisely so it can be found):
   `matrix_bruns2017_like2024/{L,R8}/`
 * the M3-style atmosphere maps: `RECORD/bruns2017/atmosphere_night_maps.png`
 
-### Cell 3 — Leon 2026: **L = 1.98 ± 0.60 (stat) ± 0.70 (scale) ± 0.33 (atmosphere) ″**
+### Cell 3 — Leon 2026: **L = 1.914 ± 0.637 (stat) ± 0.675 (scale) ± 0.33 (atmosphere) ″**
 
-Total σ ≈ 0.97. GR at 0.2 σ; Newton at 1.1 σ. **Revised 2026-09-01**: the scale term is
-new — the quoted headline had carried only stat and atmosphere, and the imported plate
-scale's HC3-class 25 ppm, measured on this field's geometry by injection (0.0278 ″ of L per
-ppm with the nuisance on), is the largest term in the budget. The value of L is unchanged.
+Total σ ≈ 0.985. GR at 0.17 σ; Newton at 1.05 σ. The 0.6+1.2 s union under the
+**two-witness rule** (a star is admitted only if both tiers detected it): 36 stars,
+h = 25.9 R☉², vertical-deg-2 nuisance, the below-Sun star in.
+
+Two revisions this session, both recorded in `docs/STEP3_2026.md`:
+
+* **2026-09-01, the scale term** — the quoted headline had carried only stat and
+  atmosphere. The imported plate scale's HC3-class 25 ppm, measured on this field's
+  geometry by injection (0.027 ″ of L per ppm with the nuisance on), is the largest term
+  in the budget;
+* **2026-09-02, the two-witness rule** (Douglas' ruling) — six of the 42 matches were
+  detected in one tier only, so the cross-tier consistency vet could never act on them,
+  and one of those six sat +3.5 σ off the curve. Admitting only two-witness stars moves L
+  by −0.06 ″ and leaves nothing beyond 2.5 σ. The superseded 42-star value,
+  **L = 1.976 ± 0.596**, is kept as `record_deflection_all_matches.png`.
 
 Quoted in the windowed+annular convention. Re-reduced end to end in cell 1's convention
 (Gaussian + moments) it gives 1.897 — a **−0.08 ″** shift. The 2×2 on Leon alone
@@ -59,7 +70,7 @@ brightness-dependent centroid bias the windowed estimator exists to remove).
 | preprocessing | coronal subtraction + forbidden disk | `step3_s0_v4/` (frames frozen) |
 | stage 1 + 2 | constant-only against CAL_piLeo | `step3_prelim_L/{0p6s,1p2s}/` |
 | stage 3 | union estimator + two-pass rematch (**tools**, F27) | `tools/step3_s2_union.py`, `step3_rematch.py` |
-| the star table | the 42 stars, written to disk 2026-09-01 | `step3_record/leon_union_star_table.csv` (+ `_sans_anchor`, `_full4`, `leon_union_meta.json`) |
+| the star table | the 42 matches with an `ntier` column; the record is the 36 with two witnesses | `step3_record/leon_union_star_table.csv` (+ `_sans_anchor`, `_full4`, `leon_union_meta.json`) |
 | atmosphere term | M5 night nulls, S1 gate (max over three windows, ±0.33); re-derived by cell 1's construction ±0.22 rms / 0.31 max | `tools/step3_s1_estimator.py`, `tools/step3_atmosphere.py`, `step3_record/atmosphere_nulls.csv` |
 | scale term | 25 ppm × the leverage measured by injection on the record's geometry | `tools/step3_charts_record.py`, `step3_record/record_summary.json` |
 | structure | one 0.6+1.2 s master built and rejected (re-admits the G 9.10 corrupted centroid; 2.52 ± 0.61) | `tools/step3_master_vs_union.py`, `step3_record/master0612/` |
@@ -70,7 +81,9 @@ brightness-dependent centroid bias the windowed estimator exists to remove).
   (displacement vectors in **alt/az**, nuisance removed) and `record_field_raw.png`
   (nuisance left in — the vertical atmosphere visible, V/H 2.5),
   `record_covariance.png`, `atmosphere_night_maps.png` (9 horizon windows + 12 zenith
-  fields, Bruns style) with `atmosphere_floor_table.csv` beside it; every revision under
+  fields, Bruns style) with `atmosphere_floor_table.csv`, `zenith_floor.csv` and
+  `zenith_nulls.csv` beside it, and `master_0p6s_annotated.png` /
+  `master_1p2s_annotated.png` (yellow = both exposures, red = one only); every revision under
   `step3_record/chart_versions/`, superseded copies under `RECORD/leon2026/superseded_*`
 * the 2026-08-29 chart set (`field_radec`, `field_altaz`, `covariance`,
   `deflection_method1/2`) is kept under `RECORD/leon2026/superseded_2026-09-01_2312/`

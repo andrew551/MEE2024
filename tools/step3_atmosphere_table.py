@@ -7,12 +7,13 @@ quadratic free, which is exactly how a calibration field is reduced, so what rem
 the structure a calibration fit cannot absorb (cubic-and-above model error plus the
 quasi-static atmosphere), G <= 11:
 
-  * **Leon zenith**, twelve fields, alt ~85-89 deg -- the instrument-and-model floor, with
+  * **Leon zenith**, twelve fields, alt 79-83 deg -- the instrument-and-model floor, with
     almost no atmosphere above it. One stack per field, that night's own six-field cubic
-    frozen (`step3_record/zenith_quadfree/`);
+    frozen (`step3_record/zenith_quadfree/`). Its alt/az split and its own null test come
+    from `tools/step3_zenith_floor.py`;
   * **Leon horizon**, nine field-windows, alt 8.5-12.4 deg -- the eclipse geometry. Per-star
     medians over ~45 per-frame fits, corrections ON (the M2 ladder, M3 construction);
-  * **Bruns 2017 night**, 28 fields, alt 53-55 deg -- his EC/LC/RC rehearsals, which repeat
+  * **Bruns 2017 night**, 29 fields, alt 53-55 deg -- his EC/LC/RC rehearsals, which repeat
     the eclipse-day pointings on the two preceding nights, so they are the eclipse geometry
     and NOT a zenith set. One stack per field, the same 15-field cubic average frozen that
     his L/R calibration used (`tools/matrix_bruns/b17_m3_maps.py`).
@@ -23,6 +24,9 @@ horizon, and the vertical is the component that couples to a radial deflection s
 
 Also tabulated, for each campaign, the null-test L systematic -- the estimator run on real
 fields with zero true deflection -- since that is what an error budget actually carries.
+The zenith null is the floor under the other two: it is what the estimator manufactures
+from a residual field with essentially no atmosphere in it, so the atmospheric excess of
+a campaign is what is left in quadrature above it.
 
 Writes `step3_record/atmosphere_floor_table.csv` and prints the markdown.
 """
@@ -39,9 +43,9 @@ bruns = pd.read_csv(BRUNS)
 h = leon[leon.kind == 'horizon']
 z = leon[leon.kind == 'zenith']
 
-# the zenith fields carry no meaningful alt/az split (the vertical direction is degenerate
-# overhead), so their anisotropy is measured in sensor axes instead -- it answers the
-# question the V/H column asks of the others: is the floor isotropic?
+# the same anisotropy in SENSOR axes, reported under the table as a second witness on the
+# zenith row's isotropy: it needs no time, no ephemeris and no affine, so it cannot be
+# wrong in the way a mis-set vertical direction could be
 zx, zy = [], []
 for f in sorted(glob.glob(os.path.join(ZQF, '*'))):
     hit = glob.glob(os.path.join(f, '**', 'TWOD_RESIDUALS.csv'), recursive=True)
@@ -58,11 +62,25 @@ for f in sorted(glob.glob(os.path.join(ZQF, '*'))):
     zy.append(float(np.sqrt(np.mean(dy[g]**2))))
 zx, zy = np.array(zx), np.array(zy)
 
+# the zenith row's own alt/az split and null test (tools/step3_zenith_floor.py). They were
+# left blank in the first version of this table on the mistaken grounds that the vertical
+# direction is degenerate overhead; it is not, and the row is the control the other two
+# need -- see that tool's docstring.
+zf = pd.read_csv(os.path.join(OUT, 'zenith_floor.csv'))
+zn = pd.read_csv(os.path.join(OUT, 'zenith_nulls.csv'))
+z_null = float(np.sqrt(np.mean(zn.Lv.values**2)))
+z_null42 = float(zn.sub42_rms.mean())
+
 rows = [
-    dict(set='Leon 2026 zenith', geometry='zenith rehearsal (alt 85-89 deg)', n_fields=len(z),
+    dict(set='Leon 2026 zenith', geometry='zenith rehearsal (alt %.0f-%.0f deg)'
+         % (zf.alt.min(), zf.alt.max()), n_fields=len(z),
          stars=int(z.n.sum()), rms=z.qs_rms.mean(), rms_lo=z.qs_rms.min(), rms_hi=z.qs_rms.max(),
-         vertical=np.nan, horizontal=np.nan, VH=np.nan, null_L=np.nan,
-         note='instrument + model floor; sensor-axis anisotropy y/x = %.2f' % (zy.mean()/zx.mean())),
+         vertical=zf.qs_alt.mean(), horizontal=zf.qs_az.mean(),
+         VH=zf.qs_alt.mean()/zf.qs_az.mean(), null_L=z_null,
+         note='the instrument + model floor: %d constant-only nulls from consecutive '
+              'same-night fields 2 min 34 s apart -> +-%.2f arcsec (+-%.2f at the eclipse '
+              'union\'s 42 stars); sensor-axis anisotropy y/x = %.2f'
+              % (len(zn), z_null, z_null42, zy.mean()/zx.mean())),
     dict(set='Bruns 2017 night', geometry='the eclipse-day pointings (alt 53-55 deg)',
          n_fields=len(bruns), stars=int(bruns.n.sum()), rms=bruns.qs_rms.mean(),
          rms_lo=bruns.qs_rms.min(), rms_hi=bruns.qs_rms.max(), vertical=bruns.qs_alt.mean(),
@@ -101,4 +119,13 @@ print(f'horizontal components: Bruns {bruns.qs_az.mean():.3f}, Leon horizon '
 print(f'vertical components:   Bruns {bruns.qs_alt.mean():.3f}, Leon horizon '
       f'{h.qs_alt.mean():.3f} arcsec  ({h.qs_alt.mean()/bruns.qs_alt.mean():.1f}x)')
 print(f'zenith sensor axes: x {zx.mean():.3f}, y {zy.mean():.3f} arcsec over {len(zx)} fields')
+print()
+print('null-test L systematic, decomposed: the zenith row is what the ESTIMATOR manufactures')
+print('from an essentially atmosphere-free residual field, so it is the floor under the other')
+print('two, and the atmospheric excess is what is left in quadrature above it:')
+for name, tot in (('Bruns 2017 night (alt 54 deg)', 0.150),
+                  ('Leon 2026 horizon, rms statistic', 0.223),
+                  ('Leon 2026 horizon, max statistic (quoted)', 0.33)):
+    exc = np.sqrt(max(tot**2 - z_null42**2, 0.0))
+    print(f'  {name:44} +-{tot:.2f} total -> +-{exc:.2f} above the +-{z_null42:.2f} floor')
 print('table ->', os.path.join(OUT, 'atmosphere_floor_table.csv'))

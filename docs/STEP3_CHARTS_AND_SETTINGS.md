@@ -72,15 +72,26 @@ Measured results, for reuse as reference values:
 
 | set | geometry | fields | quasi-static residual | vertical | horizontal | V/H | null-test L systematic |
 |---|---|---|---|---|---|---|---|
-| Leon 2026 zenith | alt 85–89° | 12 | **0.067″** (0.058–0.075) | — | — | — | — |
+| Leon 2026 zenith | alt 79–83° | 12 | **0.067″** (0.058–0.075) | 0.048″ | 0.046″ | 1.1 | **±0.12″** |
 | Bruns 2017 night | alt 53–55°, the eclipse-day pointings | 29 | **0.100″** (0.041–0.175) | 0.072″ | 0.068″ | 1.1 | **±0.15″** |
 | Leon 2026 horizon | alt 8.5–12.4°, the eclipse geometry | 9 | **0.260″** (0.177–0.350) | 0.240″ | 0.098″ | 2.4 | ±0.33″ |
 
-Built by `tools/step3_atmosphere_table.py`. **The zenith row is the instrument-and-model
-floor** — nearly isotropic (sensor y/x = 0.77) — and every campaign needs one, because
-without it a night field's residual cannot be split into instrument and atmosphere. Bruns
-at alt 54° sits only 1.5× above it; Leon at alt 9–12° sits 3.9× above it. The science
-field's own displacements reproduce the split (V/H 2.5 raw, 2.1 after the nuisance).
+Built by `tools/step3_atmosphere_table.py` and `tools/step3_zenith_floor.py`. **Every
+campaign needs a zenith row**, for two reasons that only became clear once Leon's was
+filled in:
+
+* it is the **control on the V/H column**. A mis-set vertical direction can only drive a
+  measured V/H toward 1, so isotropy at zenith (1.06, confirmed by a sensor-axis split of
+  y/x = 0.77 that needs no ephemeris) proves the 2.4 at alt 9–12° is not an artefact of
+  the decomposition. The science field's own displacements reproduce it (V/H 2.5 raw, 2.1
+  after the nuisance);
+* it is the **floor under the null test**. The zenith null — ten constant-only pairs of
+  consecutive same-night fields, 2 min 34 s apart, which is the science chain's own
+  cadence — returns **±0.12″** (±0.14 at a 42-star sample) from a residual field with
+  essentially no atmosphere in it. That is what the estimator manufactures on its own.
+  Above it, Bruns' ±0.15 leaves only **±0.05″** of atmosphere and Leon's ±0.33 leaves
+  ±0.30. Quote the total, report the decomposition beside it, and do not subtract the
+  floor — it is measured on one instrument at one focus with corrections off.
 
 The horizontal components are nearly equal; the **vertical** component is what grows
 toward the horizon, and it is the component that couples to a radial deflection signal.
@@ -193,14 +204,18 @@ corrections ON; site 42.740470 N, −5.613780 E, 1101 m; CAL 30.5 °C / 896.6 hP
 18:28:34, 0.6 s 18:28:33, 1.2 s 18:28:32.
 
 **Stage 3 / estimator** (`tools/step3_s2_union.py`, the union of the 0.6 s and 1.2 s
-tiers): Gaia G ≤ 11, epoch 2026.61, refraction/aberration corrected per tier time;
+tiers): **the two-witness admission rule — a star is admitted only if BOTH tiers detected
+it**, so the cross-tier consistency vet can act on every member (adopted 2026-09-02;
+36 stars of the 42 matches). Gaia G ≤ 11, epoch 2026.61, refraction/aberration corrected
+per tier time;
 doubles dropped at 10 ″; blends dropped; gates 8 ″ (offset pass) then 4.5 ″ (collect — it
 must exceed the anchor's 2.4–2.9 ″ physical displacement); per-star median across
 tiers; cross-tier vet at 3×MAD with a 1.5 ″ floor (it removes G 9.10); R > 2 R⊙ about
 (3171, 3232); Method 1 with the imported scale; **vertical-deg-2 nuisance on** (the S1
 gate's verdict); the below-Sun anchor G 7.71 at 2.17 R⊙ in; 200-star bootstrap, seed 3.
 
-**Error decomposition, matching cell 1's**: stat from the bootstrap; **scale** = the
+**Error decomposition, matching cell 1's** (L = 1.914 ± 0.637 ± 0.675 ± 0.33, total
+0.985): stat from the bootstrap; **scale** = the
 CAL_piLeo HC3-class 25 ppm × the leverage measured by injecting a 1 ppm uniform scale
 error into this field's geometry with this estimator (0.0278 ″/ppm with the nuisance;
 naive eq-23 h·R⊙ gives 0.0257); **atmosphere** = the S1 gate's max over the three M5

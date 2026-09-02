@@ -56,13 +56,23 @@ Revision 2 (Douglas' review, 2026-09-02):
     outlier -- a single-tier, 2-px-footprint detection the vet never had a second witness
     for. It is a detection-quality rule, not a rule about the answer, and it moves L by
     -0.06 " (a tenth of the statistical error).
+
+Revision 3 (2026-09-02, same evening):
+  * **the two-witness rule becomes the record** on Douglas' instruction, for the deflection,
+    covariance and field charts alike. Every chart here is now the 36-star set unless its
+    title says otherwise; `record_deflection_all_matches.png` keeps the superseded 42-star
+    admission as a variant. Nothing else about the reduction changes;
+  * the two exposure tiers get annotated master images, the analogue of cell 1's
+    master009/master062: yellow for the stars both exposures found, red for the six only
+    one of them did -- which is a picture of the rule itself. They are drawn from the
+    aligned raw stacks written by `tools/step3_tier_stacks.py`.
 """
 import glob, json, os, shutil
 import numpy as np, pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse, Polygon, FancyBboxPatch
+from matplotlib.patches import Circle, Ellipse, Polygon, FancyBboxPatch
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from astropy.time import Time
@@ -180,7 +190,7 @@ def scale_leverage(t, rx_, ry_, R_, nuis_deg=2):
     return float(c[labels.index('L')])
 
 
-def deflection_chart(table_csv, fname, title, nuis_deg=2, two_witness=False):
+def deflection_chart(table_csv, fname, title, nuis_deg=2, two_witness=True):
     t, rx_, ry_, R_ = load(table_csv)
     if two_witness:
         keep = t.ntier.values >= 2
@@ -239,24 +249,25 @@ def deflection_chart(table_csv, fname, title, nuis_deg=2, two_witness=False):
                 star_rms=float(np.sqrt(np.mean(resid**2 + tanc**2))))
 
 
-TITLE = 'Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, 42 stars, vertical-deg-2 nuisance'
+TITLE = ('Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, two-witness rule, 36 stars, '
+         'vertical-deg-2 nuisance')
 rec = deflection_chart('leon_union_star_table.csv', 'record_deflection.png',
                        'Deflection vs radius \u2014 ' + TITLE)
 deflection_chart('leon_union_star_table_sans_anchor.csv', 'record_deflection_sans_anchor.png',
-                 'Deflection vs radius \u2014 Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, the '
+                 'Deflection vs radius \u2014 Leon 2026, two-witness union, G $\\leq$ 11, the '
                  'innermost star (G 7.71 at 2.17 R$_\\odot$) dropped \u2014 leverage test')
 deflection_chart('leon_union_star_table.csv', 'record_deflection_no_nuisance.png',
-                 'Deflection vs radius \u2014 Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, '
-                 '42 stars, NO nuisance (Method 1 base)', nuis_deg=None)
+                 'Deflection vs radius \u2014 Leon 2026, two-witness union, G $\\leq$ 11, '
+                 'NO nuisance (Method 1 base)', nuis_deg=None)
 deflection_chart('leon_union_star_table_full4.csv', 'record_deflection_full4.png',
                  'Deflection vs radius \u2014 Leon 2026, FULL 4-tier union (cross-check, not '
-                 'the record), G $\\leq$ 11, vertical-deg-2 nuisance')
-# the two-witness variant: admit only stars detected in BOTH tiers, so the cross-tier
-# consistency vet can actually act on every member. It is the rule that removes the
-# G 10.00 outlier, and it is a detection-quality rule, not a rule about the answer.
-deflection_chart('leon_union_star_table.csv', 'record_deflection_two_witness.png',
-                 'Deflection vs radius \u2014 Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, '
-                 'TWO-WITNESS rule (both tiers), vertical-deg-2 nuisance', two_witness=True)
+                 'the record), G $\\leq$ 11, two-witness, vertical-deg-2 nuisance')
+# the superseded admission rule, kept as the variant it became: every catalogue match
+# admitted, single-witness stars included. It is what the record was until 2026-09-02.
+deflection_chart('leon_union_star_table.csv', 'record_deflection_all_matches.png',
+                 'Deflection vs radius \u2014 Leon 2026, 0.6+1.2 s union, G $\\leq$ 11, EVERY '
+                 'match admitted (42 stars, superseded), vertical-deg-2 nuisance',
+                 two_witness=False)
 
 # ---- the field: displacement vectors in ALT/AZ, two views
 #
@@ -442,7 +453,71 @@ print('covariance: M1 L=%.3f +- %.3f (stat+scale), tot %.3f; M2 L=%.3f +- %.3f, 
 print('atmosphere: quoted +-%.2f (S1 gate max); cell-1 statistic rms %.3f, max %.3f'
       % (ATM_ERR, ATM_RMS, ATM_MAX))
 
+# ---- the two tier stacks, annotated: what each exposure actually delivered
+#
+# The cell-1 analogue is master009_annotated / master062_annotated, and the recipe is the
+# same: a masked-blur coronal subtraction for display only, NO painted disk (the natural
+# view), y increasing downward as this project has always displayed frames, legend below
+# the frame. Two improvements on the Bruns version: the image is the ALIGNED raw stack
+# (tools/step3_tier_stacks.py) rather than an unshifted mean, so the stars are not smeared
+# by the two pixels of dither; and the blur is masked at saturation, which is the fix for
+# the coronal trench the cell-1 preprocessing still carries.
+#
+# The circles answer the question directly (Douglas, 2026-09-02): yellow where both
+# exposures found the star, red where only this one did. The red circles are exactly the
+# stars the two-witness rule drops.
+from astropy.io import fits as pyfits
+from scipy.ndimage import gaussian_filter
+
+STACKS = r"D:/MEE2024 output/MEE_output/SCI_tier_stacks"
+allmatch = pd.read_csv(os.path.join(OUT, 'leon_union_star_table.csv'))
+
+
+def tier_figure(tier, exp_label):
+    p = os.path.join(STACKS, 'SCI_%s_mean.fits' % tier)
+    if not os.path.exists(p):
+        print('no aligned stack for %s -- run tools/step3_tier_stacks.py first' % tier)
+        return
+    hdr = pyfits.getheader(p)
+    img = pyfits.getdata(p).astype(np.float64)
+    valid = img < 65535
+    num = gaussian_filter(np.where(valid, img, 0.0), 10.0)
+    den = gaussian_filter(valid.astype(np.float64), 10.0)
+    model = np.where(den > 0.05, num/np.maximum(den, 1e-9), 65535.0)
+    sub = img - model
+    lo, hi = np.percentile(sub, [5, 99.5])
+    disp = np.arcsinh((np.clip(sub, lo, hi) - lo)/max(hi - lo, 1)*30)
+
+    inmine = allmatch.tiers.str.contains(tier).values
+    both = inmine & (allmatch.ntier.values >= 2)
+    only = inmine & (allmatch.ntier.values == 1)
+    fig, ax = plt.subplots(figsize=(12.5, 8.6))
+    ax.imshow(disp, cmap='gray', origin='upper', interpolation='nearest')
+    handles = []
+    for sel, colr, lab in (
+            (both, 'yellow', 'in both exposures (%d stars) — the two-witness set' % both.sum()),
+            (only, 'red', 'in this exposure only (%d) — dropped by the two-witness rule'
+             % only.sum())):
+        for x0, y0 in zip(allmatch.px.values[sel], allmatch.py.values[sel]):
+            ax.add_patch(Circle((x0, y0), 55, fill=False, color=colr, lw=1.4))
+        handles.append(plt.Line2D([], [], color=colr, label=lab))
+    ax.legend(handles=handles, fontsize=9, loc='upper left', bbox_to_anchor=(0.0, -0.07),
+              borderaxespad=0, frameon=True)
+    ax.set_title('The %s master (%d frames, %.1f s total) — Leon 2026 SCI_ladder\n'
+                 'aligned raw stack, coronal model subtracted for display, no painted disk'
+                 % (exp_label, hdr['NFRAMES'], hdr['EXPTOTAL']), fontsize=11)
+    ax.set_xlabel('px'); ax.set_ylabel('py')
+    fig.subplots_adjust(bottom=0.18)
+    save(fig, 'master_%s_annotated.png' % tier)
+    print('master_%s_annotated.png: %d in both exposures, %d in this one only'
+          % (tier, both.sum(), only.sum()), flush=True)
+
+
+tier_figure('0p6s', '0.6 s')
+tier_figure('1p2s', '1.2 s')
+
 summary = dict(rev=REV, N=int(n), h=rec['h'], L_method1=L1, stat=se1, scale=abs(pc),
+               admission_rule='two-witness (detected in both tiers)',
                scale_leverage_as_per_ppm=g, scale_ppm=SCALE_PPM, atmosphere=ATM_ERR,
                atmosphere_rms_over_windows=ATM_RMS, atmosphere_max_over_windows=ATM_MAX,
                total=rec['tot'], L_method2=L2, method2_stat=float(np.sqrt(C2[0, 0])),
@@ -466,7 +541,8 @@ if os.environ.get('L26_COPY_RECORD') == '1':
             shutil.move(os.path.join(RECORD, f), os.path.join(sup, f))
     for f in ('record_deflection.png', 'record_deflection_sans_anchor.png',
               'record_deflection_no_nuisance.png', 'record_deflection_full4.png',
-              'record_deflection_two_witness.png',
+              'record_deflection_all_matches.png', 'master_0p6s_annotated.png',
+              'master_1p2s_annotated.png', 'zenith_floor.csv', 'zenith_nulls.csv',
               'record_field.png', 'record_field_raw.png', 'record_covariance.png',
               'atmosphere_night_maps.png', 'leon_union_star_table.csv',
               'leon_union_star_table_sans_anchor.csv', 'leon_union_star_table_full4.csv',
