@@ -870,6 +870,10 @@ are not on this machine. The raw eclipse frames and their bias/dark/flat sets ar
 | anisotropy test | Sy − Sx = +10 ± 16 ppm, skew +8 ± 6 ppm, ΔL −0.009″ — one isotropic S is enough |
 | **2 × 2 on the raw zenith pair** (`I:\Mexico 2024\Station 1 Zenith`, fields 1–2 of 17) | outer-field bias, mas/mag: moments + annular +13–17, moments + Gaussian +1–16, **windowed + annular +1–4**, windowed + Gaussian +0–10; 2024 σ_sub-3 moments +26–32. Precision identical (rms G ≤ 12: 47–56 mas in every cell). Null pair: windowed within 0.01″ on every estimator, moments within 0.05″, 2024 within 0.09″ |
 | modern stack vs its own 2024 quintic, same frames | scale residual −2.6 / −2.0 ppm, transfer rms 0.11–0.12″/axis (G ≤ 13): the right files, and the pipelines agree |
+| **eclipse-field convention** (2026-09-03, `s1_eclipse_convention.py`) | re-stacking the same 123 frames windowed vs moments moves L by **−0.27″ (base) / −0.19″ (v-deg 2)**; windowed has a 26 % tighter per-star residual (0.318″ vs 0.431″) and 27 % smaller σ_L (0.235″ vs 0.320″) |
+| reference convention, on the same 2 × 2 | −0.018″ / −0.032″ — the two axes are independent, and only the field's own convention matters |
+| why they differ | the eclipse field's estimator bias is ~200 mas/mag against the zenith fields' 22–31: the corona's gradient biases a footprint moment inversely with star flux. **Supersedes the −0.011″ injection bound below.** |
+| L, windowed re-stack, Method 2 | **1.549–1.623 ″** (moments 1.742–1.889; 2024 record 1.854; GR 1.751) — GR-consistent either way, but 0.25″ apart |
 
 Strategy adopted: Method 2 with the pipeline's isotropic S; **windowed + annular, now
 measured on the raw zenith pair** (the estimator is the lever; the background matters only
