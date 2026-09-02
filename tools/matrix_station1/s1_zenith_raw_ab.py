@@ -1,10 +1,11 @@
 """Cell 2, Station 1: the 2 x 2 convention test on the two raw zenith fields Douglas found.
 
-`I:/Mexico 2024/Station 1 Zenith/` holds the source frames of the first two 2024 zenith
-fields -- blocks 2024-04-08_05_32_53Z and 05_35_48Z, twenty 3 s frames each at gain 100,
-full 9576 x 6388 frame, the 2024 archives 201719 and 202159 having used frames 0001-0019.
-They are a consecutive pair 2.9 min apart, so besides the convention question they give one
-null pair per convention.
+`I:/Mexico 2024/Station 1 Zenith/` holds the source frames of the first THREE 2024 zenith
+fields -- blocks 2024-04-08_05_32_53Z, 05_35_48Z and (found 2026-09-03) 05_38_32Z, 3 s at
+gain 100, full 9576 x 6388 frame, the 2024 archives 201719 / 202159 / 203538 having used
+frames 0001-0019 of each. The third block is one frame short of that, 18 rather than 19.
+They are consecutive, 2.9 and 2.7 min apart, so besides the convention question they give
+null pairs per convention.
 
 Four conventions, the matrix's held-constant stage-1 set (docs/FIELD_PRESETS.md eclipse-day
 standard, as in tools/step3_background_ab.py) with only the two axes under test varied:
@@ -35,7 +36,11 @@ RAW = r"I:/Mexico 2024/Station 1 Zenith"
 OUT = r"D:/MEE2024 output/MEE_output/station1_record/zenith_raw_ab"
 NX, NY, PS = 9576, 6388, 1.84847
 SUNPX, SUNPY, R_SUN_AS = 4309.0, 2730.0, 958.2
-BLOCKS = [('f1', '2024-04-08_05_32_53Z', '05:33:30'), ('f2', '2024-04-08_05_35_48Z', '05:36:25')]
+BLOCKS = [('f1', '2024-04-08_05_32_53Z', '05:33:30'), ('f2', '2024-04-08_05_35_48Z', '05:36:25'),
+          ('f3', '2024-04-08_05_38_32Z', '05:39:10'),     # f3 found 2026-09-03, one frame short of the 2024 archive's 19
+          ('f4', '2024-04-08_05_51_25Z', '05:52:15')]     # f4 found 2026-09-03, only 7 of 19 frames -- and the
+                                                          # session's +50 ppm scale outlier, shot with the sensor
+                                                          # 13 C warmer than f1-f3 (see s1_scale_vs_temp.py)
 
 S1_BASE = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract=True',
            '--set', 'centroid_gaussian_thresh=4.0', '--set', 'min_area=2',
@@ -177,7 +182,7 @@ for v in conv:
         print('     18.3 radial slope by radius bin (mas/mag): ' + '  '.join('%+.1f' % s for s in sl) + '   | bright-minus-faint beyond 2500 px %+.0f mas | tangential slope %+.1f' % (bf, ts), flush=True)
         rows.append(dict(conv=v, field=tag, n=j['#stars used'], rms=j['final rms error (arcseconds)'], ps=j['platescale (arcseconds/pixel)'], hc3=h3,
                          s0=sl[0], s1=sl[1], s2=sl[2], s3=sl[3], s4=sl[4], bf=bf, tslope=ts))
-    if len(res) == 2:
+    if len(res) >= 2:
         dn = os.path.join(OUT, v, 'null_f2_vs_f1')
         cz2 = glob.glob(os.path.join(OUT, v, 'f2', 'centroid_data*.zip'))[0]
         rn = stage2(dn, cz2, BLOCKS[1][2], refs=[res['f1']], fixed='constant', tol=2.0)

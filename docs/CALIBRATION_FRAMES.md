@@ -13,7 +13,7 @@ field type. This records what is **measured**, what is merely **observed**, and 
 | L/R eclipse-day calibration (2026 CAL_piLeo) | **not needed** | measured, 4-arm ladder + paired test |
 | L/R eclipse-day calibration (2017) | **unresolved at 30 ppm** | one candidate for an unexplained offset |
 | the eclipse field itself | **untested, and there is a specific risk** | see below |
-| Mexico 2024 eclipse field — flat | **not needed** | measured, 2.4–3.3 mas by PSF injection |
+| Mexico 2024 eclipse field — flat | **not needed** | 2.4–3.3 mas by PSF injection, and stable across the refocus |
 | Mexico 2024 eclipse field — dark | **needed, for hot pixels only** | measured: sub-pixel dither leaves the dark-free search without leverage |
 
 ## Measured: CAL_piLeo, the 2026 L calibration
@@ -132,6 +132,49 @@ biasing L. Against Station 1's per-star residual of 47–56 mas at G ≤ 12 that
 quadrature**. Consistent in spirit with the flat-dark measurement above. **The flat is not
 needed.**
 
+### And the flat did not change across the refocus — so it cancels anyway
+
+*Added 2026-09-03, on Douglas finding the zenith session's own flats at
+`I:\Mexico 2024\Station 1 Zenith\Flats\2024-04-08_06_28_18Z`.* The verdict above rested on
+each side's flat-fielding being small. It left the harder question open: the calibration
+fields were shot at 05:32–06:15 UTC and the eclipse at 18:12, with a daytime refocus between
+them worth −600 ppm of plate scale, and dust shadows change size with focus. A flat that
+*changed* between the two sides is a systematic that does not cancel in the transfer, however
+small each side's own flat-fielding effect is.
+
+Both flats now exist, and both are properly exposed — 36 % and 33 % of full well:
+
+| | when | exposure | gain / offset | temp |
+|---|---|---|---|---|
+| zenith session | 06:28:19 UTC | 2 s | 100 / 1 | −1.5 °C |
+| post-eclipse | 19:21:27 UTC | 2 s | 0 / 50 | +27.6 °C |
+
+Normalised each by its own median, their **vignetting profiles agree to 0.2 % at every
+radius**, including the corners where the response is down to 0.75:
+
+| r (px) | 0–500 | 1000–1500 | 2000–2500 | 3000–3500 | 4000–4500 | 5000–5600 |
+|---|---|---|---|---|---|---|
+| zenith / post-eclipse | 0.9991 | 0.9981 | 0.9998 | 1.0016 | 1.0014 | 0.9978 |
+
+The full ratio image has an rms about unity of 1.1 %, almost all of it pixel noise; smoothed
+to 64 px blocks it is 0.95 %, spanning 0.89–1.04, so a little localised structure did move.
+Injecting a PSF through that *difference* — which is precisely the flat-fielding error that
+fails to cancel between the two sides — gives **3.2 mas rms for the footprint moment and
+5.1 mas windowed**, maxima of 9 and 15 mas. That is the same order as flat-fielding either
+side on its own (2.4 and 3.3 mas), and an eighth of the per-star residual.
+
+**So the flat verdict is strengthened rather than threatened: the response was stable across
+the refocus, and the transfer cancels what little there is.** Skip the flat for Station 1.
+
+> **A trap worth recording.** A flat has no separate dark-flat at gain 100 offset 1, so a
+> scalar pedestal has to be assumed. Do **not** estimate it from a low percentile of the flat
+> itself: the 2nd percentile of a vignetted flat is the *corner* (16.8 kADU of a 23.7 kADU
+> flat), and subtracting it manufactures a 60 % fall-off that is not there. The first run of
+> `s1_flat_stability.py` did exactly that and reported a spurious 13 % change in response
+> between the two sessions. The tool now assumes 500 ADU and reports the sensitivity to that
+> choice (0 to 1000 ADU moves the smoothed ratio's span from 0.92–1.05 to 0.86–1.03, leaving
+> the conclusion intact).
+
 ### The hot pixels: the flagged risk is real here, and the dark is the only defence
 
 This document's outstanding item was that a hot pixel promoted to a star reaches the
@@ -187,7 +230,7 @@ dark identifies the same defective sites as a −10 °C one and identifies them 
 
 | | verdict | basis |
 |---|---|---|
-| flat | **not needed** | measured, 2.4–3.3 mas by injection against a 47–56 mas residual |
+| flat | **not needed** | measured, 2.4–3.3 mas by injection against a 47–56 mas residual; and the flat did not change across the refocus (0.2 % on the vignetting profile), so it cancels in the transfer too |
 | dark, as a pedestal | not needed | measured, 0.00 ADU median excess at 0.4 s |
 | **dark, as a hot-pixel map** | **needed** | measured: sub-pixel dither, so hot pixels stack coherently to ~37 σ and the dark-free search has no leverage |
 
