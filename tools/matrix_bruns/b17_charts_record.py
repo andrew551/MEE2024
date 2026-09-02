@@ -1,5 +1,8 @@
 """The summary chart set for cell 1's reduction of record (L = 1.777).
 
+Twelfth revision (2026-09-02): the scale term moves to the bracket HC3 of the pair the
+reduction of record uses, 9.23 ppm rather than the windowed pair's 10.3 -- see SCALE_PPM.
+
 Eleventh revision (2026-09-02): the atmospheric term becomes the BRACKETED null, 0.059
 rather than 0.150 -- see the ATM_ERR comment below -- so every band and total on these
 charts narrows. No fitted value changes. The covariance box is also packed around its own
@@ -49,13 +52,20 @@ from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
 VER = os.path.join(OUT, 'chart_versions')
 os.makedirs(VER, exist_ok=True)
-REV = 'rev11'
+REV = 'rev12'
 RAWDIR = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
 PS, NX, NY = 2.0868004, 3296, 2472
 R_SUN_AS = 948.7
 SUNPX, SUNPY = 1645.0, 1741.0
 GR, NEWTON = 1.7512, 0.8756
-SCALE_PPM = 10.3e-6
+# The bracket's HC3, computed on the pair the reduction of record actually uses --
+# Gaussian background + footprint moments, 117 and 119 stars, HC3 12.64 and 13.46 ppm,
+# mean/sqrt(2) = 9.23. The published 10.3 came from the WINDOWED pair (105/110 stars,
+# HC3 14.43/14.70), which is a different convention from the science fit it was being
+# applied to; carrying it here mixed the two. tools/matrix_bruns/b17_scale_error_audit.py
+# reproduces the published windowed figures exactly with the same estimator, so this is
+# a change of input, not of method.
+SCALE_PPM = 9.23e-6
 # The atmospheric term is the null measured with the construction Bruns' eclipse fit
 # actually used: the eclipse pointing against the MEAN of the RIGHT and LEFT pointings
 # either side of it, which his night rehearsal repeats on a two-minute R-E-L cadence

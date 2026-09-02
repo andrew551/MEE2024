@@ -134,3 +134,64 @@ print('  ratio (estimator effect)                    : %.2f' % (one/his_on_our_r
 print('  his formula on HIS rms, per field           : %.2f ppm'
       % (1e6*his_on_our_rms*HIS_RMS/float(rec.rms.mean())))
 print('  ratio our-rms / his-rms (input effect)      : %.2f' % (float(rec.rms.mean())/HIS_RMS))
+
+
+# ---------------------------------------------------------------------------------------
+# HC0 / HC3 on the convention of record, by the recipe that produced the published table
+#
+# docs/STEPS12_LEON_VS_BRUNS2017.md step 2 quotes HC0 13.4/13.6 and HC3 14.5/14.7 ppm for
+# Bruns L and R, and the bracket at ~10.3 = 14.6/sqrt(2). Those were computed on the
+# WINDOWED pair. The reduction of record is the Gaussian + moments pair, which has more
+# stars and a lower rms, so carrying 10.3 into cell 1's budget mixes two conventions.
+# This recomputes both trees with the identical estimator (tools/cal_pileo_step2/
+# estimator_audit.py): a quadratic design in normalised sensor coordinates, White's
+# sandwich on the two linear coefficients, HC3 leverage-corrected by 1/(1-h)^2.
+def hc_scale(field_dir):
+    hit = glob.glob(os.path.join(field_dir, 'stage2', '**', 'TWOD_RESIDUALS.csv'), recursive=True)
+    if not hit:
+        return None
+    d = pd.read_csv(hit[0])
+    W, CX, CY = NX/2.0, NX/2.0, NY/2.0
+    x, y = (d.px.values-CX)/W, (d.py.values-CY)/W
+    X = np.column_stack([np.ones_like(x), x, y, x*x, y*x, y*y])
+    ex, ey = d.dx_px.values, d.dy_px.values
+    XtXi = np.linalg.inv(X.T @ X)
+    h = np.einsum('ij,jk,ik->i', X, XtXi, X)
+    out = {}
+    for k, f in (('HC0', np.ones(len(d))), ('HC3', 1/(1-h)**2)):
+        cov = lambda e: XtXi @ ((X*(e**2*f)[:, None]).T @ X) @ XtXi
+        out[k] = float(np.hypot(cov(ex)[1, 1]**.5, cov(ey)[2, 2]**.5)/W*1e6)
+    out['n'] = len(d)
+    return out
+
+
+print()
+print('=== HC0/HC3 by the published recipe, both conventions ===')
+print('%-34s %6s %10s %10s' % ('field', 'stars', 'HC0 (ppm)', 'HC3 (ppm)'))
+res = {}
+for tree, label in ((WIND, 'windowed (the published 10.3)'), (CONV, 'convention of record')):
+    vals = []
+    for f in ('L', 'R8'):
+        got = hc_scale(os.path.join(tree, f))
+        if got is None:
+            print('%-34s no residuals' % (label + ' ' + f)); continue
+        vals.append(got)
+        print('%-34s %6d %10.2f %10.2f' % (label + ' ' + f, got['n'], got['HC0'], got['HC3']))
+    if len(vals) == 2:
+        combined = float(np.mean([v['HC3'] for v in vals])/np.sqrt(2))
+        res[label] = combined
+        print('%-34s %6s %10s %10.2f  <- the bracket mean, HC3/sqrt(2)'
+              % ('  ' + label + ' BRACKET', '', '', combined))
+
+if len(res) == 2:
+    a, b = res['windowed (the published 10.3)'], res['convention of record']
+    h_cell1, RS = 8.58, 948.7
+    print()
+    print('  published (windowed)      %.2f ppm -> scale term %.4f" at h = %.2f' % (a, a*1e-6*h_cell1*RS, h_cell1))
+    print('  convention of record      %.2f ppm -> scale term %.4f"' % (b, b*1e-6*h_cell1*RS))
+    stat, atm = 0.060, 0.059
+    for nm, v in (('with the published 10.3', a), ('with the record\'s own', b)):
+        sc = v*1e-6*h_cell1*RS
+        tot = float(np.hypot(np.hypot(stat, sc), atm))
+        print('  %-26s total %.4f"  GR at %.2f sigma  Newton at %.1f sigma'
+              % (nm, tot, abs(1.764-1.7512)/tot, abs(1.764-0.8756)/tot))

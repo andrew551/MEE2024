@@ -45,6 +45,7 @@ table is a stability diagnostic and an estimator test-bench, not an input to L.)
 | plate scale (″/px) | 2.2054043 | 2.0867534 | 2.0868474 | 2.0868004 |
 | HC0 (ppm) | 21.6 | 13.4 | 13.6 | ~9.5 |
 | **HC3 (ppm)** | **25.1** | **14.5** | **14.7** | **~10.3** |
+| HC3, the **convention of record** (Gaussian + moments, 117/119 stars) | — | **12.6** | **13.5** | **9.2** |
 | jackknife (ppm) | 24.9 | 14.4 | 14.6 | — |
 | L−R split | — | | | **45.0 ppm** (half-width 22.5) |
 | the published-era figure | — | | | Bruns quoted δS = **3.34 ppm** (moment formula) |

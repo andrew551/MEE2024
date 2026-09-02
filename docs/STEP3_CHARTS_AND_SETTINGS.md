@@ -171,7 +171,8 @@ radius max(1.25 R⊙, 99th-percentile saturation radius + 10 px). Bruns' own met
 **Stage 2**: `--order cubic`, `distortion_fixed_coefficients=constant`,
 `distortion_fit_tol=2.0`, `max_star_mag_dist=13`, `rough_match_threshhold=36`,
 corrections ON; site 42°44′11″N 106°19′05″W, 2400 m, 13.0 °C, 770.0 mb, humidity 0.4,
-λ 0.625 µm; frozen reference = the L+R8 bracket (imported scale **2.0867533 ″/px**).
+λ 0.625 µm; frozen reference = the L+R8 bracket (imported scale **2.0867533 ″/px**, HC3 12.64 and
+13.46 ppm on the two fields → **9.23 ppm** on their mean).
 
 **Stage 3 / estimator**: Method 1 (imported scale), no nuisance term (Bruns had none);
 catalogue G ≤ 11 (the standard; the error rises sharply beyond — 0.418″ per-star scatter
@@ -183,14 +184,15 @@ Bruns used 7, and the choice is L-neutral at 0.013″).
 
 | cut | link | N | L (″) | total σ |
 |---|---|---|---|---|
-| G ≤ 10.5 | 14 | 22 | 1.794 ± 0.062 | 0.116 |
-| **G ≤ 11** | **14** | **27** | **1.764 ± 0.060** | **0.119** |
-| G ≤ 11 | 7 (Bruns') | 27 | 1.777 ± 0.064 | 0.121 |
-| G ≤ 13 | 14 | 39 | 1.718 ± 0.086 | 0.138 |
+| G ≤ 10.5 | 14 | 22 | 1.794 ± 0.062 | 0.111 |
+| **G ≤ 11** | **14** | **27** | **1.764 ± 0.060** | **0.113** |
+| G ≤ 11 | 7 (Bruns') | 27 | 1.777 ± 0.064 | 0.115 |
+| G ≤ 13 | 14 | 39 | 1.718 ± 0.086 | 0.132 |
 
 Bruns 2018 published **1.7512 ± 3.4 % = ±0.060 ″**. Every variant agrees within 0.05″. The
-totals are chart revision 11 (2026-09-02), carrying the **R-E-L bracketed** atmosphere term
-±0.059 rather than the one-sided ±0.150; see §2.
+totals are chart revision 12 (2026-09-02), carrying the **R-E-L bracketed** atmosphere term
+±0.059 rather than the one-sided ±0.150 (see §2), and the bracket HC3 of the convention of
+record, **9.23 ppm**, rather than the windowed pair's 10.3.
 
 ## 4. What has to be true before the three datasets are compared
 

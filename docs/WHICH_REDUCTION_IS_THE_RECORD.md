@@ -5,10 +5,10 @@ two of them are quoted. Anything not listed here is an experiment, not a result.
 
 ## The two numbers, and the chain that produced each
 
-### Cell 1 — Bruns 2017: **L = 1.764 ± 0.060 (stat) ± 0.084 (scale) ± 0.059 (atmosphere) ″**
+### Cell 1 — Bruns 2017: **L = 1.764 ± 0.060 (stat) ± 0.075 (scale) ± 0.059 (atmosphere) ″**
 
-Total σ ≈ 0.119 (chart revision 11, 2026-09-02). Bruns 2018 published 1.7512 ± 3.4 %
-= ±0.060 ″. **GR at 0.11 σ; Newton excluded at 7.5 σ.** The atmosphere term is the **R-E-L bracketed** null of 2026-09-02 — the construction his eclipse fit actually used — not the one-sided ±0.150 the charts carried through revision 10. The 14-star link is the
+Total σ ≈ 0.113 (chart revision 12, 2026-09-02; the scale term is the bracket HC3 of the pair the reduction of record uses (9.23 ppm, Gaussian + moments), not the windowed pair’s 10.3). Bruns 2018 published 1.7512 ± 3.4 %
+= ±0.060 ″. **GR at 0.11 σ; Newton excluded at 7.9 σ.** The atmosphere term is the **R-E-L bracketed** null of 2026-09-02 — the construction his eclipse fit actually used — not the one-sided ±0.150 the charts carried through revision 10. The 14-star link is the
 standard; the 7-star link Bruns used gives 1.777 ± 0.064, L-neutral at 0.013 ″.
 
 **Reduced by Bruns' own procedure** (his § quoted by Douglas, 2026-09-01): ONE 0.62 s
@@ -20,7 +20,7 @@ reported alongside.
 
 | step | what | where |
 |---|---|---|
-| calibration | 15 night fields → cubic frozen; L and R8 refit, **Gaussian bg + footprint moments**; bracket mean 2.0867533 ″/px | `matrix_bruns2017_like2024/{L,R8}/stage2/` |
+| calibration | 15 night fields → cubic frozen; L and R8 refit, **Gaussian bg + footprint moments**; bracket mean 2.0867533 ″/px, HC3 12.64 and 13.46 ppm → **9.23 ppm** for the mean | `matrix_bruns2017_like2024/{L,R8}/stage2/` |
 | preprocessing | tier-mean blur-10px coronal subtraction, forbidden disk painted at the pedestal | `matrix_bruns2017/{EA,E2,EB}/preprocessed/` (shared) |
 | the 0.62 s master | all 34 EA+EB frames, one stack; constant-only against the bracket (39 matched, rms 0.4993″) | `matrix_bruns2017_brunsmethod/master062/` |
 | the 0.09 s master | the E2 stack in the same convention | `matrix_bruns2017_like2024/E2/` |

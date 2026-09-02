@@ -732,10 +732,10 @@ reports (it is how the V/H ratio is computed) — that part was always right.
 
 | chart | cut | link | N | L (″) | total σ |
 |---|---|---|---|---|---|
-| `record_deflection` | G ≤ 10.5 | 14-star | 22 | **1.794 ± 0.062** | 0.116 |
-| `record_deflection_link14` | G ≤ 11 | 14-star | 27 | 1.764 ± 0.060 | 0.119 |
+| `record_deflection` | G ≤ 10.5 | 14-star | 22 | **1.794 ± 0.062** | 0.111 |
+| `record_deflection_link14` | G ≤ 11 | 14-star | 27 | 1.764 ± 0.060 | 0.113 |
 | `record_deflection_g13` | G ≤ 13 | 14-star | 39 | 1.718 ± 0.086 | 0.195 |
-| `record_covariance`, `record_field` | G ≤ 11 | 14-star | 27 | 1.764 | 0.119 |
+| `record_covariance`, `record_field` | G ≤ 11 | 14-star | 27 | 1.764 | 0.113 |
 
 The monotone drift with depth — 1.809 at G ≤ 10.5, 1.764 at 11, 1.718 at 13 — is the
 magnitude finding seen from a third angle: each fainter tranche pulls L down and widens
@@ -817,7 +817,7 @@ matrix-level summary so the three cells can be read side by side.
 |---|---|---|
 | L (Method 1) | 1.764 | 1.914 |
 | stat | ±0.060 (27 stars, per-star scatter 0.14 ″) | ±0.64 (36 stars, two-witness, per-star scatter 0.73 ″) |
-| scale | ±0.084 (10.3 ppm bracket, h = 10.6) | **±0.68** (25 ppm one-sided CAL, h = 25.9, leverage 0.027 ″/ppm measured by injection) |
+| scale | ±0.075 (9.23 ppm bracket, h = 8.58) | **±0.68** (25 ppm one-sided CAL, h = 25.9, leverage 0.027 ″/ppm measured by injection) |
 | atmosphere | ±0.150 (22 one-sided nulls); **±0.059 with the R-E-L bracket his eclipse field actually used** (proposed) | ±0.33 (3 one-sided night windows, max; rms ±0.22), of which ≤0.10 overlaps the scale term |
 | night maps | 0.100 ″ quasi-static, V/H 1.1, alt 54° | 0.260 ″, V/H 2.4, alt 8.5–12.4°. Zenith floor now on TWO instruments: Leon 0.067 ″ / ±0.12, Leakey 65PHQ 0.078 ″ / ±0.12, both isotropic |
 | estimator | Method 1, no nuisance | Method 1 + vertical-deg-2 nuisance |
