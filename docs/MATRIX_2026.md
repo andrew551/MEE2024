@@ -640,7 +640,7 @@ same variant of the same data (`tools/matrix_bruns/b17_bruns_comparison.py`):
 | Method 2 (scale free), pair IN | 1.86 (± ~4 %) | 1.842 ± 0.105 | 0.018″ |
 | Method 2, pair OUT | 1.711 (± ~8 %) | 1.768 ± 0.164 | 0.057″, well inside errors |
 | star-fit error in L | 0.088″ = 3.1 % (his eq-20) | 0.064″ boot / 0.067″ analytic = 3.7–3.8 % | same class |
-| plate-scale error in L | 3.34 ppm → 1.23 % (his moment formula) | 10.3 ppm (HC3) → 4.8 %; **at his 3.34 ppm we get 1.6 %** | the known ×3 reported-vs-honest factor |
+| plate-scale error in L | 3.34 ppm → 1.23 % (his moment formula; verified to 3.11–3.14 ppm on our geometry, and it omits the √2 of averaging L and R — with it, 2.36 ppm) | 10.3 ppm (HC3, √2 included) → 4.8 %; **at his 3.34 ppm we get 1.6 %** | per field the ratio is 4.24 = ×2.81 input (fit residual vs centroid precision) × ×1.51 estimator |
 | effect of dropping the pair on the error | +21 % (3.4 → 4.1 %) | +7 % (0.184 → 0.197 total) | same direction |
 | roll parameter | not fitted ("only … L and simple RA and Dec offsets") | fitted; removing it moves L by **−0.002″** | immaterial either way |
 | stars used | 18 + 2 close-in, hand-vetted ("several stars were eliminated because of very poor fits or nearby stars") | 25 + 2, rule-based (G ≤ 11, doubles at 10″ dropped, blends dropped, R > 1.45 R⊙) | rule vs hand; see the outlier note |
