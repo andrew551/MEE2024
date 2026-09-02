@@ -71,6 +71,17 @@ zn = pd.read_csv(os.path.join(OUT, 'zenith_nulls.csv'))
 z_null = float(np.sqrt(np.mean(zn.Lv.values**2)))
 z_null42 = float(zn.sub42_rms.mean())
 
+# a SECOND instrument's zenith floor (tools/leakey_zenith_floor.py): Askar 65PHQ + ASI294MM
+# at Leakey TX in 2024, against Leon's FRA500 + 0.7x. It exists to test the assumption this
+# table rests on -- that a zenith floor measured on one instrument is the floor under
+# another's night fields. Pairs are restricted to gaps under 15 minutes: the one 47.7-minute
+# pair straddles a 44 ppm focus step and reads -0.758, which is a refocus, not a floor.
+lf = pd.read_csv(os.path.join(OUT, 'leakey_floor.csv'))
+ln = pd.read_csv(os.path.join(OUT, 'leakey_nulls.csv'))
+ln_ok = ln[ln.gap_min < 15]
+l_null = float(np.sqrt(np.mean(ln_ok.Lv.values**2)))
+l_free = float(np.sqrt(np.mean(ln_ok.Lv_freescale.values**2)))
+
 rows = [
     dict(set='Leon 2026 zenith', geometry='zenith rehearsal (alt %.0f-%.0f deg)'
          % (zf.alt.min(), zf.alt.max()), n_fields=len(z),
@@ -81,11 +92,24 @@ rows = [
               'same-night fields 2 min 34 s apart -> +-%.2f arcsec (+-%.2f at the eclipse '
               'union\'s 42 stars); sensor-axis anisotropy y/x = %.2f'
               % (len(zn), z_null, z_null42, zy.mean()/zx.mean())),
+    dict(set='Leakey 2024 zenith', geometry='zenith, second instrument (alt %.0f-%.0f deg)'
+         % (lf.alt.min(), lf.alt.max()), n_fields=len(lf), stars=int(lf.n.sum()),
+         rms=lf.qs_rms.mean(), rms_lo=lf.qs_rms.min(), rms_hi=lf.qs_rms.max(),
+         vertical=lf.qs_alt.mean(), horizontal=lf.qs_az.mean(),
+         VH=lf.qs_alt.mean()/lf.qs_az.mean(), null_L=l_null,
+         note='Askar 65PHQ + ASI294MM, a different optic at a different site in a different '
+              'year: %d nulls at 3-12 min within a focus group -> +-%.2f arcsec, +-%.2f with '
+              'the scale free. The control on whether the zenith floor of one instrument is '
+              'the floor under the night fields of another'
+              % (len(ln_ok), l_null, l_free)),
     dict(set='Bruns 2017 night', geometry='the eclipse-day pointings (alt 53-55 deg)',
          n_fields=len(bruns), stars=int(bruns.n.sum()), rms=bruns.qs_rms.mean(),
          rms_lo=bruns.qs_rms.min(), rms_hi=bruns.qs_rms.max(), vertical=bruns.qs_alt.mean(),
          horizontal=bruns.qs_az.mean(), VH=bruns.qs_alt.mean()/bruns.qs_az.mean(), null_L=0.150,
-         note='22 constant-only same-night nulls -> +-0.15 arcsec'),
+         note='22 one-sided same-night nulls -> +-0.150; but his eclipse field was fitted '
+              'against the MEAN of the RIGHT and LEFT pointings either side of it, and the '
+              'night rehearsal repeats that R-E-L sequence: bracketed the same way the null '
+              'is +-0.059 (8 triplets, b17_lr_bracket_null.py)'),
     dict(set='Leon 2026 horizon', geometry='the eclipse geometry (alt 8.5-12.4 deg)',
          n_fields=len(h), stars=int(h.n.sum()), rms=h.qs_rms.mean(), rms_lo=h.qs_rms.min(),
          rms_hi=h.qs_rms.max(), vertical=h.qs_alt.mean(), horizontal=h.qs_az.mean(),
@@ -120,12 +144,17 @@ print(f'vertical components:   Bruns {bruns.qs_alt.mean():.3f}, Leon horizon '
       f'{h.qs_alt.mean():.3f} arcsec  ({h.qs_alt.mean()/bruns.qs_alt.mean():.1f}x)')
 print(f'zenith sensor axes: x {zx.mean():.3f}, y {zy.mean():.3f} arcsec over {len(zx)} fields')
 print()
-print('null-test L systematic, decomposed: the zenith row is what the ESTIMATOR manufactures')
-print('from an essentially atmosphere-free residual field, so it is the floor under the other')
-print('two, and the atmospheric excess is what is left in quadrature above it:')
-for name, tot in (('Bruns 2017 night (alt 54 deg)', 0.150),
+print('null-test L systematic. The zenith rows are what the ESTIMATOR manufactures from an')
+print('essentially atmosphere-free residual field, so they are the floor under a ONE-SIDED')
+print('null, and the atmospheric excess is what is left in quadrature above them.')
+print('COMPARE LIKE WITH LIKE: a bracketed null is not to be measured against a one-sided')
+print('floor, because a bracket removes the plate-scale drift that the floor is mostly made')
+print('of (the zenith null falls to +-%.2f with the scale free).' % l_free)
+for name, tot in (('Bruns 2017 night, one-sided (alt 54 deg)', 0.150),
                   ('Leon 2026 horizon, rms statistic', 0.223),
                   ('Leon 2026 horizon, max statistic (quoted)', 0.33)):
     exc = np.sqrt(max(tot**2 - z_null42**2, 0.0))
     print(f'  {name:44} +-{tot:.2f} total -> +-{exc:.2f} above the +-{z_null42:.2f} floor')
+print(f'  {"Bruns, R-E-L bracketed (his own design)":44} +-0.059 total -> its own bootstrap '
+      f'floor is 0.031, so the coherent part is +-0.050')
 print('table ->', os.path.join(OUT, 'atmosphere_floor_table.csv'))

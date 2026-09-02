@@ -24,7 +24,7 @@ reported alongside.
 | the 0.62 s master | all 34 EA+EB frames, one stack; constant-only against the bracket (39 matched, rms 0.4993″) | `matrix_bruns2017_brunsmethod/master062/` |
 | the 0.09 s master | the E2 stack in the same convention | `matrix_bruns2017_like2024/E2/` |
 | the link + the fit | Bruns' 7-star offset + Method 1 (**tools, not the program** — F27) | `tools/matrix_bruns/b17_bruns_method.py` |
-| atmosphere term | 22 constant-only night nulls, consecutive same-night pairs (±0.150, one-sided). **2026-09-02: the same nulls redone with a bracketing reference, as his eclipse field was fitted, give ±0.087 and contain no scale-like part; proposed as the term matching his design, not yet applied** | `tools/matrix_bruns/b17_atmosphere2.py`, `b17_bracket_null.py`, `matrix_bruns2017_atmosphere3/` |
+| atmosphere term | 22 one-sided night nulls (±0.150). **2026-09-02: his night fields run R, E, L on a two-minute cadence with the eclipse pointing midway between the calibration pointings, so the null can be built exactly as his eclipse fit was — against the MEAN of R and L. That gives ±0.059 (8 triplets), and the one-sided means against R and L alone are −0.039 and +0.036, equal and opposite. Proposed as the design-matched term, giving total 0.118; not yet applied** | `tools/matrix_bruns/b17_atmosphere2.py`, `b17_bracket_null.py`, `b17_lr_bracket_null.py`, `matrix_bruns2017_atmosphere3/` |
 
 **Graphical output — start at `RECORD/bruns2017\`** (a copy of the summary set lives
 there precisely so it can be found):

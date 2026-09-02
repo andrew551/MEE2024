@@ -72,9 +72,10 @@ Measured results, for reuse as reference values:
 
 | set | geometry | fields | quasi-static residual | vertical | horizontal | V/H | null-test L systematic |
 |---|---|---|---|---|---|---|---|
-| Leon 2026 zenith | alt 79–83° | 12 | **0.067″** (0.058–0.075) | 0.048″ | 0.046″ | 1.1 | **±0.12″** |
-| Bruns 2017 night | alt 53–55°, the eclipse-day pointings | 29 | **0.100″** (0.041–0.175) | 0.072″ | 0.068″ | 1.1 | **±0.15″** |
-| Leon 2026 horizon | alt 8.5–12.4°, the eclipse geometry | 9 | **0.260″** (0.177–0.350) | 0.240″ | 0.098″ | 2.4 | ±0.33″ |
+| Leon 2026 zenith | alt 79–83° | 12 | **0.067″** (0.058–0.075) | 0.048″ | 0.046″ | 1.1 | **±0.12″** one-sided |
+| Leakey 2024 zenith | alt 79–88°, a second instrument | 21 | **0.078″** (0.035–0.212) | 0.050″ | 0.059″ | 0.9 | **±0.12″** one-sided |
+| Bruns 2017 night | alt 53–55°, the eclipse-day pointings | 29 | **0.100″** (0.041–0.175) | 0.072″ | 0.068″ | 1.1 | **±0.150″** one-sided, **±0.059″ R-E-L bracketed** |
+| Leon 2026 horizon | alt 8.5–12.4°, the eclipse geometry | 9 | **0.260″** (0.177–0.350) | 0.240″ | 0.098″ | 2.4 | ±0.33″ one-sided |
 
 Built by `tools/step3_atmosphere_table.py` and `tools/step3_zenith_floor.py`. **Every
 campaign needs a zenith row**, for two reasons that only became clear once Leon's was
@@ -94,6 +95,14 @@ filled in:
   Quote the total, report the decomposition beside it, and do not subtract the floor — it
   is measured on one instrument at one focus with corrections off.
 
+**Two instruments now anchor the zenith row** (`tools/leakey_zenith_floor.py`): Leon's
+FRA500 gives 0.067″ and ±0.12″, Leakey's Askar 65PHQ at another site in another year gives
+0.078″ and ±0.12″, both isotropic. A zenith floor measured on one instrument may therefore
+be used as the pedestal under another's night fields — which is what this table does. On
+both, freeing the plate scale takes the null to ±0.06–0.07: **the floor is about two-thirds
+plate-scale drift.** Group a campaign's fields by focus before pairing them; Leakey's scale
+steps 610 ppm at a refocus, and the one pair that straddles it reads −0.76″.
+
 **Match the null's construction to the science design, or it charges the wrong thing.**
 The one-sided null (field against the previous field) is the analogue of Leon's one-sided
 CAL_piLeo. Bruns' eclipse field was fitted against the *mean* of L (before) and R (after),
@@ -101,6 +110,18 @@ which cancels anything linear in time across the gap; redone that way, his night
 **±0.087″** instead of ±0.150 and does not move when the scale is freed — a bracket
 removes the drift and leaves pure shape (`tools/matrix_bruns/b17_bracket_null.py`). The
 one-sided ±0.150 stays in the record as what a one-sided design would have inherited.
+**Better still, rehearse and null the science SEQUENCE.** Bruns' night fields run R, E, L on
+a two-minute cadence with the eclipse pointing midway between the calibration pointings, so
+the null can be built exactly as his eclipse fit was: **±0.059″**, against ±0.150 one-sided.
+The one-sided means against R and L alone are −0.039 and +0.036″ — equal and opposite, a
+gradient across the sky — and the bracket's mean is −0.001. That cancellation is what two
+calibration fields either side buy, and it is measurable only if the rehearsal repeats the
+sequence (`tools/matrix_bruns/b17_lr_bracket_null.py`).
+**Never take the L−R half-split as the scale term AND an atmosphere term.** The 45 ppm
+L−R split is the measured size of the sky gradient the bracket cancels, and the bracketed
+null measures its residue directly; charging both counts the same gradient twice. Use the
+bracket's own HC3 (10.3 ppm) with the null, or the 22.5 ppm half-split alone, never both.
+
 **The null does not double-count the scale term**: its overlap is leverage × the
 reference field's own scale uncertainty, which is 0.02–0.03″ for the Bruns and zenith sets
 (references at 1–5 ppm) and 0.05–0.10″ inside Leon's ±0.33 (H3 references at 5–9 ppm) —
