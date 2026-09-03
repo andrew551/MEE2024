@@ -14,7 +14,7 @@ field type. This records what is **measured**, what is merely **observed**, and 
 | L/R eclipse-day calibration (2017) | **unresolved at 30 ppm** | one candidate for an unexplained offset |
 | the eclipse field itself | **untested, and there is a specific risk** | see below |
 | Mexico 2024 eclipse field — flat | **not needed** | 2.4–3.3 mas by PSF injection, and stable across the refocus |
-| Mexico 2024 eclipse field — dark | **needed, for hot pixels only** | measured: sub-pixel dither leaves the dark-free search without leverage |
+| Mexico 2024 eclipse field — dark | **needed, for hot pixels only** | measured: 11 % of stacked detections are hot pixels; the dark-free search finds none |
 
 ## Measured: CAL_piLeo, the 2026 L calibration
 
@@ -226,13 +226,40 @@ dark's hot pixels: `stacker_implementation.py` finds them once and they are *"ex
 the stack rather than subtracted"*. It needs to know **which** pixels, not how much. A 25 °C
 dark identifies the same defective sites as a −10 °C one and identifies them more easily.
 
+### The star-list test, as this document asked for it
+
+*"Run it both ways and compare the star list, not just the plate scale."* Done, on the
+0.4 s tier re-stack (`s1_hotpixel_risk.py`), by asking how many detections land on a pixel
+the master dark flags, under the shifts the stacker actually used:
+
+| | positions | on a dark-flagged hot pixel | expected at random |
+|---|---|---|---|
+| all stacked detections | 292 | **33 (11.3 %)** | 0.0 % |
+| matched to a catalogue star | 182 | 2 (1.1 %) | 0.0 % |
+| the science set, G ≤ 12, non-outlier | 174 | **0** | 0.0 % |
+
+The moments stack gives the same to within one detection (34 of 293, 2, 0).
+
+Three things follow. **The contamination is real and large**: 11 % of what the stacker
+detects on this field is a hot pixel, against a random expectation of essentially zero — and
+the dark-free search, running on the same frames, reported *none*, which is the clearest
+possible demonstration that it had no leverage at this dither. **It does propagate**: two of
+them matched a catalogue star and would have entered a reduction with a fainter limiting
+magnitude. **On this tier it did not reach the fit**: the G ≤ 12 cut and the outlier
+rejection removed both before the science set, so the 2024 result is not contaminated by
+this route.
+
+That last line is a reprieve, not a guarantee. Nothing in the pipeline is designed to stop a
+hot pixel reaching stage 3 — that is this document's original point — and the other three
+tiers are shorter exposures reaching fainter, where the margin is thinner. Take the darks.
+
 ### Verdict for cell 2
 
 | | verdict | basis |
 |---|---|---|
 | flat | **not needed** | measured, 2.4–3.3 mas by injection against a 47–56 mas residual; and the flat did not change across the refocus (0.2 % on the vignetting profile), so it cancels in the transfer too |
 | dark, as a pedestal | not needed | measured, 0.00 ADU median excess at 0.4 s |
-| **dark, as a hot-pixel map** | **needed** | measured: sub-pixel dither, so hot pixels stack coherently to ~37 σ and the dark-free search has no leverage |
+| **dark, as a hot-pixel map** | **needed** | measured: 11 % of the stack's detections land on a dark-flagged pixel, and the dark-free search found none of them |
 
 **Use `--dark` on every eclipse tier, matched by exposure** (250 / 300 / 400 ms are all
 present), and expect the library build to warn about the 35 °C setpoint difference — that

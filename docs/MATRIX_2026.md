@@ -874,6 +874,10 @@ are not on this machine. The raw eclipse frames and their bias/dark/flat sets ar
 | reference convention, on the same 2 × 2 | −0.018″ / −0.032″ — the two axes are independent, and only the field's own convention matters |
 | why they differ | the eclipse field's estimator bias is ~200 mas/mag against the zenith fields' 22–31: the corona's gradient biases a footprint moment inversely with star flux. **Supersedes the −0.011″ injection bound below.** |
 | L, windowed re-stack, Method 2 | **1.549–1.623 ″** (moments 1.742–1.889; 2024 record 1.854; GR 1.751) — GR-consistent either way, but 0.25″ apart |
+| reference field count (2026-09-03, f3 and f4 found) | three windowed fields reproduce the 2024 seventeen-field reference to **0.006 ″**; the whole reference axis spans 0.076 ″ against the field convention's 0.266 ″. **No need to wait for the missing blocks.** |
+| the +50 ppm scale event | the sensor ran **12.7 °C warm** (CCD-TEMP +2.53 against −10.2), at +5.2 ± 0.7 ppm/°C. The eclipse tiers sit at −10.23 °C against the calibration's −10.19: **thermally matched**, 0.1 ppm |
+| the flat across the refocus | zenith-session and post-eclipse flats agree to **0.2 % at every radius**; their difference is worth 3–5 mas. The flat cancels in the transfer |
+| hot pixels in the eclipse stack | **11 % of 292 detections** land on a dark-flagged pixel (random 0.0 %); 2 of 182 matched a catalogue star; **0 reached the science set**. The dark-free search found none of them |
 
 Strategy adopted: Method 2 with the pipeline's isotropic S; **windowed + annular, now
 measured on the raw zenith pair** (the estimator is the lever; the background matters only
