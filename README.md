@@ -52,6 +52,13 @@ After installing, you may use this to run MEE2024:
 source "$HOME/.mee2024env/bin/activate"
 mee2024
 ```
+To update to latest version:
+```
+source "$HOME/.mee2024env/bin/activate"
+pip install --upgrade pip
+pip install --upgrade "git+https://github.com/andrew551/MEE2024.git"
+mee2024
+```
 
 
 ### Installation from Source
