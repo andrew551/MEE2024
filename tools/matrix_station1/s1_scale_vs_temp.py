@@ -88,12 +88,18 @@ if len(rows) >= 3:
     print('  reference: the mean of the %d fields below -5 C = %.7f "/px' % (cold.sum(), base))
     for tag, t, p, p24 in rows:
         print('    %-3s %+7.2f C  %+8.1f ppm from that mean' % (tag, t, 1e6*(p-base)/base))
-    if len(rows) >= 2 and T.ptp() > 1:
+    if len(rows) >= 2 and (T.max() - T.min()) > 1:      # ndarray.ptp() was removed in numpy 2
         c, cov = np.polyfit(T, 1e6*(P-base)/base, 1, cov=True)
         print('  fitted slope: %+.2f +- %.2f ppm per degree C  (silicon alone predicts %.1f)'
               % (c[0], np.sqrt(cov[0, 0]), SI_CTE))
-        print('  the warm field alone: %+.1f ppm over %+.2f C = %.2f ppm/C'
-              % (1e6*(P[~cold][0]-base)/base, T[~cold][0]-T[cold].mean(), 1e6*(P[~cold][0]-base)/base/(T[~cold][0]-T[cold].mean())) if (~cold).any() else '')
+        if (~cold).any():
+            dp = 1e6*(P[~cold][0]-base)/base
+            dt = T[~cold][0]-T[cold].mean()
+            print('  the warm field alone: %+.1f ppm over %+.2f C = %.2f ppm/C' % (dp, dt, dp/dt))
+            print('  the three cold fields scatter %.1f ppm over a %.2f C range, so they carry no'
+                  % (1e6*(P[cold].max()-P[cold].min())/base, T[cold].max()-T[cold].min()))
+            print('  independent leverage: the slope rests on the one warm field, and is quoted as')
+            print('  an order of magnitude, not a coefficient.')
 
 print('\n=== does any of it reach the eclipse? ===')
 et = []

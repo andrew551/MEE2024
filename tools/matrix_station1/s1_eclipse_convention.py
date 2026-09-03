@@ -67,6 +67,16 @@ def free(v, tag):
 REFS = {
     'A_2024_17field_moments': sorted(glob.glob(os.path.join(Z24, '*', '**', 'distortion_results.txt'), recursive=True)),
     'C_2field_windowed': [p for p in (free('windowed_annular', 'f1'), free('windowed_annular', 'f2')) if p],
+    # f3 (05_38_32Z, 18 frames) and f4 (05_51_25Z, 7 frames) turned up on 2026-09-03. D is C
+    # plus f3; E adds f4, which is at a different pointing and so adds real sky coverage for
+    # the high-order terms, but ran 12.7 C warm and carries a +68 ppm scale. Under Method 2
+    # the scale is free and only the frozen high-order shape is imported, so E is worth
+    # testing rather than excluding on principle -- C to D to E is what each extra
+    # calibration field is worth here.
+    'D_3field_windowed': [p for p in (free('windowed_annular', 'f1'), free('windowed_annular', 'f2'),
+                                      free('windowed_annular', 'f3')) if p],
+    'E_4field_windowed': [p for p in (free('windowed_annular', 'f1'), free('windowed_annular', 'f2'),
+                                      free('windowed_annular', 'f3'), free('windowed_annular', 'f4')) if p],
 }
 os.makedirs(OUT, exist_ok=True)
 FRAMES = sorted(glob.glob(os.path.join(TIER, '*.FIT')))
@@ -192,10 +202,13 @@ for refname in REFS:
         print('  FIELD convention, moments -> windowed, against %-24s: M1 %+.3f"  M2 base %+.3f"  M2 v-deg2 %+.3f"'
               % (refname, a['m1'][0]-b['m1'][0], a['m2b'][0]-b['m2b'][0], a['m2v'][0]-b['m2v'][0]))
 for est in ('windowed', 'moments'):
-    a, b = cells.get((est, 'C_2field_windowed')), cells.get((est, 'A_2024_17field_moments'))
-    if a and b:
-        print('  REFERENCE, 2024 17-field moments -> 2-field windowed, %-9s field: M1 %+.3f"  M2 base %+.3f"  M2 v-deg2 %+.3f"'
-              % (est, a['m1'][0]-b['m1'][0], a['m2b'][0]-b['m2b'][0], a['m2v'][0]-b['m2v'][0]))
+    for r1, r2, lab in (('A_2024_17field_moments', 'C_2field_windowed', '2024 17-field moments -> 2-field windowed'),
+                        ('C_2field_windowed', 'D_3field_windowed', '2-field windowed -> 3-field windowed     '),
+                        ('D_3field_windowed', 'E_4field_windowed', '3-field windowed -> 4-field (+ the warm f4)')):
+        a, b = cells.get((est, r2)), cells.get((est, r1))
+        if a and b:
+            print('  REFERENCE %s, %-9s field: M1 %+.3f"  M2 base %+.3f"  M2 v-deg2 %+.3f"'
+                  % (lab, est, a['m1'][0]-b['m1'][0], a['m2b'][0]-b['m2b'][0], a['m2v'][0]-b['m2v'][0]))
 vals = [c['m2v'][0] for c in cells.values()]
 if vals:
     print('\n  Method 2 (v-deg2) across the whole 2 x 2: %.3f to %.3f", spread %.3f" against a 0.10" null floor'
