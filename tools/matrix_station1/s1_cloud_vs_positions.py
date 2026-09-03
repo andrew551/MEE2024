@@ -17,6 +17,11 @@ This measures that directly, per frame, without stacking anything:
     gigabytes;
   * four background patches in the same pass give that frame's sky level and tilt, so the
     cloud indicator and the positions come from identical data;
+  * **any flux measured alongside must use an ANNULUS, not a box median.** Under the
+    steep moving gradient these frames carry, a box median sits below the true
+    background on the brighter side and inflates the star. Measured with a box median
+    the stars appeared 4 % BRIGHTER in the cloudy frames; measured with a 9-14 px
+    annulus they are 14 % FAINTER, which is the real answer and is ordinary extinction;
   * each star's position is referred to its own mean over the block, and the frames are then
     split into the cloudy ones and the clear ones by their tilt.
 
@@ -32,6 +37,15 @@ Three questions, in order of how much they would matter:
 A yes to 2 is the one that would matter for L, because a gradient fixed in the sky frame for
 tens of seconds pulls a whole region of stars the same way, which is exactly the shape the
 deflection fit is looking for.
+
+**What the answer turned out to be.** The stars dim 14 % and the sky rises 21 % in the frames
+with the steeper gradient, which for a background-limited centroid predicts a scatter ratio of
+sqrt(1.21)/0.859 = 1.28. The raw split gives 1.68 and the detrended split 1.06; since the
+cloud thickened monotonically through the block, detrending removes the signal along with the
+confound, so 1.06 is a lower bound and 1.68 an upper one. Roughly +28 % is the number to
+carry, it is NOISE rather than bias (the increase is the same for the bright and faint halves,
+1.76 against 1.79, which rules out a background-gradient pull), and it therefore averages down
+in a 123-frame stack. It argues for frame weighting, not for a correction to L.
 """
 import glob, json, os, zipfile
 import numpy as np, pandas as pd
