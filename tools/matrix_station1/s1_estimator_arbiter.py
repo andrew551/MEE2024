@@ -1,5 +1,9 @@
 """Cell 2: which centroid estimator is right, rather than splitting the difference.
 
+(Superseded in scope by `magnitude_independence_all_cells.py`, which runs the same test on
+all three eclipse datasets. Kept because it also reports the magnitude-bin cross-check and
+the averaging arithmetic.)
+
 Douglas, 2026-09-03, quoting Bruns 2018 section 2.3: "Astrometrica determines centroids by
 fitting a Gaussian curve to the pixel values across a radial center while MaxIm DL is based
 on a moment calculation", and 2.6, where L = 1.7338 (Astrometrica) and 1.7658 (MaxIm DL)
@@ -11,8 +15,14 @@ Averaging is the right move when you cannot tell which estimator is better. This
 we can, on Station 1's own eclipse field, by the one diagnostic that separates a biased
 estimator from an unbiased one without knowing the answer in advance.
 
-**The test.** The deflection is achromatic and magnitude-independent: a G 8 star and a G 12
-star at the same radius are bent by the same angle. So fit an extra column,
+**The test.** The deflection depends only on the light ray's impact parameter, so a G 8 star
+and a G 12 star at the same angular distance from the Sun are bent by the same angle.
+
+(This was called "the achromaticity test" when first written, and in the commit that
+introduced it. That was wrong: achromatic means independent of WAVELENGTH, which the
+deflection also is, but nothing here varies wavelength. What is varied is apparent MAGNITUDE.
+The correct name is the magnitude-independence, or brightness-independence, test -- see
+`magnitude_independence_all_cells.py`.) So fit an extra column,
 
     dx = ... + [L + Lmag*(G - Gref)] * (R_sun/R) * u_x
 
@@ -99,7 +109,7 @@ tabs = {k: v for k, v in tabs.items() if v is not None}
 if not tabs:
     raise SystemExit('no eclipse stacks found')
 
-print('=== the achromaticity test: apparent deflection per magnitude ===')
+print('=== the magnitude-independence test: apparent deflection per magnitude ===')
 print('the deflection is magnitude-independent, so Lmag should be zero for a clean estimator\n')
 print('%-12s %5s | %-24s | %-28s | %8s' % ('estimator', 'stars', 'L, no mag term', 'L and Lmag fitted together', 'rms'))
 res = {}
