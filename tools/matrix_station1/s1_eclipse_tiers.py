@@ -18,10 +18,23 @@ The 0.3 s exposure was shot twice, before and after the 0.4 s, so those two bloc
 because a star seen in both cannot owe its detection to the exposure. Leon's two-witness rule
 had to compare 0.6 s against 1.2 s and live with the depth difference.
 
-Every block is stacked windowed + annular with the Sun masked, and now **with its own matching
-dark and the flat**, which is what the 2024 eclipse reduction did (`s1_eclipse_calibrated.py`)
-and what keeps hot pixels out of the star list. The 0.4 s block is read from
-`eclipse_calibrated/` rather than restacked.
+**All four blocks were already stacked in 2024, dark- and flat-calibrated, with identical
+detection settings** (4.0 sigma, min_area 2, sigma_subtract 0, Sun masked), and every stacked
+image survives. So this re-centroids those, exactly as `s1_zenith_recentroid.py` does for the
+zenith fields -- which was validated there to reproduce a raw re-stack to 0.8 ppm of plate
+scale. Re-stacking from raw would gain nothing and would lose the 2024 calibration, which is
+worth +0.18 " in L on identical stars (`s1_eclipse_calibrated.py`).
+
+    1810_4  0.25 s  20240417025605  109 frames (0015-0123; the operator dropped the first
+                                    fifteen, which sit right at second contact)
+    1811_4  0.3  s  20240417014008  124 frames
+    1812_5  0.4  s  20240416232626  123 frames   <- the 2024 reduction of record
+    1813_5  0.3  s  20240417035417  124 frames
+
+Each is centroided BOTH ways, windowed and footprint moments, under one code version. The
+stack, the calibration and the star field are then identical between the two, so the only
+difference is the estimator -- the cleanest form of the comparison Bruns 2018 section 2.3
+made between Astrometrica and MaxIm DL.
 
 Each block gets its own mid-time, because the Sun moves about 2.4 " per minute against the
 stars and the four blocks span four minutes: a single time would misplace the Sun by ~10 ",
@@ -53,18 +66,24 @@ OUT = r"D:/MEE2024 output/MEE_output/station1_record/eclipse_tiers"
 NX, NY, PS = 9576, 6388, 1.84847
 MAGCUT, RCUT, RMAX = 12.0, 2.0, 9.0
 
+ECL24 = r"D:/MEE2024 output/Station 1/eclipse fields"
+# tag, 2024 archive stamp, exposure, mid-time of the block
 BLOCKS = [
-    ('0p25s_1810', '2024-04-08_18_10_26Z', 'dark-250ms', '18:10:57', '2024-04-08T18:10:57'),
-    ('0p3s_1811',  '2024-04-08_18_11_28Z', 'dark-300ms', '18:11:58', '2024-04-08T18:11:58'),
-    ('0p4s_1812',  '2024-04-08_18_12_30Z', 'dark-400ms', '18:13:00', '2024-04-08T18:13:00'),
-    ('0p3s_1813',  '2024-04-08_18_13_31Z', 'dark-300ms', '18:14:02', '2024-04-08T18:14:02'),
+    ('0p25s_1810', '20240417025605', '0.25 s', '18:11:12', '2024-04-08T18:11:12'),
+    ('0p3s_1811',  '20240417014008', '0.3 s',  '18:11:58', '2024-04-08T18:11:58'),
+    ('0p4s_1812',  '20240416232626', '0.4 s',  '18:13:00', '2024-04-08T18:13:00'),
+    ('0p3s_1813',  '20240417035417', '0.3 s',  '18:14:02', '2024-04-08T18:14:02'),
 ]
+ESTIM = {'windowed': ['--set', 'centroid_refine_window=True'],
+         'moments':  ['--set', 'centroid_refine_window=False']}
+# the 2024 settings, kept verbatim; the blob mask still applies because the Sun is present
+# in the stacked image exactly as it was in the frames
 S1 = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract=True',
       '--set', 'centroid_gaussian_thresh=4.0', '--set', 'min_area=2',
       '--set', 'sigma_subtract=0.0', '--set', 'background_subtraction_mode=annular',
       '--set', 'delete_saturated_blob=True', '--set', 'blob_saturation_level=95',
       '--set', 'blob_radius_extra=200', '--set', 'centroid_gap_blob=100',
-      '--set', 'centroid_window_sigma=2.0', '--set', 'centroid_refine_window=True']
+      '--set', 'centroid_window_sigma=2.0']
 
 
 def met(tmid):
@@ -90,20 +109,18 @@ def run(cmd, log):
         return subprocess.run(cmd, cwd=REPO, stdout=fh, stderr=subprocess.STDOUT).returncode
 
 
-def stack(tag, block, darkset):
-    if tag == '0p4s_1812':
-        z = glob.glob(os.path.join(CAL04, 'centroid_data*.zip'))
-        if z:
-            return z[0], CAL04
-    d = os.path.join(OUT, tag)
+def stack(tag, stamp, est):
+    """Re-centroid the 2024 calibrated stack of this block, in one estimator."""
+    img = os.path.join(ECL24, 'CENTROID_OUTPUT%s' % stamp, 'STACKED%s.fit' % stamp)
+    if not os.path.exists(img):
+        return None, None
+    d = os.path.join(OUT, '%s_%s' % (tag, est))
     os.makedirs(d, exist_ok=True)
     z = glob.glob(os.path.join(d, 'centroid_data*.zip'))
     if not z:
-        print('  stacking %s (%s) with %s + flat...' % (tag, block, darkset), flush=True)
-        run([PY, '-m', 'mee2024.cli', 'stack', os.path.join(G, 'CapObj', block, '*.FIT'),
-             '--dark', os.path.join(G, darkset, 'CapObj', '*', '*.FIT'),
-             '--flat', os.path.join(G, 'flat', 'CapObj', '2024-04-08*', '*.FIT'),
-             *S1, '--no-scan', '--no-display', '--quiet', '-o', d], os.path.join(d, 'stage1.log'))
+        print('  re-centroiding %s (%s) as %s...' % (tag, stamp, est), flush=True)
+        run([PY, '-m', 'mee2024.cli', 'stack', img, *S1, *ESTIM[est],
+             '--no-scan', '--no-display', '--quiet', '-o', d], os.path.join(d, 'stage1.log'))
         z = glob.glob(os.path.join(d, 'centroid_data*.zip'))
     return (z[0], d) if z else (None, d)
 
@@ -175,79 +192,95 @@ def fit_L(d, nuis=0):
                 h=1/np.mean((RS/r)**2), rin=t.Rsun.min())
 
 
-print('=== per block ===', flush=True)
+EST_LIST = ('windowed', 'moments')
 tabs = {}
-for tag, block, darkset, tmid, tiso in BLOCKS:
-    cz, root = stack(tag, block, darkset)
-    if not cz:
-        print('  %s: STAGE 1 FAILED' % tag, flush=True); continue
-    r = json.load(zipfile.ZipFile(cz).open('results.txt'))
-    zp = stage2(root, cz, tmid)
-    if not zp:
-        print('  %s: stage 2 FAILED' % tag, flush=True); continue
-    d, j = table(zp, tiso)
-    tabs[tag] = d
-    sci = d[(d.Rsun > RCUT) & (d.Rsun < RMAX) & (d.magV <= MAGCUT)]
-    f = fit_L(d)
-    print('  %-12s %4d centroids, %4d matched, %3d in the science set; innermost matched star'
-          ' %.2f R_sun (science %.2f); stage-2 rms %.3f"; L = %+.3f +- %.3f"'
-          % (tag, r['n_centroids'], len(d), len(sci), d.Rsun.min(), sci.Rsun.min() if len(sci) else np.nan,
-             j['final rms error (arcseconds)'], f['L'], f['eL']), flush=True)
+print('=== per block, each centroided both ways ===', flush=True)
+EST_LIST = ('windowed', 'moments')
+tabs = {}
+print('%-12s %-7s %-9s %6s %8s %7s %9s %9s %9s' %
+      ('block', 'expo', 'estimator', 'cen', 'matched', 'sci', 'innermost', 'rms', 'L'), flush=True)
+for tag, stamp, expo, tmid, tiso in BLOCKS:
+    for est in EST_LIST:
+        cz, root = stack(tag, stamp, est)
+        if not cz:
+            print('  %s/%s: STAGE 1 FAILED' % (tag, est), flush=True)
+            continue
+        r = json.load(zipfile.ZipFile(cz).open('results.txt'))
+        zp = stage2(root, cz, tmid)
+        if not zp:
+            print('  %s/%s: stage 2 FAILED' % (tag, est), flush=True)
+            continue
+        d, j = table(zp, tiso)
+        tabs[(tag, est)] = d
+        sci = d[(d.Rsun > RCUT) & (d.Rsun < RMAX) & (d.magV <= MAGCUT)]
+        f = fit_L(d)
+        print('%-12s %-7s %-9s %6d %8d %7d %9.2f %9.3f %9s'
+              % (tag, expo, est, r['n_centroids'], len(d), len(sci),
+                 sci.Rsun.min() if len(sci) else float('nan'),
+                 j['final rms error (arcseconds)'],
+                 ('%+.3f' % f['L']) if f else 'n/a'), flush=True)
 
-if len(tabs) < 2:
-    raise SystemExit('need at least two blocks')
+if not tabs:
+    raise SystemExit('nothing reduced')
 
-# ---------------------------------------------------------------- the union
-print('\n=== the union: how many blocks saw each star ===')
-allids = {}
-for tag, d in tabs.items():
-    for i in d.ID.values:
-        allids.setdefault(i, []).append(tag)
-nwit = pd.Series({k: len(v) for k, v in allids.items()})
-print('  %d distinct matched stars; seen in 1 block: %d, 2: %d, 3: %d, 4: %d'
-      % (len(nwit), (nwit == 1).sum(), (nwit == 2).sum(), (nwit == 3).sum(), (nwit == 4).sum()))
 
-# the union table: one row per star, residuals averaged over the blocks that saw it
-rows = []
-for i, tags in allids.items():
-    sub = [tabs[t][tabs[t].ID == i].iloc[0] for t in tags]
-    rows.append(dict(ID=i, ntier=len(tags), magV=sub[0].magV,
-                     px=np.mean([s.px for s in sub]), py=np.mean([s.py for s in sub]),
-                     dx=np.mean([s.dx for s in sub]), dy=np.mean([s.dy for s in sub]),
-                     rx=np.mean([s.rx for s in sub]), ry=np.mean([s.ry for s in sub]),
-                     R=np.mean([s.R for s in sub]), Rsun=np.mean([s.Rsun for s in sub]),
-                     RS=np.mean([s.RS for s in sub]),
-                     tags=','.join(sorted(tags))))
-U = pd.DataFrame(rows)
-U.to_csv(os.path.join(OUT, 'union_star_table.csv'), index=False)
+def union_of(est):
+    """One row per star: how many blocks saw it, residuals averaged over those blocks."""
+    ids = {}
+    for (tag, e), d in tabs.items():
+        if e != est:
+            continue
+        for i_ in d.ID.values:
+            ids.setdefault(i_, []).append(tag)
+    rows = []
+    for i_, tg in ids.items():
+        sub = [tabs[(t, est)][tabs[(t, est)].ID == i_].iloc[0] for t in tg]
+        rows.append(dict(ID=i_, ntier=len(tg), magV=sub[0].magV,
+                         px=np.mean([x.px for x in sub]), py=np.mean([x.py for x in sub]),
+                         dx=np.mean([x.dx for x in sub]), dy=np.mean([x.dy for x in sub]),
+                         rx=np.mean([x.rx for x in sub]), ry=np.mean([x.ry for x in sub]),
+                         R=np.mean([x.R for x in sub]), Rsun=np.mean([x.Rsun for x in sub]),
+                         RS=np.mean([x.RS for x in sub]), tags=','.join(sorted(tg))))
+    return pd.DataFrame(rows)
 
-print('\n=== L, Method 2 with the isotropic scale ===')
-print('%-42s %5s %8s %10s %9s %8s' % ('set', 'stars', 'innermost', 'L', '+-', 'rms'))
+
 def show(nm, d):
     f = fit_L(d)
     if f:
-        print('%-42s %5d %8.2f %10.3f %9.3f %8.3f' % (nm, f['n'], f['rin'], f['L'], f['eL'], f['rms']))
+        print('%-46s %5d %9.2f %10.3f %9.3f %8.3f' % (nm, f['n'], f['rin'], f['L'], f['eL'], f['rms']))
     return f
-r04 = show('0.4 s block alone (the 2024 choice)', tabs.get('0p4s_1812', U))
-rtw = show('two-witness union (>= 2 blocks)', U[U.ntier >= 2])
-ral = show('all matched stars, any single block', U)
-r3w = show('three-witness union (>= 3 blocks)', U[U.ntier >= 3])
-r33 = None
-if '0p3s_1811' in tabs and '0p3s_1813' in tabs:
-    both03 = set(tabs['0p3s_1811'].ID) & set(tabs['0p3s_1813'].ID)
-    r33 = show('the two 0.3 s blocks, seen in both', U[U.ID.isin(both03)])
+
+
+for est in EST_LIST:
+    U = union_of(est)
+    if not len(U):
+        continue
+    U.to_csv(os.path.join(OUT, 'union_%s.csv' % est), index=False)
+    nw = U.ntier
+    print('\n=== union, %s: %d distinct stars; seen in 1 block %d, 2 %d, 3 %d, 4 %d ==='
+          % (est, len(U), (nw == 1).sum(), (nw == 2).sum(), (nw == 3).sum(), (nw == 4).sum()))
+    print('%-46s %5s %9s %10s %9s %8s' % ('set', 'stars', 'innermost', 'L', '+-', 'rms'))
+    show('the 0.4 s block alone (the 2024 choice)', tabs.get(('0p4s_1812', est), U))
+    show('two-witness union (>= 2 blocks)', U[U.ntier >= 2])
+    show('three-witness union (>= 3 blocks)', U[U.ntier >= 3])
+    show('all matched stars, any single block', U)
+    a, b = tabs.get(('0p3s_1811', est)), tabs.get(('0p3s_1813', est))
+    if a is not None and b is not None:
+        both = set(a.ID) & set(b.ID)
+        show('the two 0.3 s blocks, seen in both', U[U.ID.isin(both)])
 
 print('\n=== what the short exposure reaches (the Bruns question) ===')
-for tag in ('0p25s_1810', '0p3s_1811', '0p4s_1812', '0p3s_1813'):
-    if tag not in tabs:
+EST = 'windowed'
+for tag, stamp, expo, tmid, tiso in BLOCKS:
+    d = tabs.get((tag, EST))
+    if d is None:
         continue
-    d = tabs[tag]
-    sci = d[(d.magV <= MAGCUT) & (d.Rsun > RCUT)]
-    inner = d.nsmallest(3, 'Rsun')[['ID', 'magV', 'Rsun']]
-    print('  %-12s innermost three matched: %s'
-          % (tag, '  '.join('G %.1f at %.2f R_sun' % (r.magV, r.Rsun) for _, r in inner.iterrows())))
-base = tabs.get('0p4s_1812')
+    inner = d.nsmallest(3, 'Rsun')[['magV', 'Rsun']]
+    print('  %-12s %-7s innermost three matched: %s'
+          % (tag, expo, '  '.join('G %.1f at %.2f R_sun' % (r.magV, r.Rsun) for _, r in inner.iterrows())))
+base = tabs.get(('0p4s_1812', EST))
 if base is not None:
+    U = union_of(EST)
     inner04 = base.Rsun.min()
     gained = U[(U.Rsun < inner04) & (~U.ID.isin(base.ID))]
     print('  the 0.4 s block reaches %.2f R_sun; the other blocks add %d matched star(s) inside that'
