@@ -18,11 +18,10 @@ estimator from an unbiased one without knowing the answer in advance.
 **The test.** The deflection depends only on the light ray's impact parameter, so a G 8 star
 and a G 12 star at the same angular distance from the Sun are bent by the same angle.
 
-(This was called "the achromaticity test" when first written, and in the commit that
-introduced it. That was wrong: achromatic means independent of WAVELENGTH, which the
-deflection also is, but nothing here varies wavelength. What is varied is apparent MAGNITUDE.
-The correct name is the magnitude-independence, or brightness-independence, test -- see
-`magnitude_independence_all_cells.py`.) So fit an extra column,
+(Briefly called "the magnitude-independence test" when first written. **That term is retired as
+deceptive**: these campaigns shoot through a red filter and are essentially monochromatic, so
+there is no chromatic leverage in the data at all. What varies is apparent MAGNITUDE. The name
+is the magnitude-independence test -- see `magnitude_independence_all_cells.py`.) So fit an extra column,
 
     dx = ... + [L + Lmag*(G - Gref)] * (R_sun/R) * u_x
 

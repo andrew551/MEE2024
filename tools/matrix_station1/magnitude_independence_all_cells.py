@@ -4,14 +4,14 @@ Douglas, 2026-09-03: "The moment estimator carries half an arcsecond of apparent
 per magnitude on this field. The windowed carries none: can we show the comparison now for
 all three eclipses data sets, 2017, 2024 and 2026?"
 
-**A correction to the name first.** This test was called "the achromaticity test" in
-`s1_estimator_arbiter.py` and in the commit that introduced it. That was wrong. Achromatic
-means independent of *wavelength*, which gravitational deflection also is, but this test does
-not vary wavelength -- it varies **apparent magnitude**. The physical fact it leans on is that
-the deflection depends only on the ray's impact parameter, so a faint star and a bright star
-at the same angular distance from the Sun are bent by the same angle. Brightness-independence,
-not achromaticity. The tool name is corrected here and the old one is kept as an alias in the
-docs so the earlier commit can be found.
+**A correction to the name first.** This test was briefly called "the achromaticity test"
+(in `s1_estimator_arbiter.py` and the commit that introduced it). **That term is retired: it
+is deceptive here.** Achromatic means independent of wavelength, and these campaigns are
+essentially monochromatic anyway -- a red filter, `observation_wavelength` 0.62-0.65 um -- so
+there is no chromatic leverage in the data to test. What the test varies is **apparent
+magnitude**, and the physical fact it leans on is that the deflection depends only on the
+ray's impact parameter: a faint star and a bright star at the same angular distance from the
+Sun are bent by the same angle. It is the **magnitude-independence** test, and nothing else.
 
 **The test.** Fit the deflection term as `L + Lmag*(G - 10)` and read `Lmag`, in arcseconds of
 apparent deflection per magnitude. It must be zero. It is not zero for an estimator whose
@@ -30,8 +30,10 @@ Conventions available per cell (this is what exists on disk, not a designed matr
                   moments + annular    matrix_bruns2017_moment2   EA, EB
                   windowed             none -- would need a fresh eclipse reduction
     2024 Station1 windowed / moments   eclipse_tiers union_*.csv  (four blocks, same stacks)
-    2026 Leon     windowed + Gaussian  step3_bg_ab/windowed_gaussian  four tiers
-                  moments + annular    step3_bg_ab/moments_annular    four tiers
+    2026 Leon     windowed + Gaussian  step3_bg_ab/windowed_gaussian  0.6 + 1.2 s
+                  moments + annular    step3_bg_ab/moments_annular    0.6 + 1.2 s
+                  windowed + annular   the RECORD, but its stage 2 is fixed=quadratic and so
+                                       cannot be compared with the constant-only fits here
 
 Fields are unioned within a cell (a star seen in several tiers is averaged) so every cell gets
 the most stars its data allows, and the Sun's frame position is computed per field from the
@@ -55,13 +57,28 @@ CELLS = [
          fields=[(os.path.join(M, 'matrix_bruns2017_moment2', 'EA'), '2017-08-21T17:43:22'),
                  (os.path.join(M, 'matrix_bruns2017_moment2', 'EB'), '2017-08-21T17:44:13')],
          magcut=11.0, rmin=2.0, rmax=9.0),
-    dict(cell='2026 Leon', conv='windowed + Gaussian', nx=4144, ny=2822,
+    # Leon's REDUCTION OF RECORD is windowed + ANNULAR (docs/STEP3_CHARTS_AND_SETTINGS.md
+    # section 4: "Leon's headline was reduced windowed+annular"), so the two rows below are
+    # both A/B cells rather than the record, and they differ in BOTH axes. That is a real
+    # limitation of this table for Leon and it is not worth papering over:
+    #
+    #   * the record's own eclipse stage 2 lives in `step3_s0_v4/*/stage2`, which is fitted
+    #     `fixed=quadratic` -- the linear terms including the plate scale are FREE there, so
+    #     part of the deflection signal is absorbed and a naive re-fit of that tree returns
+    #     L = 0.24 against the record's 1.91. It is not comparable with a constant-only fit
+    #     and is deliberately excluded here rather than quoted;
+    #   * Leon's estimator/background 2 x 2 was measured properly by
+    #     `tools/step3_background_ab.py` through the full union pipeline. Its numbers, 0.6+1.2
+    #     union with the anchor: windowed+annular (record) 1.976 base, windowed+Gaussian
+    #     2.115 +- 0.642, moments+annular 1.595 +- 0.622, moments+Gaussian 1.897. Those are
+    #     the figures to cite for Leon, not anything derived here.
+    dict(cell='2026 Leon', conv='windowed + Gaussian (A/B)', nx=4144, ny=2822,
          fields=[(os.path.join(M, 'step3_bg_ab', 'windowed_gaussian', t), '2026-08-12T18:28:33')
-                 for t in ('0p1s', '0p3s', '0p6s', '1p2s')],
+                 for t in ('0p6s', '1p2s')],
          magcut=11.0, rmin=2.0, rmax=9.0),
-    dict(cell='2026 Leon', conv='moments + annular', nx=4144, ny=2822,
+    dict(cell='2026 Leon', conv='moments + annular (A/B)', nx=4144, ny=2822,
          fields=[(os.path.join(M, 'step3_bg_ab', 'moments_annular', t), '2026-08-12T18:28:33')
-                 for t in ('0p1s', '0p3s', '0p6s', '1p2s')],
+                 for t in ('0p6s', '1p2s')],
          magcut=11.0, rmin=2.0, rmax=9.0),
 ]
 
