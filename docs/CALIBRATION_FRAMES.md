@@ -13,8 +13,8 @@ field type. This records what is **measured**, what is merely **observed**, and 
 | L/R eclipse-day calibration (2026 CAL_piLeo) | **not needed** | measured, 4-arm ladder + paired test |
 | L/R eclipse-day calibration (2017) | **unresolved at 30 ppm** | one candidate for an unexplained offset |
 | the eclipse field itself | **untested, and there is a specific risk** | see below |
-| Mexico 2024 eclipse field — flat | **not needed** | 2.4–3.3 mas by PSF injection, and stable across the refocus |
-| Mexico 2024 eclipse field — dark | **needed, for hot pixels only** | measured: 11 % of stacked detections are hot pixels; the dark-free search finds none |
+| Mexico 2024 eclipse field — flat | **unresolved, and the cell's largest sensitivity** | 2.4–3.3 mas by injection on the pixels, but the flat-fielded re-stack's centroids differ from the un-flatted one's by ~250 mas per star (the dark's: 37 mas) and **L moves −0.29 ″ on identical stars** (−0.16 ″ with the dark). Mechanism not identified — per-frame coronal model or the detection, not the pixel response. Dark + flat has the best residual and is the arm of record; ±0.2–0.4 ″ carried until the mechanism is closed |
+| Mexico 2024 eclipse field — dark | **needed, for hot pixels only** | measured: 11 % of stacked detections are hot pixels, the dark removes every one, and it moves L by +0.04 ″ on identical stars — protection, not a shift |
 
 ## Measured: CAL_piLeo, the 2026 L calibration
 
