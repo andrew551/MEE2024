@@ -8,6 +8,15 @@ list through `subprocess.run` avoids the shell altogether.
 Usage: s1_refit_driver.py septic      -- the four corona blocks against the SEPTIC reference
        s1_refit_driver.py caldecomp   -- the dark-only / flat-only / neither stacks of the 0.4 s
                                         block against the quintic reference
+       s1_refit_driver.py twopass     -- the four corona blocks against the quintic reference
+                                        with the plate scale FITTED at stage 2
+                                        (distortion_free_scale=True), a 20" first gate and a
+                                        3" second gate (distortion_fit_tol_initial=20,
+                                        distortion_fit_tol=3): the match-gate fix. Output goes
+                                        to eclipse_corona/<tag>/stage2_twopass. A single 3"
+                                        gate with the scale free was tried first and kept 27
+                                        of 189 stars on the 0.4 s block: the first fit was
+                                        pulled by the mis-matches the 100" rough gate let in.
 """
 import glob, os, subprocess, sys
 
@@ -19,31 +28,44 @@ MET = ['--set', 'enable_corrections=True', '--set', 'enable_corrections_ref=True
        '--set', 'observation_long=105 16 22.1 W', '--set', 'observation_lat=23 50 58.3 N',
        '--set', 'observation_temp=15.0', '--set', 'observation_pressure=760.0',
        '--set', 'observation_humidity=0.25', '--set', 'observation_height=2400.0']
+BLOCKS = (('0p25s_1810', '18:11:12'), ('0p3s_1811', '18:11:58'),
+          ('0p4s_1812', '18:13:00'), ('0p3s_1813', '18:14:02'))
 
 
-def refit(cz, out, refs, order, tmid):
+def refit(cz, out, refs, order, tmid, tol=20.0, extra=()):
     os.makedirs(out, exist_ok=True)
     if glob.glob(os.path.join(out, '**', 'distortion_data*.zip'), recursive=True):
         return 'cached'
     cmd = [PY, '-m', 'mee2024.cli', 'distortion', cz, '--order', order, '--fix-distortion', *refs,
-           '--set', 'distortion_fixed_coefficients=constant', '--set', 'distortion_fit_tol=20.0',
-           '--set', 'max_star_mag_dist=13', '--set', 'rough_match_threshhold=100', *MET,
+           '--set', 'distortion_fixed_coefficients=constant', '--set', 'distortion_fit_tol=%.1f' % tol,
+           '--set', 'max_star_mag_dist=13', '--set', 'rough_match_threshhold=100', *MET, *extra,
            '--set', 'observation_time=' + tmid, '--no-display', '--quiet', '-o', out]
     with open(os.path.join(out, 'stage2.log'), 'w') as fh:
         rc = subprocess.run(cmd, cwd=REPO, stdout=fh, stderr=subprocess.STDOUT).returncode
     return 'rc %d' % rc
 
 
+def quintic_refs():
+    return sorted(glob.glob(os.path.join(REC, 'zenith_recentroid', '*', 'stage2_free', '**', 'distortion_results.txt'), recursive=True))
+
+
 mode = sys.argv[1] if len(sys.argv) > 1 else 'septic'
 if mode == 'septic':
     refs = sorted(glob.glob(os.path.join(REC, 'septic_test', 'ref', '*', '**', 'distortion_results.txt'), recursive=True))
     print('septic reference: %d fields' % len(refs), flush=True)
-    for tag, tm in (('0p25s_1810', '18:11:12'), ('0p3s_1811', '18:11:58'),
-                    ('0p4s_1812', '18:13:00'), ('0p3s_1813', '18:14:02')):
+    for tag, tm in BLOCKS:
         cz = glob.glob(os.path.join(REC, 'eclipse_corona', tag, 'centroid_data*.zip'))[0]
         print('  %s %s' % (tag, refit(cz, os.path.join(REC, 'eclipse_corona', tag, 'stage2_septic'), refs, 'septic', tm)), flush=True)
+elif mode == 'twopass':
+    refs = quintic_refs()
+    print('quintic reference: %d fields; plate scale fitted at stage 2, gates 20" then 3"' % len(refs), flush=True)
+    for tag, tm in BLOCKS:
+        cz = glob.glob(os.path.join(REC, 'eclipse_corona', tag, 'centroid_data*.zip'))[0]
+        print('  %s %s' % (tag, refit(cz, os.path.join(REC, 'eclipse_corona', tag, 'stage2_twopass'), refs, 'quintic', tm,
+                                      tol=3.0, extra=('--set', 'distortion_free_scale=True',
+                                                      '--set', 'distortion_fit_tol_initial=20.0'))), flush=True)
 else:
-    refs = sorted(glob.glob(os.path.join(REC, 'zenith_recentroid', '*', 'stage2_free', '**', 'distortion_results.txt'), recursive=True))
+    refs = quintic_refs()
     print('quintic reference: %d fields' % len(refs), flush=True)
     for arm in ('darkonly', 'flatonly', 'neither'):
         z = glob.glob(os.path.join(REC, 'eclipse_caldecomp', arm, 'centroid_data*.zip'))
