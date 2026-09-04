@@ -54,7 +54,7 @@ import astropy.units as u
 
 REC = r"D:/MEE2024 output/MEE_output/station1_record"
 NX, NY, PS = 9576, 6388, 1.84847
-MAGCUT, RCUT, RMAX = 12.0, 2.0, 9.0
+MAGCUT, RCUT, RMAX = 13.0, 2.0, 9.0
 BLOCKS = [('0p25s_1810', '18:11:12'), ('0p3s_1811', '18:11:58'),
           ('0p4s_1812', '18:13:00'), ('0p3s_1813', '18:14:02')]
 
@@ -77,6 +77,8 @@ def table(zp, tmid):
     d['dx'] = (ox@ax - cm@ax)*PS; d['dy'] = (ox@ay - cm@ay)*PS
     d['rx'] = (d.px.values-SPX)*PS; d['ry'] = (d.py.values-SPY)*PS
     d['R'] = np.hypot(d.rx, d.ry); d['Rsun'] = d.R/RS; d['RS'] = RS
+    d['ra'], d['dec'] = d['RA(catalog)'], d['DEC(catalog)']
+    d['sun_px'], d['sun_py'] = SPX, SPY
     d['key'] = d.ID.astype(str)   # the Gaia source id: the same star in every block
     return d
 
@@ -120,7 +122,7 @@ ap.add_argument('--ref', default='quintic', choices=['quintic', 'septic', 'twopa
                      'twopass: scale fitted at stage 2, 20" then 3" gates')
 ap.add_argument('--min-blocks', type=int, default=1,
                 help='a star enters with this many block observations or more; 1 = every observation')
-ap.add_argument('--magcut', type=float, default=12.0, help='science-set magnitude limit, G')
+ap.add_argument('--magcut', type=float, default=13.0, help='science-set magnitude limit, G')
 ap.add_argument('--vet', type=int, default=1, help='vet passes (1 is the record; 0 = no vet)')
 ap.add_argument('--vet-k', type=float, default=4.0, help='the vet cut: median + k * 1.4826 * MAD')
 ap.add_argument('--tag', default='', help='output subdirectory suffix, for grids')
@@ -220,6 +222,8 @@ summary = dict(ref=a.ref, min_blocks=a.min_blocks, magcut=a.magcut, vet_passes=a
                                    theta_arcsec=float(206265*c[names.index(bname+':theta')]),
                                    rho_S_L=float(cov[names.index(bname+':S'), iL]/np.sqrt(cov[names.index(bname+':S'), names.index(bname+':S')]*cov[iL, iL])))
                        for bname in blocks})
+summary['GR'], summary['NEWTON'] = 1.7512, 0.8756
+summary['L_over_Newton'] = float(c[iL]/0.8756)
 json.dump(summary, open(os.path.join(OUT, 'pooled_summary.json'), 'w'), indent=1)
 d.to_csv(os.path.join(OUT, 'pooled_rows.csv'), index=False)
 pd.DataFrame(dict(L=Ls)).to_csv(os.path.join(OUT, 'bootstrap.csv'), index=False)

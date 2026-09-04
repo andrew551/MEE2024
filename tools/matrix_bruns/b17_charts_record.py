@@ -51,6 +51,7 @@ from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 
 OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
 VER = os.path.join(OUT, 'chart_versions')
+RECORD = r"D:/MEE2024 output/MEE_output/RECORD/bruns2017"
 os.makedirs(VER, exist_ok=True)
 REV = 'rev12'
 RAWDIR = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
@@ -410,4 +411,31 @@ master_figure(img062,
                 'the %d identified stars used in the reduction (G \u2264 11)' % len(used))],
               'master062_annotated.png',
               'The 0.62 s master (EA+EB, 34 frames) \u2014 Bruns 2017')
+# ---- the record copy, the same construction the Leon and Mexico tools use
+# Added 2026-09-04 (Douglas): RECORD/bruns2017 was being filled by hand, so a regenerated
+# chart overwrote its predecessor and the older version survived only under chart_versions/
+# here. Now the copy is part of the run and anything it would overwrite is moved into a
+# dated superseded/ folder first, as in RECORD/leon2026.
+if os.environ.get('B17_COPY_RECORD') == '1':
+    import filecmp
+    import shutil
+    os.makedirs(RECORD, exist_ok=True)
+    produced = ['record_deflection.png', 'record_deflection_link14.png',
+                'record_deflection_g13.png', 'record_field.png', 'record_covariance.png',
+                'master009_annotated.png', 'master062_annotated.png',
+                'bruns_method_star_table.csv']
+    src = {f: os.path.join(OUT, f) for f in produced}
+    old_files = [f for f in os.listdir(RECORD)
+                 if f in src and os.path.exists(src[f])
+                 and not filecmp.cmp(src[f], os.path.join(RECORD, f), shallow=False)]
+    if old_files:
+        sup = os.path.join(RECORD, 'superseded_' + pd.Timestamp.now().strftime('%Y-%m-%d_%H%M'))
+        os.makedirs(sup, exist_ok=True)
+        for f in old_files:
+            shutil.move(os.path.join(RECORD, f), os.path.join(sup, f))
+        print('superseded %d file(s) -> %s' % (len(old_files), sup))
+    for f, q in src.items():
+        if os.path.exists(q):
+            shutil.copy2(q, os.path.join(RECORD, f))
+    print('record set ->', RECORD)
 print('charts ->', OUT)
