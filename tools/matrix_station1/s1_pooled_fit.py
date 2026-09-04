@@ -123,6 +123,21 @@ ap.add_argument('--ref', default='quintic', choices=['quintic', 'septic', 'twopa
 ap.add_argument('--min-blocks', type=int, default=1,
                 help='a star enters with this many block observations or more; 1 = every observation')
 ap.add_argument('--magcut', type=float, default=13.0, help='science-set magnitude limit, G')
+# The outer radius was 9 R_sun by matrix convention, inherited from cells 1 and 3 whose
+# fields are smaller. Station 1's frame reaches 10.6 R_sun, and the stars beyond 9 are the
+# ones that pin the plate scale -- which is what inflates sigma_L, since S and L correlate
+# at -0.82. Mikhailov's point exactly: S comes from the distant stars, L from the close ones.
+#
+# 10.0 is where the data says to stop, and the criterion is not L. Comparing the mean RADIAL
+# residual of the eclipse blocks with the zenith nulls (same optics, same transfer, no Sun),
+# annulus by annulus, every bin agrees to within 0.09" out to 10 R_sun -- and the 10.0-10.6
+# bin reads +0.201 +- 0.024" on eclipse day against +0.043 +- 0.006" at the zenith, a six-sigma
+# excess found only during totality. Those stars also sit in the frame's extreme corners,
+# where a circle of that radius is only 13-24 % inside the sensor, so the bias cannot average
+# over azimuth. Admitting them moves L by -0.14"; stopping at 10 rather than 9 gains 15 % on
+# sigma_L for a -0.012" shift. --rmax 9 reproduces the old cut, --rmax 99 the frame edge.
+ap.add_argument('--rmin', type=float, default=2.0, help='inner radius cut, solar radii')
+ap.add_argument('--rmax', type=float, default=10.0, help='outer radius cut, solar radii')
 ap.add_argument('--vet', type=int, default=1, help='vet passes (1 is the record; 0 = no vet)')
 ap.add_argument('--vet-k', type=float, default=4.0, help='the vet cut: median + k * 1.4826 * MAD')
 ap.add_argument('--tag', default='', help='output subdirectory suffix, for grids')
@@ -143,15 +158,16 @@ for tag, tmid in BLOCKS:
     # the plate scale stage 2 used for this block's positions: the reference's when it
     # was imported, the field's own under distortion_free_scale
     P2[tag] = float(json.load(zipfile.ZipFile(hit[-1]).open('distortion_results.txt'))['platescale (arcseconds/pixel)'])
-    d = d[(d.Rsun > RCUT) & (d.Rsun < RMAX) & (d.magV <= a.magcut)].copy()
+    d = d[(d.Rsun > a.rmin) & (d.Rsun < a.rmax) & (d.magV <= a.magcut)].copy()
     d['block'] = tag
     parts.append(d)
 d = pd.concat(parts, ignore_index=True)
 blocks = [t for t, _ in BLOCKS if t in set(d.block)]
 seen = d.groupby('key').block.nunique()
 d = d[d.key.map(seen) >= a.min_blocks].copy()
-print('=== pooled Method-2 fit, %s reference, G <= %.0f, stars in >= %d of %d blocks, vet %d pass(es) at median + %.0f MAD ==='
-      % (a.ref, a.magcut, a.min_blocks, len(blocks), a.vet, a.vet_k))
+print('=== pooled Method-2 fit, %s reference, G <= %.0f, %.1f-%.1f R_sun, stars in >= %d of %d blocks,'
+      ' vet %d pass(es) at median + %.0f MAD ==='
+      % (a.ref, a.magcut, a.rmin, min(a.rmax, d.Rsun.max()), a.min_blocks, len(blocks), a.vet, a.vet_k))
 print('  %d observations of %d stars before the vet' % (len(d), d.key.nunique()))
 
 # ---------------------------------------------------------------- the fit, with the vet
@@ -216,6 +232,7 @@ print('  star bootstrap (%d samples over %d stars): L = %.3f +- %.3f"  [16-84 %%
 
 summary = dict(ref=a.ref, min_blocks=a.min_blocks, magcut=a.magcut, vet_passes=a.vet, vet_k=a.vet_k, observations=int(n),
                stars=int(d.key.nunique()), L=float(c[iL]), sigma_formal=eL, sigma_bootstrap=float(Ls.std()),
+               rmin=a.rmin, rmax=float(min(a.rmax, d.Rsun.max())),
                sigma_L_scales_frozen=eL_fixed, scale_share=share, residual=rms,
                blocks={bname: dict(n=int((d.block == bname).sum()), S_ppm=float(1e6*c[names.index(bname+':S')]),
                                    joint_scale_arcsec_per_px=float(P2[bname] - c[names.index(bname+':S')]*PS),

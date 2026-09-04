@@ -4,6 +4,18 @@ The cell-1 and cell-3 chart sets in the same style (`tools/matrix_bruns/b17_char
 `tools/step3_charts_record.py`), built on this cell's estimator: the pooled Method-2 fit over
 every observation of the four totality blocks (`s1_pooled_fit.py --ref twopass`).
 
+Revision 4 (Douglas' third review, 2026-09-04):
+  * the science set now reaches **10 R_sun** rather than 9 -- see `s1_pooled_fit.py` for why
+    the cut sits there and why it is not chosen on L. The pile-up of points at R = 9 that
+    Douglas saw on the revision-3 charts was that cut, and it was inherited convention;
+  * the deflection legend names the number of observations; the all-four chart has no legend
+    title, since it has only one group;
+  * the covariance chart quotes the plate-scale error in scientific notation, says "plate
+    scale found by fitting S with L", and replaces "errors clustered on star" with the count
+    of data actually used;
+  * the annotated masters drop "the inner cut" from the 2 R_sun label;
+  * the field chart names its star count in the title.
+
 Revision 3 (Douglas' second review, 2026-09-04):
   * **the covariance ellipse is now cluster-robust throughout.** Revision 2 drew it from the
     OLS covariance with the L axis rescaled by hand to the bootstrap, which left the plate
@@ -59,7 +71,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Ellipse, Polygon
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 
-REV = 'rev03'
+REV = 'rev04'
 REC = r"D:/MEE2024 output/MEE_output/station1_record"
 OUT = os.path.join(REC, 'charts')
 VER = os.path.join(OUT, 'chart_versions')
@@ -82,6 +94,12 @@ BLOCK_COLOR = {'0p25s_1810': 'tab:blue', '0p3s_1811': 'tab:orange',
 WITNESS_COLOR = {4: 'tab:blue', 3: 'tab:green', 2: 'tab:red', 1: 'tab:orange'}
 WITNESS_LABEL = {4: 'seen in all four blocks', 3: 'seen in three blocks',
                  2: 'seen in two blocks', 1: 'seen in one block'}
+
+
+def _sci(v, digits=1):
+    """1.2e-05 -> '1.2$\\times$10$^{-5}$', for an error small enough that decimals hide it."""
+    e = int(np.floor(np.log10(abs(v))))
+    return '%.*f$\\times$10$^{%d}$' % (digits, v/10.0**e, e)
 
 
 def save(fig, name):
@@ -169,8 +187,9 @@ def deflection_chart(d, fname, title, note, unit='obs', colour_by='block', legen
     lo, hi = np.percentile(d.rad.values, [0.5, 99.5])
     ax.set_ylim(min(lo, -0.35) - 0.15, max(hi, L/1.9) + 0.35)
     # two legends: what was measured, bottom left; what is being compared, top right
+    title = 'exposure blocks' if legend_title is None else legend_title
     first = ax.legend(handles=dots, fontsize=8.5, loc='lower left',
-                      title=legend_title or 'exposure blocks', title_fontsize=8.5)
+                      title=(title or None), title_fontsize=8.5)
     ax.add_artist(first)
     ax.legend(handles=[ln1, ln2, ln3, band], fontsize=9, loc='upper right')
     fig.text(0.06, 0.015, note, fontsize=8.5)
@@ -182,8 +201,9 @@ def deflection_chart(d, fname, title, note, unit='obs', colour_by='block', legen
 deflection_chart(t, 'record_deflection.png',
                  'Deflection vs radius \u2014 Mexico 2024 Station 1, pooled over every '
                  'observation, G $\\leq$ 13',
-                 'one point per observation: a star seen in four blocks appears four times, '
-                 'which is what the pooled fit weighs. Per-block offset, rotation and scale removed.')
+                 'one point per observation: a star seen in four blocks appears four times. '
+                 'No observation is chosen over another and none is averaged away.',
+                 legend_title='exposure blocks (%d observations)' % len(t))
 
 per = t.groupby('key').agg(Rsun=('Rsun', 'mean'), rad=('rad', 'mean'), RS=('RS', 'mean'),
                            R=('R', 'mean'), magV=('magV', 'mean'), nblk=('nblk', 'first'),
@@ -192,17 +212,17 @@ per['res'] = t.groupby('key').res.mean().values
 deflection_chart(per, 'record_deflection_per_star.png',
                  'Deflection vs radius \u2014 Mexico 2024 Station 1, one point per star '
                  '(legibility copy of the record)',
-                 'the same fit; each star\u2019s observations averaged for display only. '
-                 'Colour is how many of the four blocks saw the star.',
+                 'for display only, a star\u2019s observations are replaced by their unweighted '
+                 'mean; the fit uses each one separately. Colour: how many blocks saw the star.',
                  unit='stars', colour_by='witness', legend_title='blocks that saw the star')
 
 deflection_chart(t[t.nblk == 4], 'record_deflection_all4.png',
                  'Deflection vs radius \u2014 Mexico 2024 Station 1, stars seen in ALL FOUR '
                  'blocks (cross-check, not the record)',
-                 'the old union-style admission rule, kept as a cross-check: L moves +0.03" '
-                 'and 51 stars are lost. The record admits every observation. Every star here '
-                 'is in every block, so the block a point came from says nothing and is not '
-                 'drawn.', colour_by='none', legend_title=None)
+                 'the old union-style admission rule as a cross-check: stars seen in fewer '
+                 'than four blocks are dropped. All four observations of each star are plotted, '
+                 'so there are four points per star.',
+                 colour_by='none', legend_title='')
 
 # ---------------------------------------------------------------- 2. the field
 u = t.groupby('key').agg(px=('px', 'mean'), py=('py', 'mean'), vx=('vx', 'mean'),
@@ -245,8 +265,8 @@ ax.set_xlim(lo_ra, hi_ra); ax.set_ylim(lo_de, hi_de)
 ax.set_aspect(1/np.cos(np.radians(de0)))
 ax.set_xlabel('RA (degrees)', fontsize=12)
 ax.set_ylabel('DEC (degrees)', fontsize=12)
-ax.set_title('Displacement vectors \u2014 Mexico 2024 Station 1, pooled fit, G $\\leq$ 13',
-             fontsize=12)
+ax.set_title('Displacement vectors (%d stars) \u2014 Mexico 2024 Station 1, pooled fit, '
+             'G $\\leq$ 13' % len(u), fontsize=12)
 fig.text(0.06, 0.020, 'each arrow = the star\u2019s measured shift after subtracting that '
          'block\u2019s pointing offset, rotation and plate scale; deflection + measurement '
          'noise remain', fontsize=9)
@@ -317,10 +337,11 @@ ax.scatter(*mu, marker='+', s=140, color='tab:blue', zorder=5)
 ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
 _lines = [('Pooled Method 2:  L = %.3f $\\pm$ %.3f" (stat)' % (L, SE_STAT), 'tab:blue'),
           ('      $\\pm$ %.3f" with the atmosphere term %.2f' % (TOT, ATM_ERR), 'tab:blue'),
-          ('Joint plate scale: %.6f $\\pm$ %.6f "/px' % (joint, sS_scale), 'black'),
-          ('      (stage 2\u2019s scale corrected by the S fitted with L)', 'black'),
+          ('Plate scale: %.6f $\\pm$ %s "/px' % (joint, _sci(sS_scale)), 'black'),
+          ('      (plate scale found by fitting S with L)', 'black'),
           ('correlation L vs plate scale = %+.2f' % RHO, 'black'),
-          ('errors clustered on star, %d stars' % t.key.nunique(), 'black')]
+          ('from %d observations of %d stars (%d measured coordinates)'
+           % (len(t), t.key.nunique(), 2*len(t)), 'black')]
 _pack = VPacker(children=[TextArea(x, textprops=dict(color=col, size=9.5)) for x, col in _lines],
                 pad=0, sep=3, align='left')
 _box = AnchoredOffsetbox(loc='lower left', child=_pack, pad=0.45, borderpad=0.6, frameon=True,
@@ -364,7 +385,7 @@ for b in blocks:
         handles.append(plt.Line2D([], [], color=colr, label='%s (%d)' % (lab, int(k.sum()))))
     ax.add_patch(Circle((db.sun_px.mean(), db.sun_py.mean()), 2*db.RS.mean()/PS, fill=False,
                         color='cyan', lw=1.4, ls='--'))
-    handles.append(plt.Line2D([], [], color='cyan', ls='--', label='2 R$_\\odot$, the inner cut'))
+    handles.append(plt.Line2D([], [], color='cyan', ls='--', label='2 R$_\\odot$'))
     ax.legend(handles=handles, fontsize=9, loc='upper left', bbox_to_anchor=(0.0, -0.09),
               borderaxespad=0, frameon=True)
     ax.set_title('The %s block (%s frames, occulted and coronal-subtracted) \u2014 '
