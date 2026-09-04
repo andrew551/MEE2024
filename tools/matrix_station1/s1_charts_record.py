@@ -4,6 +4,20 @@ The cell-1 and cell-3 chart sets in the same style (`tools/matrix_bruns/b17_char
 `tools/step3_charts_record.py`), built on this cell's estimator: the pooled Method-2 fit over
 every observation of the four totality blocks (`s1_pooled_fit.py --ref twopass`).
 
+Revision 2 (Douglas' first review of this set, 2026-09-04):
+  * **the model-order term leaves the budget.** It was carried at +-0.03" from the
+    quintic-against-septic test, but neither Bruns 2017 nor Leon 2026 was tested above its own
+    order, so quoting it here alone made cell 2 look worse than the others for a reason that
+    is about which tests were run, not about the data. The septic measurement stays on the
+    record in STEP3_2026; the budget is now stat + atmosphere, as in the other two cells;
+  * the covariance chart loses the Newton line, the 2 sigma ellipse, the published plate-scale
+    band and three lines of text, and its vertical axis becomes the plate scale itself in
+    arcsec per pixel rather than ppm from a published value;
+  * all four tiers get an annotated master, not just the 0.4 s;
+  * the field chart colours stars by how many blocks saw them, four ways;
+  * the deflection charts lose the published-value line and the outlier labels, and split the
+    legend: the blocks sit bottom left, the fitted lines and the error band top right.
+
 What differs from the other two cells, and why the charts differ:
 
   * **there is no Method 1 here.** Method 1 imports a plate scale; the daytime refocus put the
@@ -13,11 +27,9 @@ What differs from the other two cells, and why the charts differ:
     offset, rotation and scale and they share one L, so a star seen in four blocks is four
     rows. The deflection chart therefore plots observations; a per-star version is drawn
     beside it for legibility;
-  * **the plate scale is a measurement, not an input.** The covariance chart's vertical axis is
-    the fitted scale against the published one (Dittrich et al. 2025, 1.847363 +- 0.000013),
-    and what is compared is the JOINT scale -- stage 2's corrected by the S the fit finds
-    alongside L. A scale fitted without L has the deflection absorbed into it and is ~46 ppm
-    low.
+  * **the plate scale is a measurement, not an input.** What the covariance chart plots is the
+    JOINT scale -- stage 2's corrected by the S the fit finds alongside L. A scale fitted
+    without L has the deflection absorbed into it and is ~46 ppm low.
 
 Rules kept from the Bruns and Leon chart reviews: arrows are vectors, not radial projections;
 a unit sensor displacement is asserted to round-trip to one arcsec of sky; every arrow end is
@@ -35,7 +47,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Ellipse, Polygon
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 
-REV = 'rev01'
+REV = 'rev02'
 REC = r"D:/MEE2024 output/MEE_output/station1_record"
 OUT = os.path.join(REC, 'charts')
 VER = os.path.join(OUT, 'chart_versions')
@@ -45,15 +57,19 @@ os.makedirs(VER, exist_ok=True)
 
 NX, NY, PS = 9576, 6388, 1.84847
 GR, NEWTON = 1.7512, 0.8756
-# the budget beside the statistical term (docs/STEP3_2026.md, "Cell 2's error terms")
-ATM_ERR, MODEL_ORDER = 0.11, 0.03
-# Dittrich et al. 2025, the published analysis of these frames
-PUB_L, PUB_L_ERR = 1.839, 0.239
+# The budget beside the statistical term: the atmosphere term only. See the revision-2 note
+# above for why the model-order term is no longer quoted.
+ATM_ERR = 0.11
+PUB_L, PUB_L_ERR = 1.839, 0.239              # Dittrich et al. 2025, for the record summary
 PUB_SCALE, PUB_SCALE_ERR = 1.847363, 1.3e-5
 BLOCK_LABEL = {'0p25s_1810': '0.25 s, 18:11:12', '0p3s_1811': '0.3 s, 18:11:58',
                '0p4s_1812': '0.4 s, 18:13:00', '0p3s_1813': '0.3 s, 18:14:02'}
 BLOCK_COLOR = {'0p25s_1810': 'tab:blue', '0p3s_1811': 'tab:orange',
                '0p4s_1812': 'tab:green', '0p3s_1813': 'tab:purple'}
+# how many blocks saw the star -> colour, for the field chart
+WITNESS_COLOR = {4: 'tab:blue', 3: 'tab:green', 2: 'tab:red', 1: 'tab:orange'}
+WITNESS_LABEL = {4: 'seen in all four blocks', 3: 'seen in three blocks',
+                 2: 'seen in two blocks', 1: 'seen in one block'}
 
 
 def save(fig, name):
@@ -67,7 +83,7 @@ t = pd.read_csv(os.path.join(POOLED, 'pooled_rows.csv'))
 summary = json.load(open(os.path.join(POOLED, 'pooled_summary.json')))
 blocks = [b for b in BLOCK_LABEL if b in set(t.block)]
 L, SE_STAT = summary['L'], summary['sigma_bootstrap']
-TOT = float(np.sqrt(SE_STAT**2 + ATM_ERR**2 + MODEL_ORDER**2))
+TOT = float(np.hypot(SE_STAT, ATM_ERR))
 nblk = t.groupby('key').block.nunique()
 t['nblk'] = t.key.map(nblk)
 ux, uy = t.rx.values/t.R.values, t.ry.values/t.R.values
@@ -110,34 +126,33 @@ assert abs(_rt - 1.0) < 0.01, 'a 1 arcsec sensor displacement maps to %.3f arcse
 def deflection_chart(d, fname, title, note, unit='obs'):
     fig, ax = plt.subplots(figsize=(10, 6.8))
     ax.axhline(0, color='black', lw=1)
+    dots = []
     for b in blocks:
         k = d.block.values == b
         if not k.any():
             continue
-        ax.scatter(d.Rsun.values[k], d.rad.values[k], s=26, alpha=0.85,
-                   color=BLOCK_COLOR[b], zorder=4,
-                   label='%s (%d %s)' % (BLOCK_LABEL[b], int(k.sum()), unit))
+        dots.append(ax.scatter(d.Rsun.values[k], d.rad.values[k], s=26, alpha=0.85,
+                               color=BLOCK_COLOR[b], zorder=4,
+                               label='%s (%d %s)' % (BLOCK_LABEL[b], int(k.sum()), unit)))
     resid = d.rad.values - L*d.RS.values/d.R.values
     rms = float(np.sqrt(np.mean(resid**2)))
-    for k in np.where(np.abs(resid) > 3.0*rms)[0]:
-        ax.annotate('G %.1f (%+.1f$\\sigma$)' % (d.magV.values[k], resid[k]/rms),
-                    (d.Rsun.values[k], d.rad.values[k]),
-                    xytext=(6, -11), textcoords='offset points', fontsize=7.5, color='crimson')
     xx = np.linspace(1.85, d.Rsun.max()+0.4, 300)
-    ax.fill_between(xx, (L-TOT)/xx, (L+TOT)/xx, color='black', alpha=0.10,
-                    label='total $\\pm$%.2f" (stat %.3f + atm %.2f + order %.2f)'
-                          % (TOT, SE_STAT, ATM_ERR, MODEL_ORDER))
-    ax.plot(xx, L/xx, color='black', lw=2.2, label='pooled Method 2:  L = %.3f"' % L)
-    ax.plot(xx, GR/xx, color='green', lw=1.5, label='Einstein  1.751"')
-    ax.plot(xx, NEWTON/xx, color='orange', lw=1.5, ls='--', label='Newton  0.876"')
-    ax.plot(xx, PUB_L/xx, color='gray', lw=1.2, ls=':',
-            label='published 1.839" (Dittrich et al. 2025)')
+    band = ax.fill_between(xx, (L-TOT)/xx, (L+TOT)/xx, color='black', alpha=0.10,
+                           label='total $\\pm$%.2f" (stat %.3f + atmosphere %.2f)'
+                                 % (TOT, SE_STAT, ATM_ERR))
+    ln1, = ax.plot(xx, L/xx, color='black', lw=2.2, label='pooled Method 2:  L = %.3f"' % L)
+    ln2, = ax.plot(xx, GR/xx, color='green', lw=1.5, label='Einstein  1.751"')
+    ln3, = ax.plot(xx, NEWTON/xx, color='orange', lw=1.5, ls='--', label='Newton  0.876"')
     ax.set_xlabel('radial position (solar radii)', fontsize=13)
     ax.set_ylabel('radial deflection (arcsec, outward positive)', fontsize=13)
     ax.set_title(title, fontsize=12)
     lo, hi = np.percentile(d.rad.values, [0.5, 99.5])
     ax.set_ylim(min(lo, -0.35) - 0.15, max(hi, L/1.9) + 0.35)
-    ax.legend(fontsize=8.5, loc='upper right')
+    # two legends: what was measured, bottom left; what is being compared, top right
+    first = ax.legend(handles=dots, fontsize=8.5, loc='lower left', title='exposure blocks',
+                      title_fontsize=8.5)
+    ax.add_artist(first)
+    ax.legend(handles=[ln1, ln2, ln3, band], fontsize=9, loc='upper right')
     fig.text(0.06, 0.015, note, fontsize=8.5)
     fig.tight_layout(rect=(0, 0.035, 1, 1))
     save(fig, fname)
@@ -176,7 +191,7 @@ vra, vdec = sensor_vec_to_sky(u.vx.values, u.vy.values)
 ARROW_DEG = 0.40
 corners = px_to_sky(np.array([0, NX, NX, 0]), np.array([0, 0, NY, NY]))
 ax.add_patch(Polygon(np.c_[corners[0], corners[1]], fill=False, color='gray', lw=1.2,
-                     label='sensor footprint (ASI6200MM, 9576$\\times$6388)'))
+                     label='sensor footprint'))
 ends_ra, ends_de = [], []
 for k in range(len(u)):
     x0, y0 = sra[k], sdec[k]
@@ -185,13 +200,13 @@ for k in range(len(u)):
     ends_ra.append(x1); ends_de.append(y1)
     ax.annotate('', xy=(x1, y1), xytext=(x0, y0),
                 arrowprops=dict(arrowstyle='-|>,head_width=0.20,head_length=0.40',
-                                color=('tab:red' if u.nblk.values[k] < 4 else 'tab:blue'),
-                                lw=1.2, shrinkA=0, shrinkB=0))
-full = u.nblk.values == 4
-ax.scatter(sra[full], sdec[full], s=18, color='tab:blue', zorder=5,
-           label='seen in all four blocks (%d stars)' % int(full.sum()))
-ax.scatter(sra[~full], sdec[~full], s=18, color='tab:red', zorder=5,
-           label='seen in one to three blocks (%d)' % int((~full).sum()))
+                                color=WITNESS_COLOR[int(u.nblk.values[k])], lw=1.2,
+                                shrinkA=0, shrinkB=0))
+for w in (4, 3, 2, 1):
+    k = u.nblk.values == w
+    if k.any():
+        ax.scatter(sra[k], sdec[k], s=20, color=WITNESS_COLOR[w], zorder=5,
+                   label='%s (%d stars)' % (WITNESS_LABEL[w], int(k.sum())))
 sun_ra, sun_dec = px_to_sky(np.array([t.sun_px.mean()]), np.array([t.sun_py.mean()]))
 ax.add_patch(Circle((float(sun_ra[0]), float(sun_dec[0])), t.RS.mean()/3600, color='black',
                     zorder=3, label='the Sun, 1 R$_\\odot$ to scale'))
@@ -212,11 +227,11 @@ ax.set_title('Displacement vectors \u2014 Mexico 2024 Station 1, pooled fit, G $
 fig.text(0.06, 0.020, 'each arrow = the star\u2019s measured shift after subtracting that '
          'block\u2019s pointing offset, rotation and plate scale; deflection + measurement '
          'noise remain', fontsize=9)
-ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.72))
+ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.70))
 star_rms = float(np.sqrt(np.mean(t.res.values**2)))
 bar_deg = ARROW_DEG/np.cos(np.radians(de0))
-for y_fr, ln, txt in ((0.42, 1.0, '1 arcsec of displacement'),
-                      (0.32, star_rms, 'per-observation scatter (%.2f")' % star_rms)):
+for y_fr, ln, txt in ((0.38, 1.0, '1 arcsec of displacement'),
+                      (0.28, star_rms, 'per-observation scatter (%.2f")' % star_rms)):
     ax.annotate('', xy=(1.04 + ln*bar_deg/(hi_ra-lo_ra), y_fr), xytext=(1.04, y_fr),
                 xycoords='axes fraction', textcoords='axes fraction',
                 arrowprops=dict(arrowstyle='-', color='black', lw=3))
@@ -250,35 +265,27 @@ for b in blocks:
                                       'distortion_data*.zip'), recursive=True))[-1]
     ps2[b] = float(json.load(zipfile.ZipFile(z).open('distortion_results.txt'))['platescale (arcseconds/pixel)'])
 joint = float(np.mean([ps2[b] for b in blocks])) - c[iS]*PS
-joint_ppm = 1e6*(joint/PUB_SCALE - 1)
-sS_ppm = 1e6*np.sqrt(cov[iS, iS])
-C = np.array([[cov[iL, iL], cov[iL, iS]*1e6*PS/PUB_SCALE],
-              [cov[iS, iL]*1e6*PS/PUB_SCALE, cov[iS, iS]*1e12*(PS/PUB_SCALE)**2]])
+sS_scale = np.sqrt(cov[iS, iS])*PS           # the scale's own sigma, in arcsec/px
+# The ellipse must carry the sigma the record quotes. The fit sigma treats the 583 rows as
+# independent; the record quotes the star bootstrap. Drawing the ellipse from the fit
+# covariance made the two charts of one record set disagree -- the same defect the Bruns chart
+# had at revision 10 -- so the L axis is rescaled to the bootstrap and the correlation kept.
+C = np.array([[cov[iL, iL], cov[iL, iS]*PS], [cov[iS, iL]*PS, cov[iS, iS]*PS**2]])
 _infl = SE_STAT/np.sqrt(C[0, 0])
 C = C*np.array([[_infl**2, _infl], [_infl, 1.0]])
 fig, ax = plt.subplots(figsize=(9.5, 7))
 vals, vecs = np.linalg.eigh(C)
 ang = np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1]))
-mu = np.array([c[iL], joint_ppm])
-for k, ls in ((1, '-'), (2, '--')):
-    ax.add_patch(Ellipse(mu, 2*k*np.sqrt(vals[1]), 2*k*np.sqrt(vals[0]), angle=ang, ls=ls,
-                         fill=False, color='tab:blue', lw=1.6,
-                         label='%d$\\sigma$ \u2014 Method 2 (scale fitted with L)' % k))
+mu = np.array([c[iL], joint])
+ax.add_patch(Ellipse(mu, 2*np.sqrt(vals[1]), 2*np.sqrt(vals[0]), angle=ang,
+                     fill=False, color='tab:blue', lw=1.8,
+                     label='1$\\sigma$ \u2014 Method 2 (scale fitted with L)'))
 ax.scatter(*mu, marker='+', s=140, color='tab:blue', zorder=5)
 ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
-ax.axvline(NEWTON, color='orange', lw=1.5, ls='--', label='Newton 0.876"')
-ax.axhline(0, color='gray', lw=1.0)
-ax.axhspan(-1e6*PUB_SCALE_ERR/PUB_SCALE, 1e6*PUB_SCALE_ERR/PUB_SCALE, color='gray', alpha=0.18,
-           label='published plate scale $\\pm$%.0f ppm (Dittrich et al. 2025)'
-                 % (1e6*PUB_SCALE_ERR/PUB_SCALE))
 _lines = [('Pooled Method 2:  L = %.3f $\\pm$ %.3f" (stat)' % (L, SE_STAT), 'tab:blue'),
-          ('      $\\pm$ %.3f" with atmosphere %.2f and model order %.2f' % (TOT, ATM_ERR, MODEL_ORDER), 'tab:blue'),
-          ('      L / L$_{Newton}$ = %.2f $\\pm$ %.2f' % (L/NEWTON, TOT/NEWTON), 'tab:blue'),
-          ('Joint plate scale: %.6f "/px (%+.0f $\\pm$ %.0f ppm)' % (joint, joint_ppm, sS_ppm), 'black'),
-          ('      (stage 2\u2019s scale corrected by the S fitted with L)', 'black'),
-          ('Published: L = %.3f $\\pm$ %.3f", scale %.6f' % (PUB_L, PUB_L_ERR, PUB_SCALE), 'gray'),
-          ('There is no Method 1 for this cell: the refocus left no', 'black'),
-          ('      same-day scale that could be imported.', 'black')]
+          ('      $\\pm$ %.3f" with the atmosphere term %.2f' % (TOT, ATM_ERR), 'tab:blue'),
+          ('Joint plate scale: %.6f $\\pm$ %.6f "/px' % (joint, sS_scale), 'black'),
+          ('      (stage 2\u2019s scale corrected by the S fitted with L)', 'black')]
 _pack = VPacker(children=[TextArea(x, textprops=dict(color=col, size=9.5)) for x, col in _lines],
                 pad=0, sep=3, align='left')
 _box = AnchoredOffsetbox(loc='lower left', child=_pack, pad=0.45, borderpad=0.6, frameon=True,
@@ -287,42 +294,49 @@ _box.patch.set(facecolor='white', edgecolor='gray', linewidth=0.9)
 _box.set_zorder(6)
 ax.add_artist(_box)
 ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
-ax.set_ylabel('fitted plate scale (ppm from the published value)', fontsize=12)
+ax.set_ylabel('fitted plate scale (arcsec per pixel)', fontsize=12)
+ax.ticklabel_format(axis='y', useOffset=False, style='plain')
 ax.set_title('L and plate scale \u2014 Mexico 2024 Station 1, pooled fit, one shared scale',
              fontsize=12)
 ax.legend(fontsize=9, loc='upper right')
-ax.autoscale_view(); ax.margins(0.22)
+ax.autoscale_view(); ax.margins(0.25)
 save(fig, 'record_covariance.png')
-print('covariance: L %.3f +- %.3f (fit), joint scale %+.1f +- %.1f ppm from published'
-      % (c[iL], np.sqrt(cov[iL, iL]), joint_ppm, sS_ppm))
+print('covariance: L %.3f +- %.3f (fit), joint scale %.6f +- %.6f "/px'
+      % (c[iL], np.sqrt(cov[iL, iL]), joint, sS_scale))
 
-# ---------------------------------------------------------------- 4. the annotated master
-stk = sorted(glob.glob(os.path.join(REC, 'eclipse_corona', '0p4s_1812', 'CENTROID_OUTPUT*',
-                                    'STACKED_FLOAT*.fit')))
-if stk:
-    from astropy.io import fits as pyfits
+# ---------------------------------------------------------------- 4. the annotated masters
+from astropy.io import fits as pyfits
+NFRAMES = {}
+for b in blocks:
+    zz = glob.glob(os.path.join(REC, 'eclipse_corona', b, 'centroid_data*.zip'))
+    NFRAMES[b] = json.load(zipfile.ZipFile(zz[0]).open('results.txt')).get('#frames stacked') if zz else None
+for b in blocks:
+    stk = sorted(glob.glob(os.path.join(REC, 'eclipse_corona', b, 'CENTROID_OUTPUT*',
+                                        'STACKED_FLOAT*.fit')))
+    if not stk:
+        print('%s: no stacked image' % b); continue
     img = pyfits.getdata(stk[-1]).astype(np.float32)
     lo, hi = np.percentile(img, [5, 99.5])
     disp = np.arcsinh((np.clip(img, lo, hi) - lo)/max(hi - lo, 1)*30)
     fig, ax = plt.subplots(figsize=(11.5, 8))
     ax.imshow(disp, cmap='gray', origin='upper', interpolation='nearest')
-    d4 = t[t.block == '0p4s_1812']
+    db = t[t.block == b]
     handles = []
-    for k, (colr, lab) in ((d4.nblk.values == 4, ('yellow', 'also seen in the other three blocks')),
-                           (d4.nblk.values < 4, ('red', 'seen in fewer than four blocks'))):
-        for x0, y0 in zip(d4.px.values[k], d4.py.values[k]):
+    for k, colr, lab in ((db.nblk.values == 4, 'yellow', 'seen in all four blocks'),
+                         (db.nblk.values < 4, 'red', 'seen in fewer than four blocks')):
+        for x0, y0 in zip(db.px.values[k], db.py.values[k]):
             ax.add_patch(Circle((x0, y0), 60, fill=False, color=colr, lw=1.2))
         handles.append(plt.Line2D([], [], color=colr, label='%s (%d)' % (lab, int(k.sum()))))
-    ax.add_patch(Circle((d4.sun_px.mean(), d4.sun_py.mean()), 2*d4.RS.mean()/PS, fill=False,
+    ax.add_patch(Circle((db.sun_px.mean(), db.sun_py.mean()), 2*db.RS.mean()/PS, fill=False,
                         color='cyan', lw=1.4, ls='--'))
     handles.append(plt.Line2D([], [], color='cyan', ls='--', label='2 R$_\\odot$, the inner cut'))
     ax.legend(handles=handles, fontsize=9, loc='upper left', bbox_to_anchor=(0.0, -0.09),
               borderaxespad=0, frameon=True)
-    ax.set_title('The 0.4 s block (123 frames, occulted and coronal-subtracted) \u2014 '
-                 'Mexico 2024 Station 1', fontsize=11)
+    ax.set_title('The %s block (%s frames, occulted and coronal-subtracted) \u2014 '
+                 'Mexico 2024 Station 1' % (BLOCK_LABEL[b], NFRAMES[b] or '?'), fontsize=11)
     ax.set_xlabel('px'); ax.set_ylabel('py')
     fig.subplots_adjust(bottom=0.20)
-    save(fig, 'master_0p4s_annotated.png')
+    save(fig, 'master_%s_annotated.png' % b)
 
 # ---------------------------------------------------------------- 5. the tables
 t.to_csv(os.path.join(OUT, 'station1_star_table.csv'), index=False)
@@ -330,9 +344,11 @@ rec = dict(cell='Mexico 2024 Station 1', estimator='pooled Method 2, every obser
            reference='quintic, seventeen zenith fields, windowed', stage2='two-pass, scale fitted',
            calibration='dark + flat (the published 2024 choice)', magnitude_cut=13.0,
            radius_cut=[2.0, 9.0], observations=int(len(t)), stars=int(t.key.nunique()),
-           L=L, sigma_stat=SE_STAT, sigma_atmosphere=ATM_ERR, sigma_model_order=MODEL_ORDER,
-           sigma_total=TOT, scale_share_of_stat=summary['scale_share'],
-           joint_platescale=joint, joint_platescale_ppm_from_published=joint_ppm,
+           L=L, sigma_stat=SE_STAT, sigma_atmosphere=ATM_ERR, sigma_total=TOT,
+           scale_share_of_stat=summary['scale_share'],
+           model_order_sensitivity_not_in_budget=0.03,
+           joint_platescale=joint, joint_platescale_err=float(sS_scale),
+           joint_platescale_ppm_from_published=1e6*(joint/PUB_SCALE - 1),
            GR=GR, NEWTON=NEWTON, L_over_Newton=L/NEWTON, L_over_Newton_err=TOT/NEWTON,
            sigma_from_GR=abs(L-GR)/TOT, sigma_from_Newton=abs(L-NEWTON)/TOT,
            published=dict(source='Dittrich et al. 2025', L=PUB_L, L_err=PUB_L_ERR,
@@ -355,20 +371,23 @@ if os.environ.get('MX24_COPY_RECORD') == '1':
              'flat_mechanism.csv': os.path.join(REC, 'eclipse_caldecomp', 'flat_mechanism.csv')}
     produced = ['record_deflection.png', 'record_deflection_per_star.png',
                 'record_deflection_all4.png', 'record_field.png', 'record_covariance.png',
-                'master_0p4s_annotated.png', 'station1_star_table.csv', 'record_summary.json']
+                'station1_star_table.csv', 'record_summary.json']
+    produced += ['master_%s_annotated.png' % b for b in blocks]
     src = {f: os.path.join(OUT, f) for f in produced}
     src.update(extra)
-    # only files that actually differ are superseded; re-running with the same output must
-    # not bury identical copies under a new date
+    # only supersede a file this run actually replaces with a different version; anything the
+    # run has no source for (the night maps come from s1_atmosphere_maps.py) is left alone
     old = [f for f in os.listdir(RECORD)
            if f in src and os.path.exists(src[f])
            and not filecmp.cmp(src[f], os.path.join(RECORD, f), shallow=False)]
-    if old:
+    stale = [f for f in os.listdir(RECORD)
+             if f.endswith('.png') and f.startswith('master_') and f not in src]
+    if old or stale:
         sup = os.path.join(RECORD, 'superseded_' + pd.Timestamp.now().strftime('%Y-%m-%d_%H%M'))
         os.makedirs(sup, exist_ok=True)
-        for f in old:
+        for f in old + stale:
             shutil.move(os.path.join(RECORD, f), os.path.join(sup, f))
-        print('superseded %d file(s) -> %s' % (len(old), sup))
+        print('superseded %d file(s) -> %s' % (len(old) + len(stale), sup))
     for f, p in src.items():
         if os.path.exists(p):
             shutil.copy2(p, os.path.join(RECORD, f))
