@@ -38,6 +38,16 @@ linear in radius than quadratic, which is coma rather than field curvature. Cons
 reducer sitting 0.94 mm off its design spacing because the filter thickness was not allowed
 for. See PORTLAND §13.4–13.6 and LEON §9.3.
 
+**Stage 2 could not fit a field whose plate scale differed from its reference** (2026-09-04).
+With `distortion_fixed_coefficients=constant` the reference files' scale was imported, so a
+field refocused since its calibration (Station 1 2024: 640 ppm) carried 6–7″ of residual at the
+corners, a ~4″ stage-2 rms and a forced 20″ fit tolerance that doubled as the match gate. Two
+options on this branch, both off by default: `distortion_free_scale` keeps the fitted isotropic
+scale under the fixed distortion, and `distortion_fit_tol_initial` gates in two passes (coarse
+gate, refit, fine gate, refit — a single fine gate fails, because the first fit is pulled by the
+mis-matches the rough gate admits). Additive; no existing run changes. See STEP3_2026 §"The
+two-pass match".
+
 ---
 
 ## 2. The work, in order

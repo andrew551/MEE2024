@@ -163,6 +163,8 @@ def test_coerce_int_and_float_and_str_options():
     assert isinstance(cli.coerce_option('min_area', '7'), int)
     assert cli.coerce_option('distortion_fit_tol', '0.5') == 0.5
     assert cli.coerce_option('distortionOrder', 'quintic') == 'quintic'
+    assert cli.coerce_option('distortion_free_scale', 'True') is True
+    assert cli.coerce_option('distortion_fit_tol_initial', '20') == 20.0
 
 
 def test_coerce_rejects_an_unknown_option():

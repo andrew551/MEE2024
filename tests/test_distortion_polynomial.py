@@ -324,3 +324,84 @@ def test_the_distortion_field_panels_are_equal_aspect(options):
         assert all(ax.get_aspect() == 1.0 for ax in fig.axes[:2])
     finally:
         plt.close(fig)
+
+
+# --------------------------------------------------- the plate scale under a fixed distortion
+
+def _reference_file(path, options, scale_arcsec, cx_true, cy_true):
+    """A stage-2 results file as _open_distortion_files reads it: one plate scale and the
+    full coefficient dictionaries in basis order (constant first)."""
+    names = dp.get_coeff_names(options)
+    path.write_text(json.dumps({
+        'platescale (arcseconds/pixel)': scale_arcsec,
+        'distortion order': options['distortionOrder'],
+        'distortion coeffs x': dict(zip(names, [0.0] + list(cx_true))),
+        'distortion coeffs y': dict(zip(names, [0.0] + list(cy_true))),
+    }), encoding='utf-8')
+
+
+def _fixed_cubic_case(tmp_path, options, imported_ppm):
+    """A field whose true plate scale differs from the reference's by imported_ppm, with
+    the reference's cubic distortion exactly right. Returns what do_cubic_fit needs."""
+    img_shape, w, truth, plate_observed = _cubic_fit_setup(options)
+    names = dp.get_coeff_names(options)[1:]
+    cx_true = np.zeros(len(names)); cy_true = np.zeros(len(names))
+    cx_true[names.index('x^3')] = 3.0
+    cy_true[names.index('y^3')] = 2.5
+    basis = dp.get_basis(plate_observed[:, 0], plate_observed[:, 1], w, 1, options)
+    plate_true = plate_observed + np.c_[basis @ cy_true, basis @ cx_true]
+    stardata = _FakeStarData(transforms.linear_transform(truth, plate_true))
+    ref = tmp_path / 'ref.txt'
+    imported = np.degrees(truth[0]) * 3600 * (1 + imported_ppm * 1e-6)
+    _reference_file(ref, options, imported, cx_true, cy_true)
+    options['distortion_reference_files'] = str(ref)
+    options['distortion_fixed_coefficients'] = 'constant'
+    # start a little off, so the linear fit has something to find
+    guess = (truth[0] * (1 + 2e-4), truth[1] + 1e-5, truth[2] - 1e-5, truth[3] + 5e-5)
+    return img_shape, truth, plate_observed, stardata, guess, np.radians(imported / 3600)
+
+
+def _sky_error_arcsec(q, plate_corrected, img_shape, stardata):
+    sky = transforms.linear_transform(q, plate_corrected, img_shape)
+    return np.degrees(np.linalg.norm(sky - stardata.get_vectors(), axis=1)) * 3600
+
+
+def test_constant_mode_imports_the_reference_plate_scale(tmp_path, options):
+    """The published behaviour: with the fixed order 'constant', the plate scale is the
+    reference files' and the field's own scale is not fitted. A field 600 ppm from the
+    reference therefore keeps a residual that grows with radius -- 1.5 arcsec/px * 1500 px
+    * 600e-6 = 1.35 arcsec at the edge -- which is exactly what forced a 20 arcsec fit
+    tolerance on Station 1 2024."""
+    img_shape, truth, plate, stardata, guess, imported_rad = _fixed_cubic_case(tmp_path, options, 600.0)
+    q, plate_corrected, _, _, _ = dp.do_cubic_fit(plate, stardata, guess, img_shape, options)
+    assert q[0] == pytest.approx(imported_rad, rel=1e-12)
+    err = _sky_error_arcsec(q, plate_corrected, img_shape, stardata)
+    assert np.max(err) > 1.0
+
+
+def test_distortion_free_scale_fits_the_plate_scale_and_keeps_the_fixed_terms(tmp_path, options):
+    """distortion_free_scale: same fixed distortion, but the plate scale comes from the
+    field. The 600 ppm mismatch disappears from the residual (sub-milliarcsecond on
+    noiseless data) and the fitted scale is the truth, not the reference's."""
+    img_shape, truth, plate, stardata, guess, imported_rad = _fixed_cubic_case(tmp_path, options, 600.0)
+    options['distortion_free_scale'] = True
+    q, plate_corrected, coeff_x, coeff_y, scale_uncertainty = dp.do_cubic_fit(
+        plate, stardata, guess, img_shape, options)
+    assert q[0] == pytest.approx(truth[0], rel=1e-7)
+    assert q[0] != pytest.approx(imported_rad, rel=1e-5)
+    err = _sky_error_arcsec(q, plate_corrected, img_shape, stardata)
+    assert np.max(err) < 1e-3
+    # the higher orders are still the reference's, untouched
+    names = dp.get_coeff_names(options)
+    assert coeff_x[names.index('x^3')] == pytest.approx(3.0)
+    assert coeff_y[names.index('y^3')] == pytest.approx(2.5)
+    assert np.isfinite(scale_uncertainty) and scale_uncertainty >= 0
+
+
+def test_distortion_free_scale_is_ignored_unless_the_fixed_order_is_constant(tmp_path, options):
+    """A free fit already fits its scale; the flag must not change anything there."""
+    img_shape, w, truth, plate = _cubic_fit_setup(options)
+    stardata = _FakeStarData(transforms.linear_transform(truth, plate))
+    q_off, *_ = dp.do_cubic_fit(plate, stardata, truth, img_shape, dict(options, distortion_free_scale=False))
+    q_on, *_ = dp.do_cubic_fit(plate, stardata, truth, img_shape, dict(options, distortion_free_scale=True))
+    assert np.allclose(q_off, q_on, rtol=0, atol=0)

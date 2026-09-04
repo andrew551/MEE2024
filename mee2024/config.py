@@ -142,6 +142,28 @@ DEFAULT_OPTIONS = {
     'observation_wavelength': 0.65,
     'distortion_reference_files': '',
     'distortion_fixed_coefficients': 'None',
+    # With the higher orders fixed from the reference files ('constant' above), fit the
+    # plate scale from this field instead of importing the reference's. Off by default,
+    # which is the published behaviour. Exists because an imported scale that is wrong --
+    # Station 1 2024 refocused between calibration and eclipse, 640 ppm -- puts 6-7" of
+    # residual at the corners of a 9576 px frame and forces a 20" fit tolerance, and a
+    # 20" gate admits mis-matches near the Sun (one at 1.87 R_sun, 15.9" off). With the
+    # scale fitted the tolerance can be 2-3": the largest genuine deflection in a science
+    # set is under 1". The deflection fit downstream refits the scale jointly with L, so a
+    # scale fitted here without L absorbs nothing that fit does not give back
+    # (docs/STEP3_2026.md, "The two-pass match"). Ignored unless the fixed order is
+    # 'constant'.
+    'distortion_free_scale': False,
+    # A coarser gate for the FIRST fit, in arcseconds; 0 means "the same as
+    # distortion_fit_tol", the published single-gate behaviour. The first fit is made
+    # on everything the rough match admitted, and a handful of wrong assignments
+    # inside the rough threshold can pull it far enough that a tight gate applied to
+    # ITS residuals throws out the good stars with the bad: on the Station 1 2024
+    # 0.4 s block the pre-outlier rms was 13", and a 3" gate there kept 27 stars of
+    # 189. With this set (20" there) the first gate removes the gross mis-matches, the
+    # refit is sound, and distortion_fit_tol is then applied to the refitted
+    # residuals and refitted once more (docs/STEP3_2026.md, "The two-pass match").
+    'distortion_fit_tol_initial': 0.0,
     'flag_display3': True,
     'background_subtraction_mode': 'annular',
     'eclipse_limiting_mag': 11.0,

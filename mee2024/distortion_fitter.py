@@ -376,7 +376,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
 
     flag_is_double = distances[:, 1] < np.radians(options['double_star_cutoff']/3600)
     flag_missing_pm = np.isnan(stardata.get_pmotion()[:, 0])
-    flag_is_outlier = errors_arcseconds >= options['distortion_fit_tol']
+    # the gate for this first fit: the coarse one if the two-pass scheme is on
+    first_gate = float(options.get('distortion_fit_tol_initial') or 0.0) or float(options['distortion_fit_tol'])
+    flag_is_outlier = errors_arcseconds >= first_gate
     flag_unexplained_outlier = np.logical_and(np.logical_and(flag_is_outlier, np.logical_not(flag_missing_pm)), np.logical_not(flag_is_double))
     print(np.sum(flag_unexplained_outlier), ' unexplained outliers')
 
@@ -392,7 +394,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         mags = stardata.get_mags()
         worst = float(np.max(errors_arcseconds[stale]))
         message = (f'{int(np.sum(stale))} star(s) missed the '
-                   f'{options["distortion_fit_tol"]}" fit tolerance because the catalogue '
+                   f'{first_gate}" fit tolerance because the catalogue '
                    f'has no proper motion for them, so their positions could not be '
                    f'brought to the observation epoch (brightest G={float(np.min(mags[stale])):.2f}, '
                    f'worst miss {worst:.2f}"). They are stale positions, not bad '
@@ -411,7 +413,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     # pulls the centroid off the catalogue position, and a star with no catalogue
     # proper motion cannot be propagated to the observation epoch. They used to be
     # welded to one flag, which meant asking for either got both.
-    keep_j = errors_arcseconds < options['distortion_fit_tol']
+    keep_j = errors_arcseconds < first_gate
     if options['remove_double_tab2']:
         keep_j = np.logical_and(keep_j, ~flag_is_double)
     if options['remove_missing_pm']:
@@ -434,7 +436,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     #flag_is_double = flag_is_double[keep_j]
     #flag_missing_pm = flag_missing_pm[keep_j]
     
-    print(f'{np.sum(1-keep_j)} outliers more than {options["distortion_fit_tol"]} arcseconds removed')
+    print(f'{np.sum(1-keep_j)} outliers more than {first_gate} arcseconds removed')
     # do 2nd fit with outliers removed
 
     if options['guess_date']:
@@ -443,13 +445,36 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
         #stardata.update_data(stardata_new)
         stardata.update_epoch(date_string_to_float(dateguess))
 
-    if options['gravity_sweep']:
-        gravity_sweep_L, (result, plate2_corrected, coeff_x, coeff_y, platescale_stderror) = gravity_sweep.gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, keep_j, starttime, basename, options)
-    else:
-        result, plate2_corrected, coeff_x, coeff_y, platescale_stderror = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
-    transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
-    mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
-    errors_arcseconds = np.degrees(mag_errors)*3600
+    # The second pass, when the two gates differ: the fine gate is applied to the
+    # residuals of the REFITTED solution, not the first one, and the fit is repeated on
+    # what survives. A single hard gate after one fit is fragile when the rough match
+    # let a few gross mis-assignments in -- see 'distortion_fit_tol_initial' in
+    # config.py for the case that showed it. Nothing changes when the gates are equal.
+    gates = [None]
+    if first_gate != float(options['distortion_fit_tol']):
+        gates.append(float(options['distortion_fit_tol']))
+    for gate in gates:
+        if gate is not None:
+            keep_second = errors_arcseconds < gate
+            n_second = int(np.sum(~keep_second))
+            message = (f'second pass: {n_second} star(s) beyond {gate}" after the refit '
+                       f'removed (first gate {first_gate}", pre-refit rms '
+                       f'{np.degrees(np.mean(mag_errors**2)**0.5)*3600:.3f}")')
+            print(message)
+            events.log(message)
+            if n_second:
+                kept_index = np.flatnonzero(keep_j)
+                keep_j[kept_index[~keep_second]] = False
+                flag_is_outlier[kept_index[~keep_second]] = True
+                plate2 = plate2[keep_second, :]
+                stardata.select_indices(keep_second)
+        if options['gravity_sweep']:
+            gravity_sweep_L, (result, plate2_corrected, coeff_x, coeff_y, platescale_stderror) = gravity_sweep.gravity_sweep(stardata0, plate2, initial_guess, image_size, mask_select, keep_j, starttime, basename, options)
+        else:
+            result, plate2_corrected, coeff_x, coeff_y, platescale_stderror = distortion_polynomial.do_cubic_fit(plate2, stardata, initial_guess, image_size, options)
+        transformed_final = transforms.linear_transform(result, plate2_corrected, image_size)
+        mag_errors = np.linalg.norm(transformed_final - stardata.get_vectors(), axis=1)
+        errors_arcseconds = np.degrees(mag_errors)*3600
     
     print('final rms error (arcseconds):', np.degrees(np.mean(mag_errors**2)**0.5)*3600)
     detransformed = transforms.detransform_vectors(result, stardata.get_vectors())
@@ -470,6 +495,9 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                            data.get('observation_date_header')),
                        'star max magnitude':options['max_star_mag_dist'],
                        'error tolerance (as)':options['distortion_fit_tol'],
+                       # the coarse first gate when the two-pass scheme was used;
+                       # equal to the tolerance above when it was not
+                       'first-pass tolerance (as)': first_gate,
                        'platescale (arcseconds/pixel)': np.degrees(result[0])*3600,
                        'platescale_relative_uncertainty': platescale_stderror,
                        'mirror?':plate_solve_result['mirror'],
@@ -503,6 +531,15 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
                        'centroid estimator': data.get('centroid estimator',
                                                       'unknown (pre-v1.4.0 archive)'),
                        'fixed distortion order':options['distortion_fixed_coefficients'],
+                       # whether the plate scale above was measured on this field or
+                       # copied from the reference files: the two can differ by hundreds
+                       # of ppm when the optic was refocused in between, and a reader of
+                       # the number needs to know which it is
+                       'plate scale source': ('imported from the reference files'
+                                              if options['distortion_fixed_coefficients'] == 'constant'
+                                              and not options.get('distortion_free_scale')
+                                              else 'fitted on this field'),
+                       'distortion_free_scale': bool(options.get('distortion_free_scale', False)),
                        'fixed distortion reference files':str(options['distortion_reference_files']),
                        'simultaneous_deflection_and_platescale':str(options['gravity_sweep']),
                        'crop_circle':str(options['crop_circle']),

@@ -297,7 +297,17 @@ def do_cubic_fit(plate, stardata, initial_guess, img_shape, options, weights=1):
 
     if order_free == 0: # special case for only constant degree of freedom: use a linear fit, then discard the stretch/skew coefficients
         q_corrected = _cubic_helper(initial_guess, plate, target, w, m, fix_coeff_x, fix_coeff_y, dict(options, **{'distortion_fixed_coefficients':'linear'}))[0]
-        q_corrected = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, dict(options, **{'distortion_fixed_coefficients':'linear'}))[0]
+        linear_fit = _cubic_helper(q_corrected, plate, target, w, m, fix_coeff_x, fix_coeff_y, dict(options, **{'distortion_fixed_coefficients':'linear'}))
+        q_corrected = linear_fit[0]
+        if options.get('distortion_free_scale'):
+            # Method 2 at this stage: keep the scale the linear fit found (it sits in
+            # q_corrected[0] with the rotation in [3]; the stretch and skew are still
+            # discarded, exactly as below), and report its own uncertainty rather than the
+            # reference's. Without this the imported scale is forced onto a field that may
+            # not have it -- see 'distortion_free_scale' in config.py for the case that
+            # needed it.
+            plate_corrected = apply_corrections(q_corrected, plate, list(fix_coeff_x.values()), list(fix_coeff_y.values()), img_shape, options)
+            return q_corrected, plate_corrected, list(fix_coeff_x.values()), list(fix_coeff_y.values()), linear_fit[8]
         q_corrected = tuple([np.radians(fix_platescale/3600)]+list(q_corrected[1:4]))
         plate_corrected = apply_corrections(q_corrected, plate, list(fix_coeff_x.values()), list(fix_coeff_y.values()), img_shape, options)
         return q_corrected, plate_corrected, list(fix_coeff_x.values()), list(fix_coeff_y.values()), combined_platescale_uncertainty
