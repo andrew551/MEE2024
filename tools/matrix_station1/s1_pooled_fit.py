@@ -21,10 +21,15 @@ whatever differs between them.  The union estimator of `s1_eclipse_tiers.py`, wh
 each star's residual over its blocks before fitting, could only fit one scale, and its L sat
 0.12" above this one for that reason.
 
-Admission: a star enters if it is in the science set (G <= 12, 2-9 R_sun) of at least
---min-blocks blocks (three of four, the rule of record).  Vet: after a first solve, any
-observation whose residual exceeds max(median + 4 * 1.4826 * MAD, 0.6") is removed, and the
-fit repeated; --vet sets how many such passes (1 is the record).
+Admission: every observation in the science set (G <= --magcut, 2-9 R_sun) is a row; a star
+seen in one block contributes one row, in four blocks four.  --min-blocks can impose the old
+union-style rule (three of four) for comparison, but the point of pooling is that no such
+rule is needed: a single observation is weighed as one observation, not as a star.  Vet: after
+a first solve, any observation whose residual exceeds max(median + k * 1.4826 * MAD, 0.6") is
+removed and the fit repeated -- 1.4826 * MAD is the robust estimate of the residual scatter,
+so median + 4 MAD is a 4-sigma cut that the outliers it removes cannot inflate, and the 0.6"
+floor stops a tight fit from cutting real stars.  --vet sets the passes (1 is the record),
+--vet-k the multiplier.
 
 The error terms:
   * the FORMAL sigma_L treats every observation as independent, and they are not -- four
@@ -113,29 +118,38 @@ ap = argparse.ArgumentParser()
 ap.add_argument('--ref', default='quintic', choices=['quintic', 'septic', 'twopass'],
                 help='quintic: the record (imported scale, 20" gate); septic: model-order sensitivity; '
                      'twopass: scale fitted at stage 2, 20" then 3" gates')
-ap.add_argument('--min-blocks', type=int, default=3)
-ap.add_argument('--vet', type=int, default=1, help='vet passes (1 is the record)')
+ap.add_argument('--min-blocks', type=int, default=1,
+                help='a star enters with this many block observations or more; 1 = every observation')
+ap.add_argument('--magcut', type=float, default=12.0, help='science-set magnitude limit, G')
+ap.add_argument('--vet', type=int, default=1, help='vet passes (1 is the record; 0 = no vet)')
+ap.add_argument('--vet-k', type=float, default=4.0, help='the vet cut: median + k * 1.4826 * MAD')
+ap.add_argument('--tag', default='', help='output subdirectory suffix, for grids')
 ap.add_argument('--boot', type=int, default=1000)
 ap.add_argument('--seed', type=int, default=17)
 a = ap.parse_args()
-OUT = os.path.join(REC, 'pooled_fit', a.ref); os.makedirs(OUT, exist_ok=True)
+OUT = os.path.join(REC, 'pooled_fit', a.ref + ('_' + a.tag if a.tag else '')); os.makedirs(OUT, exist_ok=True)
+PUBLISHED_SCALE = 1.847363   # Dittrich et al. 2025, +- 1.3e-5 "/px (7 ppm); L = 1.839 +- 0.239"
 sub = {'quintic': 'stage2', 'septic': 'stage2_septic', 'twopass': 'stage2_twopass'}[a.ref]
 
 # ---------------------------------------------------------------- the rows
-parts = []
+parts, P2 = [], {}
 for tag, tmid in BLOCKS:
     hit = sorted(glob.glob(os.path.join(REC, 'eclipse_corona', tag, sub, '**', 'distortion_data*.zip'), recursive=True))
     if not hit:
         print('  %s: no %s' % (tag, sub)); continue
     d = table(hit[-1], tmid)
-    d = d[(d.Rsun > RCUT) & (d.Rsun < RMAX) & (d.magV <= MAGCUT)].copy()
+    # the plate scale stage 2 used for this block's positions: the reference's when it
+    # was imported, the field's own under distortion_free_scale
+    P2[tag] = float(json.load(zipfile.ZipFile(hit[-1]).open('distortion_results.txt'))['platescale (arcseconds/pixel)'])
+    d = d[(d.Rsun > RCUT) & (d.Rsun < RMAX) & (d.magV <= a.magcut)].copy()
     d['block'] = tag
     parts.append(d)
 d = pd.concat(parts, ignore_index=True)
 blocks = [t for t, _ in BLOCKS if t in set(d.block)]
 seen = d.groupby('key').block.nunique()
 d = d[d.key.map(seen) >= a.min_blocks].copy()
-print('=== pooled Method-2 fit, %s reference, stars in >= %d of %d blocks ===' % (a.ref, a.min_blocks, len(blocks)))
+print('=== pooled Method-2 fit, %s reference, G <= %.0f, stars in >= %d of %d blocks, vet %d pass(es) at median + %.0f MAD ==='
+      % (a.ref, a.magcut, a.min_blocks, len(blocks), a.vet, a.vet_k))
 print('  %d observations of %d stars before the vet' % (len(d), d.key.nunique()))
 
 # ---------------------------------------------------------------- the fit, with the vet
@@ -146,7 +160,7 @@ for k in range(a.vet + 1):
     n = len(d); per = np.hypot(res[:n], res[n:])
     if k == a.vet:
         break
-    lim = max(np.median(per) + 4.0*1.4826*np.median(np.abs(per-np.median(per))), 0.6)
+    lim = max(np.median(per) + a.vet_k*1.4826*np.median(np.abs(per-np.median(per))), 0.6)
     drop = per >= lim
     print('  vet pass %d: %d observations beyond %.3f" removed' % (k+1, drop.sum(), lim))
     d = d[~drop].copy()
@@ -158,8 +172,13 @@ print('  L = %.3f +- %.3f" (formal), per-observation residual %.3f"' % (c[iL], e
 for bname in blocks:
     iS, iT = names.index(bname+':S'), names.index(bname+':theta')
     rho = cov[iS, iL]/np.sqrt(cov[iS, iS]*cov[iL, iL])
-    print('    %-11s %3d obs  S = %+7.1f +- %4.1f ppm  theta = %+6.1f"  rho(S, L) = %+.2f'
-          % (bname, (d.block == bname).sum(), 1e6*c[iS], 1e6*np.sqrt(cov[iS, iS]), 206265*c[iT], rho))
+    # the JOINT scale -- stage 2's scale corrected by the S_b fitted alongside L -- is the
+    # one comparable to a published plate scale; a scale fitted without L has the
+    # deflection absorbed into it (48 ppm here) and is not
+    joint = P2[bname] - c[iS]*PS
+    print('    %-11s %3d obs  S = %+7.1f +- %4.1f ppm  theta = %+6.1f"  rho(S, L) = %+.2f  joint scale %.7f "/px (%+.0f ppm from published)'
+          % (bname, (d.block == bname).sum(), 1e6*c[iS], 1e6*np.sqrt(cov[iS, iS]), 206265*c[iT], rho,
+             joint, 1e6*(joint/PUBLISHED_SCALE - 1)))
 
 # ---------------------------------------------------------------- each block alone, same rows
 print('  each block alone on the same rows:')
@@ -193,10 +212,11 @@ Ls = np.array(Ls)
 print('  star bootstrap (%d samples over %d stars): L = %.3f +- %.3f"  [16-84 %%: %.3f - %.3f]'
       % (a.boot, len(keys), c[iL], Ls.std(), *np.percentile(Ls, [16, 84])))
 
-summary = dict(ref=a.ref, min_blocks=a.min_blocks, vet_passes=a.vet, observations=int(n),
+summary = dict(ref=a.ref, min_blocks=a.min_blocks, magcut=a.magcut, vet_passes=a.vet, vet_k=a.vet_k, observations=int(n),
                stars=int(d.key.nunique()), L=float(c[iL]), sigma_formal=eL, sigma_bootstrap=float(Ls.std()),
                sigma_L_scales_frozen=eL_fixed, scale_share=share, residual=rms,
                blocks={bname: dict(n=int((d.block == bname).sum()), S_ppm=float(1e6*c[names.index(bname+':S')]),
+                                   joint_scale_arcsec_per_px=float(P2[bname] - c[names.index(bname+':S')]*PS),
                                    theta_arcsec=float(206265*c[names.index(bname+':theta')]),
                                    rho_S_L=float(cov[names.index(bname+':S'), iL]/np.sqrt(cov[names.index(bname+':S'), names.index(bname+':S')]*cov[iL, iL])))
                        for bname in blocks})

@@ -145,7 +145,7 @@ DEFAULT_OPTIONS = {
     # With the higher orders fixed from the reference files ('constant' above), fit the
     # plate scale from this field instead of importing the reference's. Off by default,
     # which is the published behaviour. Exists because an imported scale that is wrong --
-    # Station 1 2024 refocused between calibration and eclipse, 640 ppm -- puts 6-7" of
+    # Station 1 2024 refocused between calibration and eclipse, ~600 ppm -- puts 5-6" of
     # residual at the corners of a 9576 px frame and forces a 20" fit tolerance, and a
     # 20" gate admits mis-matches near the Sun (one at 1.87 R_sun, 15.9" off). With the
     # scale fitted the tolerance can be 2-3": the largest genuine deflection in a science
