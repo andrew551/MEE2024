@@ -4,6 +4,18 @@ The cell-1 and cell-3 chart sets in the same style (`tools/matrix_bruns/b17_char
 `tools/step3_charts_record.py`), built on this cell's estimator: the pooled Method-2 fit over
 every observation of the four totality blocks (`s1_pooled_fit.py --ref twopass`).
 
+Revision 3 (Douglas' second review, 2026-09-04):
+  * **the covariance ellipse is now cluster-robust throughout.** Revision 2 drew it from the
+    OLS covariance with the L axis rescaled by hand to the bootstrap, which left the plate
+    scale at its OLS sigma -- 2.7 ppm, 5e-6 "/px, too small, as Douglas spotted. The whole
+    2x2 is now the sandwich estimator clustered on star: sigma_L 0.095" and sigma_scale
+    3.5 ppm (6.5e-6 "/px), against a star bootstrap of 0.095" and 3.6 ppm. No hand rescaling;
+  * the per-star chart no longer colours by "the first block that saw the star", which put
+    138 of 175 stars in the 0.25 s colour and read as though that block were an anchor. It
+    colours by how many blocks saw the star, as the field chart does;
+  * the all-four chart drops the block colouring entirely: every one of those stars is in
+    every block, so the colours carried no information.
+
 Revision 2 (Douglas' first review of this set, 2026-09-04):
   * **the model-order term leaves the budget.** It was carried at +-0.03" from the
     quintic-against-septic test, but neither Bruns 2017 nor Leon 2026 was tested above its own
@@ -47,7 +59,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Ellipse, Polygon
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 
-REV = 'rev02'
+REV = 'rev03'
 REC = r"D:/MEE2024 output/MEE_output/station1_record"
 OUT = os.path.join(REC, 'charts')
 VER = os.path.join(OUT, 'chart_versions')
@@ -123,17 +135,25 @@ assert abs(_rt - 1.0) < 0.01, 'a 1 arcsec sensor displacement maps to %.3f arcse
 
 
 # ---------------------------------------------------------------- 1. deflection vs radius
-def deflection_chart(d, fname, title, note, unit='obs'):
+def deflection_chart(d, fname, title, note, unit='obs', colour_by='block', legend_title=None):
+    """colour_by: 'block' (which exposure the observation came from), 'witness' (how many
+    blocks saw the star) or 'none' (one colour, for a set where the colour would say
+    nothing)."""
     fig, ax = plt.subplots(figsize=(10, 6.8))
     ax.axhline(0, color='black', lw=1)
     dots = []
-    for b in blocks:
-        k = d.block.values == b
+    if colour_by == 'block':
+        groups = [(d.block.values == b, BLOCK_COLOR[b], BLOCK_LABEL[b]) for b in blocks]
+    elif colour_by == 'witness':
+        groups = [(d.nblk.values == w, WITNESS_COLOR[w], WITNESS_LABEL[w]) for w in (4, 3, 2, 1)]
+    else:
+        groups = [(np.ones(len(d), bool), 'tab:blue', 'observations')]
+    for k, colr, lab in groups:
         if not k.any():
             continue
         dots.append(ax.scatter(d.Rsun.values[k], d.rad.values[k], s=26, alpha=0.85,
-                               color=BLOCK_COLOR[b], zorder=4,
-                               label='%s (%d %s)' % (BLOCK_LABEL[b], int(k.sum()), unit)))
+                               color=colr, zorder=4,
+                               label='%s (%d %s)' % (lab, int(k.sum()), unit)))
     resid = d.rad.values - L*d.RS.values/d.R.values
     rms = float(np.sqrt(np.mean(resid**2)))
     xx = np.linspace(1.85, d.Rsun.max()+0.4, 300)
@@ -149,8 +169,8 @@ def deflection_chart(d, fname, title, note, unit='obs'):
     lo, hi = np.percentile(d.rad.values, [0.5, 99.5])
     ax.set_ylim(min(lo, -0.35) - 0.15, max(hi, L/1.9) + 0.35)
     # two legends: what was measured, bottom left; what is being compared, top right
-    first = ax.legend(handles=dots, fontsize=8.5, loc='lower left', title='exposure blocks',
-                      title_fontsize=8.5)
+    first = ax.legend(handles=dots, fontsize=8.5, loc='lower left',
+                      title=legend_title or 'exposure blocks', title_fontsize=8.5)
     ax.add_artist(first)
     ax.legend(handles=[ln1, ln2, ln3, band], fontsize=9, loc='upper right')
     fig.text(0.06, 0.015, note, fontsize=8.5)
@@ -168,18 +188,21 @@ deflection_chart(t, 'record_deflection.png',
 per = t.groupby('key').agg(Rsun=('Rsun', 'mean'), rad=('rad', 'mean'), RS=('RS', 'mean'),
                            R=('R', 'mean'), magV=('magV', 'mean'), nblk=('nblk', 'first'),
                            block=('block', 'first')).reset_index()
+per['res'] = t.groupby('key').res.mean().values
 deflection_chart(per, 'record_deflection_per_star.png',
                  'Deflection vs radius \u2014 Mexico 2024 Station 1, one point per star '
                  '(legibility copy of the record)',
                  'the same fit; each star\u2019s observations averaged for display only. '
-                 'Colour is the first block that saw the star, so the counts are stars.',
-                 unit='stars')
+                 'Colour is how many of the four blocks saw the star.',
+                 unit='stars', colour_by='witness', legend_title='blocks that saw the star')
 
 deflection_chart(t[t.nblk == 4], 'record_deflection_all4.png',
                  'Deflection vs radius \u2014 Mexico 2024 Station 1, stars seen in ALL FOUR '
                  'blocks (cross-check, not the record)',
                  'the old union-style admission rule, kept as a cross-check: L moves +0.03" '
-                 'and 51 stars are lost. The record admits every observation.')
+                 'and 51 stars are lost. The record admits every observation. Every star here '
+                 'is in every block, so the block a point came from says nothing and is not '
+                 'drawn.', colour_by='none', legend_title=None)
 
 # ---------------------------------------------------------------- 2. the field
 u = t.groupby('key').agg(px=('px', 'mean'), py=('py', 'mean'), vx=('vx', 'mean'),
@@ -251,12 +274,23 @@ for b in blocks:
 cx += [xs, ux*t.RS.values/t.R.values]; cy += [ys, uy*t.RS.values/t.R.values]
 names += ['S', 'L']
 M = np.vstack([np.column_stack(cx), np.column_stack(cy)])
-sc = np.sqrt((M**2).mean(0)); Mn = M/sc
 b_ = np.concatenate([t.dx.values, t.dy.values])
-c, *_ = np.linalg.lstsq(Mn, b_, rcond=None)
-res = b_ - Mn@c
-cov = ((res@res)/(len(b_)-Mn.shape[1]))*np.linalg.pinv(Mn.T@Mn)/np.outer(sc, sc)
-c = c/sc
+c, *_ = np.linalg.lstsq(M, b_, rcond=None)
+res = b_ - M@c
+XtXi = np.linalg.pinv(M.T@M)
+# Cluster-robust (sandwich) covariance, clustered on star. The four observations of a star
+# share its catalogue position and its place in the distortion model, so an OLS covariance --
+# which assumes 1166 independent rows -- understates both sigmas: it gives 0.080" on L and
+# 2.7 ppm on the scale, against 0.095" and 3.5 ppm here and 0.095"/3.6 ppm from a star
+# bootstrap. Revision 2 patched only the L axis by hand and left the scale too small.
+ids = np.concatenate([t.key.values, t.key.values])
+meat = np.zeros((M.shape[1], M.shape[1]))
+for kk in pd.unique(ids):
+    m = ids == kk
+    uu = M[m].T @ res[m]
+    meat += np.outer(uu, uu)
+G = len(pd.unique(ids))
+cov = XtXi @ meat @ XtXi * (G/(G-1))
 iS, iL = names.index('S'), names.index('L')
 # the JOINT plate scale: what stage 2 used, corrected by the S fitted alongside L
 ps2 = {}
@@ -265,14 +299,13 @@ for b in blocks:
                                       'distortion_data*.zip'), recursive=True))[-1]
     ps2[b] = float(json.load(zipfile.ZipFile(z).open('distortion_results.txt'))['platescale (arcseconds/pixel)'])
 joint = float(np.mean([ps2[b] for b in blocks])) - c[iS]*PS
-sS_scale = np.sqrt(cov[iS, iS])*PS           # the scale's own sigma, in arcsec/px
+sS_scale = np.sqrt(cov[iS, iS])*PS           # the scale's own sigma, in arcsec/px, clustered
 # The ellipse must carry the sigma the record quotes. The fit sigma treats the 583 rows as
 # independent; the record quotes the star bootstrap. Drawing the ellipse from the fit
 # covariance made the two charts of one record set disagree -- the same defect the Bruns chart
 # had at revision 10 -- so the L axis is rescaled to the bootstrap and the correlation kept.
 C = np.array([[cov[iL, iL], cov[iL, iS]*PS], [cov[iS, iL]*PS, cov[iS, iS]*PS**2]])
-_infl = SE_STAT/np.sqrt(C[0, 0])
-C = C*np.array([[_infl**2, _infl], [_infl, 1.0]])
+RHO = C[0, 1]/np.sqrt(C[0, 0]*C[1, 1])
 fig, ax = plt.subplots(figsize=(9.5, 7))
 vals, vecs = np.linalg.eigh(C)
 ang = np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1]))
@@ -285,7 +318,9 @@ ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
 _lines = [('Pooled Method 2:  L = %.3f $\\pm$ %.3f" (stat)' % (L, SE_STAT), 'tab:blue'),
           ('      $\\pm$ %.3f" with the atmosphere term %.2f' % (TOT, ATM_ERR), 'tab:blue'),
           ('Joint plate scale: %.6f $\\pm$ %.6f "/px' % (joint, sS_scale), 'black'),
-          ('      (stage 2\u2019s scale corrected by the S fitted with L)', 'black')]
+          ('      (stage 2\u2019s scale corrected by the S fitted with L)', 'black'),
+          ('correlation L vs plate scale = %+.2f' % RHO, 'black'),
+          ('errors clustered on star, %d stars' % t.key.nunique(), 'black')]
 _pack = VPacker(children=[TextArea(x, textprops=dict(color=col, size=9.5)) for x, col in _lines],
                 pad=0, sep=3, align='left')
 _box = AnchoredOffsetbox(loc='lower left', child=_pack, pad=0.45, borderpad=0.6, frameon=True,
@@ -301,8 +336,8 @@ ax.set_title('L and plate scale \u2014 Mexico 2024 Station 1, pooled fit, one sh
 ax.legend(fontsize=9, loc='upper right')
 ax.autoscale_view(); ax.margins(0.25)
 save(fig, 'record_covariance.png')
-print('covariance: L %.3f +- %.3f (fit), joint scale %.6f +- %.6f "/px'
-      % (c[iL], np.sqrt(cov[iL, iL]), joint, sS_scale))
+print('covariance (clustered on star): L %.3f +- %.3f, joint scale %.6f +- %.6f "/px (%.1f ppm), rho %+.3f'
+      % (c[iL], np.sqrt(cov[iL, iL]), joint, sS_scale, 1e6*np.sqrt(cov[iS, iS]), RHO))
 
 # ---------------------------------------------------------------- 4. the annotated masters
 from astropy.io import fits as pyfits
@@ -348,6 +383,8 @@ rec = dict(cell='Mexico 2024 Station 1', estimator='pooled Method 2, every obser
            scale_share_of_stat=summary['scale_share'],
            model_order_sensitivity_not_in_budget=0.03,
            joint_platescale=joint, joint_platescale_err=float(sS_scale),
+           joint_platescale_err_ppm=float(1e6*np.sqrt(cov[iS, iS])),
+           corr_L_platescale=float(RHO), sigma_L_clustered=float(np.sqrt(cov[iL, iL])),
            joint_platescale_ppm_from_published=1e6*(joint/PUB_SCALE - 1),
            GR=GR, NEWTON=NEWTON, L_over_Newton=L/NEWTON, L_over_Newton_err=TOT/NEWTON,
            sigma_from_GR=abs(L-GR)/TOT, sigma_from_Newton=abs(L-NEWTON)/TOT,
