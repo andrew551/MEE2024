@@ -67,11 +67,15 @@ ax.set_title('The null test: cell 2\'s atmosphere term\n'
 ax.legend(fontsize=8.5, loc='upper left')
 ax.grid(alpha=0.25)
 
+# Station 1 has NO Method 1 floor to quote, and that is not an oversight. Method 1 imports a
+# plate scale, and Station 1's only calibration sits -640 ppm from the eclipse because the
+# telescope was refocused between them, so there is no same-day scale that can legitimately be
+# imported and Method 1 is not available for this cell at all. The Method 1 null number is a
+# diagnostic of that impossibility, not a floor, and is kept out of this comparison.
 floors = [('Bruns 2017 night\n(bracketed)', 0.059, 'tab:green'),
           ('Station 1 2024\nMethod 2', rms_m2, 'tab:blue'),
           ('Leon 2026 zenith\none-sided', 0.12, 'tab:purple'),
           ('Leakey 2024 zenith', 0.12, 'tab:grey'),
-          ('Station 1 2024\nMethod 1', rms_m1, 'tab:orange'),
           ('Leon 2026 horizon', 0.33, 'tab:red')]
 floors.sort(key=lambda t: t[1])
 bx.barh([f[0] for f in floors], [f[1] for f in floors], color=[f[2] for f in floors], alpha=0.85)
@@ -86,8 +90,10 @@ bx.tick_params(labelsize=8.5)
 fig.text(0.012, 0.015,
          'Station 1: %d consecutive pairs, %.1f$-$%.1f min apart, %d$-$%d stars each, h = %.0f R$_\\odot^2$; '
          'photon floor %.3f$^{\\prime\\prime}$, quasi-static residual %.3f$^{\\prime\\prime}$ over %d fields '
-         '(%.3f$-$%.3f).  Method 1 is quoted for comparison with the other cells; Method 2 is how '
-         'Station 1 is reduced, because its eclipse plate scale sits $-$640 ppm from this calibration.'
+         '(%.3f$-$%.3f).  Station 1 has NO Method 1 floor and that is not an oversight: Method 1 imports '
+         'a plate scale, and the refocus put the only calibration $-$640 ppm from the eclipse, so there is '
+         'no same-day scale that can legitimately be imported. The orange trace on the left sizes that '
+         'impossibility; it is not a floor for this cell, and it is kept out of the comparison on the right.'
          % (len(N), N.gap_min.min(), N.gap_min.max(), int(N.n.min()), int(N.n.max()), N.h.mean(),
             N.floor.median(), F.qs_rms.mean(), len(F), F.qs_rms.min(), F.qs_rms.max()),
          fontsize=7.6)
