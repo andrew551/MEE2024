@@ -141,12 +141,14 @@ ap.add_argument('--rmax', type=float, default=10.0, help='outer radius cut, sola
 ap.add_argument('--vet', type=int, default=1, help='vet passes (1 is the record; 0 = no vet)')
 ap.add_argument('--vet-k', type=float, default=4.0, help='the vet cut: median + k * 1.4826 * MAD')
 ap.add_argument('--tag', default='', help='output subdirectory suffix, for grids')
+ap.add_argument('--sub', default='', help='override: the stage-2 subdirectory under eclipse_corona/<block>/ to read '
+                '(e.g. stage2_twopass_reftol0p2 for a reference built at another tolerance)')
 ap.add_argument('--boot', type=int, default=1000)
 ap.add_argument('--seed', type=int, default=17)
 a = ap.parse_args()
 OUT = os.path.join(REC, 'pooled_fit', a.ref + ('_' + a.tag if a.tag else '')); os.makedirs(OUT, exist_ok=True)
 PUBLISHED_SCALE = 1.847363   # Dittrich et al. 2025, +- 1.3e-5 "/px (7 ppm); L = 1.839 +- 0.239"
-sub = {'quintic': 'stage2', 'septic': 'stage2_septic', 'twopass': 'stage2_twopass'}[a.ref]
+sub = a.sub or {'quintic': 'stage2', 'septic': 'stage2_septic', 'twopass': 'stage2_twopass'}[a.ref]
 
 # ---------------------------------------------------------------- the rows
 parts, P2 = [], {}
