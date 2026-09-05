@@ -48,6 +48,18 @@ gate, refit, fine gate, refit — a single fine gate fails, because the first fi
 mis-matches the rough gate admits). Additive; no existing run changes. See STEP3_2026 §"The
 two-pass match".
 
+**The default centroid estimator should be the windowed one, and the default fit tolerance
+0.2 ″** (2026-09-05, from the three-instrument PSF measurement in STEP3_2026 §"The PSF on three
+instruments"). Coma points outward on Leon's FRA500 + reducer and inward on Station 1's NP101 +
+reducer; the moment estimator's magnitude-dependent radial offset leaks into L in both cases
+(+0.386 ″/mag on Station 1, +299 mas on Leon's zenith fields), and the windowed estimator
+removes the magnitude dependence whichever way the tail points while being neutral on a clean
+optic (Leakey's Askar 65PHQ, Bruns). Proposed defaults: `centroid_refine_window = True`,
+`background_subtraction_mode = annular` (already), `distortion_fit_tol = 0.2` (Douglas; a cubic
+on a 2600MM-class sensor — check corner coverage with `s1_reference_tolerance.py` above cubic
+or on full frame), `distortionOrder = cubic` (already). These move measured numbers and are not
+yet applied; the window σ should eventually come from the measured PSF (F14).
+
 ---
 
 ## 2. The work, in order
