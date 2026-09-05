@@ -47,7 +47,11 @@ MET = ['--set', 'enable_corrections=True', '--set', 'enable_corrections_ref=True
        '--set', 'observation_humidity=0.25', '--set', 'observation_height=2400.0']
 BLOCKS = (('0p25s_1810', '18:11:12'), ('0p3s_1811', '18:11:58'),
           ('0p4s_1812', '18:13:00'), ('0p3s_1813', '18:14:02'))
-TOLS = (0.1, 0.2)
+# Douglas, 2026-09-05: the corners matter twice over -- the quintic's terms act there, and the
+# plate scale is pinned by the outer stars where the 1/R signal is weakest -- so the scan is
+# taken past the record's 0.3 to see whether L is on a slope or a plateau. A gate of 1.0"
+# admits nearly everything the rough match returned, mis-matches and doubles included.
+TOLS = (0.1, 0.2, 0.5, 1.0)
 
 
 def run(cmd, log):
@@ -112,15 +116,33 @@ for tol in TOLS:
     print('  pooled against the %.1f" reference:\n    ' % tol + '\n    '.join(keep), flush=True)
 
 pd.DataFrame(rows).to_csv(os.path.join(REC, 'reference_tolerance.csv'), index=False)
-print('\n=== summary: the reference at three tolerances, and L against each ===')
-for tol in TOLS:
-    a = pd.DataFrame(rows); a = a[a.tol == tol]
-    js = json.load(open(os.path.join(REC, 'pooled_fit', 'twopass_ref' + tag(tol), 'pooled_summary.json')))
-    print('  tol %.1f"  stars/field %4.0f  rms %.4f"  ->  L = %.3f +- %.3f (%d obs, %d stars)'
-          % (tol, a.stars.mean(), a.rms.mean(), js['L'], js['sigma_bootstrap'], js['observations'], js['stars']))
-js = json.load(open(os.path.join(REC, 'pooled_fit', 'twopass', 'pooled_summary.json')))
-print('  tol 0.3"  stars/field %4.0f  rms %.4f"  ->  L = %.3f +- %.3f (%d obs, %d stars)   [the record]'
-      % (np.mean([f['n03'] for f in FL]), np.mean([f['rms03'] for f in FL]), js['L'], js['sigma_bootstrap'], js['observations'], js['stars']))
+print('\n=== summary: the reference at each tolerance, its plate scale, and L against it ===')
+print('  (reference scale: mean of the 17 free fits +- their scatter; eclipse scale: the joint scale, mean over the four blocks)')
+
+
+def line(tol, stars, rms, ps_mean, ps_sd, js, note=''):
+    joint = np.mean([b['joint_scale_arcsec_per_px'] for b in js['blocks'].values()])
+    print('  tol %.1f"  stars/field %4.0f  rms %.4f"  ref scale %.7f +- %.7f  eclipse scale %.7f  ->  L = %.3f +- %.3f (%d obs, %d stars)%s'
+          % (tol, stars, rms, ps_mean, ps_sd, joint, js['L'], js['sigma_bootstrap'], js['observations'], js['stars'], note))
+
+
+summary = []
+for tol in sorted(list(TOLS) + [0.3]):
+    if tol == 0.3:
+        ps = np.array([json.load(open(f, encoding='utf-8'))['platescale (arcseconds/pixel)']
+                       for f in sorted(glob.glob(os.path.join(RECEN, '*', 'stage2_free', '**', 'distortion_results.txt'), recursive=True))])
+        js = json.load(open(os.path.join(REC, 'pooled_fit', 'twopass', 'pooled_summary.json')))
+        stars, rms = np.mean([f['n03'] for f in FL]), np.mean([f['rms03'] for f in FL])
+        line(tol, stars, rms, ps.mean(), ps.std(ddof=1), js, '   [the record]')
+    else:
+        a = pd.DataFrame(rows); a = a[a.tol == tol]
+        js = json.load(open(os.path.join(REC, 'pooled_fit', 'twopass_ref' + tag(tol), 'pooled_summary.json')))
+        ps = a.platescale.values; stars, rms = a.stars.mean(), a.rms.mean()
+        line(tol, stars, rms, ps.mean(), ps.std(ddof=1), js)
+    summary.append(dict(tol=tol, stars_per_field=stars, rms=rms, ref_scale=ps.mean(), ref_scale_sd=ps.std(ddof=1),
+                        eclipse_joint_scale=np.mean([b['joint_scale_arcsec_per_px'] for b in js['blocks'].values()]),
+                        L=js['L'], sigma_L=js['sigma_bootstrap'], observations=js['observations'], stars=js['stars']))
+pd.DataFrame(summary).to_csv(os.path.join(REC, 'reference_tolerance_summary.csv'), index=False)
 print('->', os.path.join(REC, 'reference_tolerance.csv'))
 
 # ---------------------------------------------------------------- the geometry: where the stars are, and what the model does
