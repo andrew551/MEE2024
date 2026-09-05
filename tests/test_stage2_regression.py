@@ -50,6 +50,11 @@ def run_stage2(monkeypatch, tmp_path, options, field_name, order, guess_date):
     options['DEFAULT_DATE'] = BLIND_START
     options['output_dir'] = str(tmp_path)
     options['no_plot'] = True
+    # The baselines below were pinned with the fit tolerance at 1.0", its default until
+    # 2026-09-05. They exist to catch a change in the astrometry, not a change of default,
+    # so they keep the tolerance they were derived with. tests/test_defaults.py pins the
+    # default itself.
+    options['distortion_fit_tol'] = 1.0
 
     zip_in = build_centroid_zip(field_name, tmp_path / 'centroid_data.zip')
     out_zip = distortion_fitter.match_and_fit_distortion(str(zip_in), options, None)

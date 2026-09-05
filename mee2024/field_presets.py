@@ -51,6 +51,9 @@ FIELD_PRESETS = {
             'min_area': 2,
             'sigma_subtract': 0.0,
             'background_subtraction_mode': 'Gaussian',
+            # footprint moments, deliberately: this preset is the Bruns-reproducing convention
+            # and, since the global default moved to windowed centroids (2026-09-05), also the
+            # one-click way back to the pre-v1.4.0 estimator
             'centroid_refine_window': False,
             'centroid_window_sigma': 2.0,
             'delete_saturated_blob': True,

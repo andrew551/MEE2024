@@ -54,11 +54,17 @@ instruments"). Coma points outward on Leon's FRA500 + reducer and inward on Stat
 reducer; the moment estimator's magnitude-dependent radial offset leaks into L in both cases
 (+0.386 ″/mag on Station 1, +299 mas on Leon's zenith fields), and the windowed estimator
 removes the magnitude dependence whichever way the tail points while being neutral on a clean
-optic (Leakey's Askar 65PHQ, Bruns). Proposed defaults: `centroid_refine_window = True`,
-`background_subtraction_mode = annular` (already), `distortion_fit_tol = 0.2` (Douglas; a cubic
-on a 2600MM-class sensor — check corner coverage with `s1_reference_tolerance.py` above cubic
-or on full frame), `distortionOrder = cubic` (already). These move measured numbers and are not
-yet applied; the window σ should eventually come from the measured PSF (F14).
+optic (Leakey's Askar 65PHQ, Bruns). **Applied 2026-09-05** (Douglas): `centroid_refine_window = True`,
+`background_subtraction_mode = annular` (already), `distortion_fit_tol = 0.2` (a cubic on a
+2600MM-class sensor — check corner coverage with `s1_reference_tolerance.py` above cubic or on
+full frame), `distortionOrder = cubic` (already). Pinned by `tests/test_defaults.py`. **The way
+back is kept deliberately:** the `eclipse` field preset is the Bruns-reproducing convention
+(footprint moments + Gaussian background), and `--set centroid_refine_window=False --set
+distortion_fit_tol=1.0` recovers the pre-v1.4.0 defaults exactly. The stage-2 regression
+baselines set `distortion_fit_tol = 1.0` explicitly, so they keep catching astrometry changes
+rather than this one. These are changes that move measured numbers — every field reduced with
+defaults after this commit uses the windowed estimator and the 0.2 ″ gate. The window σ should
+eventually come from the measured PSF (F14).
 
 ---
 

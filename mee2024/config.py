@@ -101,7 +101,19 @@ DEFAULT_OPTIONS = {
     # threshold-defined footprint, whose size scales with brightness. Off by default: it
     # moves measured numbers, so it needs its own validation (ROADMAP F15). Applies to the
     # stacked image only -- per-frame alignment is differential and integer-rounded.
-    'centroid_refine_window': False,
+    # Windowed centroids (a fixed Gaussian window, sigma below) rather than footprint
+    # moments. Default changed to True on v1.4.0-dev, 2026-09-05, from the PSF measured on
+    # three instruments (docs/STEP3_2026.md, "The PSF on three instruments"): coma points
+    # outward on Leon's FRA500 + reducer and inward on Station 1's NP101 + reducer, and the
+    # moment estimator's radial offset then depends on magnitude -- its footprint's reach
+    # depends on signal-to-noise -- which leaks straight into the deflection constant
+    # (+0.39 arcsec/mag on Station 1). The windowed centroid's offset is the same for every
+    # magnitude, so the distortion model absorbs it; on a clean optic (Leakey's Askar 65PHQ,
+    # Bruns) the two estimators coincide and nothing is lost. The window must be narrower
+    # than the PSF to act. THE WAY BACK: the 'eclipse' field preset is the Bruns-reproducing
+    # convention (footprint moments + Gaussian background, field_presets.py), and
+    # `--set centroid_refine_window=False` recovers the pre-v1.4.0 estimator alone.
+    'centroid_refine_window': True,
     'centroid_window_sigma': 2.0,  # px; near the PSF sigma is about right
     # Reject stars whose peak reaches the sensor's full scale. Nothing else at any stage
     # tests a peak value -- `sanity_check_centroids` only checks the radial profile
@@ -120,7 +132,15 @@ DEFAULT_OPTIONS = {
     'sanity_check_centroids': True,
     'max_star_mag_dist': 12.0,
     'observation_date': '2023-12-01',
-    'distortion_fit_tol': 1.0,  # arcseconds tolerance
+    # Arcseconds. The gate on a star's residual in the distortion fit. Default changed 1.0 ->
+    # 0.2 on v1.4.0-dev, 2026-09-05 (Douglas): right for a cubic on a 2600MM-class sensor,
+    # which is what the Askars give and what the Bruns 2017 and Leon 2026 calibrations used.
+    # A quintic on a full-frame sensor wants a looser gate -- Station 1's 6200MM needed 0.5
+    # so that the corners kept enough stars to pin the high orders (STEP3_2026, "The
+    # reference gate of record moves to 0.5"); the corner-coverage check of
+    # tools/matrix_station1/s1_reference_tolerance.py is the way to set it in such a case.
+    # `--set distortion_fit_tol=1.0` recovers the previous default.
+    'distortion_fit_tol': 0.2,
     'remove_edgy_centroids': True,
     'sigma_subtract': 3.0,
     'distortionOrder': 'cubic',
