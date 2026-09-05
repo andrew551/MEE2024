@@ -131,14 +131,14 @@ for tol in sorted(list(TOLS) + [0.3]):
     if tol == 0.3:
         ps = np.array([json.load(open(f, encoding='utf-8'))['platescale (arcseconds/pixel)']
                        for f in sorted(glob.glob(os.path.join(RECEN, '*', 'stage2_free', '**', 'distortion_results.txt'), recursive=True))])
-        js = json.load(open(os.path.join(REC, 'pooled_fit', 'twopass', 'pooled_summary.json')))
+        js = json.load(open(os.path.join(REC, 'pooled_fit', 'twopass03', 'pooled_summary.json')))
         stars, rms = np.mean([f['n03'] for f in FL]), np.mean([f['rms03'] for f in FL])
-        line(tol, stars, rms, ps.mean(), ps.std(ddof=1), js, '   [the record]')
+        line(tol, stars, rms, ps.mean(), ps.std(ddof=1), js, '   [the original build]')
     else:
         a = pd.DataFrame(rows); a = a[a.tol == tol]
         js = json.load(open(os.path.join(REC, 'pooled_fit', 'twopass_ref' + tag(tol), 'pooled_summary.json')))
         ps = a.platescale.values; stars, rms = a.stars.mean(), a.rms.mean()
-        line(tol, stars, rms, ps.mean(), ps.std(ddof=1), js)
+        line(tol, stars, rms, ps.mean(), ps.std(ddof=1), js, '   [the record]' if tol == 0.5 else '')
     summary.append(dict(tol=tol, stars_per_field=stars, rms=rms, ref_scale=ps.mean(), ref_scale_sd=ps.std(ddof=1),
                         eclipse_joint_scale=np.mean([b['joint_scale_arcsec_per_px'] for b in js['blocks'].values()]),
                         L=js['L'], sigma_L=js['sigma_bootstrap'], observations=js['observations'], stars=js['stars']))

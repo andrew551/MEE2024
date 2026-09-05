@@ -45,8 +45,12 @@ def refit(cz, out, refs, order, tmid, tol=20.0, extra=()):
     return 'rc %d' % rc
 
 
-def quintic_refs():
-    return sorted(glob.glob(os.path.join(REC, 'zenith_recentroid', '*', 'stage2_free', '**', 'distortion_results.txt'), recursive=True))
+def quintic_refs(gate='0p5'):
+    """The seventeen-field windowed quintic reference. The record is the 0.5" build
+    (zenith_recentroid_tol/tol0p5); '0p3' returns the original build, now the sensitivity arm."""
+    if gate == '0p3':
+        return sorted(glob.glob(os.path.join(REC, 'zenith_recentroid', '*', 'stage2_free', '**', 'distortion_results.txt'), recursive=True))
+    return sorted(glob.glob(os.path.join(REC, 'zenith_recentroid_tol', 'tol' + gate, '*', '**', 'distortion_results.txt'), recursive=True))
 
 
 mode = sys.argv[1] if len(sys.argv) > 1 else 'septic'
@@ -61,7 +65,7 @@ elif mode == 'twopass':
     print('quintic reference: %d fields; plate scale fitted at stage 2, gates 20" then 3"' % len(refs), flush=True)
     for tag, tm in BLOCKS:
         cz = glob.glob(os.path.join(REC, 'eclipse_corona', tag, 'centroid_data*.zip'))[0]
-        print('  %s %s' % (tag, refit(cz, os.path.join(REC, 'eclipse_corona', tag, 'stage2_twopass'), refs, 'quintic', tm,
+        print('  %s %s' % (tag, refit(cz, os.path.join(REC, 'eclipse_corona', tag, 'stage2_twopass_reftol0p5'), refs, 'quintic', tm,
                                       tol=3.0, extra=('--set', 'distortion_free_scale=True',
                                                       '--set', 'distortion_fit_tol_initial=20.0'))), flush=True)
 else:

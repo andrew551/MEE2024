@@ -118,6 +118,11 @@ for f in FL:
     res = glob.glob(os.path.join(d2, '**', 'distortion_results.txt'), recursive=True)
     if not res:
         run([PY, '-m', 'mee2024.cli', 'distortion', z[0], '--order', 'quintic',
+             # 0.3 was the gate this tool first used, undocumented. The reference of record is
+             # now the 0.5 build in zenith_recentroid_tol/tol0p5 (s1_reference_tolerance.py):
+             # on a quintic over a 9576 px frame the gate sets corner coverage, and 0.5 fills
+             # the corners (105 stars per field) without the G 14-15 tail that 1.0 admits.
+             # This tree keeps the 0.3 fits as the sensitivity arm.
              '--set', 'distortion_fit_tol=0.3', '--set', 'max_star_mag_dist=15',
              '--set', 'rough_match_threshhold=36', *SITE,
              '--set', 'observation_time=' + f['tmid'], '--no-display', '--quiet', '-o', d2],

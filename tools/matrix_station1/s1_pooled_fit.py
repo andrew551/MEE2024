@@ -117,7 +117,7 @@ def scale_columns(d, blocks):
 
 
 ap = argparse.ArgumentParser()
-ap.add_argument('--ref', default='quintic', choices=['quintic', 'septic', 'twopass'],
+ap.add_argument('--ref', default='quintic', choices=['quintic', 'septic', 'twopass', 'twopass03'],
                 help='quintic: the record (imported scale, 20" gate); septic: model-order sensitivity; '
                      'twopass: scale fitted at stage 2, 20" then 3" gates')
 ap.add_argument('--min-blocks', type=int, default=1,
@@ -148,7 +148,12 @@ ap.add_argument('--seed', type=int, default=17)
 a = ap.parse_args()
 OUT = os.path.join(REC, 'pooled_fit', a.ref + ('_' + a.tag if a.tag else '')); os.makedirs(OUT, exist_ok=True)
 PUBLISHED_SCALE = 1.847363   # Dittrich et al. 2025, +- 1.3e-5 "/px (7 ppm); L = 1.839 +- 0.239"
-sub = a.sub or {'quintic': 'stage2', 'septic': 'stage2_septic', 'twopass': 'stage2_twopass'}[a.ref]
+# 'twopass' is the record: the two-pass stage 2 against the seventeen-field reference fitted at
+# a 0.5" gate (Douglas, 2026-09-05 -- the gate that fills the corners without admitting the
+# G 14-15 tail; see s1_reference_tolerance.py). 'twopass03' is the same against the 0.3 build,
+# kept as the sensitivity arm it became.
+sub = a.sub or {'quintic': 'stage2', 'septic': 'stage2_septic',
+                'twopass': 'stage2_twopass_reftol0p5', 'twopass03': 'stage2_twopass'}[a.ref]
 
 # ---------------------------------------------------------------- the rows
 parts, P2 = [], {}

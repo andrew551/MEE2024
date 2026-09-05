@@ -4,6 +4,13 @@ The cell-1 and cell-3 chart sets in the same style (`tools/matrix_bruns/b17_char
 `tools/step3_charts_record.py`), built on this cell's estimator: the pooled Method-2 fit over
 every observation of the four totality blocks (`s1_pooled_fit.py --ref twopass`).
 
+Revision 5 (2026-09-05):
+  * **the reference gate of record moves from 0.3" to 0.5"** (Douglas): the gate that fills the
+    corners of the 9576 px frame without admitting the G 14-15 tail. L 1.811 -> 1.804, the joint
+    scale within 0.2 ppm of the published value. The stage-2 tree read here follows
+    `s1_pooled_fit.py`'s 'twopass' entry;
+  * the field chart's 2 R_sun label loses ", the inner cut".
+
 Revision 4 (Douglas' third review, 2026-09-04):
   * the science set now reaches **10 R_sun** rather than 9 -- see `s1_pooled_fit.py` for why
     the cut sits there and why it is not chosen on L. The pile-up of points at R = 9 that
@@ -71,12 +78,13 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Ellipse, Polygon
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 
-REV = 'rev04'
+REV = 'rev05'
 REC = r"D:/MEE2024 output/MEE_output/station1_record"
 OUT = os.path.join(REC, 'charts')
 VER = os.path.join(OUT, 'chart_versions')
 RECORD = r"D:/MEE2024 output/MEE_output/RECORD/mexico2024"
 POOLED = os.path.join(REC, 'pooled_fit', 'twopass')
+STAGE2 = 'stage2_twopass_reftol0p5'     # the record's stage-2 tree, as in s1_pooled_fit.py
 os.makedirs(VER, exist_ok=True)
 
 NX, NY, PS = 9576, 6388, 1.84847
@@ -254,7 +262,7 @@ sun_ra, sun_dec = px_to_sky(np.array([t.sun_px.mean()]), np.array([t.sun_py.mean
 ax.add_patch(Circle((float(sun_ra[0]), float(sun_dec[0])), t.RS.mean()/3600, color='black',
                     zorder=3, label='the Sun, 1 R$_\\odot$ to scale'))
 ax.add_patch(Circle((float(sun_ra[0]), float(sun_dec[0])), 2*t.RS.mean()/3600, fill=False,
-                    color='gray', ls='--', lw=1.0, zorder=3, label='2 R$_\\odot$, the inner cut'))
+                    color='gray', ls='--', lw=1.0, zorder=3, label='2 R$_\\odot$'))
 lo_ra = min(min(corners[0]), min(ends_ra)) - 0.05
 hi_ra = max(max(corners[0]), max(ends_ra)) + 0.05
 lo_de = min(min(corners[1]), min(ends_de)) - 0.05
@@ -315,7 +323,7 @@ iS, iL = names.index('S'), names.index('L')
 # the JOINT plate scale: what stage 2 used, corrected by the S fitted alongside L
 ps2 = {}
 for b in blocks:
-    z = sorted(glob.glob(os.path.join(REC, 'eclipse_corona', b, 'stage2_twopass', '**',
+    z = sorted(glob.glob(os.path.join(REC, 'eclipse_corona', b, STAGE2, '**',
                                       'distortion_data*.zip'), recursive=True))[-1]
     ps2[b] = float(json.load(zipfile.ZipFile(z).open('distortion_results.txt'))['platescale (arcseconds/pixel)'])
 joint = float(np.mean([ps2[b] for b in blocks])) - c[iS]*PS
@@ -397,7 +405,8 @@ for b in blocks:
 # ---------------------------------------------------------------- 5. the tables
 t.to_csv(os.path.join(OUT, 'station1_star_table.csv'), index=False)
 rec = dict(cell='Mexico 2024 Station 1', estimator='pooled Method 2, every observation',
-           reference='quintic, seventeen zenith fields, windowed', stage2='two-pass, scale fitted',
+           reference='quintic, seventeen zenith fields, windowed, fitted at a 0.5 arcsec gate',
+           stage2='two-pass, scale fitted',
            calibration='dark + flat (the published 2024 choice)', magnitude_cut=13.0,
            radius_cut=[2.0, 9.0], observations=int(len(t)), stars=int(t.key.nunique()),
            L=L, sigma_stat=SE_STAT, sigma_atmosphere=ATM_ERR, sigma_total=TOT,
