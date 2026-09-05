@@ -37,6 +37,19 @@ import numpy as np, pandas as pd
 #                     Bruns' own choice; 14 exist)
 LIMIT_MAG = float(os.environ.get('B17M_LIMIT_MAG', '11.0'))
 LINK_N = int(os.environ.get('B17M_LINK_N', '7'))
+#   B17M_ESTIMATOR -- 'moments' (default: footprint moments + Gaussian background, Bruns' own
+#                     convention and the cell's convention of record) or 'windowed' (the fixed
+#                     Gaussian window + annular background, the Station 1 convention and, from
+#                     2026-09-05, the program's default). Douglas, 2026-09-05: what would cell
+#                     1's Method 1 / Method 2 table look like under the Mexico centroiding?
+#   B17M_CONV      -- the tree holding L, R8 and E2 reduced in that convention (default: the
+#                     convention-of-record tree)
+#   B17M_OUT       -- where to write (default: the record's output tree)
+ESTIMATOR = os.environ.get('B17M_ESTIMATOR', 'moments')
+#   B17M_WINDOW_SIGMA -- the windowed estimator's Gaussian window, px (default 2.0). Bruns'
+#                     PSF sigma is ~0.7 px, so a 2 px window is three times wider than the
+#                     star and samples the coronal gradient; matched windows are the test.
+WINDOW_SIGMA = os.environ.get('B17M_WINDOW_SIGMA', '2.0')
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
@@ -48,8 +61,8 @@ from mee2024.starcat import providers
 from mee2024.MEE2024util import date_string_to_float
 
 MAIN = r"D:/MEE2024 output/MEE_output/matrix_bruns2017"          # preprocessed frames
-CONV = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_like2024"  # convention-of-record tree
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
+CONV = os.environ.get('B17M_CONV', r"D:/MEE2024 output/MEE_output/matrix_bruns2017_like2024")  # convention-of-record tree
+OUT = os.environ.get('B17M_OUT', r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod")
 REF_L = glob.glob(os.path.join(CONV, 'L', 'stage2', '**', 'distortion_results.txt'), recursive=True)[0]
 REF_R = glob.glob(os.path.join(CONV, 'R8', 'stage2', '**', 'distortion_results.txt'), recursive=True)[0]
 PS, NX, NY, W_NORM = 2.0868004, 3296, 2472, 1648.0
@@ -63,8 +76,11 @@ SITE = ['--set','observation_lat=42 44 11 N','--set','observation_long=106 19 05
 S1 = ['--set','sensitive_mode_stack=True','--set','centroid_gaussian_subtract=True',
       '--set','centroid_gaussian_thresh=4.0','--set','min_area=2',
       '--set','sigma_subtract=0.0','--set','delete_saturated_blob=False',
-      '--set','remove_edgy_centroids=True','--set','centroid_refine_window=False',
-      '--set','background_subtraction_mode=Gaussian','--set','distortion_field_plot=True']
+      '--set','remove_edgy_centroids=True',
+      *(['--set','centroid_refine_window=True','--set','background_subtraction_mode=annular',
+         '--set','centroid_window_sigma=' + WINDOW_SIGMA] if ESTIMATOR == 'windowed' else
+        ['--set','centroid_refine_window=False','--set','background_subtraction_mode=Gaussian']),
+      '--set','distortion_field_plot=True']
 
 
 def run(cmd, log):

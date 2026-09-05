@@ -20,8 +20,10 @@ def test_windowed_centroids_are_the_default():
 
 
 def test_the_window_is_narrower_than_the_psfs_it_is_meant_for():
-    """2 px against PSF sigmas of 2.5-3.5 px on the matrix's instruments; a window wider than
-    the PSF is flat over it and degenerates to the moment estimator."""
+    """2 px against PSF sigmas of 2.5-3.5 px on the matrix's instruments. The window must be
+    narrower than the PSF: wider, it weights the background gradient around the star -- on
+    Bruns' 0.7 px PSF a 2 px window took the residual near the Sun from 0.15" to 0.71" and L
+    from 1.78 to 1.28. Stage 1 warns when the measured PSF is not wider than the window."""
     assert get_default_options()['centroid_window_sigma'] == 2.0
 
 
@@ -48,3 +50,16 @@ def test_the_previous_defaults_are_one_set_away():
     o = cli.apply_sets(get_default_options(), ['centroid_refine_window=False', 'distortion_fit_tol=1.0'])
     assert o['centroid_refine_window'] is False
     assert o['distortion_fit_tol'] == 1.0
+
+
+def test_stage_one_warns_when_the_window_is_not_narrower_than_the_psf():
+    """The condition on the windowed default, found on Bruns' field: a 2 px window on a 0.7 px
+    PSF (FWHM 1.65) fails near the Sun; on Station 1's 7.5 px FWHM it is fine."""
+    from mee2024.stacker_implementation import window_wider_than_psf
+    o = get_default_options()
+    assert window_wider_than_psf(o, 7.5) is None
+    msg = window_wider_than_psf(o, 1.65)
+    assert msg and 'not narrower' in msg and 'eclipse preset' in msg
+    assert window_wider_than_psf(dict(o, centroid_window_sigma=0.5), 1.65) is None
+    assert window_wider_than_psf(dict(o, centroid_refine_window=False), 1.65) is None
+    assert window_wider_than_psf(o, None) is None

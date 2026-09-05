@@ -63,8 +63,13 @@ back is kept deliberately:** the `eclipse` field preset is the Bruns-reproducing
 distortion_fit_tol=1.0` recovers the pre-v1.4.0 defaults exactly. The stage-2 regression
 baselines set `distortion_fit_tol = 1.0` explicitly, so they keep catching astrometry changes
 rather than this one. These are changes that move measured numbers — every field reduced with
-defaults after this commit uses the windowed estimator and the 0.2 ″ gate. The window σ should
-eventually come from the measured PSF (F14).
+defaults after this commit uses the windowed estimator and the 0.2 ″ gate. **Condition, found
+the same day on Bruns' field (PSF σ 0.7 px): the window must be narrower than the PSF.** A 2 px
+window there gave a 0.71 ″ residual inside 2.5 R☉ and L = 1.28; a 0.7 px window recovered
+1.711 ± 0.101 against the record's 1.777. Stage 1 warns when the measured PSF is not wider
+than the window; for a sharp, undersampled system use the `eclipse` preset or set
+`centroid_window_sigma` to ~0.6–0.7 of the PSF σ. The window σ should come from the measured
+PSF (F14); until it does this is a documented condition, not an automatic one.
 
 ---
 

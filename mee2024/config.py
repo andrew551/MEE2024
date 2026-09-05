@@ -109,8 +109,13 @@ DEFAULT_OPTIONS = {
     # depends on signal-to-noise -- which leaks straight into the deflection constant
     # (+0.39 arcsec/mag on Station 1). The windowed centroid's offset is the same for every
     # magnitude, so the distortion model absorbs it; on a clean optic (Leakey's Askar 65PHQ,
-    # Bruns) the two estimators coincide and nothing is lost. The window must be narrower
-    # than the PSF to act. THE WAY BACK: the 'eclipse' field preset is the Bruns-reproducing
+    # Bruns) the two estimators coincide and nothing is lost. THE CONDITION: the window must
+    # be narrower than the PSF -- not only to act but to be safe. On Bruns' field (PSF sigma
+    # 0.7 px at 2.09"/px) the 2 px window below weights the coronal gradient around each
+    # star and the residual inside 2.5 R_sun goes from 0.15" to 0.71"; a 0.7 px window
+    # recovers it. Stage 1 warns when the measured PSF is not wider than the window; on a
+    # sharp, undersampled system use the 'eclipse' preset or set centroid_window_sigma to
+    # ~0.6-0.7 of the PSF sigma. THE WAY BACK: the 'eclipse' field preset is the Bruns-reproducing
     # convention (footprint moments + Gaussian background, field_presets.py), and
     # `--set centroid_refine_window=False` recovers the pre-v1.4.0 estimator alone.
     'centroid_refine_window': True,

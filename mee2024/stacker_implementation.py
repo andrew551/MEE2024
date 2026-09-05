@@ -700,6 +700,31 @@ def simple_get_centroids(image):
     s = np.argsort(total_weights)[::-1]
     return np.asarray(centroids)[s]
 
+def window_wider_than_psf(options, fwhm_px):
+    """The warning stage 1 logs when the windowed estimator's window is not narrower than
+    the star, or None when it is (or when the estimator is off, or the PSF unknown).
+
+    The windowed centroid is only safe when its Gaussian window is narrower than the PSF.
+    Wider, it weights the background around the star as well as the star, and near the Sun
+    that background has a gradient the annular estimate cannot remove: on Bruns 2017's
+    0.7 px PSF the default 2 px window took the per-star residual inside 2.5 R_sun from
+    0.15" to 0.71" and the deflection constant from 1.78 to 1.28, while a 0.7 px window
+    recovered it (docs/STEP3_2026.md, "Cell 1 under the Station 1 centroiding"). The PSF
+    is measured on every stack anyway; this compares the two and says so.
+    """
+    if not options.get('centroid_refine_window') or not fwhm_px:
+        return None
+    sigma_psf = float(fwhm_px) / 2.3548
+    sigma_win = float(options.get('centroid_window_sigma', 2.0))
+    if sigma_win < sigma_psf:
+        return None
+    return (f'the centroid window (sigma {sigma_win:.1f} px) is not narrower than the stars '
+            f'(PSF sigma {sigma_psf:.1f} px, FWHM {float(fwhm_px):.1f} px): a window wider than '
+            f'the star weights the background gradient around it and biases positions near '
+            f'the Sun. Set centroid_window_sigma to about 0.6-0.7 of the PSF sigma '
+            f'({0.65*sigma_psf:.1f} px here), or use the eclipse preset (footprint moments).')
+
+
 def windowed_centroid(sub, y0, x0, sigma, R=8, iters=12, tol=1e-5):
     """Flux-weighted centroid under a fixed Gaussian window, iterated to convergence.
 
@@ -1783,6 +1808,9 @@ def _do_stack(files, darkfiles, flatfiles, options, progress,
                     f'the star images are undersampled (FWHM '
                     f'{psf_summary["fwhm_px"]:.1f} px, under 2): centroid positions '
                     f'carry pixel-phase bias no averaging can remove', level='warning')
+            window_warning = window_wider_than_psf(options, psf_summary.get('fwhm_px'))
+            if window_warning:
+                events.log(window_warning, level='warning')
     except Exception as exc:
         events.log(f'PSF measurement skipped: {exc}', level='warning')
 
