@@ -26,7 +26,11 @@ estimator bias that leaks into L; the windowed estimator's own offset is what th
 model absorbs, if it is the same on the calibration and the science field.
 
 Sets: Station 1 zenith (3 s, night) and the four corona-subtracted eclipse stacks; Leon 2026
-zenith12 (three fields); Leakey 2024 zenith1 (three blocks). Frame size is read from each stack,
+zenith12 (three fields); Leakey 2024 zenith1 (three blocks); Bruns 2017 -- three of his night
+calibration fields and the two eclipse masters (0.62 s EA+EB, 0.09 s E2) -- at 2.09 "/px on a
+3296 x 2472 sensor, a PSF so much sharper in pixels that the 2 px window is wider than it: the
+regime in which the two estimators should coincide. G is widened to 6-11.5 for Bruns because
+his fields hold few stars and his bright ones do not saturate. Frame size is read from each stack,
 the plate scale from its stage-2 results. sigma is the second moment of the clipped footprint --
 smaller than the full PSF sigma -- so read ratios and signs, not absolute widths.
 
@@ -40,6 +44,8 @@ REC = r"D:/MEE2024 output/MEE_output/station1_record"
 Z24 = r"D:/MEE2024 output/Station 1/zenith fields"
 LEON = r"D:/MEE2024 output/MEE_output/refraction/zenith12"
 LEAKEY = r"D:/MEE2024 output/MEE_output/leakey_zenith/zenith1"
+BRUNS = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
+BRUNS_NIGHTS = r"D:/MEE2024 output/MEE_output/bruns2017_nights"
 EDGES = [0, 0.3, 0.5, 0.7, 0.85, 1.0]
 GMIN, GMAX = 8.0, 11.5
 BOX, RAP, RIN, ROUT = 15, 8.0, 11.0, 15.0     # cutout half-size, aperture, background annulus (px)
@@ -134,7 +140,24 @@ for blk in sorted(glob.glob(os.path.join(LEAKEY, '*')))[:3]:
     if img and zp:
         sets.append(('Leakey 2024 zenith', 'Leakey ' + os.path.basename(blk), img[-1], zp, 65535.0))
 
-frames = [measure(*s) for s in sets]
+for fld in sorted(glob.glob(os.path.join(BRUNS_NIGHTS, '*')))[:3]:
+    img = sorted(glob.glob(os.path.join(fld, 'CENTROID_OUTPUT*', 'STACKED*.fit')))
+    zp = first_zip(fld, 'stage2', '**', 'distortion_data*.zip')
+    if img and zp:
+        sets.append(('Bruns 2017 night', 'Bruns night ' + os.path.basename(fld), img[-1], zp, 65535.0))
+for name, label in (('master062', 'Bruns 0.62 s master'), ('master009', 'Bruns 0.09 s master')):
+    img = sorted(glob.glob(os.path.join(BRUNS, name, 'CENTROID_OUTPUT*', 'STACKED*.fit')))
+    zp = first_zip(BRUNS, name, 'stage2', '**', 'distortion_data*.zip')
+    if img and zp:
+        sets.append(('Bruns 2017 eclipse', label, img[-1], zp, 65535.0))
+
+frames = []
+for st in sets:
+    if st[0].startswith('Bruns'):
+        _g = GMIN; GMIN = 6.0                # see the docstring: few stars, none saturating
+        frames.append(measure(*st)); GMIN = _g
+    else:
+        frames.append(measure(*st))
 allf = pd.concat([f for f in frames if len(f)], ignore_index=True)
 allf.to_csv(os.path.join(REC, 'psf_shape.csv'), index=False)
 
