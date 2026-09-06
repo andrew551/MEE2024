@@ -3,7 +3,14 @@
 **Written 2026-09-01, cell 3 revised the same night**, because several variants were run over 2026-08-29..09-01 and only
 two of them are quoted. Anything not listed here is an experiment, not a result.
 
-## The two numbers, and the chain that produced each
+**Updated 2026-09-06** with cell 2, which closed on 2026-09-05. Two things a reader should
+know before quoting from this page: the current budget for every cell is the one in
+[`MATRIX_2026.md`](MATRIX_2026.md), which is maintained and this page is not; and cell 1's
+atmosphere term is quoted in the headline below as the design-matched ±0.059 while its own
+table row still says that term was proposed and *not yet applied*. That contradiction is
+unresolved here — do not quote cell 1's total without checking the matrix first.
+
+## The three numbers, and the chain that produced each
 
 ### Cell 1 — Bruns 2017: **L = 1.764 ± 0.060 (stat) ± 0.075 (scale) ± 0.059 (atmosphere) ″**
 
@@ -90,6 +97,41 @@ brightness-dependent centroid bias the windowed estimator exists to remove).
   `deflection_method1/2`) is kept under `RECORD/leon2026/superseded_2026-09-01_2312/`
 * the program's own plots (65 files): `step3_prelim_L/*/stage2_constant/DISTORTION_OUTPUT*/` and `*/stage3/`
 * convention cross-checks: `step3_bruns_convention/` (both axes switched), `step3_bg_ab/` (one axis at a time)
+
+### Cell 2 — Mexico 2024, Station 1: **L = 1.804 ± 0.084 (stat) ± 0.11 (atmosphere) ″**
+
+Total σ ≈ 0.138. **GR at 0.4 σ; Newton excluded at 6.7 σ; L/L_Newton = 2.06 ± 0.16.**
+Dittrich et al. 2025 published 1.839 ± 0.239 ″ from this data, which this sits 0.15 σ from on
+an error bar 2.8x smaller. Closed 2026-09-05; the derivation is the cell-2 block of
+[`MATRIX_2026.md`](MATRIX_2026.md) and the working log in [`STEP3_2026.md`](STEP3_2026.md).
+
+**Method 2 throughout** — the plate scale is fitted alongside L, because the eclipse and
+zenith fields differ by ~600 ppm of focal length and no scale can be imported between them.
+The joint scale is 1.8473626 ″/px, 0.2 ppm from the published value; the L–scale correlation
+is −0.786 against the paper's −0.783, a property of the field geometry both analyses had to
+find independently. A scale fitted *without* L runs ~46 ppm low, because the deflection is
+absorbed into it — never compare one of those with a published scale.
+
+| step | what | where |
+|---|---|---|
+| calibration | 17 zenith fields, quintic, reference fit at a **0.5 ″ gate** (chosen on corner coverage, not on rms) | `stage2_twopass_reftol0p5/` |
+| preprocessing | per-frame coronal subtraction (blur σ 10 px, 2000 ADU pedestal) with the disk occulter, dark + flat | re-stacked from raw |
+| stage 1 + 2 | windowed + annular centroids; **two-pass match**, gates 20 ″ then 3 ″, `distortion_free_scale` | `mee2024/distortion_fitter.py` |
+| stage 3 | pooled Method 2 over **every observation** of the four exposure tiers: per-block offset, rotation and scale, one L, 17 parameters on 1278 coordinates, one 4-MAD vet | `tools/matrix_station1/s1_pooled_fit.py` |
+| the star sample | G ≤ 13, 2–10 R☉ — 639 observations of 192 stars. The outer cut is set by the zenith-vs-eclipse annulus comparison, not by L | `s1_reference_tolerance.py`, `s1_blocks_alone.py` |
+| errors | star bootstrap and a cluster-robust sandwich, which agree; a weighted mean over blocks is too small because the blocks share their stars | `s1_pooled_fit.py` |
+| atmosphere term | 16 zenith Method-2 nulls (±0.109 ″) scaled by airmass^0.73 to the eclipse altitude — mostly the estimator floor, not the sky | `s1_pooled_grid.py` |
+
+Reported **beside** the budget rather than folded into it: the admission rule 0.05 ″, the
+model order 0.03 ″, the reference gate 0.01–0.02 ″, the coronal blur 0.01 ″. The flat's
+±0.2–0.4 ″ lever is **withdrawn**: it was a vet-selected-subset artefact, and comparing two
+reductions on stars each of them chose for itself is the mistake that produced it.
+
+**Graphical output — start at `RECORD/mexico2024\`**: `record_deflection.png` (with
+`_all4` and `_per_star`), `record_field.png`, `record_covariance.png`, the four
+`master_<tier>_annotated.png`, `station1_star_table.csv` and `record_summary.json`; chart
+revision 5, every revision under `chart_versions/`, superseded copies in dated
+`superseded_*` folders. Built by `tools/matrix_station1/s1_charts_record.py`.
 
 ## What is NOT the record
 

@@ -1,9 +1,15 @@
 # The Leon refraction data: what it is, and a plan for using it
 
 *(Branch record for `refraction-leon-2026`. The original strategy copy lives at
-`D:\MEE2024 output\MEE_output
-efraction\REFRACTION_2026_STRATEGY.md`; this file is the
+`D:\MEE2024 output\MEE_output\refraction\REFRACTION_2026_STRATEGY.md`; this file is the
 living version and will accumulate results as M2–M8 run.)*
+
+> **Read the status line below as of its date.** The M-ladder has since run, the step-3
+> reduction it fed is recorded in [`STEP3_2026.md`](STEP3_2026.md) and
+> [`MATRIX_2026.md`](MATRIX_2026.md), and the refraction correction itself was found broken
+> outright and fixed on `v1.4.0-dev` ([`V1_4_0_TESTING.md`](V1_4_0_TESTING.md)). This file is
+> the branch record for `refraction-leon-2026` and has not been rewritten to match. (Noted
+> 2026-09-06.)
 
 **Date:** 2026-08-26. Status: **strategy — nothing here has been measured yet** except the
 inventory (§1), the weather extraction (§2) and the pilot solvability run (§5.M1). Sources:

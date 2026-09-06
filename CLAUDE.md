@@ -107,7 +107,7 @@ rather than adjectives.
 
 ## Where the project is
 
-`docs/ROADMAP.md` is the live plan: §1 measurements, §2 closed fixes, §3 features F1–F14, §6
+`docs/ROADMAP.md` is the live plan: §1 measurements, §2 closed fixes, §3 features F1–F30, §6
 the release order. v1.3.9 is released; `v1.4.0-dev` holds everything that changes results,
 starting with F7 (header harvest) and refraction. **Read [`docs/V1_4_0_TESTING.md`](docs/V1_4_0_TESTING.md)
 before working on that branch** — it is the work plan, and it records that the refraction

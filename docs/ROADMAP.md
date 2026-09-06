@@ -2,15 +2,21 @@
 
 **Status:** for discussion. Nothing here is implemented unless marked *done*. Every measurement in §1 was derived from the raw 2026-08-06 London dataset; several supersede earlier claims, and those are flagged where they occur.
 **Date:** 2026-08-08, against v1.3.5; §2 and F1/F10 updated 2026-08-17 for v1.3.7;
-F11–F13 and §6 updated 2026-08-19 for **v1.3.9**
+F11–F13 and §6 updated 2026-08-19 for **v1.3.9**; header refreshed 2026-09-06, by which
+time the feature list had grown to **F30** — F15–F30 came out of the 2026-08 campaign work.
 
-> **§2 is closed entirely, plus F1, F3, F4, F10 and F11.** The whole immediate-fix list is
-> done, the run log and batch summary are reachable from the app window, batch mode takes
-> several folders, the calibration library exists and has been built from the real Leon
-> campaign data, and SER files are read directly. See
-> [`LEON_2026-08-11.md`](LEON_2026-08-11.md) for what that data says. What remains open is
-> F2, F5–F9 and F12 — features needing their own validation rather than fixes. §6 now says
-> which release each one lands in, and why the line is drawn where it is.
+> **§2 is closed entirely, plus F1, F3, F4, F10, F11, F25 and F26.** The whole immediate-fix
+> list is done, the run log and batch summary are reachable from the app window, batch mode
+> takes several folders, the calibration library exists and has been built from the real Leon
+> campaign data, SER files are read directly, the centroid estimator is exposed with the two
+> field presets behind it (`mee2024/field_presets.py`), and the circular forbidden zone has
+> replaced the convex-hull blob. See [`LEON_2026-08-11.md`](LEON_2026-08-11.md) for what that
+> data says.
+>
+> **v1.3.9 is released and work has moved to `v1.4.0-dev`**, which holds everything that can
+> change a measured number; [`V1_4_0_TESTING.md`](V1_4_0_TESTING.md) is that branch's plan.
+> Everything in §3 not marked *done* is still open, F2 and F5–F9 among them. §6 says which
+> release each one lands in, and why the line is drawn where it is.
 **Audience:** users and contributors. Please argue with it — several items below exist
 because someone's field experience contradicted an assumption in the code.
 
@@ -1060,7 +1066,7 @@ all** (zero "deleting edgy centroid" lines, anchor present in both tiers' centro
 The cheap half — *recording* what the filters dropped, so the question is answerable from
 the archive instead of by investigation — is additive and can land at any time.
 
-### F25 — Expose the centroid estimator, and preset the two field configurations
+### F25 — Expose the centroid estimator, and preset the two field configurations — **done, 2026-08-31**
 
 `centroid_refine_window` and `centroid_window_sigma` are applied by every reduction and
 shown by neither interface: config file or `--set` only. That is exactly what F12's rule

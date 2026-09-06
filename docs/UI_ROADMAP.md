@@ -1,6 +1,11 @@
 # MEE2024 UI development roadmap
 
-**Status:** proposal, for decision. Nothing here has been implemented.
+**Status:** proposal, for decision — **partly overtaken.** The app window it argues for exists
+(`mee2024/ui/`: `app.py`, `server.py`, `frontend.html`, `runner.py`, `batch.py`, `watcher.py`),
+and the run log, the batch summary and multi-folder batch mode reached it in v1.3.6–v1.3.7
+(§2 and F3/F4/F10 of [`ROADMAP.md`](ROADMAP.md)). Read this for the two-interface reasoning
+and the phase order, not as a statement of what is built. (Status line corrected 2026-09-06;
+it had still said "nothing here has been implemented".)
 **Date:** 2026-08-07, revised 2026-08-08 (v1.3.5)
 **Question it answers:** the project has two interfaces. Do we maintain both, freeze one, or
 port selectively — and in what order?

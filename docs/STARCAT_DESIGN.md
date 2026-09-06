@@ -1,6 +1,11 @@
 # Star catalogue redesign — offline Gaia, unified star data, Gaia+Tycho merge
 
-Status: **design, not yet implemented**. Written 2026-07-29 against commit `4bacfc4`.
+Status: **implemented** — this design shipped as `mee2024/starcat/` (`download.py`, `store.py`,
+`providers.py`, `table.py`, `labels.py`), and the offline Gaia catalogue auto-downloads on
+first use. Written 2026-07-29 against commit `4bacfc4` and kept as the *design* record: read
+it for why the abstraction is shaped this way, not for what the code does today. The current
+holdings are in [`CATALOGUE_INVENTORY.md`](CATALOGUE_INVENTORY.md). (Status line corrected
+2026-09-06; it had still said "not yet implemented".)
 
 Goal: a single star-data abstraction, an offline Gaia catalogue that auto-downloads on
 first use, and a merged Gaia+Tycho catalogue that fixes the bright-end gap — without

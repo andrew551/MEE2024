@@ -6,6 +6,12 @@ The v2 solver lives in `mee2024/platesolve2/`, is selected with
 `options['platesolver'] = 'v2'`, and the production solver stays the default until v2
 dominates the bench (`tools/solver_bench.py`, results in `docs/bench/BENCH.md`).
 
+> **Since overtaken — v2 *is* the default** (`mee2024/config.py`, `'platesolver': 'v2'`). The
+> classic solver stays selectable, and F21 in [`ROADMAP.md`](ROADMAP.md) covers falling back
+> to it when v2 fails rather than only when it is absent. This file is the design record and
+> the staged plan it describes is finished; it is not a statement of what is wired up today.
+> (Noted 2026-09-06.)
+
 Goals, from the project owner: rebuild from scratch — pattern DB from the offline Gaia
 catalogue, Kendall shape-space invariants, quaternions where they actually help, a
 conditional quad layer for >8° — developed in stages where **each stage isolates one
