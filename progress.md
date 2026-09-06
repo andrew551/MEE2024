@@ -8,25 +8,22 @@ Newest first. Design detail lives in `docs/ARCHITECTURE.md` (how the pipeline wo
 
 ## Current state
 
+**Not kept here.** This table used to carry the branch, the test count and the version, and
+on 2026-09-06 all three were stale (it named a branch that no longer exists, 866 tests against
+925, and v1.3.8 with v1.3.9 released and `v1.4.0-dev` the working branch). The state now lives
+where it is maintained:
+
 | | |
 |---|---|
-| Branch | `refactor/test-cli-foundation` |
-| Tests | 866 fast, 26 more behind `--runslow`, all passing in a clean `.venv` (`python -m venv .venv` + `requirements.txt`) |
-| Pipeline | stages 1–3 headless from the CLI, and from the new app window |
-| Input formats | FITS, ordinary image files, and **SER containers** — one frame addressed as `capture.ser#42`. A frame range is a run parameter, not a second copy of the file. `docs/SER_INPUT.md` |
-| Calibration | **library of master darks and flats**, keyed on camera/gain/exposure/binning, built by `mee2024 calibrate` or from the app window; matched per field and reported per field. Temperature recorded, not keyed. No flat-darks. `docs/LEON_2026-08-11.md` |
-| Plate solver | **v2 by default** (Gaia + Kendall + quaternion consensus + FOV layers; `docs/bench/BENCH.md`); falls back to the classic Tycho solver when no pattern DB is installed; `platesolver='triangle'` selects it deliberately |
-| Pattern DBs | `patdb_g12_t17k` primary (230 MB) + optional `patdb_g13_t06k` (334 MB) / `patdb_g12_t40k` (60 MB) layers, built locally with `mee2024 build-pattern-db`; `LAYER_SET` picks the newest installed per scale; not yet published as release assets |
-| Catalogues | **`gaia_dr3_g13`** (G<13, 7.37 M stars) is the standard archive, offline by default and fetched/merged on first use; `g10` (24 MB) bundled in the exe, `g15` reserved for the deep tier; Hipparcos + labels bundled. Two user choices: `gaia` (offline + bright fill) and `gaia_online` |
-| Interfaces | app window by default, `mee2024 gui` (classic, unchanged), CLI |
-| Version | v1.3.8; Windows exe built from `MEE2024.spec`, carrying the compact catalogue |
+| [`docs/README.md`](docs/README.md) | the index of the documents — which four are maintained, which are records |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | the live plan: measurements, closed fixes, features F1–F30, release order |
+| [`docs/V1_4_0_TESTING.md`](docs/V1_4_0_TESTING.md) | the working branch and what it has to prove |
+| [`docs/MATRIX_2026.md`](docs/MATRIX_2026.md) | the measurements: the four-dataset matrix and every cell's budget |
+| [`CLAUDE.md`](CLAUDE.md) | the commands, including the test count as of the last release check |
 
-Design docs: `docs/CATALOGUE_INVENTORY.md` (catalogue unification),
-`docs/PLATESOLVER_DESIGN.md` (solver measurements, statistics, improvement plan),
-`docs/PLATESOLVER_V2_DESIGN.md` (the solver rebuild: theory and stage plan),
-`docs/UI_DESIGN.md` (UI strategy, what is built, and the P2 question),
-`docs/LEON_2026-08-11.md` (the Leon eclipse campaign: calibration measured, refraction scoped),
-`docs/SER_INPUT.md` (SER input, choosing frames, and the exposure-consistency check).
+What this file keeps is the **development log** below — newest first, what changed and what was
+measured — and the **measured baselines**, which `tests/test_stage2_regression.py` and
+`tests/test_offline_end_to_end.py` cite and which must not be re-derived to make a test pass.
 
 ### Measured baseline — do not regress these
 
