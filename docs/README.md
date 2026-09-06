@@ -99,11 +99,23 @@ several of them said "not yet implemented" long after they were.
 |---|---|
 | [`bench/`](bench/) | The error budget, the solver and centroid benchmarks, the hot-pixel and PSF studies, and the test-frame register. `ERROR_BUDGET.md` is the one to read. |
 | [`releases/`](releases/) | Release notes, one file per version. `MEE2024.spec` copies the matching one beside the binary at build time. v1.3.6 has none — that is the release the project lost, and the reason version numbers are never reused. |
-| [`figures/`](figures/) | Figures referenced from the campaign records. |
 
 ---
 
 ## Not in this folder
+
+**The outputs.** The repository carries the documents; the figures, star tables and summaries
+they cite live in the output tree on one machine, `D:\MEE2024 output\MEE_output\`, which is
+far too large to version. Its curated index is **`RECORD\`**: for each finished piece of work,
+the outputs someone would need to check it, re-quote it or publish from it — one folder per
+matrix cell in a common shape (`bruns2017`, `leon2026`, `mexico2024`), plus `refraction` for
+the Leon campaign physics that feeds the atmosphere term. Every file there is a copy of one in
+the tree; superseded versions go in dated `superseded_*` folders and are never deleted. The
+cell folders are written by their chart tools; `tools/sync_record.py` keeps the rest in step,
+including a copy of `WHICH_REDUCTION_IS_THE_RECORD.md`, the folder's own index. The repository
+holds no figures of its own: a `docs/figures/` with six refraction charts existed until
+2026-09-06, but no document displayed them and the record cited the D: originals, so they
+moved to `RECORD/refraction/` with everything else.
 
 The **session handoffs** — the running notes that carry one working session into the next —
 live outside the repository, under `D:\MEE2024 output\MEE_output\`, as

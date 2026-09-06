@@ -464,8 +464,9 @@ all three diagnostics from the start.
 Per-star decomposition of all nine field-windows from the M2 corrections-ON quadratic-free
 fits: the **quasi-static** residual (median over the ~45 frames — what stacking keeps) and
 the **per-frame jitter** (scatter about it — what stacking averages), rotated into the
-local alt-az frame. Figures: `refraction/m3_maps/m3_quiver_maps.png`,
-`m3_vertical_profiles.png`; per-field statistics in `m3_stats.csv`.
+local alt-az frame. Figures: `m3_quiver_maps.png` and `m3_vertical_profiles.png`, with the
+per-field statistics in `m3_stats.csv` -- all three in `RECORD/refraction/` (sources under
+`refraction/m3_maps/`).
 
 Condensed (ranges over the nine field-windows, alt 8.5–12.4°):
 
@@ -559,7 +560,8 @@ quadratic-free over the frozen 08-12 zenith cubic, per-field logger weather). Ca
 the alt-5° pair only — M01 failed to platesolve at all (the ~3.7 % vertical compression at
 airmass ~10 exceeds the pattern matcher's tolerance; the solver's own hard floor is
 between alt 5.0° and 5.6° on this rig), and M80's corrections-ON match failed the same
-way. Per-field results: `refraction/m4_mosaic/m4_fields.csv`; curves: `m4_curves.png`.
+way. Per-field results: `m4_fields.csv`; curves: `m4_curves.png`; both in `RECORD/refraction/`
+(sources under `refraction/m4_mosaic/`).
 A weather-lookup bug in the first pass (the logger axis shifted one hour by a naive
 timestamp on a UTC+1 machine, feeding the late fields pack-up descent pressure) was found,
 fixed, and 77 fields re-reduced; the M2/M5 results never used interpolated weather.
@@ -662,7 +664,10 @@ Douglas proposed temperature instead — night 2 has the logger on the spreader 
 one focuser position (17041 steps) across the zenith set and the whole pre-flip mosaic, and
 the air cooled 23.7 → 21.5 °C with a **non-monotonic** curve (a ~1.3 K recovery around
 23:50–00:10), which is exactly the feature that separates temperature from generic time
-drift. Figure: `refraction/night2_temperature.png`.
+drift. Figure: `night2_temperature.png` -- **withdrawn, see §16.1**: its cubic panel is wrong
+(a time-of-day wrap in the temperature lookup), the numbers here are not; it is kept as
+`RECORD/refraction/superseded_2026-08-27/`, and the corrected pair is
+`platescale_vs_temperature.png` and `cubic_vs_temperature.png` in `RECORD/refraction/`.
 
 **Plate scale (corrections ON, refraction removed with each point's own logger weather —
 what remains is the optics), 55 points:**
@@ -722,7 +727,9 @@ larger cubic). Consequences:
 ~29 °C — a time-of-day wrap bug in that script's temperature lookup (the §16 *numbers*
 came from the corrected decomposition and stand). Superseded by
 `platescale_vs_temperature.png` (no flipped fields, night 1 added, tight scale) and
-`cubic_vs_temperature.png` (correct axis: band at 20.8–22.2 °C).
+`cubic_vs_temperature.png` (correct axis: band at 20.8–22.2 °C), both in `RECORD/refraction/`;
+the withdrawn figure is kept there under `superseded_2026-08-27/`. The campaign's summary
+figure, `stability_vs_tube_temperature.png` (§16.5), is beside them.
 
 **Can temperature explain night 1's plate scale? No — and the failure is informative.**
 Six new corrections-ON reductions of the 08-11 zenith fields (FOCUSPOS 17049) give a

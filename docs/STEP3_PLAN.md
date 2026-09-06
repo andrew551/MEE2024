@@ -85,7 +85,8 @@ plus docs/tools only, so everything rides along and nothing under `mee2024/` cha
 
 ## Figures and the campaign comparison
 
-`docs/figures/` holds the six current figures; `tools/refraction/FIGURES.md` maps each to
+`RECORD/refraction/` on D: holds the six current figures (they were in `docs/figures/` until
+2026-09-06; `tools/sync_record.py` copies them); `tools/refraction/FIGURES.md` maps each to
 the script that regenerates it and records the caption facts. `docs/STEPS12_LEON_VS_BRUNS2017.md`
 is the like-for-like steps 1–2 comparison against Bruns 2017 (all four zenith datasets with
 three uncertainty estimators, and the calibration-field comparison).

@@ -10,6 +10,14 @@ atmosphere term is quoted in the headline below as the design-matched ±0.059 wh
 table row still says that term was proposed and *not yet applied*. That contradiction is
 unresolved here — do not quote cell 1's total without checking the matrix first.
 
+This file is the index of `D:\MEE2024 output\MEE_output\RECORD\`, and
+`tools/sync_record.py` copies it there; the repository copy is the one to edit. Besides the
+three cell folders below, RECORD holds **`refraction/`**: the Leon campaign's six figures
+(two publication-grade, with their caption facts in its `README.md`), the tables
+`docs/REFRACTION_2026.md` cites, and the withdrawn first temperature figure under
+`superseded_2026-08-27/`. It is not a cell — it measures no L — but it is where the
+atmosphere term of cells 3 and 4 comes from.
+
 ## The three numbers, and the chain that produced each
 
 ### Cell 1 — Bruns 2017: **L = 1.764 ± 0.060 (stat) ± 0.075 (scale) ± 0.059 (atmosphere) ″**
