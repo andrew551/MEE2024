@@ -81,7 +81,41 @@ def confidence_ellipse(cov, mu, ax, n_std=3.0, facecolor='none', **kwargs):
     return ax.add_patch(ellipse)
 
 def as_unit_vector(dec, ra):
-    return np.array([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)]).T 
+    return np.array([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)]).T
+
+
+def plate_scale_covariance(rad_dist, platescale_relative_uncertainty,
+                           sun_apparent_angular_radius):
+    """How much uncertainty in the *imported* plate scale costs L, in arcseconds.
+
+    Method 1 takes the plate scale as known -- section 16 freezes it from the calibration
+    field and `_get_corrected_q` overwrites the eclipse field's own linear solution with it
+    -- so its uncertainty has to be added by hand. A relative plate-scale error `d`
+    displaces every star radially by `d * rho`, growing with radius while the deflection
+    falls as 1/rho, and the 1/rho fit cannot fully separate them. Projecting that leak onto
+    the fitted coefficient gives
+
+        dL = d * (solar radius in ARCSECONDS) * sum(1) / sum(1/r^2)
+
+    with `r` in solar radii, which is the unit `rad_dist` arrives in.
+
+    PREVIOUS BEHAVIOUR, AND WHY IT WAS WRONG. This used `factor = 3600 / platescale0 *
+    sun_apparent_angular_radius`, which is the solar radius in **pixels**, not arcseconds.
+    The result was then added in quadrature to `cov[0,0]`, a variance of L in arcsec^2, so
+    pixels were being added to arcseconds. The shortfall is exactly `platescale0`: 2.216 on
+    the Leon rig, and a different number on every other, since it is the plate scale itself.
+    Measured on that geometry, 0.446 % of L per ppm reported against 0.989 % required.
+
+    `factor` is correct where it was written for -- mode 2 divides its fitted
+    arcsec-per-solar-radius slope by it to get an arcsec-per-pixel plate-scale correction.
+    Mode 1 needs the opposite conversion and reused the variable. Note that the answer
+    cannot depend on the pixel scale at all: the same field expressed in different pixel
+    units is the same angular measurement, which is what `test_eclipse_analysis` pins.
+    """
+    sun_radius_arcsec = 3600 * sun_apparent_angular_radius
+    lever = np.dot(1 / rad_dist, rad_dist) / np.dot(1 / rad_dist, 1 / rad_dist)
+    return lever * platescale_relative_uncertainty * sun_radius_arcsec
+
 
 def eclipse_analysis(path_data, options):
     starttime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -312,8 +346,8 @@ def eclipse_analysis(path_data, options):
         print(results.bse)
         print(results.summary())
         errs = results.predict(x)-deflection_obs
-        factor = 3600 / platescale0 * sun_apparent_angular_radius
-        plate_covariance2 = np.dot(1/rad_dist, rad_dist) / np.dot(1/rad_dist, 1/rad_dist) * platescale_relative_uncertainty * factor
+        plate_covariance2 = plate_scale_covariance(
+            rad_dist, platescale_relative_uncertainty, sun_apparent_angular_radius)
         print("pbcovarice2", plate_covariance2)
           
         cov = results.cov_params()

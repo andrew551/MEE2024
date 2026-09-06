@@ -106,7 +106,8 @@ which is the **eq. 3 model with S free**. So the two historical cases are both p
 **(b) The OLS refits** (`analysis_mode_1/2`, lines ~307/335). Method 1 fits [1/r] with the
 plate scale frozen — **eq. 15/20**; its `plate_covariance2` term is **eq. 23**
 (`fix-platescale-covariance-units` corrects its units: the solar radius entered in pixels
-where arcseconds are required, understating δL·δS by exactly the plate scale). Method 2
+where arcseconds are required, understating δL·δS by exactly the plate scale — **§3.1
+works this through, and says why the same variable is correct in mode 2**). Method 2
 fits [1/r, r] — **eq. 3/7/12**. The reported covariances are the least-squares variances,
 i.e. eqs. 20 and 12 respectively: *the code already computes the F&L uncertainties*, and
 no separate implementation of the closed forms is needed or wanted (they require choosing
@@ -129,6 +130,70 @@ distance — ×2.9 optimistic for Bruns' 20 stars, more for wider fields. F&L's 
 table of exactly this distinction. (An earlier statement in this project that "σ/√N is not
 in the code" was wrong; it is here, as display only. The OLS covariances beside it are the
 valid ones.)
+
+### 3.1 Why `factor` is right in mode 2 and wrong in mode 1
+
+§3(b) states the units defect in one clause. It is written out here because the compressed
+version invites the wrong repair: **`factor` is not simply wrong, and "fixing" it where it
+is used correctly would break mode 2.**
+
+    factor = 3600 / platescale0 * sun_apparent_angular_radius
+
+That is the **solar radius in pixels** — arcsec divided by arcsec-per-pixel. It appears three
+times in `eclipse_analysis.py`: at lines ~319 and ~377–383, where it is correct, and formerly
+in mode 1's covariance, where it was not. The two modes need the conversion in opposite
+directions, which is how one variable came to serve both and be wrong in one.
+
+**The two estimators differ by a single design-matrix column:**
+
+    mode 1:  x = np.c_[1/rad_dist]                 one column  -> L only, scale imported
+    mode 2:  x = np.c_[1/rad_dist, rad_dist]       two columns -> L and the scale together
+
+Deflection goes as L/r and a plate-scale error goes as r — both radial, opposite in radial
+dependence, which is the entire reason two estimators exist. Mode 1 never fits the scale:
+`mu2 = [mu[0], platescale0]` inserts the imported constant, and `cov2[1,1] =
+(platescale_relative_uncertainty*platescale0)**2` inserts its uncertainty by hand. Nothing in
+the eclipse data constrains it, so eq. 23 has to supply the leak into L.
+
+**Mode 2 needs pixels.** Its second fitted coefficient is in *arcsec per solar radius*;
+dividing by `factor` (pixels per solar radius) gives *arcsec per pixel*, and `mu[1] +=
+platescale0` turns the correction into an absolute plate scale. Dimensionally sound, and
+unchanged by the fix.
+
+**Mode 1 needs arcseconds.** It begins from a *dimensionless* relative uncertainty `d` and
+must produce δL in arcsec. A relative error displaces a star at radius r by `d·r·R☉(arcsec)`;
+projecting that onto the 1/r fit gives
+
+    δL = d * R☉(arcsec) * Σ(1) / Σ(1/r²)
+                          \_____________/
+                            = h, F&L's lever (§4)
+
+so the conversion runs the *other way*, and the radius must be in arcseconds. The old line
+used `factor`, the radius in pixels. The two differ by exactly `platescale0`.
+
+**The arithmetic, on the Leon geometry** (h = 19.8 R☉², R☉ = 947.1″):
+
+| | lever × radius | per ppm | as % of L |
+|---|---|---|---|
+| correct (arcsec) | 19.8 × 947.1 = 18 753 ″ | 18.8 mas | **1.07 %** |
+| old (pixels) | 19.8 × 427.4 = 8 462 ″ | 8.5 mas | 0.48 % |
+| ratio | | | **2.22 = platescale0** |
+
+The corrected 1.07 %/ppm reproduces §4's independently derived naive eq.-23 sensitivity,
+which is the cross-check that the new form is right rather than merely different.
+
+**The invariant that catches it, and the reason it is now a test.** The same field expressed
+in different pixel units is the same angular measurement, so δL cannot depend on the pixel
+scale — but `factor` does, through `platescale0`. The old expression fails that by
+construction. It is the cheapest possible test, it needs no reference data, and it would have
+caught this the day the line was written;
+`tests/test_eclipse_analysis.py::test_plate_scale_covariance_does_not_depend_on_the_pixel_scale`
+now pins it, alongside a test that pins the defective expression itself so a revert cannot
+pass quietly.
+
+Note that none of this moves L. It moves σ_L — by a factor of 2.2 on this rig, on the term
+that dominates Method 1's budget at CAL_piLeo's ~25 ppm.
+
 
 ## 4. The sensitivity closure: h is the whole story
 
