@@ -117,6 +117,16 @@ holds no figures of its own: a `docs/figures/` with six refraction charts existe
 2026-09-06, but no document displayed them and the record cited the D: originals, so they
 moved to `RECORD/refraction/` with everything else.
 
+**The transcripts.** Every Claude Code session is a `.jsonl` under the user's
+`~/.claude/projects/`, a folder the tool prunes on a timer and the desktop app has lost to a
+crash before. `tools/export_transcripts.py` (Andrew's, 2026-08-20; in the repository since
+2026-09-06) writes each session as readable Markdown with an `INDEX.md`, conversation text in
+full and tool output truncated. Each machine keeps its own archive and runs the export on a
+daily Windows scheduled task named **MEE transcript export**: Douglas' at
+`D:\MEE2024 output\MEE_transcripts\`, Andrew's under his OneDrive Documents. The archive on
+`I:\MEE_transcripts\` is Andrew's export of 2026-08-25. Re-running is safe; a session whose
+title changed replaces its earlier file.
+
 The **session handoffs** — the running notes that carry one working session into the next —
 live outside the repository, under `D:\MEE2024 output\MEE_output\`, as
 `next_session_prompt_<date>.md` plus a current one for the project in hand. They are working
