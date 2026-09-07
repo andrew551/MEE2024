@@ -76,3 +76,25 @@ def test_the_app_runner_applies_a_field_preset():
     assert options['background_subtraction_mode'] == 'Gaussian'
     assert options['centroid_refine_window'] is False
     assert options['coronal_subtract'] is True
+
+
+def test_eclipse_preset_is_by_day_not_by_pointing():
+    """The left/right calibration brackets are shot on eclipse day away from the Sun, and they
+    take the ECLIPSE preset, not the zenith one. Both closed cells did this -- Leon ran stage 1
+    on "CAL_piLeo and the four science tiers alike", Bruns 2017 on L, R8 and E2 together -- and
+    Station 2's brackets were run at zenith settings on 2026-09-07 and lost most of their stars.
+    A bracket exists to supply an imported plate scale, and that scale only transfers if the
+    bracket and the science field were centroided identically; the background mode alone is
+    worth 19.1 ppm.
+    """
+    from mee2024.field_presets import FIELD_PRESETS
+    ecl = FIELD_PRESETS['eclipse']
+    zen = FIELD_PRESETS['zenith']
+    # the wording must not tie the preset to a saturated object being in frame
+    blurb = ecl['blurb'].lower()
+    assert 'eclipse day' in blurb and 'calibration bracket' in blurb
+    assert 'if present' in blurb, 'the Sun/Moon is absent from a bracket field'
+    # and the two presets must still differ where it matters for a transferred scale
+    for key in ('centroid_gaussian_subtract', 'centroid_gaussian_thresh',
+                'min_area', 'sigma_subtract', 'background_subtraction_mode'):
+        assert ecl['options'][key] != zen['options'][key], key

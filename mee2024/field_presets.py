@@ -5,6 +5,19 @@ stars on a steep bright gradient beside a saturated object. The same detector se
 cannot serve both, and until now the difference lived in operators' heads and in this
 project's shell drivers -- which is how a reduction could silently run the wrong one.
 
+THE SPLIT IS BY DAY, NOT BY POINTING. Every field shot on eclipse day takes the eclipse
+preset, including the left/right calibration brackets ten degrees from the Sun with no
+saturated object anywhere in frame. They are still tens of stars on a bright daytime sky,
+and both closed cells did exactly this: Leon applied one stage-1 block to `CAL_piLeo and
+the four science tiers alike` (docs/STEP3_CHARTS_AND_SETTINGS.md section 6), and Bruns 2017
+applied one to L, R8 and E2 together (tools/matrix_bruns/b17_bruns_method.py). The other
+reason is arithmetic rather than sensitivity: an imported plate scale is only transferable
+if the bracket and the science field were centroided the same way, since the estimator and
+background between them are worth tens of ppm of scale. Reducing a bracket at zenith
+settings loses stars AND biases the scale it exists to supply. Station 2's brackets were
+run at zenith settings on 2026-09-07 and returned 28 and 36 stars; that is the mistake
+this paragraph exists to stop.
+
 Every value here is one the reductions of record actually used (docs/FIELD_PRESETS.md
 lists each difference with its reason). The two that are not simply "sensitivity" are
 worth stating outright, because they were measured rather than chosen:
@@ -42,8 +55,9 @@ FIELD_PRESETS = {
     },
     'eclipse': {
         'label': 'Eclipse day (Sun or Moon)',
-        'blurb': 'Tens of stars on a steep gradient beside a saturated object. '
-                 'Sensitive detection, smooth background, the Sun/Moon masked.',
+        'blurb': 'Any field shot on eclipse day, including the calibration brackets '
+                 'away from the Sun. Tens of stars on a bright sky. Sensitive '
+                 'detection, smooth background, the Sun/Moon masked if present.',
         'options': {
             'sensitive_mode_stack': True,
             'centroid_gaussian_subtract': True,

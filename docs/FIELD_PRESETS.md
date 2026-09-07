@@ -9,6 +9,18 @@ zenith field has thousands of stars on a flat sky, and an eclipse-day field has 
 stars on a steep bright gradient beside a saturated object. The same detector settings
 cannot serve both.
 
+**The split is by day, not by pointing** (stated explicitly 2026-09-07). The left/right
+calibration brackets are shot on eclipse day ten degrees from the Sun, with no saturated
+object in frame, and they still take the **eclipse** preset. Both closed cells did this:
+Leon ran stage 1 on "CAL_piLeo and the four science tiers alike"
+([`STEP3_CHARTS_AND_SETTINGS.md`](STEP3_CHARTS_AND_SETTINGS.md) §6), and Bruns 2017 ran one
+block over L, R8 and E2 (`tools/matrix_bruns/b17_bruns_method.py`). Beyond sensitivity there
+is an arithmetic reason: a bracket exists to supply an imported plate scale, and the scale
+is only transferable if bracket and science field were centroided identically — the
+background mode alone moves it 19.1 ppm. Station 2's brackets were run at zenith settings on
+2026-09-07 and yielded 28 and 36 stars against the eclipse convention's yield; that is the
+error the rule prevents.
+
 **They are in the code**, since 2026-08-31: `mee2024/field_presets.py` defines them once,
 both interfaces offer them by name, and `results.txt` records which one a reduction ran
 under — recomputed from the settings, so a preset that was then edited reads `custom`
