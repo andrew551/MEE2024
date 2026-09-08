@@ -35,7 +35,7 @@ from tools.analysis_window import WINDOWS
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 from matplotlib.patches import Circle, Ellipse, Polygon
 
-REV = 'rev03'
+REV = 'rev04'
 OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
 CHARTS = os.path.join(OUT, 'charts')
 VER = os.path.join(CHARTS, 'chart_versions')
@@ -252,7 +252,10 @@ def field_chart(u, fname, title, note, star_rms, colour='tab:blue', label=None):
     hi_de = max(cor_de.max(), max(ends_de), sun_de + 2 * R_SUN_AS / 3600) + 0.05
     for x1, y1 in zip(ends_ra, ends_de):
         assert lo_ra < x1 < hi_ra and lo_de < y1 < hi_de, 'an arrow leaves the axes'
-    ax.set_xlim(hi_ra, lo_ra)          # RA increases to the left, as cell 2 draws it
+    # RA ascending to the right, as cells 1 and 2 draw it (s1_charts_record.py line 272,
+    # b17_charts_record.py line 264). Revision 3 had this reversed on the sky-convention
+    # reflex, with a comment claiming it was cell 2's convention; it is not.
+    ax.set_xlim(lo_ra, hi_ra)
     ax.set_ylim(lo_de, hi_de)
     ax.set_aspect(1 / np.cos(np.radians(DE0)))
     ax.set_xlabel('RA (degrees)', fontsize=12); ax.set_ylabel('DEC (degrees)', fontsize=12)

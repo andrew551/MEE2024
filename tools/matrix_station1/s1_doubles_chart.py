@@ -192,7 +192,8 @@ lo_de = min(cor_de.min(), min(ends_de)) - 0.05
 hi_de = max(cor_de.max(), max(ends_de)) + 0.05
 for x1, y1 in zip(ends_ra, ends_de):
     assert lo_ra < x1 < hi_ra and lo_de < y1 < hi_de, 'an arrow leaves the axes'
-ax.set_xlim(hi_ra, lo_ra); ax.set_ylim(lo_de, hi_de)
+# RA ascending to the right, as s1_charts_record.py line 272 draws it
+ax.set_xlim(lo_ra, hi_ra); ax.set_ylim(lo_de, hi_de)
 ax.set_aspect(1 / np.cos(np.radians(de0)))
 ax.set_xlabel('RA (degrees)', fontsize=12); ax.set_ylabel('DEC (degrees)', fontsize=12)
 ax.set_title('Displacement vectors (%d stars), the close doubles ringed \u2014 Mexico 2024 Station 1, '
@@ -214,7 +215,7 @@ fig.text(0.055, 0.020, _note, fontsize=8.5)
 fig.subplots_adjust(left=0.07, right=0.78, top=0.94, bottom=0.14)
 os.makedirs(VER, exist_ok=True)
 fig.savefig(os.path.join(OUT, 'record_field_doubles.png'), dpi=140)
-fig.savefig(os.path.join(VER, 'rev01_record_field_doubles.png'), dpi=140)
+fig.savefig(os.path.join(VER, 'rev02_record_field_doubles.png'), dpi=140)
 plt.close(fig)
 
 tab = pd.DataFrame([{'key': k, 'magV': float(stars[stars.key == k].magV.iloc[0]),

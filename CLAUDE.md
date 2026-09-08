@@ -63,6 +63,13 @@ setting. Both were documented; both were missed by reasoning from analogy instea
 number is not in a document or the registry, it is invented, and inventing one is worse than
 stopping to ask.
 
+**A chart joins a set; copy the set, do not recall it.** Every record chart in the project
+draws RA **ascending to the right** (`s1_charts_record.py`, `b17_charts_record.py`), which is
+not the sky convention. On 2026-09-08 two new charts were drawn reversed from habit, one of
+them commented "as cell 2 draws it" — a citation written from memory, which reads exactly
+like a checked one. `tests/test_chart_conventions.py` now fails a reversed RA axis. Open the
+neighbouring tool before matching a convention, and never write a citation you have not read.
+
 **Changes are classified by whether they can alter a measured number.** That is the release
 split (`docs/ROADMAP.md` §6): additive-only changes ride on the previous version's field
 testing, anything that moves a fit needs its own validation on real data. Say which a change
