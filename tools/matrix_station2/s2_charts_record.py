@@ -16,6 +16,7 @@ own offset, rotation and scale, and one L is shared.
   .venv/Scripts/python.exe tools/matrix_station2/s2_charts_record.py
   MX24ST2_COPY_RECORD=1 .venv/Scripts/python.exe tools/matrix_station2/s2_charts_record.py
 """
+import datetime
 import glob
 import json
 import os
@@ -30,7 +31,7 @@ import pandas as pd
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 from matplotlib.patches import Circle, Ellipse, Polygon
 
-REV = 'rev01'
+REV = 'rev02'
 OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
 CHARTS = os.path.join(OUT, 'charts')
 VER = os.path.join(CHARTS, 'chart_versions')
@@ -176,41 +177,122 @@ fig.tight_layout(rect=(0, 0.035, 1, 1))
 save(fig, 'record_deflection.png')
 
 # ---------------------------------------------------------------- 2. the field
+def field_chart(u, fname, title, note, star_rms, colour='tab:blue', label=None):
+    """u: one row per star with px, py, vx, vy (arcsec, nuisances removed)."""
+    fig, ax = plt.subplots(figsize=(11.5, 8))
+    ARROW = 900.0                     # px drawn per arcsec of displacement
+    ax.add_patch(Polygon(np.c_[[0, NX, NX, 0], [0, 0, NY, NY]], fill=False, color='gray', lw=1.2,
+                         label='sensor footprint'))
+    for k in range(len(u)):
+        ax.annotate('', xy=(u.px.values[k] + u.vx.values[k] * ARROW / PS,
+                            u.py.values[k] + u.vy.values[k] * ARROW / PS),
+                    xytext=(u.px.values[k], u.py.values[k]),
+                    arrowprops=dict(arrowstyle='-|>,head_width=0.22,head_length=0.45',
+                                    color=colour, lw=1.3, shrinkA=0, shrinkB=0))
+    ax.scatter(u.px, u.py, s=26, color=colour, zorder=5,
+               label=label or '%d stars' % len(u))
+    ax.add_patch(Circle((SUNPX, SUNPY), R_SUN_AS / PS, color='black', zorder=3,
+                        label='the Sun, 1 R$_\\odot$ to scale'))
+    ax.add_patch(Circle((SUNPX, SUNPY), 2 * R_SUN_AS / PS, fill=False, color='gray', ls='--',
+                        lw=1.0, zorder=3, label='2 R$_\\odot$'))
+    ax.set_xlim(-400, NX + 400); ax.set_ylim(NY + 400, -400)
+    ax.set_aspect('equal')
+    ax.set_xlabel('px', fontsize=12); ax.set_ylabel('py', fontsize=12)
+    ax.set_title(title, fontsize=12)
+    for y_fr, ln, txt in ((0.40, 1.0, '1 arcsec of displacement'),
+                          (0.30, star_rms, 'scatter (%.2f")' % star_rms)):
+        ax.annotate('', xy=(1.04 + ln * ARROW / PS / (NX + 800), y_fr), xytext=(1.04, y_fr),
+                    xycoords='axes fraction', textcoords='axes fraction',
+                    arrowprops=dict(arrowstyle='-', color='black', lw=3))
+        ax.annotate(txt, (1.04, y_fr + 0.03), xycoords='axes fraction', fontsize=8)
+    ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.70))
+    fig.text(0.06, 0.02, note, fontsize=9)
+    fig.subplots_adjust(left=0.07, right=0.76, top=0.94, bottom=0.10)
+    save(fig, fname)
+
+
+NOTE_TIER = ('each arrow = the star\u2019s measured shift after subtracting that tier\u2019s '
+             'pointing offset, rotation and plate scale; deflection + measurement noise remain')
 u = D2.groupby('ID').agg(px=('px', 'mean'), py=('py', 'mean'), vx=('vx', 'mean'),
-                         vy=('vy', 'mean'), Rsun=('Rsun', 'mean')).reset_index()
-fig, ax = plt.subplots(figsize=(11.5, 8))
-ARROW = 900.0                     # px drawn per arcsec of displacement
-ax.add_patch(Polygon(np.c_[[0, NX, NX, 0], [0, 0, NY, NY]], fill=False, color='gray', lw=1.2,
-                     label='sensor footprint'))
-for k in range(len(u)):
-    ax.annotate('', xy=(u.px.values[k] + u.vx.values[k] * ARROW / PS,
-                        u.py.values[k] + u.vy.values[k] * ARROW / PS),
-                xytext=(u.px.values[k], u.py.values[k]),
-                arrowprops=dict(arrowstyle='-|>,head_width=0.22,head_length=0.45',
-                                color='tab:blue', lw=1.3, shrinkA=0, shrinkB=0))
-ax.scatter(u.px, u.py, s=26, color='tab:blue', zorder=5, label='%d stars (both tiers)' % len(u))
-ax.add_patch(Circle((SUNPX, SUNPY), R_SUN_AS / PS, color='black', zorder=3,
-                    label='the Sun, 1 R$_\\odot$ to scale'))
-ax.add_patch(Circle((SUNPX, SUNPY), 2 * R_SUN_AS / PS, fill=False, color='gray', ls='--', lw=1.0,
-                    zorder=3, label='2 R$_\\odot$'))
-ax.set_xlim(-400, NX + 400); ax.set_ylim(NY + 400, -400)
-ax.set_aspect('equal')
-ax.set_xlabel('px', fontsize=12); ax.set_ylabel('py', fontsize=12)
-ax.set_title('Displacement vectors (%d stars) \u2014 Mexico 2024 Station 2, pooled fit, '
-             'G $\\leq$ 13' % len(u), fontsize=12)
-star_rms = float(np.sqrt(np.mean(D2.res.values ** 2)))
-for y_fr, ln, txt in ((0.40, 1.0, '1 arcsec of displacement'),
-                      (0.30, star_rms, 'per-observation scatter (%.2f")' % star_rms)):
-    ax.annotate('', xy=(1.04 + ln * ARROW / PS / (NX + 800), y_fr), xytext=(1.04, y_fr),
-                xycoords='axes fraction', textcoords='axes fraction',
-                arrowprops=dict(arrowstyle='-', color='black', lw=3))
-    ax.annotate(txt, (1.04, y_fr + 0.03), xycoords='axes fraction', fontsize=8)
-ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.70))
-fig.text(0.06, 0.02, 'each arrow = the star\u2019s measured shift after subtracting that tier\u2019s '
-         'pointing offset, rotation and plate scale; deflection + measurement noise remain',
-         fontsize=9)
-fig.subplots_adjust(left=0.07, right=0.76, top=0.94, bottom=0.10)
-save(fig, 'record_field.png')
+                         vy=('vy', 'mean'), Rsun=('Rsun', 'mean'), n=('tier', 'nunique')).reset_index()
+field_chart(u, 'record_field.png',
+            'Displacement vectors (%d stars) \u2014 Mexico 2024 Station 2, pooled fit, G $\\leq$ 13' % len(u),
+            NOTE_TIER, float(np.sqrt(np.mean(D2.res.values ** 2))), label='%d stars (both tiers pooled)' % len(u))
+for tag, lab, colr in TIERS:
+    dt = D2[D2.tier == tag]
+    ut = dt.groupby('ID').agg(px=('px', 'mean'), py=('py', 'mean'), vx=('vx', 'mean'),
+                              vy=('vy', 'mean'), Rsun=('Rsun', 'mean')).reset_index()
+    field_chart(ut, 'record_field_%s.png' % tag,
+                'Displacement vectors, the %s tier (%d stars) \u2014 Mexico 2024 Station 2' % (lab, len(ut)),
+                NOTE_TIER, float(np.sqrt(np.mean(dt.res.values ** 2))), colour=colr,
+                label='%d stars, %s' % (len(ut), lab))
+
+# ---------------------------------------------------------------- 2b. both tiers, AVERAGED
+# Stars seen in both tiers only; each star's two nuisance-removed vectors (vx, vy) averaged into
+# one point; L refitted on those points with offset, rotation and scale free again.
+both = u[u.n == 2].copy()
+def design_single(d):
+    n = len(d); Z = np.zeros(n)
+    px, py = d['px'].values, d['py'].values
+    rx, ry = (px - SUNPX) * PS, (py - SUNPY) * PS; R = np.hypot(rx, ry)
+    cx = [np.ones(n), Z, -(py - NY / 2) * PS, (px - NX / 2) * PS, rx / R * R_SUN_AS / R]
+    cy = [Z, np.ones(n), (px - NX / 2) * PS, (py - NY / 2) * PS, ry / R * R_SUN_AS / R]
+    return np.vstack([np.column_stack(cx), np.column_stack(cy)]), R
+def solve_single(d):
+    A, R = design_single(d)
+    y = np.concatenate([d['vx'].values, d['vy'].values])
+    c, *_ = np.linalg.lstsq(A, y, rcond=None)
+    resid = y - A @ c; n = len(d)
+    return c[-1], resid[:n], resid[n:], R
+L_avg, rxa, rya, R_avg = solve_single(both)
+rng = np.random.default_rng(11)
+bl = []
+for _ in range(600):
+    pick = rng.choice(len(both), size=len(both), replace=True)
+    try:
+        bl.append(solve_single(both.iloc[pick])[0])
+    except Exception:
+        pass
+S_avg = float(np.std(bl, ddof=1)); TOT_avg = float(np.hypot(S_avg, ATM_ERR))
+uxa, uya = (both.px.values - SUNPX) * PS / R_avg, (both.py.values - SUNPY) * PS / R_avg
+both['rad'] = (rxa * uxa + rya * uya) + L_avg * R_SUN_AS / R_avg
+both['Rsun'] = R_avg / R_SUN_AS
+print('Both tiers, averaged: L = %+.3f +- %.3f (stat, %d draws), %d stars'
+      % (L_avg, S_avg, len(bl), len(both)))
+
+fig, ax = plt.subplots(figsize=(10, 6.8))
+ax.axhline(0, color='black', lw=1)
+dot = ax.scatter(both.Rsun.values, both.rad.values, s=40, color='tab:purple', zorder=4,
+                 label='%d stars, each the mean of its two tiers' % len(both))
+xx = np.linspace(RMIN + 0.9, both.Rsun.max() + 0.4, 300)
+band = ax.fill_between(xx, (L_avg - TOT_avg) / xx, (L_avg + TOT_avg) / xx, color='black', alpha=0.10,
+                       label='total $\\pm$%.2f" (stat %.2f + atmosphere %.2f)' % (TOT_avg, S_avg, ATM_ERR))
+ln1, = ax.plot(xx, L_avg / xx, color='black', lw=2.2, label='averaged fit:  L = %.2f"' % L_avg)
+ln0, = ax.plot(xx, L2 / xx, color='tab:blue', lw=1.2, ls=':', label='pooled fit:  L = %.2f"' % L2)
+ln2, = ax.plot(xx, GR / xx, color='green', lw=1.5, label='Einstein  1.751"')
+ln3, = ax.plot(xx, NEWTON / xx, color='orange', lw=1.5, ls='--', label='Newton  0.876"')
+ax.set_xlabel('radial position (solar radii)', fontsize=13)
+ax.set_ylabel('radial deflection (arcsec, outward positive)', fontsize=13)
+ax.set_title('Deflection vs radius \u2014 Mexico 2024 Station 2, stars in BOTH tiers, positions averaged',
+             fontsize=12)
+lo, hi = np.percentile(both.rad.values, [1, 99])
+ax.set_ylim(min(lo, -0.6) - 0.2, max(hi, 1.0) + 0.3)
+first = ax.legend(handles=[dot], fontsize=9, loc='lower left'); ax.add_artist(first)
+ax.legend(handles=[ln1, ln0, ln2, ln3, band], fontsize=9, loc='upper right')
+fig.text(0.06, 0.012, 'one point per star: its two tier observations, each with that tier’s offset, '
+         'rotation and scale removed, averaged before the fit.' + chr(10) + 'Stars seen in one tier only are excluded '
+         '(two here: one per tier). L is refitted on the averaged points with offset, rotation and scale free.',
+         fontsize=8.5)
+fig.tight_layout(rect=(0, 0.05, 1, 1))
+save(fig, 'record_deflection_both.png')
+both['vx'] = rxa + L_avg * R_SUN_AS / R_avg * uxa
+both['vy'] = rya + L_avg * R_SUN_AS / R_avg * uya
+field_chart(both, 'record_field_both.png',
+            'Displacement vectors, stars in BOTH tiers, positions averaged (%d stars) \u2014 Mexico 2024 Station 2' % len(both),
+            'each arrow = the mean of the star\u2019s two tier shifts (each tier\u2019s offset, rotation and '
+            'scale removed); deflection + measurement noise remain',
+            float(np.sqrt(np.mean(rxa ** 2 + rya ** 2))), colour='tab:purple',
+            label='%d stars in both tiers, averaged' % len(both))
 
 # ---------------------------------------------------------------- 3. covariance, BOTH methods
 sig2 = float(np.sqrt(np.mean(np.concatenate([rx2, ry2]) ** 2)))
@@ -284,7 +366,7 @@ for tag, lab, _ in TIERS:
     save(fig, 'master_%s_annotated.png' % tag)
 
 # ---------------------------------------------------------------- 5. summary + record copy
-rec = dict(cell='Mexico 2024 Station 2', estimator='pooled over both tiers, every observation',
+rec = dict(rev=REV, cell='Mexico 2024 Station 2', estimator='pooled over both tiers, every observation',
            reference='cubic, fifteen zenith fields, moments+annular, 0.5 arcsec gate',
            bracket='right 18:10:32-18:11:21, left 18:14:05-18:14:57, ends of totality trimmed',
            observations=int(len(D2)), stars=int(D2.ID.nunique()),
@@ -292,6 +374,7 @@ rec = dict(cell='Mexico 2024 Station 2', estimator='pooled over both tiers, ever
                         joint_platescale=joint, corr_L_platescale=float(RHO)),
            method1=dict(L=L1, sigma_stat=S1, imported_platescale=IMPORTED,
                         bracket_LR_ppm=1e6 * BRK_SPREAD / IMPORTED),
+           both_tiers_averaged=dict(L=L_avg, sigma_stat=S_avg, sigma_total=TOT_avg, stars=int(len(both))),
            radius_range=[float(D2.Rsun.min()), float(D2.Rsun.max())],
            GR=GR, NEWTON=NEWTON,
            sigma_from_GR_method2=abs(L2 - GR) / TOT2, sigma_from_Newton_method2=abs(L2 - NEWTON) / TOT2)
@@ -300,8 +383,25 @@ D2.to_csv(os.path.join(CHARTS, 'station2_star_table.csv'), index=False)
 
 if os.environ.get('MX24ST2_COPY_RECORD') == '1':
     os.makedirs(RECORD, exist_ok=True)
-    for f in ('record_deflection.png', 'record_field.png', 'record_covariance.png',
-              'master_100ms_annotated.png', 'master_075ms_annotated.png',
+    # never overwrite a record revision: park whatever is there in a dated superseded_* folder
+    stale = [f for f in os.listdir(RECORD) if os.path.isfile(os.path.join(RECORD, f))]
+    old_rev = None
+    if os.path.exists(os.path.join(RECORD, 'record_summary.json')):
+        old_rev = json.load(open(os.path.join(RECORD, 'record_summary.json'))).get('rev')
+    if stale and old_rev == REV:
+        stale = []                     # a rerun of the same revision overwrites itself
+    if stale:
+        park = os.path.join(RECORD, 'superseded_%s_before_%s' % (datetime.date.today().isoformat(), REV))
+        k = 2
+        while os.path.exists(park):
+            park = os.path.join(RECORD, 'superseded_%s_before_%s_%d' % (datetime.date.today().isoformat(), REV, k)); k += 1
+        os.makedirs(park, exist_ok=True)
+        for f in stale:
+            shutil.move(os.path.join(RECORD, f), os.path.join(park, f))
+        print('previous record files ->', park)
+    for f in ('record_deflection.png', 'record_deflection_both.png',
+              'record_field.png', 'record_field_100ms.png', 'record_field_075ms.png', 'record_field_both.png',
+              'record_covariance.png', 'master_100ms_annotated.png', 'master_075ms_annotated.png',
               'record_summary.json', 'station2_star_table.csv'):
         p = os.path.join(CHARTS, f)
         if os.path.exists(p):
