@@ -1224,6 +1224,27 @@ Prerequisite for the charts to be reproducible from the exe: **F27** (the union,
 rematch and nuisance are all still outside the program) and **F28** (the per-frame
 coronal model). Until those close, the charts can be added but their inputs cannot.
 
+### F31 — Double-star removal must actually remove doubles
+
+`remove_double_tab2` is on by default and has removed nothing on any offline reduction, which
+is every reduction in the matrix. `distortion_fitter.py:369–377` expects `lookup_neighbours`
+to return the *companions* and flags a star whose second-nearest entry lies inside
+`double_star_cutoff`; the online provider honours that, the offline one (`providers.py:393`)
+returns the flagged *input stars* instead, so nothing is ever second-nearest inside the cut.
+Found 2026-09-08 on Station 2; `docs/STEP3_2026.md`, "Double-star removal has been
+inoperative", has the reproduction and the per-cell effect (Bruns 0/27, Leon 0/42, Station 1
+10/192 worth +0.026 ″ of L, Station 2 2/17).
+
+**Fix**: have the caller use `table.is_double(radius)` — the boolean the offline catalogue
+already carries — rather than rebuilding it from neighbour positions; keep the geometric path
+only for the online provider. Add a test that a synthetic 2 ″ pair is flagged under both
+providers. Stage 3's `remove_double_stars_eclipse` inherits the same column and is fixed by
+the same change.
+
+**Priority: high, and results-changing.** Cell 2 moves +0.026 ″ (0.3 σ) when the cut acts;
+Bruns and Leon do not move. Apply only with the revalidation agreed.
+
+
 ## 3a. External sources, and what they do and do not settle
 
 Three documents in `I:\Papers` constrain this work and were not previously cited anywhere in

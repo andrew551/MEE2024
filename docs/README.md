@@ -26,7 +26,7 @@ Two conventions the project follows, worth knowing before you read anything here
 
 | | |
 |---|---|
-| [`ROADMAP.md`](ROADMAP.md) | The live plan. §1 measurements, §2 closed fixes, §3 features F1–F30, §4 open questions, §6 the release order. Long because it is the argument, not a summary. |
+| [`ROADMAP.md`](ROADMAP.md) | The live plan. §1 measurements, §2 closed fixes, §3 features F1–F31, §4 open questions, §6 the release order. Long because it is the argument, not a summary. |
 | [`V1_4_0_TESTING.md`](V1_4_0_TESTING.md) | The work plan for `v1.4.0-dev`, the branch holding everything that can change a measured number. Read it before working on that branch. |
 | [`MATRIX_2026.md`](MATRIX_2026.md) | The four-dataset matrix: one tool chain against three eclipses and a full moon. **The current error budget for every cell is here**, and this is the file to trust when two documents disagree. |
 | [`STEP3_2026.md`](STEP3_2026.md) | The running record of the eclipse-field reductions, newest last. Numbers with units, supersessions marked in place. |

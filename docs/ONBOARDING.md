@@ -123,7 +123,7 @@ was one. Look at `git log` for the register.
 | | |
 |---|---|
 | [`README.md`](README.md) | **the index of this folder** — which documents are live, which are records of one dataset, and which have been overtaken |
-| [`ROADMAP.md`](ROADMAP.md) | the live plan — measurements, closed fixes, features F1–F30, release order |
+| [`ROADMAP.md`](ROADMAP.md) | the live plan — measurements, closed fixes, features F1–F31, release order |
 | [`bench/ERROR_BUDGET.md`](bench/ERROR_BUDGET.md) | what limits the measurement, with numbers |
 | [`LEON_2026-08-11.md`](LEON_2026-08-11.md) | the 2026 eclipse campaign, and why refraction now dominates |
 | [`V1_4_0_TESTING.md`](V1_4_0_TESTING.md) | what the next release has to prove |
