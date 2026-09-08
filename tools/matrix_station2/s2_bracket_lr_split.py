@@ -22,6 +22,10 @@ import subprocess
 
 import numpy as np
 import pandas as pd
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+from tools.analysis_window import WINDOWS
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
@@ -29,7 +33,8 @@ OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
 ECL = os.path.join(OUT, "eclipse")
 NX, NY, PS = 4656, 3520, 1.8672511
 SUNPX, SUNPY, R_SUN_AS = 2485.0, 771.0, 958.2
-MAGCUT, RMIN, RMAX = 13.0, 2.0, 5.5
+_W = WINDOWS['mexico2024_station2']          # 2-10 R_sun, G <= 13; see the registry
+MAGCUT, RMIN, RMAX = _W.mag, _W.rmin, _W.rmax
 GR, NEWTON = 1.7512, 0.8756
 TIERS = (("100ms", "18:12:07", "100"), ("075ms", "18:13:20", "36"))
 SITE = ['--set', 'enable_corrections=True', '--set', 'enable_corrections_ref=True',

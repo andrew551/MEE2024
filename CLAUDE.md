@@ -53,6 +53,16 @@ Station 1 — one rung off — and it cost 0.27 ″ of deflection constant, beca
 cannot absorb a day-night change in the low-order distortion. Check `fixed distortion order` in
 the run's own `distortion_results.txt` before believing any claim about which pathway was used.
 
+**Never choose an analysis parameter at the keyboard.** The admitted-star window lives in
+`tools/analysis_window.py` with the document that fixes it (cell 2: G ≤ 13, 2–10 R⊙,
+`docs/MATRIX_2026.md`), and `tests/test_analysis_window.py` fails any new window constant that
+cites no source. On 2026-09-08 Station 2 was fitted at 2–5.5 R⊙ — a bound in no document, nobody
+asked for — which dropped three of seventeen stars per tier and moved L by 0.20 ″ and the error
+bar by a third. The same week the daytime calibration was given the eclipse field's fixed-order
+setting. Both were documented; both were missed by reasoning from analogy instead of reading. If a
+number is not in a document or the registry, it is invented, and inventing one is worse than
+stopping to ask.
+
 **Changes are classified by whether they can alter a measured number.** That is the release
 split (`docs/ROADMAP.md` §6): additive-only changes ride on the previous version's field
 testing, anything that moves a fit needs its own validation on real data. Say which a change

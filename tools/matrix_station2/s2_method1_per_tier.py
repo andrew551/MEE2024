@@ -15,11 +15,16 @@ import os
 
 import numpy as np
 import pandas as pd
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+from tools.analysis_window import WINDOWS
 
 OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
 NX, NY, PS = 4656, 3520, 1.8672511
 SUNPX, SUNPY, R_SUN_AS = 2485.0, 771.0, 958.2
-MAGCUT, RMIN, RMAX = 13.0, 2.0, 5.5
+_W = WINDOWS['mexico2024_station2']          # 2-10 R_sun, G <= 13; see the registry
+MAGCUT, RMIN, RMAX = _W.mag, _W.rmin, _W.rmax
 GR, NEWTON = 1.7512, 0.8756
 TIERS = (('100ms', '0.100 s'), ('075ms', '0.075 s'))
 SUB = {'m2': {'100ms': 'eclipse/100ms/stage2', '075ms': 'eclipse/075ms/stage2_rmt36'},

@@ -28,10 +28,14 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+from tools.analysis_window import WINDOWS
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 from matplotlib.patches import Circle, Ellipse, Polygon
 
-REV = 'rev02'
+REV = 'rev03'
 OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
 CHARTS = os.path.join(OUT, 'charts')
 VER = os.path.join(CHARTS, 'chart_versions')
@@ -41,12 +45,14 @@ os.makedirs(CHARTS, exist_ok=True); os.makedirs(VER, exist_ok=True)
 NX, NY, PS = 4656, 3520, 1.8672511
 GR, NEWTON = 1.7512, 0.8756
 SUNPX, SUNPY, R_SUN_AS = 2485.0, 771.0, 958.2
-MAGCUT, RMIN, RMAX = 13.0, 2.0, 5.5
+_W = WINDOWS['mexico2024_station2']          # 2-10 R_sun, G <= 13; see the registry
+MAGCUT, RMIN, RMAX = _W.mag, _W.rmin, _W.rmax
 ATM_ERR = 0.12                       # Station 2's own zenith null, Method 2
 TIERS = (('100ms', '0.100 s, 18:11:30-18:12:44', 'tab:blue'),
          ('075ms', '0.075 s, 18:12:45-18:13:55', 'tab:orange'))
 SUB = {'m2': {'100ms': 'eclipse/100ms/stage2', '075ms': 'eclipse/075ms/stage2_rmt36'},
-       'm1': {'100ms': 'eclipse/100ms/stage2_method1', '075ms': 'eclipse/075ms/stage2_method1'}}
+       'm1': {'100ms': 'eclipse/100ms/stage2_method1_quadfree',
+       '075ms': 'eclipse/075ms/stage2_method1_quadfree'}}
 
 
 def save(fig, name):
@@ -64,6 +70,13 @@ def load(method):
         d = pd.read_csv(f[0])
         d = d[d['magV'] <= MAGCUT].copy()
         d['tier'] = tag
+        # the residual table carries no sky coordinates; take them from the run's own matched
+        # catalogue, so the field charts can be drawn in RA/DEC as cell 2's are
+        c = glob.glob(os.path.join(OUT, SUB[method][tag], '**', 'CATALOGUE_MATCHED_ERRORS.csv'),
+                      recursive=True)
+        cat = pd.read_csv(c[0])[['ID', 'RA(catalog)', 'DEC(catalog)']].rename(
+            columns={'RA(catalog)': 'ra', 'DEC(catalog)': 'dec'})
+        d = d.merge(cat.drop_duplicates('ID'), on='ID', how='left')
         frames.append(d)
     D = pd.concat(frames, ignore_index=True)
     D['rx'] = (D['px'] - SUNPX) * PS
@@ -128,10 +141,10 @@ L1 = c1[lab1.index('L')]
 S1, n1 = bootstrap(D1, False)
 
 IMPORTED = float(np.mean([json.load(open(glob.glob(os.path.join(
-    OUT, 'bracket_cubic', n, '**', 'distortion_results.txt'), recursive=True)[0],
+    OUT, 'bracket_quadfree', n, '**', 'distortion_results.txt'), recursive=True)[0],
     encoding='utf-8'))['platescale (arcseconds/pixel)'] for n in ('right', 'left')]))
-BRK_SPREAD = abs(json.load(open(glob.glob(os.path.join(OUT, 'bracket_cubic', 'left', '**', 'distortion_results.txt'), recursive=True)[0], encoding='utf-8'))['platescale (arcseconds/pixel)']
-                 - json.load(open(glob.glob(os.path.join(OUT, 'bracket_cubic', 'right', '**', 'distortion_results.txt'), recursive=True)[0], encoding='utf-8'))['platescale (arcseconds/pixel)'])
+BRK_SPREAD = abs(json.load(open(glob.glob(os.path.join(OUT, 'bracket_quadfree', 'left', '**', 'distortion_results.txt'), recursive=True)[0], encoding='utf-8'))['platescale (arcseconds/pixel)']
+                 - json.load(open(glob.glob(os.path.join(OUT, 'bracket_quadfree', 'right', '**', 'distortion_results.txt'), recursive=True)[0], encoding='utf-8'))['platescale (arcseconds/pixel)'])
 
 TOT2 = float(np.hypot(S2, ATM_ERR))
 print('Method 2: L = %+.3f +- %.3f (stat, %d draws), %d obs of %d stars'
@@ -177,31 +190,68 @@ fig.tight_layout(rect=(0, 0.035, 1, 1))
 save(fig, 'record_deflection.png')
 
 # ---------------------------------------------------------------- 2. the field
+# The sky frame, exactly as cell 2 builds it (s1_charts_record.py): an affine from catalogue
+# RA/DEC to pixels, fitted on the matched stars and inverted, so a sensor-axis displacement in
+# arcsec can be drawn on RA/DEC axes.
+RA0, DE0 = float(D2.ra.mean()), float(D2['dec'].mean())
+_Xa = (D2.ra.values - RA0) * np.cos(np.radians(DE0))
+_Ya = D2['dec'].values - DE0
+_Aa = np.c_[_Xa, _Ya, np.ones_like(_Xa)]
+_axc, *_ = np.linalg.lstsq(_Aa, D2.px.values, rcond=None)
+_ayc, *_ = np.linalg.lstsq(_Aa, D2.py.values, rcond=None)
+MINV = np.linalg.inv(np.array([[_axc[0], _axc[1]], [_ayc[0], _ayc[1]]]))
+
+
+def px_to_sky(px, py):
+    v = MINV @ np.vstack([np.asarray(px, float) - _axc[2], np.asarray(py, float) - _ayc[2]])
+    return RA0 + v[0] / np.cos(np.radians(DE0)), DE0 + v[1]
+
+
+def sensor_vec_to_sky(dx_as, dy_as):
+    """Sensor-axis displacement (arcsec) -> sky displacement (arcsec of RA*cos(dec), Dec)."""
+    v = MINV @ np.vstack([np.asarray(dx_as, float) / PS, np.asarray(dy_as, float) / PS])
+    return v[0] * 3600, v[1] * 3600
+
+
 def field_chart(u, fname, title, note, star_rms, colour='tab:blue', label=None):
-    """u: one row per star with px, py, vx, vy (arcsec, nuisances removed)."""
+    """u: one row per star with px, py, vx, vy (arcsec, nuisances removed). RA/DEC axes."""
     fig, ax = plt.subplots(figsize=(11.5, 8))
-    ARROW = 900.0                     # px drawn per arcsec of displacement
-    ax.add_patch(Polygon(np.c_[[0, NX, NX, 0], [0, 0, NY, NY]], fill=False, color='gray', lw=1.2,
+    ARROW_DEG = 0.40                  # degrees drawn per arcsec of displacement
+    sra, sdec = px_to_sky(u.px.values, u.py.values)
+    vra, vdec = sensor_vec_to_sky(u.vx.values, u.vy.values)
+    cor_ra, cor_de = px_to_sky(np.array([0, NX, NX, 0]), np.array([0, 0, NY, NY]))
+    sun_ra, sun_de = px_to_sky(np.array([SUNPX]), np.array([SUNPY]))
+    sun_ra, sun_de = float(sun_ra[0]), float(sun_de[0])
+    ax.add_patch(Polygon(np.c_[cor_ra, cor_de], fill=False, color='gray', lw=1.2,
                          label='sensor footprint'))
+    ends_ra, ends_de = [], []
     for k in range(len(u)):
-        ax.annotate('', xy=(u.px.values[k] + u.vx.values[k] * ARROW / PS,
-                            u.py.values[k] + u.vy.values[k] * ARROW / PS),
-                    xytext=(u.px.values[k], u.py.values[k]),
+        x1 = sra[k] + vra[k] * ARROW_DEG / np.cos(np.radians(DE0))
+        y1 = sdec[k] + vdec[k] * ARROW_DEG
+        ends_ra.append(x1); ends_de.append(y1)
+        ax.annotate('', xy=(x1, y1), xytext=(sra[k], sdec[k]),
                     arrowprops=dict(arrowstyle='-|>,head_width=0.22,head_length=0.45',
                                     color=colour, lw=1.3, shrinkA=0, shrinkB=0))
-    ax.scatter(u.px, u.py, s=26, color=colour, zorder=5,
-               label=label or '%d stars' % len(u))
-    ax.add_patch(Circle((SUNPX, SUNPY), R_SUN_AS / PS, color='black', zorder=3,
+    ax.scatter(sra, sdec, s=26, color=colour, zorder=5, label=label or '%d stars' % len(u))
+    ax.add_patch(Circle((sun_ra, sun_de), R_SUN_AS / 3600, color='black', zorder=3,
                         label='the Sun, 1 R$_\\odot$ to scale'))
-    ax.add_patch(Circle((SUNPX, SUNPY), 2 * R_SUN_AS / PS, fill=False, color='gray', ls='--',
+    ax.add_patch(Circle((sun_ra, sun_de), 2 * R_SUN_AS / 3600, fill=False, color='gray', ls='--',
                         lw=1.0, zorder=3, label='2 R$_\\odot$'))
-    ax.set_xlim(-400, NX + 400); ax.set_ylim(NY + 400, -400)
-    ax.set_aspect('equal')
-    ax.set_xlabel('px', fontsize=12); ax.set_ylabel('py', fontsize=12)
+    lo_ra = min(cor_ra.min(), min(ends_ra), sun_ra - 2 * R_SUN_AS / 3600) - 0.05
+    hi_ra = max(cor_ra.max(), max(ends_ra), sun_ra + 2 * R_SUN_AS / 3600) + 0.05
+    lo_de = min(cor_de.min(), min(ends_de), sun_de - 2 * R_SUN_AS / 3600) - 0.05
+    hi_de = max(cor_de.max(), max(ends_de), sun_de + 2 * R_SUN_AS / 3600) + 0.05
+    for x1, y1 in zip(ends_ra, ends_de):
+        assert lo_ra < x1 < hi_ra and lo_de < y1 < hi_de, 'an arrow leaves the axes'
+    ax.set_xlim(hi_ra, lo_ra)          # RA increases to the left, as cell 2 draws it
+    ax.set_ylim(lo_de, hi_de)
+    ax.set_aspect(1 / np.cos(np.radians(DE0)))
+    ax.set_xlabel('RA (degrees)', fontsize=12); ax.set_ylabel('DEC (degrees)', fontsize=12)
     ax.set_title(title, fontsize=12)
+    bar_deg = ARROW_DEG / np.cos(np.radians(DE0))
     for y_fr, ln, txt in ((0.40, 1.0, '1 arcsec of displacement'),
                           (0.30, star_rms, 'scatter (%.2f")' % star_rms)):
-        ax.annotate('', xy=(1.04 + ln * ARROW / PS / (NX + 800), y_fr), xytext=(1.04, y_fr),
+        ax.annotate('', xy=(1.04 + ln * bar_deg / (hi_ra - lo_ra), y_fr), xytext=(1.04, y_fr),
                     xycoords='axes fraction', textcoords='axes fraction',
                     arrowprops=dict(arrowstyle='-', color='black', lw=3))
         ax.annotate(txt, (1.04, y_fr + 0.03), xycoords='axes fraction', fontsize=8)
