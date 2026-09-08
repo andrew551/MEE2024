@@ -43,6 +43,16 @@ Bump both. `tests/test_mee2024util.py` enforces it; v1.3.9 shipped with them dis
 new number even if only a filename changed. v1.3.6 was a real, field-tested binary that no
 tag recorded, and the confusion cost days.
 
+**The three-step reduction ladder is a rule, not a style.** `docs/V1_4_0_TESTING.md` §5 has the
+table: the zenith reference is fitted free (`distortion_fixed_coefficients=None`), the **daytime
+L/R calibration** field gets `quadratic`, and only the **eclipse field** gets `constant`. Bruns'
+L/R8 and Leon's CAL_piLeo were both fitted `quadratic`; a station with no daytime calibration
+(Station 1) fits its eclipse field `constant` + `distortion_free_scale` straight against the
+zenith. On 2026-09-08 Station 2's bracket was given the eclipse field's settings by analogy with
+Station 1 — one rung off — and it cost 0.27 ″ of deflection constant, because a frozen quadratic
+cannot absorb a day-night change in the low-order distortion. Check `fixed distortion order` in
+the run's own `distortion_results.txt` before believing any claim about which pathway was used.
+
 **Changes are classified by whether they can alter a measured number.** That is the release
 split (`docs/ROADMAP.md` §6): additive-only changes ride on the previous version's field
 testing, anything that moves a fit needs its own validation on real data. Say which a change

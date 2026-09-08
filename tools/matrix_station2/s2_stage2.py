@@ -5,7 +5,8 @@ the same reducer -- 419.8 mm effective against Station 1's 419.3, 0.12 % apart -
 site on the same night, so its measured night-to-day scale change can be carried across to
 Station 1, which has only a Method-2 scale fitted alongside L.
 
-The pathway is the one Bruns 2017, Leon 2026 and Station 1 all used, and no other:
+The pathway, with one step WRONG as first written -- see the correction below and
+`tools/matrix_station2/s2_bracket_convention.py`:
 
   * zenith fields keep the ZENITH stage-1 convention, the bracket keeps the ECLIPSE one. The
     split is by day, not by pointing (mee2024/field_presets.py). Running the bracket at zenith
@@ -14,7 +15,14 @@ The pathway is the one Bruns 2017, Leon 2026 and Station 1 all used, and no othe
     reference;
   * the bracket is fitted against that reference with only the constant free and the scale let
     go (`distortion_free_scale`), two-pass at 20 " then 3 ", which is what recovers a scale the
-    first fit would otherwise be dragged off by mis-matches;
+    first fit would otherwise be dragged off by mis-matches.
+    **THIS IS THE WRONG RUNG** (Douglas, 2026-09-08). The bracket is a DAYTIME CALIBRATION
+    field, and `docs/V1_4_0_TESTING.md` section 5 gives the three-step ladder with a column
+    headed "L/R calibration": zenith `None`, L/R calibration `quadratic`, eclipse field
+    `constant`. Bruns' L and R8 and Leon's CAL_piLeo were both fitted `quadratic`; only the
+    eclipse field gets `constant`. Copying Station 1's eclipse-field settings here froze the
+    linear and quadratic terms that the published cells let move, and cost 0.27 " of L.
+    `s2_bracket_convention.py` refits it correctly; this file is left as it ran.
   * the bracket frames where the sky is changing fast at either end of totality are dropped, as
     Leon's calibration did. Measured per frame: right 0-6 (sky falling 1.7-3.7 %/frame just after
     C2), left 47-52 (sky +150 % and tilt x65 as C3 arrives). The trim GAINS stars -- right 83 to
