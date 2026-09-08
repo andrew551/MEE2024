@@ -1241,6 +1241,8 @@ only for the online provider. Add a test that a synthetic 2 ″ pair is flagged 
 providers. Stage 3's `remove_double_stars_eclipse` inherits the same column and is fixed by
 the same change.
 
+**The cut's shape, measured 2026-09-08.** On 1712 zenith stars the centroid is pulled toward a companion by +0.39 to +0.53 ″ inside 10 ″ and by nothing beyond, following `sep × f2/(f1+f2)` with slope +1.00 inside 4 ″. So the 10 ″ default is well placed, but a fixed radius is the wrong rule: it discards a 0.63 ″ pair whose faint companion biases by 0.010 ″ and nearly keeps a 9.92 ″ pair that biases by 0.52 ″. Fix F31 first, then replace the radius test with a predicted-shift test inside a merge radius of ~2.7× the PSF FWHM — both terms are available offline. `docs/STEP3_2026.md`, "What `double_star_cutoff` should be".
+
 **Priority: high, and results-changing.** Cell 2 moves +0.026 ″ (0.3 σ) when the cut acts;
 Bruns and Leon do not move. Apply only with the revalidation agreed.
 
