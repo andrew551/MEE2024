@@ -146,11 +146,20 @@ IMPORTED = float(np.mean([json.load(open(glob.glob(os.path.join(
 BRK_SPREAD = abs(json.load(open(glob.glob(os.path.join(OUT, 'bracket_quadfree', 'left', '**', 'distortion_results.txt'), recursive=True)[0], encoding='utf-8'))['platescale (arcseconds/pixel)']
                  - json.load(open(glob.glob(os.path.join(OUT, 'bracket_quadfree', 'right', '**', 'distortion_results.txt'), recursive=True)[0], encoding='utf-8'))['platescale (arcseconds/pixel)'])
 
+# The bracket's own fitted scale uncertainty, which Method 1 imports along with the scale --
+# and which the Method 1 bar did not carry until 2026-09-08. Each side reports ~30 ppm even on
+# 82 stars; the mean of two carries that over root 2. At this field's leverage that exceeds the
+# statistical error on L, and it is what puts GR inside the Method 1 bar.
+BRK_SIG = float(np.mean([json.load(open(glob.glob(os.path.join(
+    OUT, 'bracket_quadfree', n, '**', 'distortion_results.txt'), recursive=True)[0],
+    encoding='utf-8'))['platescale_relative_uncertainty'] for n in ('right', 'left')])) / np.sqrt(2)
+LEVERAGE = 0.0171                    # arcsec of L per ppm, measured on this field
+S1_SCALE = 1e6 * BRK_SIG * LEVERAGE  # the imported scale's contribution to L, in arcsec
 TOT2 = float(np.hypot(S2, ATM_ERR))
 print('Method 2: L = %+.3f +- %.3f (stat, %d draws), %d obs of %d stars'
       % (L2, S2, n2, len(D2), D2.ID.nunique()))
-print('Method 1: L = %+.3f +- %.3f (stat, %d draws), imported scale %.7f "/px (L-R %.1f ppm)'
-      % (L1, S1, n1, IMPORTED, 1e6 * BRK_SPREAD / IMPORTED))
+print('Method 1: L = %+.3f +- %.3f (stat) +- %.3f (imported scale, %.1f ppm), scale %.7f "/px'
+      % (L1, S1, S1_SCALE, 1e6 * BRK_SIG, IMPORTED))
 
 # per-observation radial deflection, with the nuisances removed
 ux, uy = D2.rx.values / D2.R.values, D2.ry.values / D2.R.values
@@ -358,7 +367,8 @@ ax.add_patch(Ellipse((c2[iL], joint), 2 * np.sqrt(vals[1]), 2 * np.sqrt(vals[0])
                      angle=np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1])), fill=False,
                      color='tab:blue', lw=1.8, label='1$\\sigma$ \u2014 Method 2 (scale fitted with L)'))
 ax.scatter(c2[iL], joint, marker='+', s=150, color='tab:blue', zorder=5)
-ax.errorbar([L1], [IMPORTED], xerr=[S1], yerr=[BRK_SPREAD / 2], fmt='s', color='tab:red',
+ax.errorbar([L1], [IMPORTED], xerr=[float(np.hypot(S1, S1_SCALE))], yerr=[BRK_SIG * IMPORTED],
+            fmt='s', color='tab:red',
             ms=7, capsize=4, lw=1.6, zorder=5,
             label='Method 1 \u2014 scale imported from the L/R bracket')
 ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
@@ -367,7 +377,8 @@ _lines = [('Method 2:  L = %+.2f $\\pm$ %.2f" (stat), $\\pm$%.2f" with atmospher
            % (L2, S2, TOT2, ATM_ERR), 'tab:blue'),
           ('      fitted plate scale %.6f "/px' % joint, 'tab:blue'),
           ('      correlation L vs plate scale = %+.2f' % RHO, 'tab:blue'),
-          ('Method 1:  L = %+.2f $\\pm$ %.2f" (stat)' % (L1, S1), 'tab:red'),
+          ('Method 1:  L = %+.2f $\pm$ %.2f" (stat) $\pm$ %.2f" (imported scale)'
+           % (L1, S1, S1_SCALE), 'tab:red'),
           ('      imported %.6f "/px, the L/R mean (L\u2212R %.0f ppm)'
            % (IMPORTED, 1e6 * BRK_SPREAD / IMPORTED), 'tab:red'),
           ('from %d observations of %d stars, both tiers pooled'
@@ -423,7 +434,9 @@ rec = dict(rev=REV, cell='Mexico 2024 Station 2', estimator='pooled over both ti
            method2=dict(L=L2, sigma_stat=S2, sigma_atmosphere=ATM_ERR, sigma_total=TOT2,
                         joint_platescale=joint, corr_L_platescale=float(RHO)),
            method1=dict(L=L1, sigma_stat=S1, imported_platescale=IMPORTED,
-                        bracket_LR_ppm=1e6 * BRK_SPREAD / IMPORTED),
+                        bracket_LR_ppm=1e6 * BRK_SPREAD / IMPORTED,
+                        sigma_scale_ppm=1e6 * BRK_SIG, sigma_L_from_scale=S1_SCALE,
+                        sigma_total=float(np.hypot(S1, S1_SCALE))),
            both_tiers_averaged=dict(L=L_avg, sigma_stat=S_avg, sigma_total=TOT_avg, stars=int(len(both))),
            radius_range=[float(D2.Rsun.min()), float(D2.Rsun.max())],
            GR=GR, NEWTON=NEWTON,
