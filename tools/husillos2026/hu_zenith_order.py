@@ -1,6 +1,6 @@
 """Cell 4's zenith fields: the plate scale, and whether a cubic is enough on this full frame.
 
-Two questions, one set of runs, Spain 2026 (Douglas, 2026-09-09):
+Two questions, one set of runs, Husillos 2026 (Douglas, 2026-09-09):
 
   1. **Is the optical train the same as Leon 2026's?**  Both are an FRA500 with the 0.7x
      reducer and 3.76 um pixels, so if the focal length is the same the plate scale must be
@@ -25,17 +25,24 @@ read instead, all from `TWOD_RESIDUALS.csv`:
     own, and each half's model is frozen into the other with only the constant free.  A term
     that is real transfers; a term that is noise does not.
 
-No site is known for this data yet (`spain2026_prompt.md`), so every run here has
-`enable_corrections=False` -- which is also what the Bruns night estimator does
-(`tools/matrix_bruns/b17_night_estimator.py:117`).  At the zenith the refraction a correction
-would apply is a radial-linear term absorbed by the plate scale plus a tan^3 z term worth
-1e-5 " at this field radius, so the order question does not wait on the site.  The absolute
-plate scale does, at the ~0.1 % level, and that is stated with it.
+Every run here has `enable_corrections=False`, which is also what the Bruns night estimator does
+(`tools/matrix_bruns/b17_night_estimator.py:117`).  That was forced when the site was unknown and
+is now a deliberate choice: at the zenith the refraction a correction would apply is a
+radial-linear term absorbed by the plate scale plus a tan^3 z term worth 1e-5 " at this field
+radius, and -- the point that makes the cross-station comparison work at all -- the leading
+term -k is INDEPENDENT of zenith distance, so it cancels to under 5 ppm between two zenith
+pointings.  Turning corrections on would change both fields by the same ~283 ppm and change
+nothing that is compared here.
 
-  .venv/Scripts/python.exe tools/spain2026/sp_zenith_order.py stage1
-  .venv/Scripts/python.exe tools/spain2026/sp_zenith_order.py stage2
-  .venv/Scripts/python.exe tools/spain2026/sp_zenith_order.py transfer
-  .venv/Scripts/python.exe tools/spain2026/sp_zenith_order.py report
+The site is now known (Douglas, 2026-09-09, from `G:/Joe Izen Spain 2026/Husillos Spain.JPG`):
+Area de Servicio Autocaravanas Husillos, Palencia, +42.09293 deg, -4.52702 deg, 743.0 m, with the
+Sun at 8.6 deg altitude through totality.  Nothing at that altitude is refraction-safe, so any
+field that is not a zenith pointing must be run with SITE below, not with NOSITE.
+
+  .venv/Scripts/python.exe tools/husillos2026/hu_zenith_order.py stage1
+  .venv/Scripts/python.exe tools/husillos2026/hu_zenith_order.py stage2
+  .venv/Scripts/python.exe tools/husillos2026/hu_zenith_order.py transfer
+  .venv/Scripts/python.exe tools/husillos2026/hu_zenith_order.py report
 """
 import glob
 import json
@@ -48,8 +55,8 @@ import pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"D:/MEE2024 output/MEE_output/spain2026/zenith_order"
-G = r"G:/Joe Izen Spain 2026"
+OUT = r"D:/MEE2024 output/MEE_output/RECORD/husillos2026/zenith_order"
+G = r"G:/Joe Izen Husillos 2026"
 
 FULL = os.path.join(G, "2026-08-13", "zenith", "00_00_21.ser")     # 50 x 9576x6388, 1.0 s
 ROI = os.path.join(G, "2026-08-12", "zenith", "23_24_56.ser")      # 16 x 1280x1024, 1.0 s
@@ -69,6 +76,14 @@ S1 = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract
 # No site: see the module docstring.
 NOSITE = ['--set', 'enable_corrections=False', '--set', 'enable_corrections_ref=False',
           '--set', 'observation_date=2026-08-12', '--set', 'guess_date=False']
+
+#: Husillos, from the site card. Not used by the zenith fits (see the module docstring); here so
+#: that the next tool to need it does not have to go looking, and so that the numbers live beside
+#: the runs that will use them.
+SITE = ['--set', 'enable_corrections=True', '--set', 'enable_corrections_ref=True',
+        '--set', 'observation_date=2026-08-12', '--set', 'guess_date=False',
+        '--set', 'observation_lat=42 05 34.55 N', '--set', 'observation_long=4 31 37.26 W',
+        '--set', 'observation_height=743.0']
 
 GATE = 0.5
 ORDERS = ('cubic', 'quintic', 'septic')
@@ -91,11 +106,15 @@ STACKS = {
     'drop_last': (FULL, 0, 48),   # 49 frames again, but keeping frame 0: the control for
                                   # full49, which is the same count without it
     'roi':     (ROI, 0, 15),
-    # A SECOND Spain full-frame night field at a DIFFERENT POINTING, which is what makes
-    # an out-of-sample order test mean something. Two halves of one capture share their
-    # stars, so any model that fits this field's own per-star quirks -- a catalogue
-    # position error, a blend -- transfers between them perfectly and the test passes a
-    # term that is not distortion at all. A different pointing has a different star set.
+    # OUT OF SCOPE, and left in only because the result is worth reproducing. Douglas asked for
+    # the two zenith folders; this is not one of them. It was run looking for a second
+    # star-rich full-frame field at a different pointing, which is what would make the order
+    # test out of sample -- two halves of one capture share their stars, so a model that fits
+    # this field's own per-star quirks transfers between them and the test passes a term that
+    # is not distortion at all. It does not work: stage 1 stops with "No star centroids were
+    # found on frame 1", while a 1 px matched filter finds ~2600 sources in that same frame. So
+    # the capture is not empty, its per-frame signal to noise is simply below what the zenith
+    # preset detects. Whoever reduces it will need a more sensitive stage 1.
     'night11': (os.path.join(G, '2026-08-12/Capture/00_54_32.ser'), 0, 99),
     # Which frame is the STACKING MASTER, isolated. mee2024/stacker_implementation.py
     # aligns every frame against files[0], so a trim changes the master as well as the
@@ -268,7 +287,7 @@ def radial_table(df, ps, nbin=6):
 
 def do_report():
     print('=' * 100)
-    print('SPAIN 2026 ZENITH FIELDS -- free fits, no site corrections, gate %.1f "' % GATE)
+    print('HUSILLOS 2026 ZENITH FIELDS -- free fits, no site corrections, gate %.1f "' % GATE)
     print('=' * 100)
     rows = []
     for name in STACKS:

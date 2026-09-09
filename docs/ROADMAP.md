@@ -158,7 +158,7 @@ trails each 10 s exposure by ~2 px. Dither between exposures costs no trailing a
 first inter-frame step averages 0.401 px against 0.428 px steady-state — a ratio of 0.94.
 The mount is settled by the first frame, so dithering is mechanically practical.
 
-> **Qualified 2026-09-08.** That ratio holds only with enough time between captures. On Station 2's Celestron AVX the zenith fields settled (ratio 0.91) with 28–381 s between captures, but the eclipse-day left bracket, shot 10 s after a slew, read **1.97** — genuine incomplete settling — and Leon's 25.5 s gaps showed slight drift. The AVX needs about 30 s; eclipse day never allows it, so the design lever is the mount, not the delay (`docs/STEP3_2026.md`, "The Celestron AVX needs ~30 s to settle"). Joe Izen's Spain 2026 data is on a ZWO AM5 with a 3.6 s gap between its science and calibration fields: the project's first AM5 settling measurement.
+> **Qualified 2026-09-08.** That ratio holds only with enough time between captures. On Station 2's Celestron AVX the zenith fields settled (ratio 0.91) with 28–381 s between captures, but the eclipse-day left bracket, shot 10 s after a slew, read **1.97** — genuine incomplete settling — and Leon's 25.5 s gaps showed slight drift. The AVX needs about 30 s; eclipse day never allows it, so the design lever is the mount, not the delay (`docs/STEP3_2026.md`, "The Celestron AVX needs ~30 s to settle"). Joe Izen's Husillos 2026 data is on a ZWO AM5 with a 3.6 s gap between its science and calibration fields: the project's first AM5 settling measurement.
 
 ### 1.7 Smaller measured facts
 
@@ -1040,7 +1040,7 @@ not on its own account. Until then the defence is the frame list: `calibration/R
 records that its order is part of the definition, and says not to sort it.
 
 
-**Two more instances, 2026-09-08/09, and the working rule.** Station 2's 0.100 s tier: its first frame (0031) moved 1.53 px/frame against 0.68 from frame 10 on, and the README warned of it; stacking with `--frames 10-738` gained detections. Spain 2026: the first frame of every capture is anomalous — the science field's frame 0 has a sky of 2475 ADU against 1800 for the rest, the Sun capture's frame 0 reads 14634 against 48337 at frame 5 — and the Sun capture's last ~5 frames are blank. Until the reference is chosen from the data, the rule is: **drop frame 0 (and any frame whose sky steps more than ~2 %) with `--frames`, and prefer a mid-sequence master** (Douglas). Priority raised: cell 4 runs into this on its first stack.
+**Two more instances, 2026-09-08/09, and the working rule.** Station 2's 0.100 s tier: its first frame (0031) moved 1.53 px/frame against 0.68 from frame 10 on, and the README warned of it; stacking with `--frames 10-738` gained detections. Husillos 2026: the first frame of every capture is anomalous — the science field's frame 0 has a sky of 2475 ADU against 1800 for the rest, the Sun capture's frame 0 reads 14634 against 48337 at frame 5 — and the Sun capture's last ~5 frames are blank. Until the reference is chosen from the data, the rule is: **drop frame 0 (and any frame whose sky steps more than ~2 %) with `--frames`, and prefer a mid-sequence master** (Douglas). Priority raised: cell 4 runs into this on its first stack.
 ### F24 — Never drop a detection that is a bright catalogue star
 
 Requested by Douglas, 2026-08-31, after the Leon anchor scare. The rule: **a detection

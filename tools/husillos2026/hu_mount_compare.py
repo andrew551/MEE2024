@@ -10,7 +10,7 @@ four ways.
 What can and cannot be concluded from a short window, stated before the numbers:
 
   * **A capture shorter than the period cannot measure the period.**  Leon's zenith fields run
-    128 s, Spain's 65 s; a worm period is 480-640 s and a strain-wave period is minutes.  So
+    128 s, Husillos' 65 s; a worm period is 480-640 s and a strain-wave period is minutes.  So
     neither dataset can fit a sinusoid, and this tool does not pretend to.
   * **What a short window DOES measure is curvature.**  A sinusoid of amplitude A and period P
     sampled over T << P leaves a definite rms about the best-fit straight line, and that rms is
@@ -21,7 +21,7 @@ What can and cannot be concluded from a short window, stated before the numbers:
     rate that depends on where the mount is looking, so rate scatter between fields at different
     pointings mixes two effects.  Rates are reported per field and not pooled.
   * **Nor is an rms about a line comparable across window lengths.**  Curvature accumulates as
-    T^2, so Leon's 128 s fields would read several times worse than Spain's 65 s one on
+    T^2, so Leon's 128 s fields would read several times worse than Husillos' 65 s one on
     identical mount behaviour and the comparison would mean nothing.  Two repairs, both
     reported: every field is also measured on sliding windows of the SAME duration, and the
     primary statistic is the fitted quadratic curvature in arcsec per second squared, which is a
@@ -35,7 +35,7 @@ is quoted only as the one fitted period the project owns.  `docs/STEP3_2026.md`,
 would have done", predicts a strain-wave mount carries **larger** periodic error than a good
 worm, "order +-10-20 " over a period of minutes"; that prediction is what this measures.
 
-  .venv/Scripts/python.exe tools/spain2026/sp_mount_compare.py
+  .venv/Scripts/python.exe tools/husillos2026/hu_mount_compare.py
 """
 import glob
 import os
@@ -48,18 +48,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ser_track import (find_stars, moments, coarse_shift, similarity_fit,  # noqa: E402
                        sky_level, read_header, read_timestamps, read_frame)
 
-OUT = r"D:/MEE2024 output/MEE_output/spain2026/mount"
+OUT = r"D:/MEE2024 output/MEE_output/RECORD/husillos2026/mount"
 PS = 2.2054043          # "/px, the FRA500 + 0.7x canonical (docs/CAL_PILEO_STEP2.md)
 WINDOW = 60             # s: the common window every field is also measured on
 
-SPAIN = r"G:/Joe Izen Spain 2026"
+HUSILLOS = r"G:/Joe Izen Husillos 2026"
 LEON = r"G:/Leon Aug 2026"
 
 #: (label, kind, path, mount).  Night, 1 s or 4 s, star fields, no Sun anywhere.
 FIELDS = [
-    ('spain zenith 08-13', 'ser', os.path.join(SPAIN, '2026-08-13/zenith/00_00_21.ser'), 'AM5'),
-    ('spain zenith ROI 08-12', 'ser',
-     os.path.join(SPAIN, '2026-08-12/zenith/23_24_56.ser'), 'AM5'),
+    ('husillos zenith 08-13', 'ser', os.path.join(HUSILLOS, '2026-08-13/zenith/00_00_21.ser'), 'AM5'),
+    ('husillos zenith ROI 08-12', 'ser',
+     os.path.join(HUSILLOS, '2026-08-12/zenith/23_24_56.ser'), 'AM5'),
     ('leon Z1_base 08-12', 'fits', os.path.join(LEON, '2026-08-12/Zenith/Z1_base'), 'AVX'),
     ('leon Z2_mid_left 08-12', 'fits',
      os.path.join(LEON, '2026-08-12/Zenith/Z2_mid_left'), 'AVX'),

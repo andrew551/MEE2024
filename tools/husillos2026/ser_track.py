@@ -1,6 +1,6 @@
 """Per-frame star tracking through a SER capture: settling, drift, jitter, PSF, transparency.
 
-Written for Joe Izen's Spain 2026 data (matrix cell 4), 2026-09-09, to answer four questions
+Written for Joe Izen's Husillos 2026 data (matrix cell 4), 2026-09-09, to answer four questions
 that all need the same measurement -- where each star sits in every frame:
 
   * **is the mount settled when the capture starts, and still tracking when it ends?**  A slew
@@ -45,7 +45,7 @@ moment, and the two estimators differ by a fixed offset of a few tens of ppm.
 Writes <out>/<capture>_frames.csv (one row per frame) and <out>/<capture>_stars.csv (one row per
 star per frame).  Reads each frame exactly once.
 
-  .venv/Scripts/python.exe tools/spain2026/ser_track.py <capture.ser> <out_dir> [--stars N]
+  .venv/Scripts/python.exe tools/husillos2026/ser_track.py <capture.ser> <out_dir> [--stars N]
       [--first F] [--last L] [--box B] [--search S]
 """
 import argparse

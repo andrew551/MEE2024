@@ -1,7 +1,7 @@
 """The AM5's periodic error, by Portland's rate-scatter method, on captures sharing a pointing.
 
 A single 65 s capture cannot see a period of minutes; what it can see is curvature
-(`sp_mount_compare.py`).  The other reading Portland used is **rate scatter between captures**
+(`hu_mount_compare.py`).  The other reading Portland used is **rate scatter between captures**
 (`docs/PORTLAND_2026-07-29.md` section 4): if the mount's tracking rate is modulated by a
 sinusoid of amplitude A and period P, the rate is modulated by A*w, so a set of captures spread
 over a fraction of a cycle shows a spread of fitted drift rates, and A = (rate amplitude) / w.
@@ -28,7 +28,7 @@ at each assumed period.  Portland got +-4 to +-7 " for the Celestron AVX this wa
 samples over 13 minutes and said plainly that the period was not pinned; this is the same
 statement for the AM5.
 
-  .venv/Scripts/python.exe tools/spain2026/sp_am5_periodic.py [--stride N]
+  .venv/Scripts/python.exe tools/husillos2026/hu_am5_periodic.py [--stride N]
 """
 import argparse
 import os
@@ -41,9 +41,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ser_track import (find_stars, moments, coarse_shift, similarity_fit,  # noqa: E402
                        sky_level, read_header, read_timestamps, read_frame)
 
-OUT = r"D:/MEE2024 output/MEE_output/spain2026/mount"
+OUT = r"D:/MEE2024 output/MEE_output/RECORD/husillos2026/mount"
 PS = 2.2054043
-G = r"G:/Joe Izen Spain 2026"
+G = r"G:/Joe Izen Husillos 2026"
 
 GROUPS = {
     'Capture 11Aug (mount held one RA/Dec)': [
