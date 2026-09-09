@@ -35,7 +35,7 @@ from tools.analysis_window import WINDOWS
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 from matplotlib.patches import Circle, Ellipse, Polygon
 
-REV = 'rev04'
+REV = 'rev05'
 OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
 CHARTS = os.path.join(OUT, 'charts')
 VER = os.path.join(CHARTS, 'chart_versions')
@@ -86,26 +86,38 @@ def load(method):
     return D[(D['Rsun'] >= RMIN) & (D['Rsun'] <= RMAX)].reset_index(drop=True)
 
 
-def design(d, with_scale):
+def design(d, with_scale, shared_scale=True):
+    """Per-tier offset and rotation, one L, and the plate scale either SHARED across the tiers
+    (the record estimator from rev05) or free per tier (kept for comparison).
+
+    Douglas, 2026-09-09: fitted separately, the two tiers' scales came out 96 ppm apart -- not
+    physical for one optic 1.3 minutes apart, and at 0.0171 " of L per ppm it is the whole of
+    the 2.50 vs 0.55 " split between them. Each tier's own scale is uncertain by ~85 ppm because
+    it is 80 % degenerate with L on 17 stars in a narrow annulus. Cell 2 shares one scale across
+    its four blocks for the same reason (they agree to 3 ppm); this does the same.
+    """
     n = len(d); Z = np.zeros(n)
     px, py = d['px'].values, d['py'].values
     ux, uy = d['rx'].values / d['R'].values, d['ry'].values / d['R'].values
+    xs, ys = (px - NX / 2) * PS, (py - NY / 2) * PS
     cx, cy, lab = [], [], []
     for tag, _, _ in TIERS:
         m = (d['tier'] == tag).values.astype(float)
-        cx += [m, Z, -m * (py - NY / 2) * PS]
-        cy += [Z, m, m * (px - NX / 2) * PS]
+        cx += [m, Z, -m * ys]
+        cy += [Z, m, m * xs]
         lab += ['N1_' + tag, 'N2_' + tag, 'Th_' + tag]
-        if with_scale:
-            cx.append(m * (px - NX / 2) * PS); cy.append(m * (py - NY / 2) * PS)
+        if with_scale and not shared_scale:
+            cx.append(m * xs); cy.append(m * ys)
             lab.append('S_' + tag)
+    if with_scale and shared_scale:
+        cx.append(xs); cy.append(ys); lab.append('S')
     cx.append(ux * R_SUN_AS / d['R'].values); cy.append(uy * R_SUN_AS / d['R'].values)
     lab.append('L')
     return np.vstack([np.column_stack(cx), np.column_stack(cy)]), lab
 
 
-def solve(d, with_scale):
-    A, lab = design(d, with_scale)
+def solve(d, with_scale, shared_scale=True):
+    A, lab = design(d, with_scale, shared_scale)
     y = np.concatenate([d['dx_arcsec'].values, d['dy_arcsec'].values])
     c, *_ = np.linalg.lstsq(A, y, rcond=None)
     resid = y - A @ c
@@ -113,7 +125,7 @@ def solve(d, with_scale):
     return c, lab, resid[:n], resid[n:], A
 
 
-def bootstrap(d, with_scale, draws=600, seed=7):
+def bootstrap(d, with_scale, draws=600, seed=7, shared_scale=True):
     rng = np.random.default_rng(seed)
     ids = d['ID'].unique(); out = []
     for _ in range(draws):
@@ -122,7 +134,7 @@ def bootstrap(d, with_scale, draws=600, seed=7):
         if s['tier'].nunique() < len(TIERS):
             continue
         try:
-            c, lab, *_ = solve(s, with_scale)
+            c, lab, *_ = solve(s, with_scale, shared_scale)
             out.append(c[lab.index('L')])
         except Exception:
             pass
@@ -131,9 +143,14 @@ def bootstrap(d, with_scale, draws=600, seed=7):
 
 # ---------------------------------------------------------------- the two reductions
 D2 = load('m2')
-c2, lab2, rx2, ry2, A2 = solve(D2, True)
+c2, lab2, rx2, ry2, A2 = solve(D2, True)                     # one scale shared by both tiers
 L2 = c2[lab2.index('L')]
 S2, n2 = bootstrap(D2, True)
+# the per-tier-scale fit, reported beside the record estimator rather than as it
+c2t, lab2t, *_ = solve(D2, True, shared_scale=False)
+L2_TIERS = c2t[lab2t.index('L')]
+S2_TIERS, _ = bootstrap(D2, True, shared_scale=False)
+TIER_SCALE_PPM = {tag: 1e6 * c2t[lab2t.index('S_' + tag)] for tag, _, _ in TIERS}
 
 D1 = load('m1')
 c1, lab1, rx1, ry1, A1 = solve(D1, False)
@@ -156,8 +173,10 @@ BRK_SIG = float(np.mean([json.load(open(glob.glob(os.path.join(
 LEVERAGE = 0.0171                    # arcsec of L per ppm, measured on this field
 S1_SCALE = 1e6 * BRK_SIG * LEVERAGE  # the imported scale's contribution to L, in arcsec
 TOT2 = float(np.hypot(S2, ATM_ERR))
-print('Method 2: L = %+.3f +- %.3f (stat, %d draws), %d obs of %d stars'
+print('Method 2, one shared scale: L = %+.3f +- %.3f (stat, %d draws), %d obs of %d stars'
       % (L2, S2, n2, len(D2), D2.ID.nunique()))
+print('Method 2, a scale per tier:  L = %+.3f +- %.3f  (tier scales %s ppm from the reference)'
+      % (L2_TIERS, S2_TIERS, ', '.join('%s %+.1f' % (k, v) for k, v in TIER_SCALE_PPM.items())))
 print('Method 1: L = %+.3f +- %.3f (stat) +- %.3f (imported scale, %.1f ppm), scale %.7f "/px'
       % (L1, S1, S1_SCALE, 1e6 * BRK_SIG, IMPORTED))
 
@@ -359,7 +378,7 @@ field_chart(both, 'record_field_both.png',
 # ---------------------------------------------------------------- 3. covariance, BOTH methods
 sig2 = float(np.sqrt(np.mean(np.concatenate([rx2, ry2]) ** 2)))
 cov2 = sig2 ** 2 * np.linalg.pinv(A2.T @ A2)
-iL, iS = lab2.index('L'), lab2.index('S_100ms')
+iL, iS = lab2.index('L'), lab2.index('S')
 joint = PS * (1 + c2[iS])
 C = np.array([[cov2[iL, iL], cov2[iL, iS] * PS], [cov2[iS, iL] * PS, cov2[iS, iS] * PS ** 2]])
 C[0, 0] = S2 ** 2                                   # carry the bootstrap sigma the record quotes
@@ -430,12 +449,16 @@ for tag, lab, _ in TIERS:
     save(fig, 'master_%s_annotated.png' % tag)
 
 # ---------------------------------------------------------------- 5. summary + record copy
-rec = dict(rev=REV, cell='Mexico 2024 Station 2', estimator='pooled over both tiers, every observation',
+rec = dict(rev=REV, cell='Mexico 2024 Station 2',
+           estimator='pooled over both tiers, every observation, ONE plate scale shared by the tiers',
            reference='cubic, fifteen zenith fields, moments+annular, 0.5 arcsec gate',
            bracket='right 18:10:32-18:11:21, left 18:14:05-18:14:57, ends of totality trimmed',
            observations=int(len(D2)), stars=int(D2.ID.nunique()),
            method2=dict(L=L2, sigma_stat=S2, sigma_atmosphere=ATM_ERR, sigma_total=TOT2,
                         joint_platescale=joint, corr_L_platescale=float(RHO)),
+           method2_scale_per_tier=dict(L=L2_TIERS, sigma_stat=S2_TIERS,
+                                       tier_scale_ppm_from_reference=TIER_SCALE_PPM),
+           double_star_removal='none: F31 inoperative, and the 10 arcsec cut is not trusted (Douglas, 2026-09-09)',
            method1=dict(L=L1, sigma_stat=S1, imported_platescale=IMPORTED,
                         bracket_LR_ppm=1e6 * BRK_SPREAD / IMPORTED,
                         sigma_scale_ppm=1e6 * BRK_SIG, sigma_L_from_scale=S1_SCALE,
