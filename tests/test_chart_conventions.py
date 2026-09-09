@@ -55,10 +55,11 @@ def test_ra_axis_is_not_reversed():
         + '\n  '.join(bad))
 
 
-def test_the_reference_charts_still_define_the_convention():
-    """If cells 1 and 2 ever change direction, this test is what tells the next reader."""
-    for rel in ('matrix_station1/s1_charts_record.py', 'matrix_bruns/b17_charts_record.py'):
-        src = open(os.path.join(TOOLS, rel), encoding='utf-8').read()
-        assert 'ax.set_xlim(lo_ra, hi_ra)' in src, (
-            '%s no longer draws RA ascending -- the convention this test enforces came from it, '
-            'so decide deliberately and update both together' % rel)
+def test_the_reference_chart_still_defines_the_convention():
+    """Since 2026-09-09 every record chart's field axes are set in ONE place,
+    `tools/record_charts.py`; if that ever changes direction, this is what tells the reader.
+    (Before the shared module the convention lived in cells 1 and 2's own tools.)"""
+    src = open(os.path.join(TOOLS, 'record_charts.py'), encoding='utf-8').read()
+    assert 'ax.set_xlim(lo_x, hi_x)' in src, (
+        'tools/record_charts.py no longer sets the field-chart axes ascending -- the convention '
+        'this test enforces lives there, so decide deliberately and update both together')

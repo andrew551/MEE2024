@@ -32,8 +32,10 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from tools.analysis_window import WINDOWS
-from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
-from matplotlib.patches import Circle, Ellipse, Polygon
+from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, covariance_chart,
+                                 field_chart as draw_field, joint_plate_scale, ppm_from,
+                                 reference_curves, scale_bars)
+from matplotlib.patches import Circle
 
 REV = 'rev06'
 OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
@@ -55,10 +57,8 @@ SUB = {'m2': {'100ms': 'eclipse/100ms/stage2', '075ms': 'eclipse/075ms/stage2_rm
        '075ms': 'eclipse/075ms/stage2_method1_quadfree'}}
 
 
-def save(fig, name):
-    fig.savefig(os.path.join(CHARTS, name), dpi=140)
-    fig.savefig(os.path.join(VER, REV + '_' + name), dpi=140)
-    plt.close(fig)
+_writer = ChartWriter(CHARTS, REV, ver=VER)
+save = _writer.save
 
 
 def load(method):
@@ -196,11 +196,9 @@ for tag, lab, colr in TIERS:
     dots.append(ax.scatter(D2.Rsun.values[k], D2.rad.values[k], s=34, alpha=0.85, color=colr,
                            zorder=4, label='%s (%d obs)' % (lab, int(k.sum()))))
 xx = np.linspace(RMIN + 0.9, D2.Rsun.max() + 0.4, 300)
-band = ax.fill_between(xx, (L2 - TOT2) / xx, (L2 + TOT2) / xx, color='black', alpha=0.10,
-                       label='total $\\pm$%.2f" (stat %.2f + atmosphere %.2f)' % (TOT2, S2, ATM_ERR))
-ln1, = ax.plot(xx, L2 / xx, color='black', lw=2.2, label='pooled Method 2:  L = %.2f"' % L2)
-ln2, = ax.plot(xx, GR / xx, color='green', lw=1.5, label='Einstein  1.751"')
-ln3, = ax.plot(xx, NEWTON / xx, color='orange', lw=1.5, ls='--', label='Newton  0.876"')
+band, ln1, ln2, ln3 = reference_curves(
+    ax, xx, L2, TOT2, 'pooled Method 2:  L = %.2f"' % L2,
+    'total $\\pm$%.2f" (stat %.2f + atmosphere %.2f)' % (TOT2, S2, ATM_ERR))
 ax.set_xlabel('radial position (solar radii)', fontsize=13)
 ax.set_ylabel('radial deflection (arcsec, outward positive)', fontsize=13)
 ax.set_title('Deflection vs radius \u2014 Mexico 2024 Station 2, pooled over both tiers, '
@@ -218,27 +216,11 @@ fig.tight_layout(rect=(0, 0.035, 1, 1))
 save(fig, 'record_deflection.png')
 
 # ---------------------------------------------------------------- 2. the field
-# The sky frame, exactly as cell 2 builds it (s1_charts_record.py): an affine from catalogue
-# RA/DEC to pixels, fitted on the matched stars and inverted, so a sensor-axis displacement in
-# arcsec can be drawn on RA/DEC axes.
-RA0, DE0 = float(D2.ra.mean()), float(D2['dec'].mean())
-_Xa = (D2.ra.values - RA0) * np.cos(np.radians(DE0))
-_Ya = D2['dec'].values - DE0
-_Aa = np.c_[_Xa, _Ya, np.ones_like(_Xa)]
-_axc, *_ = np.linalg.lstsq(_Aa, D2.px.values, rcond=None)
-_ayc, *_ = np.linalg.lstsq(_Aa, D2.py.values, rcond=None)
-MINV = np.linalg.inv(np.array([[_axc[0], _axc[1]], [_ayc[0], _ayc[1]]]))
-
-
-def px_to_sky(px, py):
-    v = MINV @ np.vstack([np.asarray(px, float) - _axc[2], np.asarray(py, float) - _ayc[2]])
-    return RA0 + v[0] / np.cos(np.radians(DE0)), DE0 + v[1]
-
-
-def sensor_vec_to_sky(dx_as, dy_as):
-    """Sensor-axis displacement (arcsec) -> sky displacement (arcsec of RA*cos(dec), Dec)."""
-    v = MINV @ np.vstack([np.asarray(dx_as, float) / PS, np.asarray(dy_as, float) / PS])
-    return v[0] * 3600, v[1] * 3600
+# The sky frame and the field chart are the shared constructions (tools/record_charts.py):
+# an affine from catalogue RA/DEC to pixels fitted on the matched stars and inverted, RA
+# ascending to the right, every arrow end asserted inside the axes.
+SF = SkyFrame.from_stars(D2.ra.values, D2['dec'].values, D2.px.values, D2.py.values, PS)
+px_to_sky, sensor_vec_to_sky = SF.px_to_sky, SF.sensor_vec_to_sky
 
 
 def field_chart(u, fname, title, note, star_rms, colour='tab:blue', label=None):
@@ -247,45 +229,16 @@ def field_chart(u, fname, title, note, star_rms, colour='tab:blue', label=None):
     ARROW_DEG = 0.40                  # degrees drawn per arcsec of displacement
     sra, sdec = px_to_sky(u.px.values, u.py.values)
     vra, vdec = sensor_vec_to_sky(u.vx.values, u.vy.values)
-    cor_ra, cor_de = px_to_sky(np.array([0, NX, NX, 0]), np.array([0, 0, NY, NY]))
     sun_ra, sun_de = px_to_sky(np.array([SUNPX]), np.array([SUNPY]))
-    sun_ra, sun_de = float(sun_ra[0]), float(sun_de[0])
-    ax.add_patch(Polygon(np.c_[cor_ra, cor_de], fill=False, color='gray', lw=1.2,
-                         label='sensor footprint'))
-    ends_ra, ends_de = [], []
-    for k in range(len(u)):
-        x1 = sra[k] + vra[k] * ARROW_DEG / np.cos(np.radians(DE0))
-        y1 = sdec[k] + vdec[k] * ARROW_DEG
-        ends_ra.append(x1); ends_de.append(y1)
-        ax.annotate('', xy=(x1, y1), xytext=(sra[k], sdec[k]),
-                    arrowprops=dict(arrowstyle='-|>,head_width=0.22,head_length=0.45',
-                                    color=colour, lw=1.3, shrinkA=0, shrinkB=0))
-    ax.scatter(sra, sdec, s=26, color=colour, zorder=5, label=label or '%d stars' % len(u))
-    ax.add_patch(Circle((sun_ra, sun_de), R_SUN_AS / 3600, color='black', zorder=3,
-                        label='the Sun, 1 R$_\\odot$ to scale'))
-    ax.add_patch(Circle((sun_ra, sun_de), 2 * R_SUN_AS / 3600, fill=False, color='gray', ls='--',
-                        lw=1.0, zorder=3, label='2 R$_\\odot$'))
-    lo_ra = min(cor_ra.min(), min(ends_ra), sun_ra - 2 * R_SUN_AS / 3600) - 0.05
-    hi_ra = max(cor_ra.max(), max(ends_ra), sun_ra + 2 * R_SUN_AS / 3600) + 0.05
-    lo_de = min(cor_de.min(), min(ends_de), sun_de - 2 * R_SUN_AS / 3600) - 0.05
-    hi_de = max(cor_de.max(), max(ends_de), sun_de + 2 * R_SUN_AS / 3600) + 0.05
-    for x1, y1 in zip(ends_ra, ends_de):
-        assert lo_ra < x1 < hi_ra and lo_de < y1 < hi_de, 'an arrow leaves the axes'
-    # RA ascending to the right, as cells 1 and 2 draw it (s1_charts_record.py line 272,
-    # b17_charts_record.py line 264). Revision 3 had this reversed on the sky-convention
-    # reflex, with a comment claiming it was cell 2's convention; it is not.
-    ax.set_xlim(lo_ra, hi_ra)
-    ax.set_ylim(lo_de, hi_de)
-    ax.set_aspect(1 / np.cos(np.radians(DE0)))
-    ax.set_xlabel('RA (degrees)', fontsize=12); ax.set_ylabel('DEC (degrees)', fontsize=12)
-    ax.set_title(title, fontsize=12)
-    bar_deg = ARROW_DEG / np.cos(np.radians(DE0))
-    for y_fr, ln, txt in ((0.40, 1.0, '1 arcsec of displacement'),
-                          (0.30, star_rms, 'scatter (%.2f")' % star_rms)):
-        ax.annotate('', xy=(1.04 + ln * bar_deg / (hi_ra - lo_ra), y_fr), xytext=(1.04, y_fr),
-                    xycoords='axes fraction', textcoords='axes fraction',
-                    arrowprops=dict(arrowstyle='-', color='black', lw=3))
-        ax.annotate(txt, (1.04, y_fr + 0.03), xycoords='axes fraction', fontsize=8)
+    lo_ra, hi_ra, _, _ = draw_field(
+        ax, sra, sdec, vra, vdec, SF.corners(NX, NY),
+        (float(sun_ra[0]), float(sun_de[0]), R_SUN_AS / 3600), ARROW_DEG, SF.cos0,
+        groups=[(np.ones(len(u), bool), dict(s=26, color=colour, label=label or '%d stars' % len(u)))],
+        arrow_color=colour, arrow_lw=1.3, sun_ring2=True, include_sun_in_limits=True,
+        pad=(0.05, 0.05), title=title)
+    scale_bars(ax, ((0.40, 1.0, '1 arcsec of displacement'),
+                    (0.30, star_rms, 'scatter (%.2f")' % star_rms)),
+               ARROW_DEG, SF.cos0, hi_ra - lo_ra, text_dy=0.03)
     ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.70))
     fig.text(0.06, 0.02, note, fontsize=9)
     fig.subplots_adjust(left=0.07, right=0.76, top=0.94, bottom=0.10)
@@ -390,8 +343,8 @@ iL, iS = lab2.index('L'), lab2.index('S')
 STAGE2_SCALE = float(np.mean([json.load(open(glob.glob(os.path.join(
     OUT, SUB['m2'][tag], '**', 'distortion_results.txt'), recursive=True)[0],
     encoding='utf-8'))['platescale (arcseconds/pixel)'] for tag, _, _ in TIERS]))
-joint = STAGE2_SCALE - c2[iS] * PS                   # cell 2's formula; S < 0 means a larger scale
-JOINT_PPM = 1e6 * (joint - IMPORTED) / IMPORTED     # physical: + means more arcsec per pixel
+joint = joint_plate_scale(STAGE2_SCALE, c2[iS], PS)  # S < 0 means a larger scale
+JOINT_PPM = ppm_from(joint, IMPORTED)                # physical: + means more arcsec per pixel
 # Cells 1 and 3 plot S itself, whose sign is the residual convention: their "+ppm" is a scale
 # that is physically SMALLER. To sit in that set the same quantity is plotted here, and the box
 # states both readings so the sign cannot be misread.
@@ -401,41 +354,19 @@ C2[0, 0] = S2 ** 2                                  # carry the bootstrap sigma 
 RHO = C2[0, 1] / np.sqrt(C2[0, 0] * C2[1, 1])
 SCALE_PPM = 1e6 * BRK_SIG                           # the imported scale's own uncertainty
 C1 = np.array([[S1 ** 2 + S1_SCALE ** 2, -S1_SCALE * SCALE_PPM], [-S1_SCALE * SCALE_PPM, SCALE_PPM ** 2]])
-fig, ax = plt.subplots(figsize=(9.5, 7))
-
-
-def draw(cov, mu, color, name):
-    vals, vecs = np.linalg.eigh(cov)
-    ang = np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1]))
-    ax.add_patch(Ellipse(mu, 2 * np.sqrt(vals[1]), 2 * np.sqrt(vals[0]), angle=ang,
-                         fill=False, color=color, lw=1.6, label='1$\sigma$ — %s' % name))
-    ax.scatter(*mu, marker='+', s=110, color=color, zorder=5)
-
-
-draw(C1, np.array([L1, 0.0]), 'darkred', 'Method 1 (scale imported; stat + scale)')
-draw(C2, np.array([L2, Y2]), 'tab:blue', 'Method 2 (scale free)')
-ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
-ax.axvline(NEWTON, color='orange', lw=1.5, ls='--', label='Newton 0.876"')
 _tot1 = float(np.hypot(np.sqrt(C1[0, 0]), ATM_ERR))
-_lines = [('Method 1:  L = %.3f $\pm$ %.3f" (stat %.3f + scale %.3f)' % (L1, np.sqrt(C1[0, 0]), S1, S1_SCALE), 'darkred'),
-          ('      $\pm$ %.3f" with the atmosphere term %.2f' % (_tot1, ATM_ERR), 'darkred'),
-          ('Method 2:  L = %.3f $\pm$ %.3f" (stat), $\pm$%.3f" with atmosphere' % (L2, S2, TOT2), 'tab:blue'),
+_lines = [('Method 1:  L = %.3f $\\pm$ %.3f" (stat %.3f + scale %.3f)' % (L1, np.sqrt(C1[0, 0]), S1, S1_SCALE), 'darkred'),
+          ('      $\\pm$ %.3f" with the atmosphere term %.2f' % (_tot1, ATM_ERR), 'darkred'),
+          ('Method 2:  L = %.3f $\\pm$ %.3f" (stat), $\\pm$%.3f" with atmosphere' % (L2, S2, TOT2), 'tab:blue'),
           ('      scale %+.1f ppm from imported (%.7f "/px, %+.0f ppm in "/px)' % (Y2, joint, JOINT_PPM), 'tab:blue'),
           ('      correlation L vs scale = %+.2f' % RHO, 'tab:blue'),
           ('Imported plate scale: %.7f "/px' % IMPORTED, 'black'),
-          ('      (the L/R bracket mean, $\pm$%.1f ppm from its own fits)' % SCALE_PPM, 'black'),
+          ('      (the L/R bracket mean, $\\pm$%.1f ppm from its own fits)' % SCALE_PPM, 'black'),
           ('from %d observations of %d stars, both tiers pooled, one shared scale' % (len(D2), D2.ID.nunique()), 'black')]
-_box = AnchoredOffsetbox(loc='lower left', pad=0.45, borderpad=0.6, frameon=True,
-                         child=VPacker(children=[TextArea(x, textprops=dict(color=col, size=9.5))
-                                                 for x, col in _lines], pad=0, sep=3, align='left'),
-                         bbox_to_anchor=(0.0, 0.0), bbox_transform=ax.transAxes)
-_box.patch.set(facecolor='white', edgecolor='gray', linewidth=0.9); _box.set_zorder(6)
-ax.add_artist(_box)
-ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
-ax.set_ylabel('Plate scale (ppm difference from imported value)', fontsize=12)
-ax.set_title('L and plate scale — Mexico 2024 Station 2, G $\leq$ 13, both tiers, one scale', fontsize=12)
-ax.legend(fontsize=9, loc='upper right')
-ax.autoscale_view(); ax.margins(0.15)
+fig, ax = covariance_chart(C1, (L1, 0.0), C2, (L2, Y2), _lines,
+                           'L and plate scale — Mexico 2024 Station 2, G $\\leq$ 13, both tiers, one scale',
+                           newton=True, newton_lw=1.5,
+                           name1='Method 1 (scale imported; stat + scale)', name2='Method 2 (scale free)')
 save(fig, 'record_covariance.png')
 print('covariance: Method 2 rho %+.2f, joint scale %.7f; Method 1 imported %.7f' % (RHO, joint, IMPORTED))
 
@@ -450,8 +381,7 @@ for tag, lab, _ in TIERS:
     zz = glob.glob(os.path.join(OUT, 'eclipse', tag, 'centroid_data*.zip'))
     nfr = json.load(zipfile.ZipFile(zz[0]).open('results.txt')).get('#frames stacked') if zz else '?'
     img = pyfits.getdata(stk[-1]).astype(np.float32)
-    lo, hi = np.percentile(img, [5, 99.5])
-    disp = np.arcsinh((np.clip(img, lo, hi) - lo) / max(hi - lo, 1) * 30)
+    disp = arcsinh_stretch(img)
     fig, ax = plt.subplots(figsize=(11.5, 8))
     ax.imshow(disp, cmap='gray', origin='upper', interpolation='nearest')
     dt = D2[D2.tier == tag]

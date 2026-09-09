@@ -67,13 +67,17 @@ Revision 3 (2026-09-02, same evening):
     one of them did -- which is a picture of the rule itself. They are drawn from the
     aligned raw stacks written by `tools/step3_tier_stacks.py`.
 """
-import glob, json, os, shutil
+import glob, json, os, shutil, sys
 import numpy as np, pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Ellipse, Polygon, FancyBboxPatch
-from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
+from matplotlib.patches import Circle
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, bar_frame,
+                                 covariance_chart, field_chart as draw_field, reference_curves,
+                                 scale_bars)
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from astropy.time import Time
 import astropy.units as u
@@ -97,30 +101,13 @@ try:
 except Exception:
     ATM_RMS, ATM_MAX = float('nan'), float('nan')
 
-ax_ = np.array(meta['affine_ax']); ay_ = np.array(meta['affine_ay'])
-ra0, de0 = meta['affine_ra0'], meta['affine_de0']
-Minv = np.linalg.inv(np.array([[ax_[0], ax_[1]], [ay_[0], ay_[1]]]))
-
-
-def save(fig, name):
-    fig.savefig(os.path.join(OUT, name), dpi=140)
-    fig.savefig(os.path.join(VER, REV + '_' + name), dpi=140)
-    plt.close(fig)
-
-
-def px_to_sky(px, py):
-    v = Minv @ np.vstack([np.asarray(px, float) - ax_[2], np.asarray(py, float) - ay_[2]])
-    return ra0 + v[0]/np.cos(np.radians(de0)), de0 + v[1]
-
-
-def sensor_vec_to_sky(dx_as, dy_as):
-    """Sensor-axis displacement (arcsec) -> (arcsec of RA*cos(dec), arcsec of Dec)."""
-    v = Minv @ np.vstack([np.asarray(dx_as, float)/PS, np.asarray(dy_as, float)/PS])
-    return v[0]*3600, v[1]*3600
-
-
-_rt = np.hypot(*sensor_vec_to_sky(np.array([1.0]), np.array([0.0])))[0]
-assert abs(_rt - 1.0) < 0.01, 'a 1 arcsec sensor displacement maps to %.3f arcsec' % _rt
+# the sky frame: the shared construction (tools/record_charts.py), rebuilt from the affine the
+# union stored; a unit sensor displacement is asserted to round-trip there
+SF = SkyFrame.from_affine(meta['affine_ax'], meta['affine_ay'], meta['affine_ra0'],
+                          meta['affine_de0'], PS)
+px_to_sky, sensor_vec_to_sky, de0 = SF.px_to_sky, SF.sensor_vec_to_sky, SF.de0
+_writer = ChartWriter(OUT, REV, ver=VER)
+save = _writer.save
 
 
 def load(name):
@@ -221,12 +208,9 @@ def deflection_chart(table_csv, fname, title, nuis_deg=2, two_witness=True):
                     % (t.mag.values[k], resid[k]/rms, nt, '' if nt == 1 else 's'),
                     (R_[k]/R_SUN_AS, rad[k]), fontsize=7.5, color='crimson')
     xx = np.linspace(1.9, (R_/R_SUN_AS).max()+0.3, 300)
-    ax.fill_between(xx, (L-tot)/xx, (L+tot)/xx, color='black', alpha=0.10,
-                    label='total $\\pm$%.2f" (stat %.2f + scale %.2f + atm %.2f)'
-                          % (tot, se_stat, scale_err, ATM_ERR))
-    ax.plot(xx, L/xx, color='black', lw=2.2, label='Method 1 fit:  L = %.3f"' % L)
-    ax.plot(xx, GR/xx, color='green', lw=1.5, label='Einstein  1.751"')
-    ax.plot(xx, NEWTON/xx, color='orange', lw=1.5, ls='--', label='Newton  0.876"')
+    reference_curves(ax, xx, L, tot, 'Method 1 fit:  L = %.3f"' % L,
+                     'total $\\pm$%.2f" (stat %.2f + scale %.2f + atm %.2f)'
+                     % (tot, se_stat, scale_err, ATM_ERR))
     ax.set_xlabel('radial position (solar radii)', fontsize=13)
     ax.set_ylabel('radial deflection (arcsec, outward positive)', fontsize=13)
     ax.set_title(title, fontsize=12)
@@ -304,7 +288,7 @@ def altaz_basis():
                      ('az', dict(alt=aa.alt, az=aa.az + 0.05*u.deg/np.cos(aa.alt)))):
         p = SkyCoord(AltAz(obstime=T_SCI, location=SITE, **off)).icrs
         dv = np.array([(p.ra.deg - fc.ra.deg)*np.cos(np.radians(de0)), p.dec.deg - fc.dec.deg])
-        v = np.array([dv @ ax_[:2], dv @ ay_[:2]])          # sky degrees -> sensor pixels
+        v = SF.sky_to_px_dir(dv[0], dv[1])                  # sky degrees -> sensor pixels
         out[key] = v/np.linalg.norm(v)
     return out['alt'], out['az'], float(aa.alt.deg), float(aa.az.deg)
 
@@ -328,49 +312,23 @@ def field_chart(dxv, dyv, fname, title, caption, scatter_label):
     v_alt = dxv*E_ALT[0] + dyv*E_ALT[1]
     v_az = dxv*E_AZ[0] + dyv*E_AZ[1]
     fig, ax = plt.subplots(figsize=(11.5, 8))
-    ax.add_patch(Polygon(np.c_[caz, calt], fill=False, color='gray', lw=1.2,
-                         label='sensor footprint'))
-    ends_az, ends_alt = [], []
-    for k in range(n):
-        x0, y0 = saz[k], salt[k]
-        x1 = x0 + v_az[k]*ARROW_DEG/COSA
-        y1 = y0 + v_alt[k]*ARROW_DEG
-        ends_az.append(x1); ends_alt.append(y1)
-        ax.annotate('', xy=(x1, y1), xytext=(x0, y0),
-                    arrowprops=dict(arrowstyle='-|>,head_width=0.22,head_length=0.45',
-                                    color='tab:blue', lw=1.5, shrinkA=0, shrinkB=0))
-        ax.annotate('%.1f' % tab.mag.values[k], (x0 + 0.010, y0), fontsize=6.5, color='black')
-    ax.scatter(saz, salt, s=22, color='tab:blue', zorder=5,
-               label='0.6+1.2 s union (%d stars)' % n)
-    ax.add_patch(Ellipse((float(sunaz[0]), float(sunalt[0])), 2*R_SUN_AS/3600/COSA,
-                         2*R_SUN_AS/3600, color='black', zorder=3,
-                         label='the Sun, 1 R$_\\odot$ to scale'))
-    lo_az = min(caz.min(), min(ends_az)) - 0.10
-    hi_az = max(caz.max(), max(ends_az)) + 0.10
-    lo_alt = min(calt.min(), min(ends_alt)) - 0.08
-    hi_alt = max(calt.max(), max(ends_alt)) + 0.08
-    for x1, y1 in zip(ends_az, ends_alt):
-        assert lo_az < x1 < hi_az and lo_alt < y1 < hi_alt, 'an arrow leaves the axes'
-    ax.set_xlim(lo_az, hi_az); ax.set_ylim(lo_alt, hi_alt)
-    ax.set_aspect(1/COSA)
-    ax.set_xlabel('azimuth (degrees, increasing to the right as seen by the observer)',
-                  fontsize=12)
-    ax.set_ylabel('altitude (degrees)', fontsize=12)
-    ax.set_title(title, fontsize=12)
+    lo_az, hi_az, _, _ = draw_field(
+        ax, saz, salt, v_az, v_alt, (caz, calt),
+        (float(sunaz[0]), float(sunalt[0]), R_SUN_AS/3600), ARROW_DEG, COSA,
+        groups=[(np.ones(n, bool), dict(s=22, color='tab:blue',
+                                        label='0.6+1.2 s union (%d stars)' % n))],
+        arrow_color='tab:blue', arrow_lw=1.5,
+        point_labels=(['%.1f' % m for m in tab.mag.values], 0.010, 'black', 6.5),
+        pad=(0.10, 0.08), sun_ellipse_ratio=COSA,
+        xlabel='azimuth (degrees, increasing to the right as seen by the observer)',
+        ylabel='altitude (degrees)', title=title)
     fig.text(0.06, 0.020, caption, fontsize=9)
     ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.75))
-    bar_deg = ARROW_DEG/COSA
     sc = float(np.sqrt(np.mean(dxv**2 + dyv**2)))
-    for y_fr, ln, txt in ((0.44, 1.0, '1 arcsec of displacement'),
-                          (0.34, sc, '%s (%.2f")' % (scatter_label, sc))):
-        xa, ya = 1.04, y_fr
-        ax.annotate('', xy=(xa + ln*bar_deg/(hi_az-lo_az), ya), xytext=(xa, ya),
-                    xycoords='axes fraction', textcoords='axes fraction',
-                    arrowprops=dict(arrowstyle='-', color='black', lw=3))
-        ax.annotate(txt, (xa, ya + 0.028), xycoords='axes fraction', fontsize=8)
-    ax.add_patch(FancyBboxPatch((1.02, 0.29), 0.34, 0.22, boxstyle='round,pad=0.012',
-                                transform=ax.transAxes, fill=False, color='gray', lw=0.9,
-                                clip_on=False))
+    scale_bars(ax, ((0.44, 1.0, '1 arcsec of displacement'),
+                    (0.34, sc, '%s (%.2f")' % (scatter_label, sc))),
+               ARROW_DEG, COSA, hi_az - lo_az)
+    bar_frame(ax, (1.02, 0.29, 0.34, 0.22))
     fig.subplots_adjust(right=0.72, bottom=0.13)
     save(fig, fname)
     print('%s: vertical rms %.3f", horizontal rms %.3f" (V/H %.1f), arrows %.2f-%.2f"'
@@ -404,21 +362,6 @@ mu1 = np.array([L1, 0.0])
 C2 = np.array([[cov2[iL2, iL2], cov2[iL2, iS2]*1e6], [cov2[iS2, iL2]*1e6, cov2[iS2, iS2]*1e12]])
 mu2 = np.array([L2, 1e6*c2[iS2]])
 tot1 = float(np.hypot(np.sqrt(C1[0, 0]), ATM_ERR))
-fig, ax = plt.subplots(figsize=(9.5, 7))
-
-
-def draw(cov, mu, color, name):
-    vals, vecs = np.linalg.eigh(cov)
-    ang = np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1]))
-    ax.add_patch(Ellipse(mu, 2*np.sqrt(vals[1]), 2*np.sqrt(vals[0]), angle=ang, fill=False,
-                         color=color, lw=1.6, label='1$\\sigma$ \u2014 %s' % name))
-    ax.scatter(*mu, marker='+', s=110, color=color, zorder=5)
-
-
-draw(C1, mu1, 'darkred', 'Method 1 (scale imported; stat + scale)')
-draw(C2, mu2, 'tab:blue', 'Method 2 (scale free)')
-ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
-ax.axvline(NEWTON, color='orange', lw=1.2, ls='--', label='Newton 0.876"')
 # the text box: each entry wraps onto a second, indented line, and the frame is packed
 # around the text rather than given a hand-guessed size -- the hand-sized box of revision 1
 # was too small for its own contents (Douglas, 2026-09-02)
@@ -433,20 +376,9 @@ BOXLINES = [
     ('Scale leverage measured by injection:', 'black'),
     ('      %+.4f "/ppm  (naive eq-23: %.4f "/ppm)' % (g, rec['h']*R_SUN_AS*1e-6), 'black'),
 ]
-_pack = VPacker(children=[TextArea(t, textprops=dict(color=c, size=9.5))
-                          for t, c in BOXLINES], pad=0, sep=3, align='left')
-_box = AnchoredOffsetbox(loc='lower left', child=_pack, pad=0.45, borderpad=0.6,
-                         frameon=True, bbox_to_anchor=(0.0, 0.0),
-                         bbox_transform=ax.transAxes)
-_box.patch.set(facecolor='white', edgecolor='gray', linewidth=0.9, alpha=1.0)
-_box.set_zorder(6)
-ax.add_artist(_box)
-ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
-ax.set_ylabel('Plate scale (ppm difference from imported value)', fontsize=12)
-ax.set_title('L and plate scale \u2014 ' + TITLE, fontsize=12)
-ax.legend(fontsize=9, loc='upper right')
-ax.autoscale_view()
-ax.margins(0.15)
+fig, ax = covariance_chart(C1, mu1, C2, mu2, BOXLINES, 'L and plate scale \u2014 ' + TITLE,
+                           newton=True, newton_lw=1.2,
+                           name1='Method 1 (scale imported; stat + scale)', box_alpha=1.0)
 save(fig, 'record_covariance.png')
 print('covariance: M1 L=%.3f +- %.3f (stat+scale), tot %.3f; M2 L=%.3f +- %.3f, scale %+.1f ppm'
       % (L1, np.sqrt(C1[0, 0]), tot1, L2, np.sqrt(C2[0, 0]), mu2[1]), flush=True)
@@ -485,8 +417,7 @@ def tier_figure(tier, exp_label):
     den = gaussian_filter(valid.astype(np.float64), 10.0)
     model = np.where(den > 0.05, num/np.maximum(den, 1e-9), 65535.0)
     sub = img - model
-    lo, hi = np.percentile(sub, [5, 99.5])
-    disp = np.arcsinh((np.clip(sub, lo, hi) - lo)/max(hi - lo, 1)*30)
+    disp = arcsinh_stretch(sub)
 
     inmine = allmatch.tiers.str.contains(tier).values
     both = inmine & (allmatch.ntier.values >= 2)

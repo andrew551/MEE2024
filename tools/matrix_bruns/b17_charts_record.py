@@ -41,13 +41,17 @@ Seventh revision items retained:
     close-in pair and the 14 shared stars; master062 shows every identified star of
     the reduction and none of the spurious detections.
 """
-import glob, json, os, zipfile
+import glob, json, os, sys, zipfile
 import numpy as np, pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Ellipse, Polygon, FancyBboxPatch
-from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
+from matplotlib.patches import Circle
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, bar_frame,
+                                 covariance_chart, field_chart as draw_field, reference_curves,
+                                 scale_bars)
 
 OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
 VER = os.path.join(OUT, 'chart_versions')
@@ -78,10 +82,8 @@ SCALE_PPM = 9.23e-6
 ATM_ERR = 0.059
 
 
-def save(fig, name):
-    fig.savefig(os.path.join(OUT, name), dpi=140)
-    fig.savefig(os.path.join(VER, REV + '_' + name), dpi=140)
-    plt.close(fig)
+_writer = ChartWriter(OUT, REV, ver=VER)
+save = _writer.save
 
 
 # ---- shared machinery
@@ -90,35 +92,11 @@ zh = zipfile.ZipFile(glob.glob(os.path.join(OUT, 'master062', 'stage2',
 dh = pd.read_csv(zh.open([m for m in zh.namelist()
                           if m.endswith('CATALOGUE_MATCHED_ERRORS.csv')][0]))
 dh.columns = [c.strip() for c in dh.columns]
-ra0, de0 = dh['RA(catalog)'].mean(), dh['DEC(catalog)'].mean()
-Xa = (dh['RA(catalog)'].values-ra0)*np.cos(np.radians(de0))
-Ya = dh['DEC(catalog)'].values-de0
-Aa = np.c_[Xa, Ya, np.ones_like(Xa)]
-ax_, *_ = np.linalg.lstsq(Aa, dh['px'].values, rcond=None)
-ay_, *_ = np.linalg.lstsq(Aa, dh['py'].values, rcond=None)
-Minv = np.linalg.inv(np.array([[ax_[0], ax_[1]], [ay_[0], ay_[1]]]))
-
-
-def px_to_sky(px, py):
-    v = Minv @ np.vstack([np.asarray(px, float) - ax_[2], np.asarray(py, float) - ay_[2]])
-    return ra0 + v[0]/np.cos(np.radians(de0)), de0 + v[1]
-
-
-def sensor_vec_to_sky(dx_as, dy_as):
-    """Sensor-axis displacement (arcsec) -> sky displacement (arcsec of RA*cos(dec), Dec).
-
-    Revision 10: this returned v*3600*PS, i.e. arcsec multiplied by the plate scale, so
-    every arrow on the field chart was drawn 2.087x longer than the "1 arcsec" bar beside
-    it (the runtime assertion only checked that arrows stayed inside the axes, not their
-    scale). Found while copying the construction for Leon; the round-trip check below
-    now fails the script if a unit sensor displacement does not come back as one arcsec.
-    """
-    v = Minv @ np.vstack([np.asarray(dx_as, float)/PS, np.asarray(dy_as, float)/PS])
-    return v[0]*3600, v[1]*3600
-
-
-_rt = np.hypot(*sensor_vec_to_sky(np.array([1.0]), np.array([0.0])))[0]
-assert abs(_rt - 1.0) < 0.01, 'a 1 arcsec sensor displacement maps to %.3f arcsec' % _rt
+# the sky frame: the shared construction (tools/record_charts.py), fitted on the matched
+# stars of the 0.62 s master; a unit sensor displacement is asserted to round-trip there
+SF = SkyFrame.from_stars(dh['RA(catalog)'].values, dh['DEC(catalog)'].values,
+                         dh['px'].values, dh['py'].values, PS)
+px_to_sky, sensor_vec_to_sky, de0 = SF.px_to_sky, SF.sensor_vec_to_sky, SF.de0
 
 
 def load(name):
@@ -180,12 +158,9 @@ def deflection_chart(table_csv, fname, title, se_stat):
         ax.annotate('  G %.2f (%+.1f$\\sigma$)' % (t.mag.values[k], resid[k]/rms),
                     (R_[k]/R_SUN_AS, rad[k]), fontsize=7.5, color='crimson')
     xx = np.linspace(1.35, (R_/R_SUN_AS).max()+0.3, 300)
-    ax.fill_between(xx, (L-tot)/xx, (L+tot)/xx, color='black', alpha=0.10,
-                    label='total $\\pm$%.2f" (stat %.3f + scale %.3f + atm %.3f)'
-                          % (tot, se_stat, scale_err, ATM_ERR))
-    ax.plot(xx, L/xx, color='black', lw=2.2, label='Method 1 fit:  L = %.3f"' % L)
-    ax.plot(xx, GR/xx, color='green', lw=1.5, label='Einstein  1.751"')
-    ax.plot(xx, NEWTON/xx, color='orange', lw=1.5, ls='--', label='Newton  0.876"')
+    reference_curves(ax, xx, L, tot, 'Method 1 fit:  L = %.3f"' % L,
+                     'total $\\pm$%.2f" (stat %.3f + scale %.3f + atm %.3f)'
+                     % (tot, se_stat, scale_err, ATM_ERR))
     ax.set_xlabel('radial position (solar radii)', fontsize=13)
     ax.set_ylabel('radial deflection (arcsec, outward positive)', fontsize=13)
     ax.set_title(title, fontsize=12)
@@ -231,62 +206,30 @@ fig, ax = plt.subplots(figsize=(11.5, 8))
 sra, sdec = px_to_sky(tab.px.values, tab.py.values)
 vra, vdec = sensor_vec_to_sky(dxc, dyc)
 ARROW_DEG = 0.17
-corners = px_to_sky(np.array([0, NX, NX, 0]), np.array([0, 0, NY, NY]))
-ax.add_patch(Polygon(np.c_[corners[0], corners[1]], fill=False, color='gray', lw=1.2,
-                     label='sensor footprint'))
-ends_ra, ends_de = [], []
-for k in range(n):
-    col = 'tab:red' if linked[k] else 'tab:blue'
-    x0, y0 = sra[k], sdec[k]
-    x1 = x0 + vra[k]*ARROW_DEG/np.cos(np.radians(de0))
-    y1 = y0 + vdec[k]*ARROW_DEG
-    ends_ra.append(x1); ends_de.append(y1)
-    ax.annotate('', xy=(x1, y1), xytext=(x0, y0),
-                arrowprops=dict(arrowstyle='-|>,head_width=0.22,head_length=0.45',
-                                color=col, lw=1.5, shrinkA=0, shrinkB=0))
-    # the linked pair's markers are large diamonds, so their labels need clearing
-    dx_lab = 0.030 if linked[k] else 0.008
-    ax.annotate('%.1f' % tab.mag.values[k], (x0 + dx_lab, y0), fontsize=6.5,
-                color=('tab:red' if linked[k] else 'black'))
-ax.scatter(sra[~linked], sdec[~linked], s=22, color='tab:blue', zorder=5,
-           label='0.62 s master (%d stars)' % int((~linked).sum()))
-ax.scatter(sra[linked], sdec[linked], s=70, marker='D', color='tab:red', zorder=5,
-           label='0.09 s master, linked (2)')
 sun_ra, sun_dec = px_to_sky(np.array([SUNPX]), np.array([SUNPY]))
-ax.add_patch(Circle((float(sun_ra[0]), float(sun_dec[0])), R_SUN_AS/3600, color='black',
-                    zorder=3, label='the Sun, 1 R$_\\odot$ to scale'))
-lo_ra = min(min(corners[0]), min(ends_ra)) - 0.06
-hi_ra = max(max(corners[0]), max(ends_ra)) + 0.06
-lo_de = min(min(corners[1]), min(ends_de)) - 0.05
-hi_de = max(max(corners[1]), max(ends_de)) + 0.05
-for x1, y1 in zip(ends_ra, ends_de):
-    assert lo_ra < x1 < hi_ra and lo_de < y1 < hi_de, 'an arrow leaves the axes'
-ax.set_xlim(lo_ra, hi_ra); ax.set_ylim(lo_de, hi_de)
-ax.set_aspect(1/np.cos(np.radians(de0)))
-ax.set_xlabel('RA (degrees)', fontsize=12)
-ax.set_ylabel('DEC (degrees)', fontsize=12)
-ax.set_title('Displacement vectors \u2014 Bruns 2017, G $\\leq$ 11, 14-star link', fontsize=12)
+# the linked pair's markers are large diamonds, so their labels need clearing
+lo_ra, hi_ra, _, _ = draw_field(
+    ax, sra, sdec, vra, vdec, SF.corners(NX, NY),
+    (float(sun_ra[0]), float(sun_dec[0]), R_SUN_AS/3600), ARROW_DEG, SF.cos0,
+    groups=[(~linked, dict(s=22, color='tab:blue',
+                           label='0.62 s master (%d stars)' % int((~linked).sum()))),
+            (linked, dict(s=70, marker='D', color='tab:red', label='0.09 s master, linked (2)'))],
+    arrow_color=['tab:red' if l else 'tab:blue' for l in linked], arrow_lw=1.5,
+    point_labels=(['%.1f' % m for m in tab.mag.values], np.where(linked, 0.030, 0.008),
+                  ['tab:red' if l else 'black' for l in linked], 6.5),
+    pad=(0.06, 0.05), title='Displacement vectors \u2014 Bruns 2017, G $\\leq$ 11, 14-star link')
 fig.text(0.06, 0.020, 'each arrow = the star\u2019s measured shift after subtracting the '
          'camera\u2019s pointing offset and rotation; deflection + measurement noise remain',
          fontsize=9)
 ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.75))
-bar_deg = ARROW_DEG/np.cos(np.radians(de0))
-from matplotlib.patches import FancyBboxPatch
-for y_fr, ln, txt in ((0.44, 1.0, '1 arcsec of displacement'),
-                      (0.34, star_rms, 'per-star scatter (%.2f")' % star_rms)):
-    xa, ya = 1.04, y_fr
-    ax.annotate('', xy=(xa + ln*bar_deg/(hi_ra-lo_ra), ya), xytext=(xa, ya),
-                xycoords='axes fraction', textcoords='axes fraction',
-                arrowprops=dict(arrowstyle='-', color='black', lw=3))
-    ax.annotate(txt, (xa, ya + 0.028), xycoords='axes fraction', fontsize=8)
-ax.add_patch(FancyBboxPatch((1.02, 0.29), 0.30, 0.22, boxstyle='round,pad=0.012',
-                            transform=ax.transAxes, fill=False, color='gray', lw=0.9,
-                            clip_on=False))
+scale_bars(ax, ((0.44, 1.0, '1 arcsec of displacement'),
+                (0.34, star_rms, 'per-star scatter (%.2f")' % star_rms)),
+           ARROW_DEG, SF.cos0, hi_ra - lo_ra)
+bar_frame(ax, (1.02, 0.29, 0.30, 0.22))
 fig.subplots_adjust(right=0.74, bottom=0.13)
 save(fig, 'record_field.png')
 
 # ---- L and plate scale, annotations pinned in axes coordinates
-fig, ax = plt.subplots(figsize=(9.5, 7))
 pc = h*R_SUN_AS*SCALE_PPM
 C1 = np.array([[sL1**2 + pc**2, -pc*SCALE_PPM*1e6], [-pc*SCALE_PPM*1e6, (SCALE_PPM*1e6)**2]])
 mu1 = np.array([L1, 0.0])
@@ -294,19 +237,6 @@ iL2, iS2 = l2.index('L'), l2.index('S')
 C2 = np.array([[cov2[iL2, iL2], cov2[iL2, iS2]*1e6],
                [cov2[iS2, iL2]*1e6, cov2[iS2, iS2]*1e12]])
 mu2 = np.array([L2, 1e6*c2[iS2]])
-
-
-def draw(cov, mu, color, name):
-    vals, vecs = np.linalg.eigh(cov)
-    ang = np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1]))
-    ax.add_patch(Ellipse(mu, 2*np.sqrt(vals[1]), 2*np.sqrt(vals[0]), angle=ang,
-                         fill=False, color=color, lw=1.6, label='1$\\sigma$ \u2014 %s' % name))
-    ax.scatter(*mu, marker='+', s=110, color=color, zorder=5)
-
-
-draw(C1, mu1, 'darkred', 'Method 1 (scale imported)')
-draw(C2, mu2, 'tab:blue', 'Method 2 (scale free)')
-ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
 # the box is packed around its own text rather than hand-sized, as the Leon chart's is
 _tot1 = float(np.hypot(np.sqrt(C1[0, 0]), ATM_ERR))
 _lines = [('Method 1:  L = %.3f $\\pm$ %.3f" (stat + scale)' % (L1, np.sqrt(C1[0, 0])), 'darkred'),
@@ -315,19 +245,9 @@ _lines = [('Method 1:  L = %.3f $\\pm$ %.3f" (stat + scale)' % (L1, np.sqrt(C1[0
           ('      scale %+.1f ppm from imported' % mu2[1], 'tab:blue'),
           ('Imported plate scale: %.7f "/px' % PS, 'black'),
           ('      (the L+R8 bracket, $\\pm$%.1f ppm HC3-class)' % (SCALE_PPM*1e6), 'black')]
-_pack = VPacker(children=[TextArea(t, textprops=dict(color=c, size=9.5)) for t, c in _lines],
-                pad=0, sep=3, align='left')
-_box = AnchoredOffsetbox(loc='lower left', child=_pack, pad=0.45, borderpad=0.6, frameon=True,
-                         bbox_to_anchor=(0.0, 0.0), bbox_transform=ax.transAxes)
-_box.patch.set(facecolor='white', edgecolor='gray', linewidth=0.9, alpha=1.0)
-_box.set_zorder(6)
-ax.add_artist(_box)
-ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
-ax.set_ylabel('Plate scale (ppm difference from imported value)', fontsize=12)
-ax.set_title('L and plate scale \u2014 Bruns 2017, G $\\leq$ 11, 14-star link', fontsize=12)
-ax.legend(fontsize=9, loc='upper right')
-ax.autoscale_view()
-ax.margins(0.15)
+fig, ax = covariance_chart(C1, mu1, C2, mu2, _lines,
+                           'L and plate scale \u2014 Bruns 2017, G $\\leq$ 11, 14-star link',
+                           newton=False, box_alpha=1.0)
 print('covariance: M1 stat %.4f (bootstrap, quoted) vs %.4f (analytic fit); scale %.4f; '
       'tot with atmosphere %.3f' % (sL1, sL1_analytic, pc, _tot1))
 save(fig, 'record_covariance.png')
@@ -360,8 +280,7 @@ def natural_master(patterns, cache):
 
 
 def master_figure(img, circles, fname, title):
-    lo, hi = np.percentile(img, [5, 99.5])
-    disp = np.arcsinh((np.clip(img, lo, hi) - lo)/max(hi - lo, 1)*30)
+    disp = arcsinh_stretch(img)
     fig, ax = plt.subplots(figsize=(11.5, 8))
     ax.imshow(disp, cmap='gray', origin='upper', interpolation='nearest')
     handles = []

@@ -70,13 +70,17 @@ under chart_versions/<rev>_*, and superseded revisions are never deleted.
 Set MX24_COPY_RECORD=1 to also copy the record set into RECORD/mexico2024/ (older charts there
 are moved into a dated superseded/ folder, not deleted).
 """
-import glob, json, os, shutil, zipfile
+import glob, json, os, shutil, sys, zipfile
 import numpy as np, pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Ellipse, Polygon
-from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
+from matplotlib.patches import Circle
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, covariance_chart_single,
+                                 field_chart as draw_field, joint_plate_scale, reference_curves,
+                                 scale_bars)
 
 REV = 'rev05'
 REC = r"D:/MEE2024 output/MEE_output/station1_record"
@@ -110,10 +114,8 @@ def _sci(v, digits=1):
     return '%.*f$\\times$10$^{%d}$' % (digits, v/10.0**e, e)
 
 
-def save(fig, name):
-    fig.savefig(os.path.join(OUT, name), dpi=140)
-    fig.savefig(os.path.join(VER, REV + '_' + name), dpi=140)
-    plt.close(fig)
+_writer = ChartWriter(OUT, REV, ver=VER)
+save = _writer.save
 
 
 # ---------------------------------------------------------------- the rows and the fit
@@ -136,28 +138,10 @@ print('%d observations of %d stars; L = %.3f +- %.3f (stat), total +-%.3f'
       % (len(t), t.key.nunique(), L, SE_STAT, TOT))
 
 # ---------------------------------------------------------------- sky frame
-ra0, de0 = t.ra.mean(), t.dec.mean()
-Xa = (t.ra.values-ra0)*np.cos(np.radians(de0))
-Ya = t.dec.values-de0
-Aa = np.c_[Xa, Ya, np.ones_like(Xa)]
-ax_, *_ = np.linalg.lstsq(Aa, t.px.values, rcond=None)
-ay_, *_ = np.linalg.lstsq(Aa, t.py.values, rcond=None)
-Minv = np.linalg.inv(np.array([[ax_[0], ax_[1]], [ay_[0], ay_[1]]]))
-
-
-def px_to_sky(px, py):
-    v = Minv @ np.vstack([np.asarray(px, float) - ax_[2], np.asarray(py, float) - ay_[2]])
-    return ra0 + v[0]/np.cos(np.radians(de0)), de0 + v[1]
-
-
-def sensor_vec_to_sky(dx_as, dy_as):
-    """Sensor-axis displacement (arcsec) -> sky displacement (arcsec of RA*cos(dec), Dec)."""
-    v = Minv @ np.vstack([np.asarray(dx_as, float)/PS, np.asarray(dy_as, float)/PS])
-    return v[0]*3600, v[1]*3600
-
-
-_rt = np.hypot(*sensor_vec_to_sky(np.array([1.0]), np.array([0.0])))[0]
-assert abs(_rt - 1.0) < 0.01, 'a 1 arcsec sensor displacement maps to %.3f arcsec' % _rt
+# The shared construction (tools/record_charts.py): an affine from catalogue RA/DEC to pixels,
+# fitted on the matched stars and inverted; a unit sensor displacement asserted to round-trip.
+SF = SkyFrame.from_stars(t.ra.values, t.dec.values, t.px.values, t.py.values, PS)
+px_to_sky, sensor_vec_to_sky, de0 = SF.px_to_sky, SF.sensor_vec_to_sky, SF.de0
 
 
 # ---------------------------------------------------------------- 1. deflection vs radius
@@ -183,12 +167,9 @@ def deflection_chart(d, fname, title, note, unit='obs', colour_by='block', legen
     resid = d.rad.values - L*d.RS.values/d.R.values
     rms = float(np.sqrt(np.mean(resid**2)))
     xx = np.linspace(1.85, d.Rsun.max()+0.4, 300)
-    band = ax.fill_between(xx, (L-TOT)/xx, (L+TOT)/xx, color='black', alpha=0.10,
-                           label='total $\\pm$%.2f" (stat %.3f + atmosphere %.2f)'
-                                 % (TOT, SE_STAT, ATM_ERR))
-    ln1, = ax.plot(xx, L/xx, color='black', lw=2.2, label='pooled Method 2:  L = %.3f"' % L)
-    ln2, = ax.plot(xx, GR/xx, color='green', lw=1.5, label='Einstein  1.751"')
-    ln3, = ax.plot(xx, NEWTON/xx, color='orange', lw=1.5, ls='--', label='Newton  0.876"')
+    band, ln1, ln2, ln3 = reference_curves(
+        ax, xx, L, TOT, 'pooled Method 2:  L = %.3f"' % L,
+        'total $\\pm$%.2f" (stat %.3f + atmosphere %.2f)' % (TOT, SE_STAT, ATM_ERR))
     ax.set_xlabel('radial position (solar radii)', fontsize=13)
     ax.set_ylabel('radial deflection (arcsec, outward positive)', fontsize=13)
     ax.set_title(title, fontsize=12)
@@ -240,53 +221,25 @@ fig, ax = plt.subplots(figsize=(11.5, 8))
 sra, sdec = px_to_sky(u.px.values, u.py.values)
 vra, vdec = sensor_vec_to_sky(u.vx.values, u.vy.values)
 ARROW_DEG = 0.40
-corners = px_to_sky(np.array([0, NX, NX, 0]), np.array([0, 0, NY, NY]))
-ax.add_patch(Polygon(np.c_[corners[0], corners[1]], fill=False, color='gray', lw=1.2,
-                     label='sensor footprint'))
-ends_ra, ends_de = [], []
-for k in range(len(u)):
-    x0, y0 = sra[k], sdec[k]
-    x1 = x0 + vra[k]*ARROW_DEG/np.cos(np.radians(de0))
-    y1 = y0 + vdec[k]*ARROW_DEG
-    ends_ra.append(x1); ends_de.append(y1)
-    ax.annotate('', xy=(x1, y1), xytext=(x0, y0),
-                arrowprops=dict(arrowstyle='-|>,head_width=0.20,head_length=0.40',
-                                color=WITNESS_COLOR[int(u.nblk.values[k])], lw=1.2,
-                                shrinkA=0, shrinkB=0))
-for w in (4, 3, 2, 1):
-    k = u.nblk.values == w
-    if k.any():
-        ax.scatter(sra[k], sdec[k], s=20, color=WITNESS_COLOR[w], zorder=5,
-                   label='%s (%d stars)' % (WITNESS_LABEL[w], int(k.sum())))
 sun_ra, sun_dec = px_to_sky(np.array([t.sun_px.mean()]), np.array([t.sun_py.mean()]))
-ax.add_patch(Circle((float(sun_ra[0]), float(sun_dec[0])), t.RS.mean()/3600, color='black',
-                    zorder=3, label='the Sun, 1 R$_\\odot$ to scale'))
-ax.add_patch(Circle((float(sun_ra[0]), float(sun_dec[0])), 2*t.RS.mean()/3600, fill=False,
-                    color='gray', ls='--', lw=1.0, zorder=3, label='2 R$_\\odot$'))
-lo_ra = min(min(corners[0]), min(ends_ra)) - 0.05
-hi_ra = max(max(corners[0]), max(ends_ra)) + 0.05
-lo_de = min(min(corners[1]), min(ends_de)) - 0.05
-hi_de = max(max(corners[1]), max(ends_de)) + 0.05
-for x1, y1 in zip(ends_ra, ends_de):
-    assert lo_ra < x1 < hi_ra and lo_de < y1 < hi_de, 'an arrow leaves the axes'
-ax.set_xlim(lo_ra, hi_ra); ax.set_ylim(lo_de, hi_de)
-ax.set_aspect(1/np.cos(np.radians(de0)))
-ax.set_xlabel('RA (degrees)', fontsize=12)
-ax.set_ylabel('DEC (degrees)', fontsize=12)
-ax.set_title('Displacement vectors (%d stars) \u2014 Mexico 2024 Station 1, pooled fit, '
-             'G $\\leq$ 13' % len(u), fontsize=12)
+lo_ra, hi_ra, _, _ = draw_field(
+    ax, sra, sdec, vra, vdec, SF.corners(NX, NY),
+    (float(sun_ra[0]), float(sun_dec[0]), t.RS.mean()/3600), ARROW_DEG, SF.cos0,
+    groups=[(u.nblk.values == w, dict(s=20, color=WITNESS_COLOR[w],
+                                      label='%s (%d stars)' % (WITNESS_LABEL[w], int((u.nblk.values == w).sum()))))
+            for w in (4, 3, 2, 1)],
+    arrow_color=[WITNESS_COLOR[int(w)] for w in u.nblk.values], arrow_lw=1.2,
+    arrow_style='-|>,head_width=0.20,head_length=0.40', sun_ring2=True, pad=(0.05, 0.05),
+    title='Displacement vectors (%d stars) \u2014 Mexico 2024 Station 1, pooled fit, '
+          'G $\\leq$ 13' % len(u))
 fig.text(0.06, 0.020, 'each arrow = the star\u2019s measured shift after subtracting that '
          'block\u2019s pointing offset, rotation and plate scale; deflection + measurement '
          'noise remain', fontsize=9)
 ax.legend(fontsize=8.5, loc='center left', bbox_to_anchor=(1.01, 0.70))
 star_rms = float(np.sqrt(np.mean(t.res.values**2)))
-bar_deg = ARROW_DEG/np.cos(np.radians(de0))
-for y_fr, ln, txt in ((0.38, 1.0, '1 arcsec of displacement'),
-                      (0.28, star_rms, 'per-observation scatter (%.2f")' % star_rms)):
-    ax.annotate('', xy=(1.04 + ln*bar_deg/(hi_ra-lo_ra), y_fr), xytext=(1.04, y_fr),
-                xycoords='axes fraction', textcoords='axes fraction',
-                arrowprops=dict(arrowstyle='-', color='black', lw=3))
-    ax.annotate(txt, (1.04, y_fr + 0.028), xycoords='axes fraction', fontsize=8)
+scale_bars(ax, ((0.38, 1.0, '1 arcsec of displacement'),
+                (0.28, star_rms, 'per-observation scatter (%.2f")' % star_rms)),
+           ARROW_DEG, SF.cos0, hi_ra - lo_ra)
 fig.subplots_adjust(left=0.07, right=0.76, top=0.94, bottom=0.10)
 save(fig, 'record_field.png')
 
@@ -326,7 +279,7 @@ for b in blocks:
     z = sorted(glob.glob(os.path.join(REC, 'eclipse_corona', b, STAGE2, '**',
                                       'distortion_data*.zip'), recursive=True))[-1]
     ps2[b] = float(json.load(zipfile.ZipFile(z).open('distortion_results.txt'))['platescale (arcseconds/pixel)'])
-joint = float(np.mean([ps2[b] for b in blocks])) - c[iS]*PS
+joint = joint_plate_scale(float(np.mean([ps2[b] for b in blocks])), c[iS], PS)
 sS_scale = np.sqrt(cov[iS, iS])*PS           # the scale's own sigma, in arcsec/px, clustered
 # The ellipse must carry the sigma the record quotes. The fit sigma treats the 583 rows as
 # independent; the record quotes the star bootstrap. Drawing the ellipse from the fit
@@ -334,15 +287,6 @@ sS_scale = np.sqrt(cov[iS, iS])*PS           # the scale's own sigma, in arcsec/
 # had at revision 10 -- so the L axis is rescaled to the bootstrap and the correlation kept.
 C = np.array([[cov[iL, iL], cov[iL, iS]*PS], [cov[iS, iL]*PS, cov[iS, iS]*PS**2]])
 RHO = C[0, 1]/np.sqrt(C[0, 0]*C[1, 1])
-fig, ax = plt.subplots(figsize=(9.5, 7))
-vals, vecs = np.linalg.eigh(C)
-ang = np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1]))
-mu = np.array([c[iL], joint])
-ax.add_patch(Ellipse(mu, 2*np.sqrt(vals[1]), 2*np.sqrt(vals[0]), angle=ang,
-                     fill=False, color='tab:blue', lw=1.8,
-                     label='1$\\sigma$ \u2014 Method 2 (scale fitted with L)'))
-ax.scatter(*mu, marker='+', s=140, color='tab:blue', zorder=5)
-ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
 _lines = [('Pooled Method 2:  L = %.3f $\\pm$ %.3f" (stat)' % (L, SE_STAT), 'tab:blue'),
           ('      $\\pm$ %.3f" with the atmosphere term %.2f' % (TOT, ATM_ERR), 'tab:blue'),
           ('Plate scale: %.6f $\\pm$ %s "/px' % (joint, _sci(sS_scale)), 'black'),
@@ -350,20 +294,9 @@ _lines = [('Pooled Method 2:  L = %.3f $\\pm$ %.3f" (stat)' % (L, SE_STAT), 'tab
           ('correlation L vs plate scale = %+.2f' % RHO, 'black'),
           ('from %d observations of %d stars (%d measured coordinates)'
            % (len(t), t.key.nunique(), 2*len(t)), 'black')]
-_pack = VPacker(children=[TextArea(x, textprops=dict(color=col, size=9.5)) for x, col in _lines],
-                pad=0, sep=3, align='left')
-_box = AnchoredOffsetbox(loc='lower left', child=_pack, pad=0.45, borderpad=0.6, frameon=True,
-                         bbox_to_anchor=(0.0, 0.0), bbox_transform=ax.transAxes)
-_box.patch.set(facecolor='white', edgecolor='gray', linewidth=0.9)
-_box.set_zorder(6)
-ax.add_artist(_box)
-ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
-ax.set_ylabel('fitted plate scale (arcsec per pixel)', fontsize=12)
-ax.ticklabel_format(axis='y', useOffset=False, style='plain')
-ax.set_title('L and plate scale \u2014 Mexico 2024 Station 1, pooled fit, one shared scale',
-             fontsize=12)
-ax.legend(fontsize=9, loc='upper right')
-ax.autoscale_view(); ax.margins(0.25)
+fig, ax = covariance_chart_single(
+    C, (c[iL], joint), _lines,
+    'L and plate scale \u2014 Mexico 2024 Station 1, pooled fit, one shared scale')
 save(fig, 'record_covariance.png')
 print('covariance (clustered on star): L %.3f +- %.3f, joint scale %.6f +- %.6f "/px (%.1f ppm), rho %+.3f'
       % (c[iL], np.sqrt(cov[iL, iL]), joint, sS_scale, 1e6*np.sqrt(cov[iS, iS]), RHO))
@@ -380,8 +313,7 @@ for b in blocks:
     if not stk:
         print('%s: no stacked image' % b); continue
     img = pyfits.getdata(stk[-1]).astype(np.float32)
-    lo, hi = np.percentile(img, [5, 99.5])
-    disp = np.arcsinh((np.clip(img, lo, hi) - lo)/max(hi - lo, 1)*30)
+    disp = arcsinh_stretch(img)
     fig, ax = plt.subplots(figsize=(11.5, 8))
     ax.imshow(disp, cmap='gray', origin='upper', interpolation='nearest')
     db = t[t.block == b]

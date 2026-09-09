@@ -63,12 +63,17 @@ setting. Both were documented; both were missed by reasoning from analogy instea
 number is not in a document or the registry, it is invented, and inventing one is worse than
 stopping to ask.
 
-**A chart joins a set; copy the set, do not recall it.** Every record chart in the project
-draws RA **ascending to the right** (`s1_charts_record.py`, `b17_charts_record.py`), which is
-not the sky convention. On 2026-09-08 two new charts were drawn reversed from habit, one of
-them commented "as cell 2 draws it" — a citation written from memory, which reads exactly
-like a checked one. `tests/test_chart_conventions.py` now fails a reversed RA axis. Open the
-neighbouring tool before matching a convention, and never write a citation you have not read.
+**Record charts are drawn through `tools/record_charts.py`, never re-implemented.** The sky
+frame, the field chart, the covariance chart, the joint-scale arithmetic and the chart writer
+live there, and all four record chart tools import them (`tests/test_record_charts.py` fails a
+tool that carries its own copy). Four private copies diverged four ways in one week of
+2026-09: an RA axis reversed from habit and commented "as cell 2 draws it" — a citation
+written from memory — a field chart in pixels beside three in RA/DEC, a joint scale on the
+wrong base with the wrong sign, and a Method 1 drawn as a point beside three ellipses. The
+module was cut over with every tool's output byte-identical (39 charts), so the conventions it
+fixes are the ones the record already had: RA **ascending to the right**, which is not the sky
+convention; `joint = stage-2 scale − S × PS`; a unit sensor displacement round-tripping to
+one arcsec. A new chart takes its cosmetics as arguments and its geometry from the module.
 
 **A catalogue id is 19 digits: never let one near a float, and never guess when one will not parse.** `int(float(id))` changes 73 % of Gaia source ids, `np.uint64` against the int64 `source_id.npy` miscompares, and `df.iterrows()` on an all-numeric frame delivers the id as float64. None of these raise — they make a star match ITSELF, whose catalogue entry sits 0.6–1.0 ″ away once proper motion is applied, so a broken id becomes a plausible double star. On 2026-09-09 that produced three different confident wrong answers in one afternoon, and a "if the id is unreadable, exclude anything within 0.5 ″" fallback turned each parse failure into a finding. Compare like with like, refuse a float-shaped id, and check any such count against a second implementation. `tests/test_star_id_handling.py`.
 
