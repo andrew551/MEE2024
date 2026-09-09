@@ -43,7 +43,7 @@ from ser_track import (find_stars, moments, coarse_shift, similarity_fit,  # noq
 
 OUT = r"D:/MEE2024 output/MEE_output/husillos2026/mount"
 PS = 2.2054043
-G = r"G:/Joe Izen Husillos 2026"
+G = r"G:/Joe Izen Spain 2026"
 
 GROUPS = {
     'Capture 11Aug (mount held one RA/Dec)': [

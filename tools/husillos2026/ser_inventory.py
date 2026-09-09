@@ -14,7 +14,7 @@ two captures apart. So this reads:
   * for any pair of files of identical size, an md5 of the first and last frames, so that one
     capture copied under two names cannot pass as a rehearsal.
 
-  .venv/Scripts/python.exe tools/husillos2026/ser_inventory.py ["G:/Joe Izen Husillos 2026"]
+  .venv/Scripts/python.exe tools/husillos2026/ser_inventory.py ["G:/Joe Izen Spain 2026"]
 """
 import datetime
 import glob
@@ -25,7 +25,7 @@ import struct
 import sys
 from collections import defaultdict
 
-ROOT = sys.argv[1] if len(sys.argv) > 1 else r"G:/Joe Izen Husillos 2026"
+ROOT = sys.argv[1] if len(sys.argv) > 1 else r"G:/Joe Izen Spain 2026"
 EPOCH = datetime.datetime(1, 1, 1)
 
 

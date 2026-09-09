@@ -168,6 +168,10 @@ def do_mount():
              RIGS['Husillos zenith']['ps'], 64.67),
             ('Leon Z1', 'AVX', HUS + '/zenith_order/s1_leonZ1/centroid_data*.zip',
              RIGS['Leon zenith']['ps'], 127.95)]
+    # Station 1's raw zenith frames DO exist -- I:/Mexico 2024/Station 1 Zenith, four sessions,
+    # 20 x 3.0 s at gain 100 -- and `hu_mount_compare.py` now tracks them with the same
+    # estimator as the other two. Its span is 3.047 px = 5.63 " = 4.86 "/min, which retires the
+    # number an earlier pass read off a plot axis (~2.9 px, ~4 "/min: close, but eyeballed).
     for label, mount, zp, ps, dur in rows:
         a = alignment_of(zp)
         if not a:
@@ -176,12 +180,13 @@ def do_mount():
         n, span, rms = a
         print('%-22s %-6s %7d %9.3f %11.2f %12.2f %10.4f px'
               % (label, mount, n, span, span * ps, span * ps * 60 / dur, rms))
+    print('%-22s %-6s %7d %9.3f %11.2f %12.2f %10s'
+          % ('Station 1 Mexico', 'AVX', 20, 3.047, 5.63, 4.86, '(tracked)'))
     print()
-    print('  Station 1 Mexico: its 2024 stage-1 zip predates the alignment record, and its raw')
-    print('  per-frame zenith data is not on any drive here (the reduction reads a path on a')
-    print('  cloud drive that no longer exists). Read off its stage-1 plot the span is ~2.9 px')
-    print('  in x over 19 frames = ~5.4 " -- about 4 "/min at a 3 s cadence. That number is')
-    print('  eyeballed from an axis and is quoted as such; the two above are measured.')
+    print('  Station 1\'s row is measured too, by hu_mount_compare.py on the raw frames at')
+    print('  I:/Mexico 2024/Station 1 Zenith -- not from its stage-1 zip, which predates the')
+    print('  alignment record. Its four sessions run 1.58-17.43 "/min; the one whose plot')
+    print('  started this comparison is the 3.96 "/min field.')
     print()
     print('  Drift rate is mostly POLAR ALIGNMENT, not the mount head. What is intrinsic to the')
     print('  head is smoothness and settling, and that is `hu_mount_compare.py`, not this.')
@@ -227,6 +232,65 @@ def do_completeness():
     print('  so they are complete and Husillos is not. Extrapolating Husillos\' own healthy')
     print('  ratio (1.44, measured on its bins up to G 12) through the last two bins gives')
     print('  ~3640 stars expected against 2680 matched: about a QUARTER lost, all of them faint.')
+    print()
+
+
+#: the two Husillos stacks that differ only in how the frames fell across the whole-pixel
+#: alignment grid (HUSILLOS2026_ZENITH.md section 6): 52 % in one cell against 77 %
+DITHER_PAIR = [('with_f0   (52 % of frames in one cell)', 's1_with_f0'),
+               ('master_f2 (77 % of frames in one cell)', 's1_master_f2')]
+
+
+def do_dither():
+    """WHY sub-pixel dither was worth 12 % of the centroid yield -- and whether darks replace it.
+
+    Douglas, 2026-09-09: *"if we had darks, we could presumably create the hot pixel mask. This
+    would also make the dither unnecessary."*  That is a claim about the MECHANISM, and the
+    mechanism is testable on the two stacks that differ only in how the frames fell across the
+    integer alignment grid.
+
+    If the yield difference is hot pixels, the low-dither stack should show them stacked
+    coherently at full amplitude: more single-pixel sources, and a higher measured background --
+    which matters because the detector's threshold is `sigma_subtract` TIMES that background, so
+    a noise floor lifted by hot pixels costs real stars.  If instead it were about PSF sampling,
+    the background would be unchanged.
+    """
+    from astropy.io import fits
+    from scipy import ndimage
+    print('=' * 112)
+    print('WHY DITHER HELPED, AND WHETHER A DARK WOULD DO THE SAME JOB')
+    print('=' * 112)
+    print('%-40s %9s %10s %12s %12s %12s'
+          % ('stack', 'sky ADU', 'noise ADU', 'src > 8 sig', '1-2 px', '>= 4 px'))
+    for label, run in DITHER_PAIR:
+        f = sorted(glob.glob(os.path.join(HUS, 'zenith_order', run,
+                                          'CENTROID_OUTPUT*', 'STACKED_FLOAT*.fit')))
+        if not f:
+            print('%-40s no stack' % label)
+            continue
+        d = fits.getdata(f[0]).astype(np.float32)
+        sub = d[::7, ::7]
+        bg = float(np.median(sub))
+        mad = 1.4826 * np.median(np.abs(sub - bg))
+        sd = float(np.std(sub[np.abs(sub - bg) < 5 * mad]))
+        lab, n = ndimage.label(d > bg + 8 * sd)
+        sz = ndimage.sum(d > bg + 8 * sd, lab, np.arange(1, n + 1)) if n else np.array([])
+        print('%-40s %9.2f %10.3f %12d %12d %12d'
+              % (label, bg, sd, n, int((sz <= 2).sum()), int((sz >= 4).sum())))
+    print()
+    print('  A source of 1-2 connected pixels is a hot pixel; >= 4 px is what the detector calls')
+    print('  a star (mee2024/field_presets.py, min_area). Measured 2026-09-09: the low-dither')
+    print('  stack carries 75 % more single-pixel sources, a background 19 % noisier, and 14 %')
+    print('  FEWER real sources. So the mechanism is hot pixels lifting the noise floor that the')
+    print('  threshold is measured against -- not PSF sampling.')
+    print()
+    print('  Which answers the question: YES, a dark would do the same job and better.')
+    print('  `mee2024/hotpixels.dark_mask` masks hot pixels directly from a master dark;')
+    print('  `persistence_mask` is the dark-free fallback and is the one that needs >= 3 px of')
+    print('  dither (MIN_DITHER_PX). Husillos has no darks at all, which is why it got neither.')
+    print('  Hot pixels are a stable property of the sensor, so darks shot NOW at the same gain,')
+    print('  offset and temperature would still work: 1.0 s / gain 0 / offset 220 / 0 C for the')
+    print('  zenith, 0.315 s / gain 0 / offset 200 for the eclipse fields.')
     print()
 
 
@@ -317,5 +381,7 @@ if __name__ == '__main__':
         print()
         do_completeness()
         do_mount()
+        do_dither()
     else:
-        {'refit': do_refit, 'mount': do_mount, 'completeness': do_completeness}[cmd]()
+        {'refit': do_refit, 'mount': do_mount, 'completeness': do_completeness,
+         'dither': do_dither}[cmd]()

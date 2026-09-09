@@ -1,7 +1,7 @@
 # Husillos 2026, the zenith fields: focal length, distortion order, and the AM5
 
 **Date:** 2026-09-09. Matrix cell 4 (Joe Izen, Husillos 2026). Everything below is measured on
-`G:\Joe Izen Husillos 2026` and, for the controls, on `G:\Leon Aug 2026`, with `v1.4.0-dev`.
+`G:\Joe Izen Spain 2026` and, for the controls, on `G:\Leon Aug 2026`, with `v1.4.0-dev`.
 
 Four questions were asked (Douglas, 2026-09-09): is the cubic enough on this full frame or is a
 quintic needed; is the focal length the same as Leon 2026's; can the ZWO AM5's periodic error be
@@ -475,10 +475,12 @@ rule about which index to use.
    that a night calibration field must be shot at a gain and subframe length that put the read
    noise below the sky. Husillos' zenith was read-noise limited by 11×, lost 2.5× of SNR to the
    gain setting alone (§7b), and lost about a quarter of its G < 13 stars to it (§7c).
-7. **Record for 2027: dither deliberately, 5–10 px between frames** (§7d). The AM5's 1.3 px of
-   drift is below the 3 px stage 1 needs for dark-free hot-pixel rejection, and below what the
-   whole-pixel aligner needs to gain the 12 % of centroids §6 measured. Accurate tracking makes
-   a commanded dither easy; it does not substitute for one.
+7. **Ask Joe for darks** — 1.0 s / gain 0 / offset 220 / 0 °C and 0.315 s / gain 0 / offset
+   200, taken whenever is convenient, since hot pixels are a stable sensor property (§7d). The
+   Husillos stack currently has no hot-pixel rejection at all, and the coherent hot pixels cost
+   it 14 % of its detected sources. **Record for 2027: take darks; dither 5–10 px only if you
+   cannot.** The AM5's 1.3 px of drift is below the 3 px the dark-free path needs, and tracking
+   accurately is what makes a *commanded* dither easy — it does not substitute for one.
 
 ---
 
@@ -662,33 +664,65 @@ Neither needs reading off an axis, because stage 1 records both — `alignment.d
 
 | field | mount | frames | span px | span ″ | span ″/min | per-frame rms |
 |---|---|---|---|---|---|---|
-| **Husillos zenith** | **AM5** | 49 | **1.279** | 2.82 | **2.62** | 0.177 px |
-| **Leon Z1** | **AVX** | 29 | **13.816** | 30.50 | **14.30** | 0.157 px |
-| Station 1 Mexico | AVX | 19 | ~2.9 *(read off its plot)* | ~5.4 | ~4 | — |
+| **Husillos zenith** | **AM5** | 50 | **1.211** | 2.67 | **2.48** | 0.177 px |
+| **Station 1 Mexico** | **AVX** | 20 | **3.047** | 5.63 | **4.86** | — |
+| **Leon Z1** | **AVX** | 30 | **13.841** | 30.55 | **14.33** | 0.157 px |
 
-**The AM5 drifted 5.5× less than Leon's AVX over the same night through the same telescope**, and
-roughly 1.5× less than Station 1's. The per-frame scatter is the same to within 13 % (0.177
-against 0.157 px), so the difference really is drift and not noise.
+All three are measured, none eyeballed. Station 1's raw zenith frames do exist, at
+**`I:\Mexico 2024\Station 1 Zenith`** — four sessions of 20 × 3.0 s at gain 100 on an
+ASI6200MM, which an earlier pass of this document failed to find and therefore reduced to a
+number read off a plot axis (~2.9 px, ~4 ″/min — close, but eyeballed). `hu_mount_compare.py`
+now tracks them with the same estimator as the other two; the field whose plot started this
+comparison is the 3.96 ″/min one, and the four run 1.58–17.43 ″/min.
 
-Two honest qualifications. **Drift rate is mostly polar alignment, not the mount head** — a
+**The AM5 drifted 2.0× less than Station 1's AVX and 5.8× less than Leon's**, the latter over the
+same night through the same telescope. The per-frame scatter is the same to within 13 % (0.177
+against 0.157 px), so the difference really is drift and not noise. On §5's matched 60 s window
+the ordering holds: AM5 0.291 ″, Station 1's AVX 0.456–0.744 ″, Leon's AVX 0.703–1.271 ″.
+
+One honest qualification. **Drift rate is mostly polar alignment, not the mount head** — a
 well-aligned AVX will beat a badly-aligned AM5 — so this is an operational result, not a verdict
 on strain-wave versus worm. What *is* intrinsic to the head is smoothness and settling, and that
-is §5: there the AM5 also wins, by 2–3× on a matched window. Station 1's number is eyeballed from
-an axis because its 2024 stage-1 zip predates the alignment record and its raw per-frame zenith
-data is on a cloud-drive path that no longer exists; the other two are measured.
+is §5: there the AM5 also wins, by 1.6–4× on a matched window and by 2–10× on curvature.
 
-**And the sting, which is worth more than the win.** Stage 1 needs **≥ 3 px of dither** to find
-hot pixels without a dark frame. Leon's log reads *"hot pixel(s) identified from the dither
+**And the sting.** Stage 1 needs **≥ 3 px of dither** to find hot pixels without a dark frame
+(`mee2024/hotpixels.MIN_DITHER_PX`). Leon's log reads *"hot pixel(s) identified from the dither
 (13.8 px) … without a dark frame"*. Husillos' reads *"no dark-free hot-pixel search: the field
 moved only 1.3 px between frames, under the 3 px needed"*. **The Husillos stack keeps every hot
-pixel**, and there are no darks in this dataset to remove them another way. On top of that, §6
-found that sub-pixel dither across the whole-pixel alignment grid was worth **12 % of the
-centroid yield**, and 1.3 px is barely any.
+pixel**, and there are no darks in this dataset to remove them another way.
 
-So: **on this pipeline a mount that tracks perfectly is not unambiguously better.** The obvious
-answer for 2027 is a **deliberate dither of 5–10 px between frames**, which an AM5 can place
-accurately *because* it is accurate — buying back the hot-pixel rejection and the yield without
-giving up the smoothness that §5 measured.
+### Why the dither mattered, and whether a dark would do the same job
+
+Douglas, 2026-09-09: *"if we had darks, we could presumably create the hot pixel mask. This would
+also make the dither unnecessary."* That is a claim about the mechanism, and the mechanism is
+testable on the two stacks of §6 that differ only in how the frames fell across the integer
+alignment grid:
+
+| stack | sky ADU | noise ADU | sources > 8 σ | 1–2 px (hot) | ≥ 4 px (stars) |
+|---|---|---|---|---|---|
+| `with_f0`, 52 % of frames in one cell | 1758.90 | **0.782** | 8586 | **3059** | **3490** |
+| `master_f2`, 77 % in one cell | 1758.94 | **0.932** | 8958 | **5352** | **3008** |
+
+**The low-dither stack carries 75 % more single-pixel sources, a background 19 % noisier, and
+14 % fewer real ones.** That is the whole mechanism: with every frame on the same integer cell
+the hot pixels stack coherently at full amplitude, they lift the background that the detection
+threshold is measured against (`sigma_subtract` × that background), and the raised threshold
+costs real stars. It is **not** about PSF sampling — the sky level is identical to 0.04 ADU.
+
+**So yes: a dark would do the same job, and better.** `hotpixels.dark_mask` masks hot pixels
+directly from a master dark; `persistence_mask` is the dark-free fallback, and it is the one that
+needs the dither. Husillos has neither, which is why it paid twice — once in the 14 % of sources
+and once in having no hot-pixel rejection at all in the stack that the record will be built on.
+
+**And the fix is cheap and still available.** Hot pixels are a stable property of the sensor, so
+**darks shot now, months later, would still work** provided the camera, gain, offset and sensor
+temperature match: **1.0 s / gain 0 / offset 220 / 0 °C** for the zenith fields, and **0.315 s /
+gain 0 / offset 200** for the eclipse fields. That is a few minutes of Joe's time with the lens
+cap on, and it retires the whole problem retroactively.
+
+Dither remains the fallback when darks are not available — which is exactly why
+`persistence_mask` exists — but it is the fallback, not the plan. **For 2027 the order is: take
+darks; dither only if you cannot.**
 
 ---
 

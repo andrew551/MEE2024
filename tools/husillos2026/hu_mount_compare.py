@@ -3,7 +3,14 @@
 Douglas, 2026-09-09: can the periodic error of Joe Izen's AM5 (strain-wave) be judged against
 Leon 2026's Celestron AVX (worm)?  The two datasets share the telescope -- FRA500 + 0.7x, 3.76
 um pixels -- so a comparison of per-frame pointing is fair as long as the same estimator reads
-both.  This tool imports its estimator from `ser_track.py` rather than carrying a second copy,
+both.
+
+**Mexico Station 1 is in the table too** (added 2026-09-09 when Douglas pointed at
+`I:/Mexico 2024/Station 1 Zenith`, which an earlier pass had failed to find and had therefore
+reduced to a number eyeballed off a plot axis).  It is a third Celestron AVX, a different optic
+(432 mm f/5, ASI6200MM at 1.8485 "/px) and a 3.0 s cadence -- so its PLATE SCALE is not the
+others' and the conversion to arcsec is per field, not global.  Its 20 frames span 65.9 s, within
+2 % of Husillos' 64.7 s, which makes it the closest thing to a matched window in the project.  This tool imports its estimator from `ser_track.py` rather than carrying a second copy,
 for the reason `tools/record_charts.py` exists: four private copies of one measurement diverge
 four ways.
 
@@ -50,9 +57,13 @@ from ser_track import (find_stars, moments, coarse_shift, similarity_fit,  # noq
 
 OUT = r"D:/MEE2024 output/MEE_output/husillos2026/mount"
 PS = 2.2054043          # "/px, the FRA500 + 0.7x canonical (docs/CAL_PILEO_STEP2.md)
+#: per-field plate scale, because Station 1 is a different optic. Anything absent uses PS.
+PS_BY_FIELD = {'station1 Mexico zenith': 1.8484826, 'station1 Mexico zenith 2': 1.8484826,
+               'station1 Mexico zenith 3': 1.8484826, 'station1 Mexico zenith 4': 1.8484826}
 WINDOW = 60             # s: the common window every field is also measured on
 
-HUSILLOS = r"G:/Joe Izen Husillos 2026"
+HUSILLOS = r"G:/Joe Izen Spain 2026"
+S1Z = r"I:/Mexico 2024/Station 1 Zenith"
 LEON = r"G:/Leon Aug 2026"
 
 #: (label, kind, path, mount).  Night, 1 s or 4 s, star fields, no Sun anywhere.
@@ -71,6 +82,10 @@ FIELDS = [
      os.path.join(LEON, '2026-08-12/Zenith/Z5_mid_right'), 'AVX'),
     ('leon Z6_bottom_right 08-12', 'fits',
      os.path.join(LEON, '2026-08-12/Zenith/Z6_bottom_right'), 'AVX'),
+    ('station1 Mexico zenith', 'fits', os.path.join(S1Z, '2024-04-08_05_32_53Z'), 'AVX'),
+    ('station1 Mexico zenith 2', 'fits', os.path.join(S1Z, '2024-04-08_05_35_48Z'), 'AVX'),
+    ('station1 Mexico zenith 3', 'fits', os.path.join(S1Z, '2024-04-08_05_38_32Z'), 'AVX'),
+    ('station1 Mexico zenith 4', 'fits', os.path.join(S1Z, '2024-04-08_05_51_25Z'), 'AVX'),
 ]
 
 
@@ -79,18 +94,28 @@ def fits_frames(root):
     from astropy.io import fits
     from datetime import datetime
     files = sorted(glob.glob(os.path.join(root, '*', '*.fits'))) or \
-        sorted(glob.glob(os.path.join(root, '*.fits')))
+        sorted(glob.glob(os.path.join(root, '*.fits'))) or \
+        sorted(glob.glob(os.path.join(root, '*.FIT')))
+    # Station 1's frame 0000 is 122 MB of something that is not FITS -- astropy reports "No
+    # SIMPLE card found". Unreadable frames are dropped with a note rather than killing the run.
+    good, times = [], []
+    for f in files:
+        try:
+            times.append(datetime.strptime(fits.getheader(f)['DATE-OBS'][:26],
+                                           '%Y-%m-%dT%H:%M:%S.%f'))
+            good.append(f)
+        except Exception as exc:
+            print('    skipping %s: %s' % (os.path.basename(f), str(exc)[:60]))
+    files = good
     if not files:
         return [], []
-    times = [datetime.strptime(fits.getheader(f)['DATE-OBS'][:26], '%Y-%m-%dT%H:%M:%S.%f')
-             for f in files]
     order = np.argsort(times)
     files = [files[i] for i in order]
     times = [times[i] for i in order]
     return files, [(t - times[0]).total_seconds() for t in times]
 
 
-def track(label, kind, path, stars=150, box=12, search=40, anchors=20):
+def track(label, kind, path, stars=150, box=12, search=200, anchors=20):
     """The per-frame similarity fit, whichever container the frames live in."""
     if kind == 'ser':
         H = read_header(path)
@@ -190,10 +215,12 @@ def curvature_bound(t, resid_rms_as, noise_as, periods=(180, 300, 450, 600, 900)
 def main():
     os.makedirs(OUT, exist_ok=True)
     rows = []
+    global PS
     for label, kind, path, mount in FIELDS:
         if not os.path.exists(path):
             print('%-28s missing: %s' % (label, path))
             continue
+        PS = PS_BY_FIELD.get(label, 2.2054043)      # a different optic needs its own scale
         cache = os.path.join(OUT, label.replace(' ', '_') + '.csv')
         if os.path.exists(cache):
             df = pd.read_csv(cache)          # every frame is read once, ever
@@ -209,7 +236,7 @@ def main():
         noise = float((df['resid_px'] * PS / np.sqrt(df['nstar'])).mean())
         rec = dict(field=label, mount=mount, n=len(df), dur_s=t[-1] - t[0],
                    cad_s=float(np.median(np.diff(t))), stars=int(df['nstar'].median()),
-                   noise_as=noise)
+                   noise_as=noise, ps=PS)
         for ax in ('dx', 'dy'):
             y = df[ax].to_numpy() * PS
             p = np.polyfit(t, y, 1)
