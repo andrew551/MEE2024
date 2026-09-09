@@ -70,6 +70,8 @@ them commented "as cell 2 draws it" — a citation written from memory, which re
 like a checked one. `tests/test_chart_conventions.py` now fails a reversed RA axis. Open the
 neighbouring tool before matching a convention, and never write a citation you have not read.
 
+**A catalogue id is 19 digits: never let one near a float, and never guess when one will not parse.** `int(float(id))` changes 73 % of Gaia source ids, `np.uint64` against the int64 `source_id.npy` miscompares, and `df.iterrows()` on an all-numeric frame delivers the id as float64. None of these raise — they make a star match ITSELF, whose catalogue entry sits 0.6–1.0 ″ away once proper motion is applied, so a broken id becomes a plausible double star. On 2026-09-09 that produced three different confident wrong answers in one afternoon, and a "if the id is unreadable, exclude anything within 0.5 ″" fallback turned each parse failure into a finding. Compare like with like, refuse a float-shaped id, and check any such count against a second implementation. `tests/test_star_id_handling.py`.
+
 **Changes are classified by whether they can alter a measured number.** That is the release
 split (`docs/ROADMAP.md` §6): additive-only changes ride on the previous version's field
 testing, anything that moves a fit needs its own validation on real data. Say which a change
