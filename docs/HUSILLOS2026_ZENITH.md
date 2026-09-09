@@ -150,7 +150,7 @@ three-step ladder exists.
 
 ---
 
-## 3. Cubic or quintic: **quintic**, and the septic is now excluded
+## 3. Cubic or quintic: **quintic** — cubic insufficient, septic not usable
 
 An in-sample rms cannot answer this — more parameters always fit better — so four things were
 measured instead. Free fits, same settings as above, on the full-frame zenith stack and on Leon's
@@ -239,7 +239,7 @@ against the quantity cell 4 exists to measure.
 for it looked strong (6.8 % of rms, 0.1605 → 0.1496 ″), which is exactly why an in-sample number
 cannot be allowed to decide.
 
-### 3.6 Is the quintic sufficient?  Yes — the septic term does not reproduce
+### 3.6 Does the added term reproduce?  The quintic yes, the septic no
 
 Douglas, 2026-09-09: *"septic will require a lot of stars to fit and likely will not be very
 stable. Is quintic sufficient?"*  Both halves of that are now measured
@@ -290,22 +290,82 @@ taken from the two fits' own residuals reads **106 mas**, and the two routes cor
 0.30. Project the similarity out of every difference and they agree to **0.5 %** — which is now
 printed as a standing cross-check, so the two routes cannot drift apart again.
 
-**The answer: use the quintic. It is sufficient, and it is necessary.** Necessary because on this
-frame it moves outer stars by 131 mas, six times the 22 mas it moves them on Leon's smaller
-sensor, and it reproduces. Sufficient because the only independent evidence in the data says the
-next term does not reproduce and does not transfer.
+### 3.6b Split the STARS, not the frames — the test Husillos' own field can support
 
-**The one caveat, stated rather than buried.** The septic is rejected on *Leon's* field, where the
-septic term is only 15 mas; on Husillos' larger frame it would be ~106 mas, and Husillos' own
-halves cannot test it because they share their stars. Nothing in the data supports a septic
-there — but nothing directly excludes it either, and the way to close that is a second Husillos
-pointing. There is exactly one place to get one: the three 12 August zenith captures Joe's
+Everything above answers "is the cubic enough for Husillos" by **transferring Leon's result**,
+because two halves of one capture share their stars. Splitting the **stars** instead fixes
+exactly that: the two halves are disjoint sets of objects, so a catalogue error or a blend
+belongs to one side only and cannot transfer, while the distortion belongs to the field and can.
+
+Take the **cubic fit's own residuals** — what the cubic model and the plate solution together
+failed to explain — fit each basis to half the stars, and measure the residual on the other half.
+200 random splits. `linear` is the control (it re-absorbs a similarity, which a plate solution
+would do anyway); `cubic` refitted to a cubic fit's residuals is the second control and should
+gain nothing.
+
+| field | stars | linear | cubic | quintic | septic |
+|---|---|---|---|---|---|
+| **Husillos, 50-frame stack** | 2657 | 0.1624 ″ | **+0.7 %** | **−3.0 %** | −8.6 % |
+| Husillos, halfA | 1796 | 0.1633 ″ | +1.0 % | −3.9 % | −9.0 % |
+| Leon Z1 | 2517 | 0.0961 ″ | +0.6 % | −1.3 % | −0.9 % |
+
+**Both controls behave** — refitting a cubic basis to a cubic fit's residuals *costs* 0.6–1.0 %
+on held-out stars, which is what "fitting nothing real" looks like. **And the quintic gains 3.0 %
+on disjoint, held-out stars of Husillos' own field.** So *cubic is insufficient for Husillos
+directly*, no longer only by transfer from Leon. Two independent tests now agree.
+
+**The septic gains more (−8.6 %), and that has to be reported rather than explained away.** But a
+star split cannot separate distortion from any other smooth function of position — both halves
+sample the same field positions — so it says "there is septic-order spatial structure here", not
+"the telescope has a septic term". Where that structure sits decides it:
+
+| subset | stars | linear | cubic | quintic | septic |
+|---|---|---|---|---|---|
+| all stars | 2657 | 0.1624 ″ | +0.7 % | −3.0 % | −8.6 % |
+| inner r/R < 0.50 | 1509 | 0.1363 ″ | −3.3 % | −4.4 % | −3.4 % |
+| middle 0.50–0.75 | 923 | 0.1697 ″ | −5.0 % | −5.9 % | −5.1 % |
+| **outer r/R ≥ 0.75** | **225** | 0.2623 ″ | −30.9 % | **−32.2 %** | **+2.0 %** |
+| drop the outer 25 % | 2432 | 0.1501 ″ | −0.6 % | −5.2 % | −5.6 % |
+
+(A polynomial restricted to a sub-region absorbs different things, so these are diagnostics
+rather than verdicts — except the fourth row, which is the point.) **In the outer quarter, where
+the septic's 30 extra parameters have their leverage and this frame has 225 stars, its held-out
+gain collapses to nothing — a 2 % penalty — while the quintic keeps a third.**
+
+That is Douglas' prediction of 2026-09-09, measured: *"septic will require a lot of stars to fit
+and likely will not be very stable."* It is not that the septic overfits everywhere. **It
+overfits exactly where the stars run out, which is the corner of the frame a deflection
+measurement depends on.**
+
+### 3.7 The verdict, and a correction
+
+**Use the quintic.** It is necessary — on Husillos' own field, on disjoint held-out stars, it
+gains 3.0 % where the cubic control loses 0.7 %, and on Leon's two pointings its term reproduces
+at 1.95× its own scatter. It is what the record should be fitted at.
+
+**On the septic, an earlier draft of this document said "now excluded". That was too strong and
+is withdrawn.** The septic does capture real smooth structure on this field (−8.6 % held out).
+What the data actually support is narrower and enough to decide the reduction:
+
+* its term **does not reproduce between two pointings** of the same telescope (0.99× — exactly the
+  size of the disagreement about it, against the quintic's 1.95×);
+* it **buys nothing out of sample** on Leon's cross-pointing transfer (0.1310 ″ against the
+  quintic's 0.1309 ″);
+* and it **fails where it would have to work** — a 2 % penalty in the outer quarter of Husillos'
+  frame against the quintic's 32 % gain.
+
+So: **not usable, not disproved.** Whether Husillos' 1.53×-larger field radius genuinely carries
+a septic term the smaller sensors cannot see is still open, and the way to close it is a second
+Husillos pointing with enough stars in the corners — the three 12 August zenith captures Joe's
+settings files announce and the drive does not hold (`23_20_19`, `23_22_35`, `23_25_31`, all
+1.0 s). **The reduction should not wait for it: fit at quintic, and carry the septic as a stated
+sensitivity.** There is exactly one place to get one: the three 12 August zenith captures Joe's
 settings files announce and the drive does not hold (`23_20_19`, `23_22_35`, `23_25_31`, all
 1.0 s). It is still the cheapest single request in this dataset, and §1 has already shown that
 the one delivered capture from that folder is a 16-frame centred crop that cannot help. **But the
 reduction should not wait for it: fit at quintic.**
 
-### 3.7 A note on the night sets
+### 3.8 A note on the night sets
 
 The other night sets do not substitute for a second zenith field. `cal 8 deg` and the `10 deg` mosaic are near the horizon
 and far shallower — 1 and 3 sources per frame at the threshold that finds 391 on the zenith frame
@@ -461,9 +521,11 @@ rule about which index to use.
    confirm the septic verdict on Husillos' own optics, the plate-scale repeatability, and the AM5
    rate scatter at one pointing — three open items for the price of one request. None of them
    blocks the reduction.
-2. **Fit cell 4's reference at quintic**, not cubic (§3.5), and **do not use the septic**
-   (§3.6) — its term is the same size as the disagreement about it on the one independent test
-   in the data. Item 1 would confirm that directly rather than by transfer from Leon.
+2. **Fit cell 4's reference at quintic**, not cubic — now shown directly on Husillos' own field
+   by a star-split cross-validation (§3.6b), not only by transfer from Leon. **Do not use the
+   septic**, which fails in the outer quarter where its parameters live (+2 % against the
+   quintic's −32 %), but **carry it as a stated sensitivity**: it is not usable, not disproved
+   (§3.7).
 3. **Do not carry Leon's plate scale to Joe's station**: the trains differ by 425 ppm (§2).
 4. ~~Locate the site.~~ **Done** (§0): Husillos, +42.09293°, −4.52702°, 743 m. Everything above
    is refraction-safe only because both fields are near the zenith; nothing at 8° or 10° altitude

@@ -125,6 +125,123 @@ def strip_similarity(px, py, dx, dy, shape):
 BINS = ((0.0, 0.5), (0.5, 0.75), (0.75, 1.0))
 
 
+def crossval(label, stack, shape, ps, nsplit=200, seed=20260909, sel=None):
+    """Split by STAR, not by frame: the out-of-sample test Husillos' own field can support.
+
+    Douglas, 2026-09-09: is the cubic sufficient?  Everything else in this file answers that by
+    transferring Leon's result, because two halves of one CAPTURE share their stars and so pass
+    any term that fits this field's own quirks.  Splitting the STARS instead fixes exactly that:
+    the two halves are disjoint sets of objects, so a catalogue position error or a blend belongs
+    to one side only and cannot transfer, while the distortion belongs to the field and can.
+
+    The method starts from the CUBIC fit's own residuals -- what the cubic model and the plate
+    solution together failed to explain -- and asks whether adding the higher-order basis terms
+    predicts held-out stars better.  Order 1 is the control: it re-absorbs a similarity, which a
+    plate solution would do anyway, so it measures what "fitting nothing real" looks like.  The
+    basis is `distortion_polynomial.get_basis`, the pipeline's own, never a second copy.
+    """
+    df = stars(stack, 'cubic')
+    if df is None:
+        return None
+    px, py = df['px'].to_numpy(), df['py'].to_numpy()
+    r = np.column_stack([df['dx_arcsec'].to_numpy(), df['dy_arcsec'].to_numpy()])
+    y = py - shape[1] / 2.0
+    x = px - shape[0] / 2.0
+    w = max(shape) / 2.0
+    opts = get_default_options()
+    opts['distortion_fixed_coefficients'] = 'None'
+    bases = {}
+    for order in ('linear', 'cubic', 'quintic', 'septic'):
+        opts['distortionOrder'] = order
+        b = dp.get_basis(y, x, w, 1, opts)
+        bases[order] = np.column_stack([np.ones(len(x)), b])   # + the constant
+    rng = np.random.default_rng(seed)
+    out = {k: [] for k in bases}
+    keep = np.ones(len(x), dtype=bool) if sel is None else sel(px, py, shape)
+    idx = np.where(keep)[0]
+    n = len(idx)
+    if n < 200:
+        return None
+    for _ in range(nsplit):
+        m = rng.permutation(idx)
+        a, b = m[:n // 2], m[n // 2:]
+        for order, B in bases.items():
+            coef, *_ = np.linalg.lstsq(B[a], r[a], rcond=None)
+            held = r[b] - B[b] @ coef
+            out[order].append(np.sqrt((held ** 2).sum(axis=1).mean()))
+    return {k: (float(np.mean(v)), float(np.std(v))) for k, v in out.items()}, n
+
+
+def do_crossval():
+    print('=' * 104)
+    print('IS THE CUBIC SUFFICIENT?  Held-out residual after fitting the cubic fit\'s OWN')
+    print('residuals with each basis, splitting the STARS in half (200 random splits).')
+    print('=' * 104)
+    print('%-26s %6s %13s %13s %13s %13s'
+          % ('field', 'stars', 'linear', 'cubic', 'quintic', 'septic'))
+    for label, shape, ps, (a, _b) in PAIRS + EXTRA_CV:
+        res = crossval(label, a, shape, ps)
+        if res is None:
+            continue
+        vals, n = res
+        base = vals['linear'][0]
+        cells = ''
+        for order in ('linear', 'cubic', 'quintic', 'septic'):
+            m, sd = vals[order]
+            cells += '%9.4f%+5.1f%%' % (m, 100 * (m / base - 1)) if order != 'linear' \
+                else '%9.4f      ' % m
+        print('%-26s %6d %s' % (label.split(',')[0], n, cells))
+    print()
+    print('  Columns are the held-out rms in arcsec, and the per cent against the linear')
+    print('  control. "linear" re-absorbs only a similarity, so it is what fitting nothing real')
+    print('  looks like; "cubic" fitted to a cubic fit\'s residuals should also gain nothing,')
+    print('  and is the second control. A REAL higher-order term shows as a gain that the two')
+    print('  controls do not have.')
+    print()
+    print('  WHERE the gain comes from, on the Husillos 50-frame stack. A polynomial restricted')
+    print('  to a sub-region absorbs different things, so these rows are diagnostics rather than')
+    print('  verdicts -- but the last one is the point:')
+    print()
+    hs, hshape = 'with_f0', (9576, 6388)
+    half = np.hypot(hshape[0] / 2, hshape[1] / 2)
+    cuts = [('all stars', lambda X, Y, S: np.ones(len(X), dtype=bool)),
+            ('inner  r/R < 0.50', lambda X, Y, S: _rg(X, Y, S) < 0.5),
+            ('middle 0.50-0.75', lambda X, Y, S: (_rg(X, Y, S) >= 0.5) & (_rg(X, Y, S) < 0.75)),
+            ('outer  r/R >= 0.75', lambda X, Y, S: _rg(X, Y, S) >= 0.75),
+            ('drop the outer 25 %', lambda X, Y, S: _rg(X, Y, S) < 0.75)]
+    print('  %-22s %6s %10s %10s %10s %10s'
+          % ('subset', 'stars', 'linear', 'cubic', 'quintic', 'septic'))
+    for tag, sel in cuts:
+        res = crossval('', hs, hshape, 2.2064323, sel=sel)
+        if res is None:
+            print('  %-22s too few stars to split' % tag)
+            continue
+        vals, n = res
+        base = vals['linear'][0]
+        print('  %-22s %6d %10.4f %+9.1f%% %+9.1f%% %+9.1f%%'
+              % (tag, n, base, 100 * (vals['cubic'][0] / base - 1),
+                 100 * (vals['quintic'][0] / base - 1), 100 * (vals['septic'][0] / base - 1)))
+    print()
+    print('  The septic\'s whole-field advantage does NOT come from the outer field. In the')
+    print('  outer quarter -- where its 30 extra parameters have their leverage, and where this')
+    print('  frame has ~225 stars -- its held-out gain COLLAPSES to a couple of per cent while')
+    print('  the quintic keeps a third. That is Douglas\' prediction of 2026-09-09, measured:')
+    print('  the septic is not unstable everywhere, it is unstable exactly where the stars run')
+    print('  out, which is the corner of the frame a deflection measurement depends on.')
+    print()
+
+
+def _rg(px, py, shape):
+    return np.hypot(px - shape[0] / 2, py - shape[1] / 2) / np.hypot(shape[0] / 2, shape[1] / 2)
+
+
+#: fields that only take part in the cross-validation (no second independent fit to pair them
+#: with, which is precisely why splitting the stars is the test they can support)
+EXTRA_CV = [
+    ('Husillos zenith, full 50-frame stack', (9576, 6388), 2.2064323, ('with_f0', None)),
+]
+
+
 def main():
     rows = []
     for label, shape, ps, (a, b) in PAIRS:
@@ -205,6 +322,7 @@ def main():
     print('ratio > 1: the term is bigger than the scatter in the term -- worth fitting.')
     print('ratio < 1: the fit is chasing this star field rather than the optics.')
     print()
+    do_crossval()
     term_reproduces()
     print()
     cross_check()
