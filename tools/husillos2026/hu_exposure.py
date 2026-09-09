@@ -58,7 +58,7 @@ from ser_track import read_header, read_frame  # noqa: E402
 
 G = r"G:/Joe Izen Spain 2026"
 LEON = r"G:/Leon Aug 2026"
-OUT = r"D:/MEE2024 output/MEE_output/RECORD/husillos2026"
+OUT = r"D:/MEE2024 output/MEE_output/husillos2026"
 FITS_DIR = os.path.join(OUT, 'zenith_order')
 
 #: (label, kind, path, exposure s, gain, offset, station).  All from the sidecars/headers.

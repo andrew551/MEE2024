@@ -473,8 +473,12 @@ rule about which index to use.
    observed effect is dither, not defect.
 6. **Ask Joe what gain and exposure the missing zenith captures used** (§7b), and record for 2027
    that a night calibration field must be shot at a gain and subframe length that put the read
-   noise below the sky. Husillos' zenith was read-noise limited by 11× and lost 2.5× of SNR to
-   the gain setting alone.
+   noise below the sky. Husillos' zenith was read-noise limited by 11×, lost 2.5× of SNR to the
+   gain setting alone (§7b), and lost about a quarter of its G < 13 stars to it (§7c).
+7. **Record for 2027: dither deliberately, 5–10 px between frames** (§7d). The AM5's 1.3 px of
+   drift is below the 3 px stage 1 needs for dark-free hot-pixel rejection, and below what the
+   whole-pixel aligner needs to gain the 12 % of centroids §6 measured. Accurate tracking makes
+   a commanded dither easy; it does not substitute for one.
 
 ---
 
@@ -586,6 +590,108 @@ gain 0 and ≥ 12 s.
 
 ---
 
+## 7c. Did the underexposure cost stars?  About a quarter of them, all faint
+
+Douglas, 2026-09-09, with the right control: **Mexico Station 1's zenith fields used a ZWO
+ASI6200 — the same IMX455 sensor as Joe's Zeus 455M — at gain 100 and 3 s**, through a nominal
+432 mm f/5 against Joe's 350 mm f/3.9.
+
+**Raw star counts cannot answer this**, because the fields are not equally rich: Husillos' zenith
+is at RA 281.7°, Dec +50.2° and Leon's at RA 285.1°, Dec +39.2° — both near the galactic plane
+but not equally near — and Station 1's Mexico zenith is sparser than either. What *is*
+density-independent is the **shape** of the magnitude histogram: a complete sample gains a fixed
+factor per half magnitude, and the bin where that factor collapses is the detection limit.
+
+Counts per half magnitude of Gaia G, all four refitted at identical stage-2 settings (quintic,
+gate 0.5 ″, mag 13, corrections off):
+
+| field | 9.0 | 9.5 | 10.0 | 10.5 | 11.0 | 11.5 | 12.0 | 12.5 | **last/prev** |
+|---|---|---|---|---|---|---|---|---|---|
+| **Husillos 1.0 s g0 f/3.9** | 71 | 133 | 185 | 265 | 388 | 555 | 624 | **367** | **0.59** |
+| Leon Z1 4.0 s g101 f/3.9 | 35 | 68 | 98 | 192 | 271 | 398 | 594 | 795 | 1.34 |
+| Leon Z4 4.0 s g101 f/3.9 | 33 | 80 | 93 | 185 | 289 | 450 | 716 | 1084 | 1.51 |
+| Station 1 3.0 s g100 f/5 | 20 | 25 | 33 | 45 | 63 | 103 | 157 | 206 | 1.31 |
+
+**Husillos is the only one of the four that turns over inside the catalogue's own G < 13 edge.**
+Its counts gain ×1.46 and ×1.43 up to G 12, then ×1.12, then ×0.59 — that collapse is the
+detection limit arriving at about **G 12**. The other three are still gaining at 1.31–1.51 where
+the catalogue stops, so they are complete and Husillos is not.
+
+Extrapolating Husillos' *own* healthy ratio of 1.44 through the last two bins gives **~3640 stars
+expected against 2680 matched: about 960 lost, a quarter of the field, essentially all of them
+fainter than G 12.**
+
+**Station 1 is the decisive control, and it settles that this is settings and not optics.** It
+reached the catalogue limit through a **smaller aperture** (86.4 mm against 89.7 mm) and a
+**slower f-ratio** (f/5 against f/3.9 — so *less* sky per pixel per second, which is the harder
+starting point) on the **same sensor**. Husillos had the better light grasp on both counts and
+still went shallower. The difference is 3 s at gain 100 against 1 s at gain 0.
+
+The residual says the same thing. Refitted at identical settings, the centroid scatter in
+**pixels** — the fair unit, since the arcsec column charges Husillos 19 % extra for its coarser
+plate scale:
+
+| field | stars | rms px | rms ″ | rms ″ at G<11 | G 11–12 | G 12–13 |
+|---|---|---|---|---|---|---|
+| **Husillos zenith** | 2680 | **0.073** | 0.161 | 0.132 | 0.157 | **0.182** |
+| Station 1, four fields | 677–683 | **0.041–0.051** | 0.075–0.094 | 0.081 | 0.077 | 0.093 |
+| Leon Z1 | 2516 | 0.042 | 0.093 | 0.095 | 0.078 | 0.098 |
+
+Husillos' centroids are **1.5–1.8× worse in pixels**, and its residual **climbs with magnitude**
+(0.132 → 0.182 ″) where both controls are flat. A flat residual-versus-magnitude curve is what a
+field looks like when photons are not the limit. Husillos' is not flat.
+
+---
+
+## 7d. Does the tighter residual plot mean the AM5 tracks better?  Yes — and it cost something
+
+Douglas noticed that the Husillos 2D residuals are far more tightly grouped than Station 1's.
+**They are, and the reading is right, but the plot carries two things at once that pull in
+opposite directions.**
+
+First, what that plot is. `TWOD_RESIDUALS*.png` inside a `CENTROID_OUTPUT` folder is a **stage-1**
+plot, not stage 2: every star's position in every frame against the stacking master, in pixels,
+coloured by frame. So it genuinely does carry mount information — unlike the stage-2 residual,
+which says almost nothing about the mount, because the stacker aligns before summing and only
+trailing *within* one exposure survives (0.0365 ″/s × 1.0 s = 0.037 ″ = 0.017 px here: not a
+term). In the plot, the **overall extent is the drift** and the **width of each colour's own
+clump is the per-frame centroid scatter**.
+
+Neither needs reading off an axis, because stage 1 records both — `alignment.dither_span_px` and
+`alignment.rms_px`:
+
+| field | mount | frames | span px | span ″ | span ″/min | per-frame rms |
+|---|---|---|---|---|---|---|
+| **Husillos zenith** | **AM5** | 49 | **1.279** | 2.82 | **2.62** | 0.177 px |
+| **Leon Z1** | **AVX** | 29 | **13.816** | 30.50 | **14.30** | 0.157 px |
+| Station 1 Mexico | AVX | 19 | ~2.9 *(read off its plot)* | ~5.4 | ~4 | — |
+
+**The AM5 drifted 5.5× less than Leon's AVX over the same night through the same telescope**, and
+roughly 1.5× less than Station 1's. The per-frame scatter is the same to within 13 % (0.177
+against 0.157 px), so the difference really is drift and not noise.
+
+Two honest qualifications. **Drift rate is mostly polar alignment, not the mount head** — a
+well-aligned AVX will beat a badly-aligned AM5 — so this is an operational result, not a verdict
+on strain-wave versus worm. What *is* intrinsic to the head is smoothness and settling, and that
+is §5: there the AM5 also wins, by 2–3× on a matched window. Station 1's number is eyeballed from
+an axis because its 2024 stage-1 zip predates the alignment record and its raw per-frame zenith
+data is on a cloud-drive path that no longer exists; the other two are measured.
+
+**And the sting, which is worth more than the win.** Stage 1 needs **≥ 3 px of dither** to find
+hot pixels without a dark frame. Leon's log reads *"hot pixel(s) identified from the dither
+(13.8 px) … without a dark frame"*. Husillos' reads *"no dark-free hot-pixel search: the field
+moved only 1.3 px between frames, under the 3 px needed"*. **The Husillos stack keeps every hot
+pixel**, and there are no darks in this dataset to remove them another way. On top of that, §6
+found that sub-pixel dither across the whole-pixel alignment grid was worth **12 % of the
+centroid yield**, and 1.3 px is barely any.
+
+So: **on this pipeline a mount that tracks perfectly is not unambiguously better.** The obvious
+answer for 2027 is a **deliberate dither of 5–10 px between frames**, which an AM5 can place
+accurately *because* it is accurate — buying back the hot-pixel rejection and the yield without
+giving up the smoothness that §5 measured.
+
+---
+
 ## 8. Where the stacked frames are
 
 Stage 1 writes the stack beside the centroid zip, not into it:
@@ -596,15 +702,17 @@ Stage 1 writes the stack beside the centroid zip, not into it:
 with `CentroidsStackGood*.png`, `TWOD_RESIDUALS*.png`, `USEDSTARS*.png`,
 `triangle_matches.png` and `LOG*.txt` alongside.
 
-Everything for cell 4 now lives under **`D:\MEE2024 output\MEE_output\RECORD\husillos2026\`**
-(`zenith_order/`, `track/`, `mount/`), and the one stack that matters is copied out under a name
-that says what it is, with an index:
+Working files for cell 4 live under **`D:\MEE2024 output\MEE_output\husillos2026\`**
+(`zenith_order/`, `track/`, `mount/`, `vs_station1/`, `stacks/`), beside `station1_record`,
+`station2_transfer`, `portland_zenith` and the rest. **`RECORD/` is for finished record charts
+only** and cell 4 has none yet. The one stack that matters is copied out under a name that says
+what it is, with an index:
 
-    RECORD/husillos2026/stacks/husillos_zenith_00_00_21_50frames_uint16.fit
-    RECORD/husillos2026/stacks/husillos_zenith_00_00_21_50frames_float32.fit
-    RECORD/husillos2026/stacks/husillos_zenith_00_00_21_centroids.png
-    RECORD/husillos2026/stacks/husillos_zenith_00_00_21_residuals.png
-    RECORD/husillos2026/stacks/00README.md
+    husillos2026/stacks/husillos_zenith_00_00_21_50frames_uint16.fit
+    husillos2026/stacks/husillos_zenith_00_00_21_50frames_float32.fit
+    husillos2026/stacks/husillos_zenith_00_00_21_centroids.png
+    husillos2026/stacks/husillos_zenith_00_00_21_residuals.png
+    husillos2026/stacks/00README.md
 
 That is all 50 frames of `2026-08-13/zenith/00_00_21.ser`, 9576 × 6388, solving at RA 281.7427°,
 Dec +50.2092°, roll 325.902°, 2.2064323 ″/px. Use the float32 file for anything that re-measures

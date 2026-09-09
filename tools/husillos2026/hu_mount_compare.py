@@ -48,7 +48,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ser_track import (find_stars, moments, coarse_shift, similarity_fit,  # noqa: E402
                        sky_level, read_header, read_timestamps, read_frame)
 
-OUT = r"D:/MEE2024 output/MEE_output/RECORD/husillos2026/mount"
+OUT = r"D:/MEE2024 output/MEE_output/husillos2026/mount"
 PS = 2.2054043          # "/px, the FRA500 + 0.7x canonical (docs/CAL_PILEO_STEP2.md)
 WINDOW = 60             # s: the common window every field is also measured on
 
