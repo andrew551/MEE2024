@@ -116,7 +116,15 @@ def do_ref():
 
 
 def do_bracket():
-    for order in ORDERS:
+    # The bracket is a DAYTIME CALIBRATION field and belongs on the ladder's middle rung,
+    # `distortion_fixed_coefficients=quadratic` (docs/V1_4_0_TESTING.md section 5). This mode
+    # fitted it `constant` + free scale -- the eclipse field's rung -- and the outputs it wrote
+    # (bracket_cubic/, bracket_quintic/) are kept as the record of that error. It refuses to run
+    # again rather than silently produce more of them: use s2_bracket_convention.py, which writes
+    # bracket_quadfree/ and is what the record tools read (2026-09-09).
+    raise SystemExit('s2_stage2.py bracket: wrong rung (constant); run '
+                     'tools/matrix_station2/s2_bracket_convention.py instead')
+    for order in ORDERS:  # noqa: unreachable -- kept so the history of the call is legible
         refs = sorted(glob.glob(os.path.join(OUT, 'ref_' + order, '*', '**', 'distortion_results.txt'), recursive=True))
         if not refs:
             print(f'no {order} reference yet'); continue
