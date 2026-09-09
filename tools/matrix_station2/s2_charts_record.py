@@ -35,7 +35,7 @@ from tools.analysis_window import WINDOWS
 from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 from matplotlib.patches import Circle, Ellipse, Polygon
 
-REV = 'rev05'
+REV = 'rev06'
 OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
 CHARTS = os.path.join(OUT, 'charts')
 VER = os.path.join(CHARTS, 'chart_versions')
@@ -376,35 +376,55 @@ field_chart(both, 'record_field_both.png',
             label='%d stars in both tiers, averaged' % len(both))
 
 # ---------------------------------------------------------------- 3. covariance, BOTH methods
+# Drawn as cells 1 and 3 draw it (b17_charts_record.py, step3_charts_record.py): the vertical
+# axis is the plate scale in ppm from the IMPORTED value, both methods are 1-sigma ellipses, and
+# Method 1's ellipse carries its imported-scale term. rev05 and earlier plotted the absolute scale
+# with Method 1 as a point -- and put Method 2's scale on the wrong base: PS*(1+S) with PS the
+# ZENITH reference, where the stage-2 model the residuals are measured against carries its own
+# free scale. Cell 2's construction, joint = stage-2 scale - S*PS, reproduces its recorded joint
+# scales to seven digits; on Station 2 it moves the Method 2 scale from +665 ppm to -54 ppm from
+# the bracket, which is the whole reason the rev05 chart looked nothing like the other two.
 sig2 = float(np.sqrt(np.mean(np.concatenate([rx2, ry2]) ** 2)))
 cov2 = sig2 ** 2 * np.linalg.pinv(A2.T @ A2)
 iL, iS = lab2.index('L'), lab2.index('S')
-joint = PS * (1 + c2[iS])
-C = np.array([[cov2[iL, iL], cov2[iL, iS] * PS], [cov2[iS, iL] * PS, cov2[iS, iS] * PS ** 2]])
-C[0, 0] = S2 ** 2                                   # carry the bootstrap sigma the record quotes
-RHO = C[0, 1] / np.sqrt(C[0, 0] * C[1, 1])
-fig, ax = plt.subplots(figsize=(9.8, 7))
-vals, vecs = np.linalg.eigh(C)
-ax.add_patch(Ellipse((c2[iL], joint), 2 * np.sqrt(vals[1]), 2 * np.sqrt(vals[0]),
-                     angle=np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1])), fill=False,
-                     color='tab:blue', lw=1.8, label='1$\\sigma$ \u2014 Method 2 (scale fitted with L)'))
-ax.scatter(c2[iL], joint, marker='+', s=150, color='tab:blue', zorder=5)
-ax.errorbar([L1], [IMPORTED], xerr=[float(np.hypot(S1, S1_SCALE))], yerr=[BRK_SIG * IMPORTED],
-            fmt='s', color='tab:red',
-            ms=7, capsize=4, lw=1.6, zorder=5,
-            label='Method 1 \u2014 scale imported from the L/R bracket')
+STAGE2_SCALE = float(np.mean([json.load(open(glob.glob(os.path.join(
+    OUT, SUB['m2'][tag], '**', 'distortion_results.txt'), recursive=True)[0],
+    encoding='utf-8'))['platescale (arcseconds/pixel)'] for tag, _, _ in TIERS]))
+joint = STAGE2_SCALE - c2[iS] * PS                   # cell 2's formula; S < 0 means a larger scale
+JOINT_PPM = 1e6 * (joint - IMPORTED) / IMPORTED     # physical: + means more arcsec per pixel
+# Cells 1 and 3 plot S itself, whose sign is the residual convention: their "+ppm" is a scale
+# that is physically SMALLER. To sit in that set the same quantity is plotted here, and the box
+# states both readings so the sign cannot be misread.
+Y2 = -JOINT_PPM
+C2 = np.array([[cov2[iL, iL], cov2[iL, iS] * 1e6], [cov2[iS, iL] * 1e6, cov2[iS, iS] * 1e12]])
+C2[0, 0] = S2 ** 2                                  # carry the bootstrap sigma the record quotes
+RHO = C2[0, 1] / np.sqrt(C2[0, 0] * C2[1, 1])
+SCALE_PPM = 1e6 * BRK_SIG                           # the imported scale's own uncertainty
+C1 = np.array([[S1 ** 2 + S1_SCALE ** 2, -S1_SCALE * SCALE_PPM], [-S1_SCALE * SCALE_PPM, SCALE_PPM ** 2]])
+fig, ax = plt.subplots(figsize=(9.5, 7))
+
+
+def draw(cov, mu, color, name):
+    vals, vecs = np.linalg.eigh(cov)
+    ang = np.degrees(np.arctan2(vecs[1, 1], vecs[0, 1]))
+    ax.add_patch(Ellipse(mu, 2 * np.sqrt(vals[1]), 2 * np.sqrt(vals[0]), angle=ang,
+                         fill=False, color=color, lw=1.6, label='1$\sigma$ — %s' % name))
+    ax.scatter(*mu, marker='+', s=110, color=color, zorder=5)
+
+
+draw(C1, np.array([L1, 0.0]), 'darkred', 'Method 1 (scale imported; stat + scale)')
+draw(C2, np.array([L2, Y2]), 'tab:blue', 'Method 2 (scale free)')
 ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
 ax.axvline(NEWTON, color='orange', lw=1.5, ls='--', label='Newton 0.876"')
-_lines = [('Method 2:  L = %+.2f $\\pm$ %.2f" (stat), $\\pm$%.2f" with atmosphere %.2f'
-           % (L2, S2, TOT2, ATM_ERR), 'tab:blue'),
-          ('      fitted plate scale %.6f "/px' % joint, 'tab:blue'),
-          ('      correlation L vs plate scale = %+.2f' % RHO, 'tab:blue'),
-          ('Method 1:  L = %+.2f $\pm$ %.2f" (stat) $\pm$ %.2f" (imported scale)'
-           % (L1, S1, S1_SCALE), 'tab:red'),
-          ('      imported %.6f "/px, the L/R mean (L\u2212R %.0f ppm)'
-           % (IMPORTED, 1e6 * BRK_SPREAD / IMPORTED), 'tab:red'),
-          ('from %d observations of %d stars, both tiers pooled'
-           % (len(D2), D2.ID.nunique()), 'black')]
+_tot1 = float(np.hypot(np.sqrt(C1[0, 0]), ATM_ERR))
+_lines = [('Method 1:  L = %.3f $\pm$ %.3f" (stat %.3f + scale %.3f)' % (L1, np.sqrt(C1[0, 0]), S1, S1_SCALE), 'darkred'),
+          ('      $\pm$ %.3f" with the atmosphere term %.2f' % (_tot1, ATM_ERR), 'darkred'),
+          ('Method 2:  L = %.3f $\pm$ %.3f" (stat), $\pm$%.3f" with atmosphere' % (L2, S2, TOT2), 'tab:blue'),
+          ('      scale %+.1f ppm from imported (%.7f "/px, %+.0f ppm in "/px)' % (Y2, joint, JOINT_PPM), 'tab:blue'),
+          ('      correlation L vs scale = %+.2f' % RHO, 'tab:blue'),
+          ('Imported plate scale: %.7f "/px' % IMPORTED, 'black'),
+          ('      (the L/R bracket mean, $\pm$%.1f ppm from its own fits)' % SCALE_PPM, 'black'),
+          ('from %d observations of %d stars, both tiers pooled, one shared scale' % (len(D2), D2.ID.nunique()), 'black')]
 _box = AnchoredOffsetbox(loc='lower left', pad=0.45, borderpad=0.6, frameon=True,
                          child=VPacker(children=[TextArea(x, textprops=dict(color=col, size=9.5))
                                                  for x, col in _lines], pad=0, sep=3, align='left'),
@@ -412,11 +432,10 @@ _box = AnchoredOffsetbox(loc='lower left', pad=0.45, borderpad=0.6, frameon=True
 _box.patch.set(facecolor='white', edgecolor='gray', linewidth=0.9); _box.set_zorder(6)
 ax.add_artist(_box)
 ax.set_xlabel('L (arcsec at the solar limb)', fontsize=13)
-ax.set_ylabel('plate scale (arcsec per pixel)', fontsize=12)
-ax.ticklabel_format(axis='y', useOffset=False, style='plain')
-ax.set_title('L and plate scale, both methods \u2014 Mexico 2024 Station 2', fontsize=12)
+ax.set_ylabel('Plate scale (ppm difference from imported value)', fontsize=12)
+ax.set_title('L and plate scale — Mexico 2024 Station 2, G $\leq$ 13, both tiers, one scale', fontsize=12)
 ax.legend(fontsize=9, loc='upper right')
-ax.autoscale_view(); ax.margins(0.30)
+ax.autoscale_view(); ax.margins(0.15)
 save(fig, 'record_covariance.png')
 print('covariance: Method 2 rho %+.2f, joint scale %.7f; Method 1 imported %.7f' % (RHO, joint, IMPORTED))
 
@@ -455,7 +474,8 @@ rec = dict(rev=REV, cell='Mexico 2024 Station 2',
            bracket='right 18:10:32-18:11:21, left 18:14:05-18:14:57, ends of totality trimmed',
            observations=int(len(D2)), stars=int(D2.ID.nunique()),
            method2=dict(L=L2, sigma_stat=S2, sigma_atmosphere=ATM_ERR, sigma_total=TOT2,
-                        joint_platescale=joint, corr_L_platescale=float(RHO)),
+                        joint_platescale=joint, joint_ppm_from_imported=float(JOINT_PPM),
+                        stage2_platescale=STAGE2_SCALE, corr_L_platescale=float(RHO)),
            method2_scale_per_tier=dict(L=L2_TIERS, sigma_stat=S2_TIERS,
                                        tier_scale_ppm_from_reference=TIER_SCALE_PPM),
            double_star_removal='none: F31 inoperative, and the 10 arcsec cut is not trusted (Douglas, 2026-09-09)',
