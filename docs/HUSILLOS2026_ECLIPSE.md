@@ -255,6 +255,76 @@ and they reach the mildly-hot pixels this method cannot. **1.0 s / gain 0 / offs
 
 ---
 
+## 3d. What the two fields actually see, and how much they share
+
+Douglas, 2026-09-10: *"So the gain zero exposures saw 55 stars and the gain 125 exposures saw 68?
+What was the overlap?"*
+
+**First, what 55 and 68 are not.** They are the **plate solver's verification counts** — how many
+catalogue stars it lined up well enough to accept the solution, printed as *"MATCH ACCEPTED
+(nstars matched = 55)"*. The solver stops once it is convinced. The science star list is what
+stage 2 matches afterwards, and that is a different number.
+
+**And the first attempt at it was wrong, because refraction was off.** Every diagnostic fit in
+this cell has run with corrections off, which was right at the zenith and is badly wrong here: the
+Sun was at **8.6° altitude**, z = 81.4°, where R = k·tan z is **384 ″** and its *second* derivative
+across the field is 2k·sec²z·tan z = 33 200 ″/rad² — about **19 ″ of quadratic distortion over a
+3.9° half-field**. A linear fit absorbs the shear; nothing absorbs that.
+
+| field | gain | corrections | gate | stars | rms | plate scale |
+|---|---|---|---|---|---|---|
+| Sn2 | 0 | off | 2.0 ″ | 17 | 0.4152 ″ | 2.218138 |
+| Sn2 | 0 | **refraction on** | 2.0 ″ | **71** | 0.6266 ″ | 2.202937 |
+| Sn2 | 0 | **refraction on** | 0.5 ″ | 36 | **0.2895 ″** | 2.202962 |
+| Sun capture | 125 | off | 2.0 ″ | 32 | 0.5093 ″ | 2.212959 |
+| Sun capture | 125 | **refraction on** | 2.0 ″ | **84** | 0.7157 ″ | 2.202552 |
+| Sun capture | 125 | **refraction on** | 0.5 ″ | 35 | **0.2526 ″** | 2.202489 |
+
+Refraction quadruples the matched-star count and pulls the two fields' plate scales from 2300 ppm
+apart to **385 ppm apart**. The residual at the tight gate, **0.25–0.29 ″**, is better than Leon's
+CAL_piLeo (0.53 ″).
+
+*The weather is assumed*: 926.5 hPa is the standard atmosphere at 743 m, with 25 °C and 35 %
+humidity as ordinary August evening values. **This is a sensitivity, not a measurement** — the
+record reduction needs the real conditions. Everything below is at gate 2.0 ″ with refraction on.
+
+**The overlap, on Gaia source ids** (strings, never floats — `tests/test_star_id_handling.py`):
+
+| | stars |
+|---|---|
+| gain 0 only | 8 |
+| **both** | **63** — 89 % of the gain-0 list, 75 % of the gain-125 list |
+| gain 125 only | 21 |
+| **union** | **92** |
+
+The 63 shared stars run G 4.93–10.00, median 8.70. The 21 the gain-125 capture sees alone are
+fainter (median G 9.57), which is what its lower read noise (1.38 e- against 4.73) and 25 % more
+frames should buy.
+
+**An independent check that does not use the catalogue at all:** cross-matching the two *stage-1
+centroid lists* in pixel space gives **71 common detections** at a single offset of (−1.9, −1.7) px
+— 62 % of the gain-0 list, 73 % of the gain-125 one. So the detections were always in agreement;
+it was the *matching* that refraction was breaking.
+
+### The annotated masters
+
+`hu_eclipse_overlap.py charts` draws them in the form cells 1–3 already use — arcsinh-stretched
+master, yellow circles on the matched stars, the 2 R☉ circle dashed in cyan, the count in the
+legend. Both the stretch and the sky-to-sensor affine come from `tools/record_charts.py`
+(`arcsinh_stretch`, `SkyFrame`), never a private copy.
+
+**The Sun is placed by the astrometry, not by image morphology.** A first attempt hunted for the
+occulted disk in the stack and put the circle 400 px off, because the occulter's fill value
+(5276.8 ADU here) is not the darkest thing in a coronal-subtracted frame. `SkyFrame.from_stars`
+fits the affine on the matched stars and the Sun's apparent place at mid-capture goes through it
+forwards — so the circle is a *check* on the solution, not a decoration. The two fields place it
+at **(5042, 3382)** and **(5045, 3384) px** independently: 3 px apart.
+
+They are written to `husillos2026/eclipse/charts/`, **not** to `RECORD/` — the fit behind them
+assumes the weather, and `RECORD/` is for finished record charts.
+
+---
+
 ## 4. A tool that does not work, and says so
 
 `hu_eclipse_match.py` was written to match the detections against Gaia at the known pointing —
