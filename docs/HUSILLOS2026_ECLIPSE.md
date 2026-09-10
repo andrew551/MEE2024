@@ -614,12 +614,73 @@ So Husillos' vertical excess is entirely **patchy**, with no smooth low-order co
 León described its own residue as "patchy rather than smooth" too, but at León a deg-2 surface
 still took 0.898 → 0.763 ″; here it takes 0.506 → 0.504 ″.
 
-**Conclusion: the vertical nuisance is not applied to cell 4, and the record's L stands at the
-unfiltered fit.** Applying it would mean fitting five parameters, in a frame that first needs a
-14.9° rotation, to absorb a structure the data says is not there — which is exactly the
-"never choose an analysis parameter at the keyboard" trap. If more stars arrive (a second
-zenith field, or CalibS deepening the reference) this is worth re-measuring, because the
-V/H = 1.80 says the *physics* León's filter targets is present; only its smooth part is not.
+**Conclusion, and it is provisional — see §3i.** On this evidence the vertical nuisance is not
+applied to cell 4 and the record's L stands at the unfiltered fit. But the evidence above is
+the *eclipse field's own residuals*, and that is not how León decided the question.
+
+## 3i. — and §3h asked it of the wrong data. Husillos has horizon fields.
+
+Douglas, 2026-09-10: *"For the Leon site, we took horizon data and I believe from this we
+defined the vertical nuisance. Is that true? We do have horizon data for Husillos as well."*
+
+**True on both counts, and it invalidates §3h's decision** — though not its measurements.
+
+### How León actually defined it
+
+Not on its eclipse field. On **horizon night fields**, in two separate steps
+(`docs/STEP3_2026.md` §S1, `tools/step3_atmosphere_maps.py`):
+
+* **the direction** came from the night maps — *"M3 measured the wavefield vertically
+  polarised at V/H ≈ 2.3"* — measured across the nine **horizon field-windows** (H1 = the
+  eclipse alt/az, H2 = +2°, H3 = the calibration sightline) at alt 8.5–12.4° over three
+  nights, alongside the twelve zenith fields;
+* **the degree, and the vertical-only form**, came from a **null test on those same night
+  fields**, where L is known to be zero:
+
+| variant | N1 null | N2 null | N3 null | **worst** |
+|---|---|---|---|---|
+| base (no nuisance) | −0.77 | −0.04 | +0.67 | 0.77 ″ |
+| **vertical deg-2** | −0.19 | +0.32 | −0.19 | **0.32 ″** |
+| vector deg-2 | −0.75 | −0.15 | +0.57 | 0.75 ″ |
+| vector deg-3 | −0.49 | +0.83 | +0.63 | 0.83 ″ |
+
+Vertical-only beat both vector variants **on real atmospheres** — M3's polarisation
+measurement vindicating itself in the estimator's own behaviour — and the deg-2 cut the
+atmospheric inheritance **2.4× on all three nights**, which is where León's ±0.33 ″
+atmosphere term comes from. (León's formal gate still *failed*: 0.32 ″ is ~6× its floor, so
+the filter is applied and the residual systematic quoted rather than claimed away.)
+
+So the object León scored the nuisance against was a field with **no deflection in it** and
+hundreds of stars. §3h scored it against the eclipse field's 63 residuals, which contain the
+signal being measured and offer no known-zero truth. **That is the wrong test, and its
+conclusion is withdrawn pending the right one.** What survives from §3h is its two
+measurements: the 14.9° sensor-to-vertical angle, and V/H = 1.80.
+
+### Husillos has the equivalent data — on the eclipse night, at both eclipse gains
+
+`tools/husillos2026/hu_horizon.py`, read from the SER headers and the SharpCap settings files:
+
+| window | captures | UTC | gains | frames | what it is |
+|---|---|---|---|---|---|
+| `cal 8 deg` | 3 | 20:53–20:59 | 0, 0, 125 | 100 each | **the eclipse altitude** (Sun 8.72° at 18:29:20) |
+| `10 deg` | 7 | 21:31–21:44 | 0 and 125 | 100, 100, 100, 14, 51, 50, 50 | ~+2° — León's **H2** analogue |
+
+93.6 GB, all 1.000 s at offset 220 — the same settings as the zenith field, which is why the
+`cal 8 deg` captures were already the source of the hot-pixel mask (§3c). They sit 2.4–3.2
+hours after totality **on the same night**, and they come at **both eclipse gains**, so they
+can be unioned exactly as the eclipse blocks are.
+
+`tools/husillos2026/hu_horizon_reduce.py` stacks them and fits them against the same zenith
+quintic reference at the same rung, refraction on. Stage 1 uses the **zenith star-field
+preset** — there is no Sun in these frames, so no occulter, no coronal subtraction and no
+saturated blob — and the synthetic hot-pixel dark is applied.
+
+**What this unlocks, in order:** the polarisation measured on a null field instead of on the
+science field; a Husillos null test that can gate the nuisance the way León gated it; and —
+the larger prize — **an atmosphere term for cell 4 at all**, which §3e listed as simply
+missing (*"no atmospheric data — Joe took none, so the ±0.11–0.33 ″ every other cell carries
+from zenith nulls has no counterpart"*). That statement was wrong. He took the fields that
+matter most, and they were sitting on the drive under `cal 8 deg` and `10 deg`.
 
 ### What this is and is not
 
@@ -629,8 +690,9 @@ V/H = 1.80 says the *physics* León's filter targets is present; only its smooth
   as ordinary August values. At z = 81.4° the plate scale carries ~63 ppm per 1 % of the
   refraction constant, so this is the single largest unquantified term.
 * **One zenith field, not seventeen** — no reference field-to-field term at all.
-* **No atmospheric data** — Joe took none, so the ±0.11–0.33 ″ every other cell carries from
-  zenith nulls has no counterpart.
+* ~~**No atmospheric data** — Joe took none~~ — **wrong** (§3i). Ten horizon captures at the
+  eclipse altitude, on the eclipse night, at both eclipse gains. Not yet reduced, so the term
+  is still absent from the budget, but it is available rather than missing.
 * **No darks and no flats.**
 * **The outer radial bound is inherited**, and is not applied.
 
