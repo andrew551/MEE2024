@@ -479,13 +479,21 @@ then a **cross-block consistency vet** dropping any star whose blocks disagree b
 the field's cross-block MAD. The union rides **one host block's model**, so the output is one
 consistent geometry.
 
-### One step León did not need
+### One step León did not need — and the reason is the clock, not the altitude
 
-León's tiers were 40 s apart at 40° altitude. Husillos' blocks are 39 s apart at **8.6°**, where
-dR/dz is about 46 ″ per degree. Measured here rather than assumed: **the two blocks' catalogue
-positions differ by 0.60 ″ with a 0.54 ″ spread about that** — differential refraction over the
-39 s, and emphatically not a constant. So absolute positions must not be averaged. Displacements
-are, because the same refraction that moves the catalogue moves the observation and it cancels.
+*(Correction, Douglas 2026-09-10: an earlier version of this section said León observed at 40°
+altitude. That number was invented. León was at* **+9.9°** *at C2 —
+`I:\Leon location and weather data\actual leon site.JPG` — essentially the same as Husillos'
+8.6°. The two stations watched the same eclipse from 130 km apart; of course their altitudes
+match.)*
+
+The real difference is the **separation in time**. León's two deep tiers are **1 s** apart
+(`step3_s2_union.MIDT`: 0.6 s at 18:28:33, 1.2 s at 18:28:32), so its catalogue frame cannot
+move between them. Husillos' blocks are **39 s** apart, and at 8.6° dR/dz is about 46 ″ per
+degree. Measured here rather than assumed: **the two blocks' catalogue positions differ by
+0.60 ″ with a 0.54 ″ spread about that** — differential refraction over the 39 s, and
+emphatically not a constant. So absolute positions must not be averaged. Displacements are,
+because the same refraction that moves the catalogue moves the observation and it cancels.
 
 For a star only one block saw, its displacement still has to be carried into the host's frame.
 That transfer is a **quadratic in field position** fitted on the shared stars, and its residual
@@ -539,6 +547,79 @@ exposure; with the scale free, the data sets it and L is left alone.
 
 So the two blocks never disagreed about the deflection. They disagreed by per-star noise, and
 averaging it is what the union is for.
+
+## 3h. The vertical nuisance: measured, and not applied
+
+Douglas, 2026-09-10: *"The Leon 2026 analysis also used a vertical nuisance filter. Are we able
+to do that here or do we need to do further analysis first?"* Further analysis first — and it
+has now been done. `tools/husillos2026/hu_vertical.py`. **The answer is that we could, and that
+on this data it would remove nothing.**
+
+León's estimator adds a degree-2 polynomial surface in field position to the **vertical
+component only** (`step3_s2_union.design`, the `v{i}{j}` columns); it is the difference between
+"L base" and "L v-deg2" in every León table. Two things had to be true for León first, and
+neither transfers by assumption.
+
+### 1. Where is the vertical on this sensor?
+
+León applies the surface along the **sensor y axis**, which is only the vertical because León
+measured it: its −y axis sits **3.6°** from the local vertical.
+
+| | León | **Husillos** |
+|---|---|---|
+| field-centre altitude at mid-time | +9.9° (C2) | **+9.10°** (Sun itself 8.72°) |
+| sensor −y from the local vertical | 3.6° | **−14.9°** |
+
+So the surface **cannot** be applied along sensor y here; it would have to be fitted in a
+rotated frame. That is a small, well-defined piece of work, not a blocker.
+
+### 2. Is anything vertically polarised?
+
+Yes — and this is the part worth keeping. On the 63 two-witness union stars:
+
+| | León union | **Husillos union** |
+|---|---|---|
+| vertical rms | 0.898 ″ | **0.506 ″** |
+| horizontal rms | 0.363 ″ | **0.280 ″** |
+| **V/H** | **2.5** | **1.80** |
+
+Husillos is polarised along the local vertical at 1.8×, against León's 2.5 and the 2.4 León's
+night maps measured on other fields on other nights. **Two stations, 130 km apart, at the same
+altitude on the same afternoon, with different telescopes and different mounts, both find the
+displacement field polarised along the vertical.** That is an independent confirmation of the
+atmospheric term León's budget is built on, and it is the most valuable thing in this section.
+
+Note what it costs to look in the wrong frame: **on the raw sensor axes Husillos reads y/x =
+0.98**, perfectly isotropic. The polarisation is invisible until the 14.9° rotation is applied,
+which is the same fact as §1 seen from the other side.
+
+### 3. But no smooth surface reproduces
+
+The reason not to apply the filter. A k-parameter least-squares fit on n points removes
+√(k/n) of the rms from *white noise alone*, so "the rms went down" is not evidence of
+structure; and the test that cannot be fooled is held-out stars — the same star-split
+cross-validation that settled the zenith field's polynomial order (§`HUSILLOS2026_ZENITH.md`).
+
+| degree | params | vertical rms after | pure-noise expectation | **held-out gain** |
+|---|---|---|---|---|
+| 1 | 3 | 0.5050 ″ | 0.4935 ″ | **−5.7 %** |
+| 2 (León's) | 6 | 0.5035 ″ | 0.4810 ″ | **−30.3 %** |
+| 3 | 10 | 0.3953 ″ | 0.4638 ″ | **−11.7 %** |
+
+Degrees 1 and 2 remove **less than white noise would**. Degree 3 looks impressive in-sample
+(0.506 → 0.395, well past its noise expectation) and **fails on held-out stars by 11.7 %** —
+textbook overfitting, caught by the one test that catches it.
+
+So Husillos' vertical excess is entirely **patchy**, with no smooth low-order component at all.
+León described its own residue as "patchy rather than smooth" too, but at León a deg-2 surface
+still took 0.898 → 0.763 ″; here it takes 0.506 → 0.504 ″.
+
+**Conclusion: the vertical nuisance is not applied to cell 4, and the record's L stands at the
+unfiltered fit.** Applying it would mean fitting five parameters, in a frame that first needs a
+14.9° rotation, to absorb a structure the data says is not there — which is exactly the
+"never choose an analysis parameter at the keyboard" trap. If more stars arrive (a second
+zenith field, or CalibS deepening the reference) this is worth re-measuring, because the
+V/H = 1.80 says the *physics* León's filter targets is present; only its smooth part is not.
 
 ### What this is and is not
 
@@ -612,5 +693,9 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    noise, and the León union averages it. The blocks are no longer quoted separately.
 4d. **The union is the reduction of record for cell 4** (§3g), and it will need re-running when
    CalibS arrives or a second zenith field changes the reference.
+4e. **The vertical nuisance is measured and deliberately not applied** (§3h). Re-measure it if
+   the star count grows: V/H = 1.80 says the polarisation is real, only its smooth part is
+   absent. Applying it would also need the estimator fitted in a frame rotated 14.9° from the
+   sensor axes, which León did not need.
 5. The Sun capture's **gain 125 against Sn2's gain 0** means their scales must not be carried
    across without measurement.

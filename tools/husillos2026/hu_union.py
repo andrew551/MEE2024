@@ -17,10 +17,14 @@ separately and combined AT THE STAR LEVEL (`tools/step3_s2_union.py`, docs/STEP3
     removes, worth -0.32 " of L on its own);
   - the union rides ONE HOST block's model, so the output is one consistent geometry.
 
-Husillos needs one step Leon did not, and it is not optional.  Leon's tiers were 40 s apart
-at 40 deg altitude; Husillos' blocks are 39 s apart at 8.6 deg altitude, where dR/dz is about
-46 "/deg.  Measured here: the two blocks' CATALOGUE positions differ by 0.60 " with a 0.54 "
-spread about that -- differential refraction over the 39 s, not a constant.  So absolute
+Husillos needs one step Leon did not, and the reason is the SEPARATION IN TIME, not the
+altitude.  (An earlier version of this docstring said Leon was at 40 deg altitude.  That was
+invented; Leon was at +9.9 deg at C2, `I:\Leon location and weather data\actual leon site
+.JPG`, essentially the same as Husillos' 8.6 deg.)  Leon's two deep tiers are 1 s apart
+-- step3_s2_union.MIDT has 0p6s at 18:28:33 and 1p2s at 18:28:32 -- where the catalogue frame
+cannot move.  Husillos' blocks are 39 s apart, and at these altitudes dR/dz is about 46 "/deg.
+Measured here: the two blocks' CATALOGUE positions differ by 0.60 " with a 0.54 " spread
+about that -- differential refraction over the 39 s, not a constant.  So absolute
 positions must NOT be averaged.  Displacements are combined (they are epoch-independent to
 first order, because the same refraction that moves the catalogue moves the observation) and
 the HOST block's catalogue frame is restored.  For a star only one block saw, the frame
