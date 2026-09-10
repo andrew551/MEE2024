@@ -465,11 +465,85 @@ sit far out (mean 7.15 R☉) where the deflection is small but a scale error is 
 ″/ppm is naive-h, not measured by injection as Leon's and Station 2's were, so treat it as the
 right order and not the final figure. Either way it doubles the case for CalibS.
 
+## 3g. The León union: combining the two gain blocks per star
+
+Douglas, 2026-09-10: *"The two exposures at the same [field] in Leon 2026 are conceptually
+equivalent to the two different gains at the same exposure of Husillos. Let's try this method."*
+He is right about the equivalence, and the method transfers. `tools/husillos2026/hu_union.py`.
+
+León's 0.6 s and 1.2 s tiers were never stacked together — they were reduced separately and
+combined **at the star level** (`tools/step3_s2_union.py`): per block, displacement =
+observation − catalogue with the block's **median displacement subtracted** (which kills the
+per-block pointing constant so the blocks can be mixed); per star, the **median across blocks**;
+then a **cross-block consistency vet** dropping any star whose blocks disagree by more than 3×
+the field's cross-block MAD. The union rides **one host block's model**, so the output is one
+consistent geometry.
+
+### One step León did not need
+
+León's tiers were 40 s apart at 40° altitude. Husillos' blocks are 39 s apart at **8.6°**, where
+dR/dz is about 46 ″ per degree. Measured here rather than assumed: **the two blocks' catalogue
+positions differ by 0.60 ″ with a 0.54 ″ spread about that** — differential refraction over the
+39 s, and emphatically not a constant. So absolute positions must not be averaged. Displacements
+are, because the same refraction that moves the catalogue moves the observation and it cancels.
+
+For a star only one block saw, its displacement still has to be carried into the host's frame.
+That transfer is a **quadratic in field position** fitted on the shared stars, and its residual
+is the justification for using it:
+
+| model of the block-to-block frame difference | residual |
+|---|---|
+| constant (i.e. ignore the structure) | 0.724 ″ |
+| linear | 0.083 ″ |
+| **quadratic** | **0.005 ″** |
+
+Five milliarcseconds. The difference is smooth and deterministic, exactly as differential
+refraction should be — which is also a quiet check that the refraction correction is doing
+something real at this altitude.
+
+### The result
+
+The vet removed **one** shared star unaided (G 9.61 at px 7390,4425, cross-block spread 2.384 ″
+against a 0.547 ″ field median), which the two-witness rule alone would have kept. 63 stars.
+
+| set | N | h (R☉²) | rms | **L (Method 2) ± stat** | plate scale |
+|---|---|---|---|---|---|
+| gain 0 alone, two-witness | 64 | 34.2 | 0.636 ″ | 1.596 ± 0.507 ″ | 2.202848 |
+| gain 125 alone, two-witness | 64 | 34.3 | 0.731 ″ | 2.782 ± 0.540 ″ | 2.202656 |
+| **UNION, two-witness** | **63** | **34.2** | **0.550 ″** | **2.129 ± 0.430 ″** | 2.202674 |
+| union, every star | 94 | 27.4 | 7.383 ″ | 2.133 ± 3.863 ″ | 2.202789 |
+
+**The union is better than either block alone on every axis**: the residual rms falls to 0.550 ″
+from 0.636 and 0.731, and the statistical error to ±0.430 ″ from ±0.507 and ±0.540. GR's 1.751 ″
+sits at **0.88 σ**.
+
+The improvement is smaller than the √2 that fully independent noise would give (±0.507 →
+±0.36), and that is the r = 0.484 of §3f showing up again from the other side: about half the
+per-star scatter is common to both blocks and no amount of averaging removes it.
+
+### Two things the union settles
+
+**Single-witness stars buy nothing — the same finding León made.** The 31 single-witness stars
+add 50 % more stars and change L by 0.004 ″ while multiplying the error bar by **9×** (±0.430 →
+±3.863). León's master-versus-union test said the same in different words: its eleven extra
+single-witness stars bought ±0.61 against ±0.60. The two-witness rule is not a cleanup applied
+to the union; it is the union's admission rule.
+
+**The plate scale does not drive L here.** The union adopts its host's plate solution whole and
+averages only the displacements, so hosting is a real choice and it was tested rather than
+assumed (`HU_UNION_HOST=gain0`). Hosting on gain 0 instead moves the fitted scale by 70 ppm —
+and **L not at all: 2.129 ± 0.430 ″ either way, rms 0.550 ″ both.** At §3f's naive leverage
+70 ppm would be 2.3 ″ of L. It is worth 0.000. That is the clean statement of something §3f
+only half-said: the 0.0324 ″/ppm lever describes **imposing** a wrong scale, which is Method 1's
+exposure; with the scale free, the data sets it and L is left alone.
+
+So the two blocks never disagreed about the deflection. They disagreed by per-star noise, and
+averaging it is what the union is for.
+
 ### What this is and is not
 
-* The two blocks are **not independent** in their star list — they share all 64 by construction
-  under the rule — but they **are** largely independent in their noise (r = 0.484), and they
-  disagree at 2.2 σ. Neither value should be quoted alone.
+* The two blocks' separate values (1.596 and 2.782 ″) **are superseded by the union** and should
+  not be quoted alone; their 2.2 σ spread is per-star noise, which the union averages.
 * **The weather is assumed** — 926.5 hPa is the standard atmosphere at 743 m, with 25 °C and 35 %
   as ordinary August values. At z = 81.4° the plate scale carries ~63 ppm per 1 % of the
   refraction constant, so this is the single largest unquantified term.
@@ -479,12 +553,12 @@ right order and not the final figure. Either way it doubles the case for CalibS.
 * **No darks and no flats.**
 * **The outer radial bound is inherited**, and is not applied.
 
-So cell 4 stands at **two Method 2 fits on identical stars, 1.596 ± 0.507 ″ and 2.782 ± 0.540
-″**, disagreeing at 2.2 σ. Neither is a matrix entry, and the spread between them is the honest
-measure of where the cell is. What would close it: **CalibS**, for a same-day same-altitude
-*imported* scale — the night zenith's is 1365 ppm from the eclipse field's and cannot be imported
-at all, and at 0.0324 ″/ppm this field punishes a scale error harder than any other in the
-matrix; the **real weather**; and more zenith fields for a reference term.
+So cell 4 stands at **L = 2.129 ± 0.430 (stat) ″**, the two-gain union under the two-witness
+rule, GR at 0.88 σ — a real fit with an incomplete budget, not yet a matrix entry. What would
+close it: **CalibS**, for a same-day same-altitude *imported* scale — the night zenith's is
+1365 ppm from the eclipse field's and cannot be imported at all, and at 0.0324 ″/ppm this field
+punishes an imported scale error harder than any other in the matrix; the **real weather**; and
+more zenith fields for a reference term.
 
 ---
 
@@ -534,10 +608,9 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    gain-0 block. Cell 2 reduced through `s1_pooled_fit.py` rather than the CLI's stage 3, which
    is probably why this has not bitten before. The two-witness rule removes those two stars
    independently (§3f), so it is not blocking, but it is still a defect.
-4c. **The 2.2 σ between the blocks needs a cause** (§3f). Each carries ±0.35 ″ of independent
-   per-star noise, which is the size of the signal, and neither the plate scale nor the star
-   list explains the gap. First place to look: whether the gain-125 block's 126 frames and the
-   gain-0 block's 101 straddle different parts of totality (§1–2), i.e. whether this is
-   different seeing rather than different photometry.
+4c. ~~**The 2.2 σ between the blocks needs a cause**~~ — **answered** (§3g): it is per-star
+   noise, and the León union averages it. The blocks are no longer quoted separately.
+4d. **The union is the reduction of record for cell 4** (§3g), and it will need re-running when
+   CalibS arrives or a second zenith field changes the reference.
 5. The Sun capture's **gain 125 against Sn2's gain 0** means their scales must not be carried
    across without measurement.
