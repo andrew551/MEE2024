@@ -5,7 +5,8 @@ does it, and the word to hold on to is **quick**.  Four things are missing that 
 in the matrix has, and each of them is a term in the budget rather than a rounding:
 
   * **one zenith field, not seventeen.**  Cell 2's reference is seventeen fields averaged; this
-    is one.  The reference's own field-to-field scatter -- the number `s1_reference_tolerance.py`
+    is one.  (There ARE two science blocks -- the same field at two gains -- so that is not a
+    limitation; the reference is.)  The reference's own field-to-field scatter -- the number `s1_reference_tolerance.py`
     calls (b), 27-32 mas at the corners for Leon -- cannot be measured from a single field, so it
     is missing from the budget entirely rather than merely uncertain.
   * **no atmospheric data.**  Joe took none.  Cells 1-3 take their atmosphere term from zenith
@@ -18,19 +19,26 @@ in the matrix has, and each of them is a term in the budget rather than a roundi
     count from 17 to 71.
   * **no darks and no flats**, so the flat term cells 1 and 2 measure is absent.
 
-The pathway is cell 2's, rung for rung (`docs/V1_4_0_TESTING.md` section 5):
+The pathway (Douglas, 2026-09-10): **take the cubic and higher coefficients from the zenith
+field and apply them to the eclipse field**, and let the eclipse field fit its own constant,
+linear and quadratic.
 
-    zenith reference   free, quintic, gate 0.5 "        distortion_fixed_coefficients=None
-    eclipse field      constant + distortion_free_scale, gates 20 " then 3 "
+    zenith reference   free, quintic, gate 0.5 "     distortion_fixed_coefficients=None
+    eclipse field      distortion_fixed_coefficients=QUADRATIC, gates 20 " then 3 "
 
-There is no daytime calibration field on the middle rung here yet -- CalibS exists and is not
-reduced -- so this is the Station-1 shape: an eclipse field fitted straight against a zenith
-reference with its scale free.  That is Method 2 by construction, and Method 1 is not available
-until CalibS is reduced.
+`distortion_fixed_coefficients` names the highest order left FREE and freezes everything above it
+(`distortion_polynomial.py`, `order_free = mapping[...]`), so `quadratic` is exactly "cubic and
+higher from the reference".  An earlier version of this tool used `constant`, which also freezes
+the linear and quadratic and left the fit with an 0.8767 " residual -- wrong for a field 3.5
+hours and 73 degrees of altitude away from its reference, where the low orders have moved.
 
-The admitted-star window is `analysis_window.WINDOWS['husillos2026']`, registered with its
-citation before this tool was written, as CLAUDE.md requires.  It is cell 2's window inherited,
-and the outer bound has NOT been decided on cell 4's own data.
+**Method 2 only.**  Method 1 imports a plate scale from a calibration field; Husillos has no
+reduced calibration field yet, so there is nothing to import and nothing to report.
+
+**The field is NOT cropped radially** (Douglas, 2026-09-10).  `analysis_window.WINDOWS`
+['husillos2026'] exists and is cited, and its outer bound is cell 2's inherited 10 R_sun which
+has never been tested on cell 4's data; applying it here would drop stars on a borrowed number.
+So every matched star is fitted and the window is recorded rather than enforced.
 
   .venv/Scripts/python.exe tools/husillos2026/hu_step3.py ref
   .venv/Scripts/python.exe tools/husillos2026/hu_step3.py stage2
@@ -56,7 +64,13 @@ PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 HUS = r"D:/MEE2024 output/MEE_output/husillos2026"
 OUT = os.path.join(HUS, 'step3')
 ZEN = os.path.join(HUS, 'zenith_order', 's1_with_f0')
-ECL = os.path.join(HUS, 'eclipse', 's1_sn2_darkall')
+
+#: BOTH science acquisitions. Husillos does not have one science block: the same field was shot
+#: twice within a minute at two different gains, and both plate-solve (docs/HUSILLOS2026_ECLIPSE
+#: .md section 3b). They share 63 stars of 71 and 84.
+BLOCKS = [('gain0', os.path.join(HUS, 'eclipse', 's1_sn2_darkall'), '18:29:59'),
+          ('gain125', os.path.join(HUS, 'eclipse', 's1_sun_dark'), '18:29:20')]
+ECL = BLOCKS[0][1]
 
 WIN = WINDOWS['husillos2026']
 R_SUN_AS = 958.2
@@ -111,28 +125,36 @@ def do_ref():
                                        j['platescale (arcseconds/pixel)']) if j else 'FAILED'))
 
 
-def do_stage2():
-    """The eclipse field on the ladder's eclipse rung: constant + free scale, 20 " then 3 "."""
+def do_stage2(only=None):
+    """Both science blocks against the zenith reference, cubic and higher frozen."""
     ref = refpath()
     if not ref:
         print('build the reference first')
         return
-    d = os.path.join(OUT, 'eclipse_twopass')
+    for tag, src, tmid in BLOCKS:
+        if only and tag != only:
+            continue
+        _stage2_one(ref, tag, src, tmid)
+
+
+def _stage2_one(ref, tag, src, tmid):
+    d = os.path.join(OUT, 'eclipse_%s' % tag)
     if not results(d):
-        run([PY, '-m', 'mee2024.cli', 'distortion', czip(ECL), '--order', 'quintic',
+        run([PY, '-m', 'mee2024.cli', 'distortion', czip(src), '--order', 'quintic',
              '--fix-distortion', ref,
-             '--set', 'distortion_fixed_coefficients=constant',
+             # cubic and higher from the zenith; constant, linear and quadratic re-fitted
+             '--set', 'distortion_fixed_coefficients=quadratic',
              '--set', 'distortion_free_scale=True',
              '--set', 'distortion_fit_tol_initial=20.0',
              '--set', 'distortion_fit_tol=3.0',
              '--set', 'max_star_mag_dist=13', '--set', 'rough_match_threshhold=100', *SITE,
-             '--set', 'observation_time=' + ECL_TIME,
+             '--set', 'observation_time=' + tmid,
              '--no-display', '--quiet', '-o', d], os.path.join(d, 'stage2.log'))
     j = results(d)
-    print('eclipse field vs the reference: %s'
-          % ('%d stars, rms %.4f ", plate scale %.7f "/px (fitted, free scale)'
-             % (j['#stars used'], j['final rms error (arcseconds)'],
-                j['platescale (arcseconds/pixel)']) if j else 'FAILED'))
+    print('%-8s vs the reference: %s' % (tag,
+          '%d stars, rms %.4f ", plate scale %.7f "/px (fitted, free scale)'
+          % (j['#stars used'], j['final rms error (arcseconds)'],
+             j['platescale (arcseconds/pixel)']) if j else 'FAILED'))
     if j:
         # CLAUDE.md: read the rung back from the run's own results before believing any claim
         print('   fixed distortion order: %s   |  plate scale source: %s  |  free scale: %s'
@@ -140,24 +162,33 @@ def do_stage2():
                  j.get('distortion_free_scale', '?')))
 
 
-def dzip():
-    z = glob.glob(os.path.join(OUT, 'eclipse_twopass', '**', 'distortion_data*.zip'),
+def dzip(tag):
+    z = glob.glob(os.path.join(OUT, 'eclipse_%s' % tag, '**', 'distortion_data*.zip'),
                   recursive=True)
     return z[0] if z else None
 
 
-def do_stage3():
-    """Method 2, through the registered window."""
-    z = dzip()
+def do_stage3(only=None):
+    """Method 2 on each block, uncropped."""
+    for tag, _src, _t in BLOCKS:
+        if only and tag != only:
+            continue
+        _stage3_one(tag)
+
+
+def _stage3_one(tag):
+    z = dzip(tag)
     if not z:
-        print('no stage-2 output; run stage2 first')
+        print('%s: no stage-2 output' % tag)
         return
-    d = os.path.join(OUT, 'method2')
+    print('=== %s' % tag)
+    d = os.path.join(OUT, 'method2_%s' % tag)
     run([PY, '-m', 'mee2024.cli', 'eclipse', z,
          '--set', 'eclipse_method=Method 2',
          '--set', 'eclipse_limiting_mag=%.1f' % WIN.mag,
-         '--set', 'limit_radial_sun_radii=True',
-         '--set', 'limit_radial_sun_radii_value=%.1f' % WIN.rmax,
+         # NOT cropped radially: the outer bound in the registry is cell 2's, inherited and
+         # never tested on this cell, so enforcing it would drop stars on a borrowed number
+         '--set', 'limit_radial_sun_radii=False',
          '--set', 'remove_double_stars_eclipse=False',
          '--no-display', '--quiet', '-o', d], os.path.join(d, 'stage3.log'))
     for f in sorted(glob.glob(os.path.join(d, '**', '*.txt'), recursive=True)):
