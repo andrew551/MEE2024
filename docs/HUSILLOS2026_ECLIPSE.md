@@ -15,8 +15,13 @@ Two captures, both 315 ms, both full frame, both offset 200, shot 0.323 s apart 
 | what it is | the C2 decay and the Sun | the eclipse star field |
 
 Tools: `tools/husillos2026/hu_eclipse_frames.py` (the frame scan), `hu_eclipse_stars.py` (stage 1
-and the cross-capture check), `hu_eclipse_match.py` (a catalogue matcher that **does not work
-yet and refuses to report** — §4).
+and the cross-capture check), `hu_hotpixels.py` (the mask, §3c), `hu_eclipse_match.py` (a
+catalogue matcher that **does not work yet and refuses to report** — §4).
+
+**Headline: the science field now plate-solves.** With a hot-pixel mask built from the night
+captures it solves in 1.1 s on 20 stars at RA 142.3141, Dec +14.9256, roll 326.148°, 2.20410 ″/px
+— 0.200° from the Sun, 0.25° from the zenith field's roll, 254 ppm from its scale, none of which
+was an input. §3b.
 
 ---
 
@@ -91,7 +96,7 @@ brightness change.** Frames 0 and 1 were exposed at gain 125.
 
 ---
 
-## 3. Stars: real sources are detected, but the field does not yet solve
+## 3. Stars: real sources are detected, and with a hot-pixel mask the field solves
 
 Stage 1 at cell 2's eclipse settings (`tools/matrix_station1/s1_eclipse_corona.py`: disk occulter,
 per-frame coronal subtraction at σ 10 px on a 2000 ADU pedestal, Gaussian-subtracted sensitive
@@ -103,6 +108,7 @@ Husillos does not have:
 | `sn2_trimmed` (2–102) | 101 | 304 | **no** | 264 | 13.6 |
 | `sn2_masked` (occulter grown past 4 R☉) | 101 | 4061 | **no** | 223 | 11.5 |
 | `sun_totality` (46–171) | 126 | 216 | **no** | 194 | 10.0 |
+| **`sn2_dark`** (hot-pixel mask, §3b) | 101 | **114** | **yes** | — | — |
 
 **The inner field is not stars.** Of 1715 sources of ≥ 4 px above 12 σ in the trimmed stack,
 **1697 lie inside 4 R☉**, at 330–910 per square degree against the **73 per square degree** the
@@ -130,9 +136,91 @@ the brightest 19 % of that catalogue runs to about **G 11** — which is what an
 photon-predicted to the digit (1.97 ADU measured, 1.97 predicted from 19.3 ADU per frame over 101
 frames), so the stacking is not the problem.
 
-**So: yes, stars are being located — of order 200 real sources beyond 4 R☉ in each capture.** What
-cannot yet be done is *identify* them, because neither the pipeline's blind solver nor the matcher
-of §4 can solve the field.
+**So: yes, stars are being located — of order 200 real sources beyond 4 R☉ in each capture.**
+
+### 3b. And with a hot-pixel mask, the field SOLVES
+
+Douglas, 2026-09-10: *"Joe did not take any darks but he could do that now. In the meantime, is it
+possible to create a hot pixel mask using the zenith field that we have?"* — `hu_hotpixels.py`
+(§3c) builds one from the night data. Applied to the same 101 frames at the same settings:
+
+| | centroids | plate-solve |
+|---|---|---|
+| `sn2_trimmed` | 304 | **no** — failed after 15.2 s |
+| `sn2_masked` (occulter past 4 R☉) | 4061 | **no** |
+| **`sn2_dark`** (hot-pixel mask) | **114** | **yes — 20 stars matched in 1.1 s** |
+
+The mask removed 190 centroids, against the 191 predicted to be sitting on a flagged pixel. **A
+cleaner list, not a bigger one, was exactly what the solver needed**, as §5 guessed.
+
+The solution is right in three independent ways:
+
+| | solved | expected | |
+|---|---|---|---|
+| field centre | RA **142.3141**, Dec **+14.9256** | 0.200° from the Sun | the geometry (frame centre at (4788, 3194), Sun at ~(5175, 2975)) gives 0.273° |
+| roll | **326.148°** | 325.902° | the zenith field's roll — the camera was not rotated between the two nights |
+| plate scale | **2.20410 ″/px** | 2.20466 | the zenith field's own blind solve, 254 ppm away |
+
+None of those three was an input to the solve. **The Husillos eclipse science field is now a
+solved astrometric field**, which is what stage 2 needs to begin.
+
+### 3c. The hot-pixel mask, built without a dark
+
+**Not from the zenith capture itself.** `2026-08-13/zenith/00_00_21.ser` dithers **1.21 px** over
+its 50 frames, and `hotpixels.MIN_DITHER_PX` is 3 px — below that a hot pixel and a star are
+indistinguishable by the persistence test and every star would be flagged. Stage 1 declined on it
+in as many words.
+
+**But from its siblings, yes.** Four captures share the zenith's settings exactly — gain 0,
+offset 220, 1.0 s, same camera, same night, same sensor temperature — and dither far more, because
+the mount was drifting or re-pointing:
+
+| capture | frames tracked | dither |
+|---|---|---|
+| `2026-08-12/cal 8 deg/22_53_15` | 72 | **61.9 px** |
+| `2026-08-12/cal 8 deg/22_56_41` | 100 | **25.9 px** |
+| `2026-08-13/zenith/00_00_21` | 50 | 1.2 px — unusable |
+
+A hot pixel is fixed to the **detector**, a star to the **sky**, so 26–62 px of dither separates
+them cleanly. `hu_hotpixels.py` calls `mee2024.hotpixels.persistence_mask` — the project's own
+implementation — rather than carrying a second copy, and supplies the two things it needs:
+
+* **the shifts in the pipeline's convention.** Measured against a stage-1 run whose shifts are
+  recorded: `shifts_px = (−dy, −dx)`, axis order (y, x), correlations −0.998 and −0.994. A sign
+  error here would silently flag the *stars* instead — the one failure mode that looks like
+  success.
+* **a candidate pre-filter set to the criterion's own level.** `candidate_sigmas` is lowered from
+  20 to 5, which cannot loosen the answer: it limits how many pixels are examined on frame 0,
+  while the criterion is `MIN_DETECTOR_PERSISTENCE = 5.0` applied to the **weakest** of all
+  frames. It found 70 128 candidates against 363, and 389 flagged against 332.
+
+**389 hot pixels, 0.0006 % of the sensor**, of which **270 (69 %) are flagged independently by
+both captures** — and those two captures point at different sky, so agreement can only be the
+detector. The output is a synthetic master dark: **zero everywhere, flagged pixels at 1000 ADU**.
+The pipeline then flags exactly those through its ordinary `--dark` path (`dark_mask` cuts at
+median + max(10 ADU, 20 σ), and a zero dark has median 0 and σ 0) while **subtracting nothing** —
+which is what makes it safe on frames whose bias it does not share. Stage 1 reports it as
+*"389 hot pixel(s) found in the master dark (0.0006 % of the frame); excluded from the stack
+rather than subtracted"*.
+
+What it explains:
+
+| stack | centroids | on a hot pixel | of the ≤ 2 px ones |
+|---|---|---|---|
+| **`sn2_trimmed`** | 304 | **191 (63 %)** | **119 of 146 (82 %)** |
+| `sun_totality` | 216 | 119 (55 %) | 0 of 19 |
+| `with_f0` (zenith) | 3211 | 277 (8.6 %) | — |
+
+**One limit, stated.** 389 is the count of pixels hot enough to clear 5 σ in a *single* 1.0 s
+frame. The dither experiment of `HUSILLOS2026_ZENITH.md` §6 implies some 2300 matter in a deep
+stack, because a stack of 100 frames has a tenth of one frame's noise and a pixel well below 5 σ
+per frame is still a strong detection in the sum. Finding those needs a persistence test run on
+*stacked* rather than single frames, which would be a new estimator and is not built here. The
+389 were enough to solve the eclipse field; they may not be enough for the reference.
+
+Real darks remain worth asking Joe for — they are minutes with the cap on, they need no dither,
+and they reach the mildly-hot pixels this method cannot. **1.0 s / gain 0 / offset 220 / 0 °C** and
+**0.315 s / gain 0 / offset 200**.
 
 ---
 
@@ -165,12 +253,13 @@ of distortion across an 11 000 px baseline. Neither is fixed.
 
 ## 5. What to do next
 
-1. **The blind solver needs a cleaner list, not a bigger one.** `sn2_masked` shows the corona can
-   be removed (4061 centroids against 304), but 4061 with ~200 real stars is a worse ratio, not a
-   better one. The combination to try is the grown occulter *and* a threshold that keeps only the
-   ~200 sources the cross-capture check confirms.
-2. **Darks would help here as much as at the zenith** (`HUSILLOS2026_ZENITH.md` §7d): 1328 of
-   `sn2_masked`'s 4061 centroids have an area of ≤ 2 px.
+1. ~~The blind solver needs a cleaner list, not a bigger one.~~ **Done** (§3b): the hot-pixel
+   mask cut 304 centroids to 114 and the field solved in 1.1 s. **Stage 2 can now begin** — it
+   needs a distortion reference (the zenith field at quintic) and the refraction correction on,
+   since the Sun was at 8.6° altitude.
+2. **Real darks are still worth asking for** (§3c): the mask reaches only pixels hot enough to
+   clear 5 σ in one 1.0 s frame, and the mildly-hot ones that matter in a deep stack are beyond
+   it. 1328 of `sn2_masked`'s 4061 centroids have an area of ≤ 2 px.
 3. **The refraction correction must be on for anything at 8.6° altitude**, and the site is now
    known. Nothing in this document depends on it — these are counts and ratios — but a fit will.
 4. **`CalibS` (`20_30_18`, 145 frames) is the next capture to reduce**, since it carries the plate

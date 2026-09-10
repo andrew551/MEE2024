@@ -85,6 +85,14 @@ STACKS = {
 MASKED = {'sn2_masked': (SN2, 2, 102, 'the trimmed field with the occulter grown past 4 R_sun')}
 MASK_EXTRA = ['--set', 'blob_radius_extra=1750', '--set', 'centroid_gap_blob=150']
 
+#: THE ONE THAT WORKS. Same frames and same settings as `sn2_trimmed`, plus the hot-pixel mask
+#: `tools/husillos2026/hu_hotpixels.py` builds from the night captures. The mask removes 190 of
+#: the 304 centroids -- 191 of them sat on a flagged pixel -- and the field then plate-solves in
+#: 1.1 s on 20 matched stars, where the unmasked list failed after 15 s. A cleaner list, not a
+#: bigger one, was what the solver needed.
+DARK = r"D:/MEE2024 output/MEE_output/husillos2026/hotpixels/husillos_synthetic_dark.fit"
+DARKED = {'sn2_dark': (SN2, 2, 102, 'the trimmed field with the hot-pixel mask applied')}
+
 
 def run(cmd, log):
     with open(log, 'w') as fh:
@@ -97,10 +105,11 @@ def czip(name):
 
 
 def do_stack(only=None):
-    for name, (path, first, last, why) in {**STACKS, **MASKED}.items():
+    for name, (path, first, last, why) in {**STACKS, **MASKED, **DARKED}.items():
         if only and name != only:
             continue
         extra = MASK_EXTRA if name in MASKED else []
+        dark = ['--dark', DARK] if name in DARKED else []
         d = os.path.join(OUT, 's1_' + name)
         os.makedirs(d, exist_ok=True)
         if czip(name):
@@ -109,7 +118,7 @@ def do_stack(only=None):
         print('%-14s frames %d-%d of %s  (%s)'
               % (name, first, last, os.path.basename(path), why), flush=True)
         rc = run([PY, '-m', 'mee2024.cli', 'stack', path, '--frames', '%d-%d' % (first, last),
-                  *S1, *extra, '--no-scan',
+                  *S1, *extra, *dark, '--no-scan',
                   # `stack` has no --date option (that is on `distortion` and `run`); the SER
                   # header carries the UTC and stage 1 records it as observation_date_header
                   '--set', 'observation_date=2026-08-12', '--set', 'guess_date=False',
@@ -132,7 +141,7 @@ def do_report():
     print('=' * 104)
     print('%-14s %7s %10s %12s %11s %11s %10s   %s'
           % ('stack', 'frames', 'centroids', 'plate-solve', 'RA', 'DEC', '"/px', 'what'))
-    for name, (path, first, last, why) in STACKS.items():
+    for name, (path, first, last, why) in {**STACKS, **MASKED, **DARKED}.items():
         z = czip(name)
         if not z:
             print('%-14s   not stacked' % name)
@@ -146,7 +155,7 @@ def do_report():
                  '%.4f' % j['DEC'] if solved else '-',
                  '%.5f' % j['platescale/arcsec'] if solved else '-', why))
     print()
-    for name in STACKS:
+    for name in {**STACKS, **MASKED, **DARKED}:
         z = czip(name)
         if not z:
             continue
