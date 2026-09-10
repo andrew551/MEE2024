@@ -355,6 +355,30 @@ not Method 1: Method 1 imports a plate scale from a *calibration field*, and Hus
 reduced, so what it actually reported was Method 2's own fitted scale treated as known. It is
 withdrawn.
 
+### The conventions, read back from the runs' own records
+
+Douglas, 2026-09-10, asked which coronal subtraction and which centroiding convention were used.
+Both blocks' stage-1 zips store identical options:
+
+| | |
+|---|---|
+| **coronal subtraction** | **yes, Gaussian** — `coronal subtraction? True`, blur **σ = 10.0 px**, pedestal **2000 ADU**. Bruns' method: blur heavily, subtract, restore a pedestal. |
+| occulter | `eclipse mask mode: disk`, `eclipse_disk_margin_px: 10`; the saturated blob removed at 95 %, `blob_radius_extra` 200 px, `centroid_gap_blob` 100 px |
+| **centroid estimator** | **windowed**, `centroid_window_sigma 2.0` |
+| **background** | **annular** |
+| detection | Gaussian-subtracted, threshold 4.0 σ, `min_area` 2, `sigma_subtract` 0.0, sensitive stacking on |
+| calibration | the synthetic hot-pixel dark only (§3c); **no flat** |
+
+That pair — windowed centroids on an annular background — is **cell 2's record convention**
+(`tools/matrix_station1/s1_eclipse_corona.py:66-75`, copied deliberately when Douglas asked for
+"similar eclipse settings used for Station 1 Mexico"), and it is *not* the `eclipse` field
+preset's Gaussian background with footprint moments. The two are not cosmetic: Leon measured the
+same 2 × 2 grid in L itself and its four cells span **1.60–2.12 ″**, the background axis worth
++0.14 to +0.30 ″ and the estimator axis −0.22 to −0.38 ″ (`docs/STEP3_2026.md`, the convention
+grid). Leon fixed windowed on a measured aberration of its own optic, so cell 4 inherits the
+convention rather than the justification, and no such grid has been run here. The run's
+`field preset` reads `custom` because the settings were passed explicitly rather than by name.
+
 ### The fits
 
 Reference: the one zenith field, free **quintic**, gate 0.5 ″, refraction on — 2635 stars, rms
@@ -385,10 +409,67 @@ never reads `flag_is_outlier`, so it re-includes stars the distortion fit itself
 two carry the whole error bar — the block's deflection rms is 5.473 ″ with them and **0.914 ″
 without**. No star has been removed by hand here; the fact is reported instead.
 
+### 3f. The two-witness rule, and what it exposes
+
+Douglas, 2026-09-10: *"Let's use the two witness rule used for Leon 2026 data analysis. That
+should get rid of the two outliers which are nonsensical."* Adopted matrix-wide on 2026-09-02
+(`docs/MATRIX_2026.md`): **admit only stars seen in both tiers.** The reason is that a
+single-witness star cannot be arbitrated — its one detection has nothing to contradict it — and
+on Leon it cost six stars, ±0.04 ″ of statistical error and −0.06 ″ of L. Husillos' two
+witnesses are the same field at two gains, 57 s apart.
+
+It is applied as a **filter on the stage-2 output**, not as a re-implemented fit: stage 3 reads
+`CATALOGUE_MATCHED_ERRORS.csv` out of the distortion zip, so a copy with the single-witness rows
+removed runs through stage 3's own arithmetic unchanged (`hu_step3.py witness`).
+
+**It does exactly what he predicted.** 64 of the stars are seen in both blocks; the rule drops 11
+from the gain-0 list and 20 from the gain-125 one — **and the two nonsensical stars are two of the
+eleven.**
+
+| block | stars | worst \|deflection\| | deflected-position rms | **L (Method 2)** |
+|---|---|---|---|---|
+| gain 0, all matched | 75 | 40.66 ″ | 8.241 ″ | 2.396 ± 5.379 ″ |
+| **gain 0, two-witness** | **64** | **1.24 ″** | **0.636 ″** | **1.596 ± 0.507 ″** |
+| gain 125, all matched | 84 | — | 0.780 ″ | 2.215 ± 0.433 ″ |
+| **gain 125, two-witness** | **64** | 1.40 ″ | 0.731 ″ | **2.782 ± 0.540 ″** |
+
+The gain-0 block's error bar falls by a factor of **10.6**, and it did so without anyone naming a
+star: the rule removed the 40.7 ″ and 23.1 ″ stars because nothing corroborated them, which is
+what it is for.
+
+**And now the two blocks disagree, which is the more useful result.** On identical stars they read
+**1.596 ± 0.507 ″ and 2.782 ± 0.540 ″**, 1.186 ″ apart. Two candidate explanations, both testable:
+
+*The plate scale — tested and rejected.* The blocks' fitted scales differ by 87 ppm, and Method 2
+fits L and the scale together, so this is the obvious suspect. It fails on sign. Husillos' own
+lever is **h = 1/mean(1/r²) = 34.2 R☉²** on these 64 stars (mean radius 7.15 R☉, reaching
+12.05), so `δL = δS · h · R☉` gives **0.0324 ″ of L per ppm** — and 87 ppm predicts **+2.83 ″**
+where the observed difference is **−1.19 ″**: wrong sign, 2.4× too large.
+
+*Per-star noise — which fits.* The two blocks measure the same 64 stars, so their deflections can
+be correlated directly. They correlate at only **r = 0.484**, with a per-star difference rms of
+**0.500 ″** against each block's own scatter of 0.454 and 0.523 ″ — i.e. each block carries
+**±0.35 ″ of independent per-star noise**, as large as the deflection signal it is trying to
+measure. At that correlation the expected σ of the difference of the two L values is 0.533 ″, so
+**1.186 ″ is 2.2 σ.** A real tension, and a statistical one.
+
+The plate scale is not the cause but it *is* an amplifier: with the scale held, the blocks'
+fits differ by 0.633 ″ (0.821 against 1.454); freeing it — Method 2 — pushes both up and widens
+the gap to 1.186 ″.
+
+**Two consequences for the cell.** First, sharing stars does **not** make these blocks one
+measurement: their noise is largely independent, so this is two noisy measurements that disagree
+at 2.2 σ, not one measurement quoted twice. Second, **h = 34.2 R☉² makes Husillos the most
+scale-sensitive field in the matrix** — against Leon's 19.8 and Bruns' 8.2 — because its stars
+sit far out (mean 7.15 R☉) where the deflection is small but a scale error is not. Its 0.0324
+″/ppm is naive-h, not measured by injection as Leon's and Station 2's were, so treat it as the
+right order and not the final figure. Either way it doubles the case for CalibS.
+
 ### What this is and is not
 
-* The two blocks are **not independent**: they share 63 stars of 75 and 84 (§3d). They agree, but
-  that agreement is not two measurements.
+* The two blocks are **not independent** in their star list — they share all 64 by construction
+  under the rule — but they **are** largely independent in their noise (r = 0.484), and they
+  disagree at 2.2 σ. Neither value should be quoted alone.
 * **The weather is assumed** — 926.5 hPa is the standard atmosphere at 743 m, with 25 °C and 35 %
   as ordinary August values. At z = 81.4° the plate scale carries ~63 ppm per 1 % of the
   refraction constant, so this is the single largest unquantified term.
@@ -398,10 +479,12 @@ without**. No star has been removed by hand here; the fact is reported instead.
 * **No darks and no flats.**
 * **The outer radial bound is inherited**, and is not applied.
 
-So `L = 2.215 ± 0.433 ″` is a real fit with an incomplete budget, not a matrix entry. What would
-make it one: **CalibS**, for a same-day same-altitude scale (§3e showed the night zenith's scale
-is 1365 ppm from the eclipse field's and cannot be imported); the **real weather**; and more
-zenith fields for a reference term.
+So cell 4 stands at **two Method 2 fits on identical stars, 1.596 ± 0.507 ″ and 2.782 ± 0.540
+″**, disagreeing at 2.2 σ. Neither is a matrix entry, and the spread between them is the honest
+measure of where the cell is. What would close it: **CalibS**, for a same-day same-altitude
+*imported* scale — the night zenith's is 1365 ppm from the eclipse field's and cannot be imported
+at all, and at 0.0324 ″/ppm this field punishes a scale error harder than any other in the
+matrix; the **real weather**; and more zenith fields for a reference term.
 
 ---
 
@@ -449,6 +532,12 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    ~80 frames are inside totality before C3 at 18:30:44.2.
 4b. **Stage 3 ignores `flag_is_outlier`** (§3e). It re-admitted the two stars that wreck the
    gain-0 block. Cell 2 reduced through `s1_pooled_fit.py` rather than the CLI's stage 3, which
-   is probably why this has not bitten before.
+   is probably why this has not bitten before. The two-witness rule removes those two stars
+   independently (§3f), so it is not blocking, but it is still a defect.
+4c. **The 2.2 σ between the blocks needs a cause** (§3f). Each carries ±0.35 ″ of independent
+   per-star noise, which is the size of the signal, and neither the plate scale nor the star
+   list explains the gap. First place to look: whether the gain-125 block's 126 frames and the
+   gain-0 block's 101 straddle different parts of totality (§1–2), i.e. whether this is
+   different seeing rather than different photometry.
 5. The Sun capture's **gain 125 against Sn2's gain 0** means their scales must not be carried
    across without measurement.
