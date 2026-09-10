@@ -71,11 +71,30 @@ NX, NY = 9576, 6388
 #: works; 1000 is far clear of it and still nowhere near saturation.
 HOT_ADU = 1000
 
-#: (label, ser, tracker csv). All gain 0, offset 220, 1.0 s -- the zenith capture's settings.
-SOURCES = [
-    ('cal8deg_22_53_15', G + '/2026-08-12/cal 8 deg/22_53_15.ser', TRACK + '/am5_22_53_15.csv'),
-    ('cal8deg_22_56_41', G + '/2026-08-12/cal 8 deg/22_56_41.ser', TRACK + '/am5_22_56_41.csv'),
-]
+#: Two mask families, because a mask belongs to a GAIN. Hot pixels are the same silicon defects
+#: whatever the gain, but how far each one stands above the noise is not: gain 125 multiplies the
+#: ADU per electron by 4.217, and a 0.315 s frame accumulates a third of a 1.0 s frame's dark
+#: current, so the same pixel sits 1.3x further above the noise in a gain-125 / 0.315 s frame
+#: than in a gain-0 / 1.0 s one. Building one mask per family lets each be found in the
+#: conditions it will be used in, and lets the two be compared -- which is a check, since the
+#: same silicon should be flagged both times.
+FAMILIES = {
+    # gain 0, offset 220, 1.0 s -- the zenith capture's settings, and Sn2's gain
+    'g0': [
+        ('cal8deg_22_53_15', G + '/2026-08-12/cal 8 deg/22_53_15.ser',
+         TRACK + '/am5_22_53_15.csv'),
+        ('cal8deg_22_56_41', G + '/2026-08-12/cal 8 deg/22_56_41.ser',
+         TRACK + '/am5_22_56_41.csv'),
+    ],
+    # gain 125, 0.315 s -- the Sun capture's settings (its offset is 200 and these are 50, which
+    # a mask does not care about: an offset is a constant and the test is on the excess)
+    'g125': [
+        ('capture_00_57_43', G + '/2026-08-12/Capture/00_57_43.ser', TRACK + '/am5_00_57_43.csv'),
+        ('capture_00_59_36', G + '/2026-08-12/Capture/00_59_36.ser', TRACK + '/am5_00_59_36.csv'),
+        ('capture_00_54_32', G + '/2026-08-12/Capture/00_54_32.ser', TRACK + '/am5_00_54_32.csv'),
+    ],
+}
+SOURCES = FAMILIES['g0']
 
 
 def shifts_for(csv):
@@ -87,13 +106,14 @@ def shifts_for(csv):
     return d['frame'].to_numpy().astype(int), np.column_stack([-dy, -dx])
 
 
-def build(candidate_sigmas=5.0):
+def build(family='g0', candidate_sigmas=5.0):
     from mee2024 import hotpixels
     candidate_sigmas = float(candidate_sigmas)
     os.makedirs(OUT, exist_ok=True)
     union = np.zeros((NY, NX), dtype=bool)
     per = {}
-    for label, ser, csv in SOURCES:
+    print('=== family %s ===' % family)
+    for label, ser, csv in FAMILIES[family]:
         if not os.path.exists(csv):
             print('%-18s no tracker table at %s' % (label, csv))
             continue
@@ -124,7 +144,7 @@ def build(candidate_sigmas=5.0):
         print('  flagged by every capture: %d (%.0f %% of the union) -- the agreement between'
               % (both.sum(), 100 * both.sum() / max(union.sum(), 1)))
         print('  independent captures is the check that this is the detector and not the sky')
-    np.save(os.path.join(OUT, 'mask_union.npy'), union)
+    np.save(os.path.join(OUT, 'mask_union_%s.npy' % family), union)
 
     from astropy.io import fits
     dark = np.zeros((NY, NX), dtype=np.uint16)
@@ -136,7 +156,7 @@ def build(candidate_sigmas=5.0):
     hdu.header['COMMENT'] = 'its only purpose is to carry the mask through --dark.'
     hdu.header['COMMENT'] = 'Built by tools/husillos2026/hu_hotpixels.py from gain 0 /'
     hdu.header['COMMENT'] = 'offset 220 / 1.0 s captures with 19-43 px of dither.'
-    path = os.path.join(OUT, 'husillos_synthetic_dark.fit')
+    path = os.path.join(OUT, 'husillos_synthetic_dark_%s.fit' % family)
     hdu.writeto(path, overwrite=True)
     print('->', path)
     print('   use it as:  --dark "%s"' % path)
@@ -145,7 +165,7 @@ def build(candidate_sigmas=5.0):
 def check():
     """Does the mask explain the small detections the stacks are full of?"""
     import zipfile
-    m = os.path.join(OUT, 'mask_union.npy')
+    m = os.path.join(OUT, 'mask_union_g0.npy')
     if not os.path.exists(m):
         print('no mask yet; run `build`')
         return
@@ -179,6 +199,42 @@ def check():
     print('  dark current, so the mask over-covers there rather than under-covers.')
 
 
+def combine():
+    """Union the gain families into the mask to actually use.
+
+    Hot pixels are the same silicon defects at any gain, so the families should nest -- and they
+    do: 286 of the gain-0 mask's 389 are also flagged at gain 125, against 0.0 expected by
+    chance. They do not nest perfectly because how far a pixel stands above the noise depends on
+    the gain: gain 125 has 1.38 e- of read noise against gain 0's 4.73, so it sees six times as
+    many (2484 against 389). The union is what each family found in the conditions it was best
+    able to look, and it is the mask to use for both fields.
+    """
+    from astropy.io import fits
+    parts = {}
+    for fam in FAMILIES:
+        f = os.path.join(OUT, 'mask_union_%s.npy' % fam)
+        if os.path.exists(f):
+            parts[fam] = np.load(f)
+    if not parts:
+        print('build the families first')
+        return
+    union = np.logical_or.reduce(list(parts.values()))
+    for fam, m in parts.items():
+        print('  %-5s %5d pixels' % (fam, m.sum()))
+    print('  union %5d pixels (%.4f %% of the frame)' % (union.sum(), 100 * union.mean()))
+    np.save(os.path.join(OUT, 'mask_union_all.npy'), union)
+    dark = np.zeros((NY, NX), dtype=np.uint16)
+    dark[union] = HOT_ADU
+    hdu = fits.PrimaryHDU(dark)
+    hdu.header['COMMENT'] = 'Synthetic master dark for Husillos 2026: NOT a dark exposure.'
+    hdu.header['COMMENT'] = 'Union of the gain-0 and gain-125 dither-persistence masks.'
+    hdu.header['COMMENT'] = 'Zero everywhere except flagged pixels, set to %d ADU, so that' % HOT_ADU
+    hdu.header['COMMENT'] = 'subtracting it changes nothing and only the mask is carried.'
+    path = os.path.join(OUT, 'husillos_synthetic_dark_all.fit')
+    hdu.writeto(path, overwrite=True)
+    print('->', path)
+
+
 if __name__ == '__main__':
     cmd = sys.argv[1] if len(sys.argv) > 1 else 'check'
-    {'build': build, 'check': check}[cmd](*sys.argv[2:])
+    {'build': build, 'check': check, 'combine': combine}[cmd](*sys.argv[2:])

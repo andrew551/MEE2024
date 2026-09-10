@@ -18,10 +18,10 @@ Tools: `tools/husillos2026/hu_eclipse_frames.py` (the frame scan), `hu_eclipse_s
 and the cross-capture check), `hu_hotpixels.py` (the mask, §3c), `hu_eclipse_match.py` (a
 catalogue matcher that **does not work yet and refuses to report** — §4).
 
-**Headline: the science field now plate-solves.** With a hot-pixel mask built from the night
-captures it solves in 1.1 s on 20 stars at RA 142.3141, Dec +14.9256, roll 326.148°, 2.20410 ″/px
-— 0.200° from the Sun, 0.25° from the zenith field's roll, 254 ppm from its scale, none of which
-was an input. §3b.
+**Headline: both eclipse fields now plate-solve, at both gains.** With a hot-pixel mask built
+from the night captures, the gain-0 science field solves on **55 stars** and the gain-125 Sun
+capture on **68**, and the two agree to **2.7 ″ in position, 0.062° in roll and 115 ppm in
+scale** — separate captures, different gains, solved independently. §3b.
 
 ---
 
@@ -108,7 +108,8 @@ Husillos does not have:
 | `sn2_trimmed` (2–102) | 101 | 304 | **no** | 264 | 13.6 |
 | `sn2_masked` (occulter grown past 4 R☉) | 101 | 4061 | **no** | 223 | 11.5 |
 | `sun_totality` (46–171) | 126 | 216 | **no** | 194 | 10.0 |
-| **`sn2_dark`** (hot-pixel mask, §3b) | 101 | **114** | **yes** | — | — |
+| **`sn2_darkall`** (hot-pixel mask, §3b) | 101 | **115** | **yes, 55 stars** | — | — |
+| **`sun_dark`** (hot-pixel mask, §3b) | 126 | **97** | **yes, 68 stars** | — | — |
 
 **The inner field is not stars.** Of 1715 sources of ≥ 4 px above 12 σ in the trimmed stack,
 **1697 lie inside 4 R☉**, at 330–910 per square degree against the **73 per square degree** the
@@ -144,25 +145,43 @@ Douglas, 2026-09-10: *"Joe did not take any darks but he could do that now. In t
 possible to create a hot pixel mask using the zenith field that we have?"* — `hu_hotpixels.py`
 (§3c) builds one from the night data. Applied to the same 101 frames at the same settings:
 
-| | centroids | plate-solve |
-|---|---|---|
-| `sn2_trimmed` | 304 | **no** — failed after 15.2 s |
-| `sn2_masked` (occulter past 4 R☉) | 4061 | **no** |
-| **`sn2_dark`** (hot-pixel mask) | **114** | **yes — 20 stars matched in 1.1 s** |
+**Both eclipse fields solve, at both gains:**
 
-The mask removed 190 centroids, against the 191 predicted to be sitting on a flagged pixel. **A
-cleaner list, not a bigger one, was exactly what the solver needed**, as §5 guessed.
+| stack | gain | mask | frames | centroids | solve | RA | Dec | roll | ″/px | time |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `sn2_trimmed` | 0 | none | 101 | 304 | **no** | — | — | — | — | 15.2 s |
+| `sn2_masked` | 0 | none, occulter past 4 R☉ | 101 | 4061 | **no** | — | — | — | — | — |
+| `sn2_dark` | 0 | g0 (389 px) | 101 | 114 | **yes**, 20 stars | 142.3141 | +14.9256 | 326.148 | 2.20410 | 1.1 s |
+| **`sn2_darkall`** | **0** | **all (2587 px)** | 101 | 115 | **yes, 55 stars** | **142.3141** | **+14.9256** | **326.148** | **2.20410** | 0.9 s |
+| `sun_totality` | 125 | none | 126 | 216 | **no** | — | — | — | — | 17.6 s |
+| **`sun_dark`** | **125** | **all (2587 px)** | 126 | 97 | **yes, 68 stars** | **142.3149** | **+14.9255** | **326.210** | **2.20384** | 1.7 s |
 
-The solution is right in three independent ways:
+The mask removed 190 of the science field's 304 centroids, against the 191 predicted to be
+sitting on a flagged pixel, and 119 of the Sun capture's 216, against 119 predicted. **A cleaner
+list, not a bigger one, was exactly what the solver needed**, as §5 guessed — growing the
+occulter raised the yield thirteenfold and still failed.
 
-| | solved | expected | |
-|---|---|---|---|
-| field centre | RA **142.3141**, Dec **+14.9256** | 0.200° from the Sun | the geometry (frame centre at (4788, 3194), Sun at ~(5175, 2975)) gives 0.273° |
-| roll | **326.148°** | 325.902° | the zenith field's roll — the camera was not rotated between the two nights |
-| plate scale | **2.20410 ″/px** | 2.20466 | the zenith field's own blind solve, 254 ppm away |
+**The two fields agree with each other.** They are separate captures at *different gains*, 57 s
+apart, stacked and solved independently:
 
-None of those three was an input to the solve. **The Husillos eclipse science field is now a
-solved astrometric field**, which is what stage 2 needs to begin.
+| | |
+|---|---|
+| field centres | **2.7 ″ apart** |
+| roll | **0.062° apart** |
+| plate scale | **115 ppm apart** |
+| distance from the Sun at mid-capture | 0.200° and 0.202° |
+
+And each is right against things that were not inputs to the solve: the geometry (frame centre at
+(4788, 3194), Sun at ~(5175, 2975)) predicts 0.273° from the Sun; the **zenith field's roll is
+325.902°**, so the camera was not rotated between the two nights; and the zenith field's own blind
+solve gives 2.20466 ″/px, 254 ppm from the science field's.
+
+The deeper mask changed the science field's answer not at all — RA, Dec, roll and scale identical
+to four decimals — while raising the matched-star count from 20 to 55. That is what a better mask
+should do.
+
+**Both Husillos eclipse fields are now solved astrometric fields**, which is what stage 2 needs to
+begin.
 
 ### 3c. The hot-pixel mask, built without a dark
 
@@ -211,12 +230,24 @@ What it explains:
 | `sun_totality` | 216 | 119 (55 %) | 0 of 19 |
 | `with_f0` (zenith) | 3211 | 277 (8.6 %) | — |
 
-**One limit, stated.** 389 is the count of pixels hot enough to clear 5 σ in a *single* 1.0 s
-frame. The dither experiment of `HUSILLOS2026_ZENITH.md` §6 implies some 2300 matter in a deep
-stack, because a stack of 100 frames has a tenth of one frame's noise and a pixel well below 5 σ
-per frame is still a strong detection in the sum. Finding those needs a persistence test run on
-*stacked* rather than single frames, which would be a new estimator and is not built here. The
-389 were enough to solve the eclipse field; they may not be enough for the reference.
+**A mask belongs to a gain, and the gain-125 captures see six times deeper.** Hot pixels are the
+same silicon defects at any gain, but how far each stands above the noise is not: gain 125 has
+**1.38 e- of read noise against gain 0's 4.73**, so pixels that miss the 5 σ criterion at gain 0
+clear it easily at gain 125. Built separately from the `Capture` set (gain 125, 0.315 s, dither
+4.6–30.6 px):
+
+| family | captures | flagged | agreed by all captures |
+|---|---|---|---|
+| **g0** (gain 0, 1.0 s) | 2 | **389** | 270 (69 %) |
+| **g125** (gain 125, 0.315 s) | 3 | **2484** | 1952 (79 %) |
+| union | — | **2587** | — |
+
+**286 of the gain-0 mask's 389 are also flagged at gain 125, against 0.0 expected by chance** —
+the two families are the same silicon, and the deeper one simply sees more of it. 2484 is also
+close to the ~2300 the dither experiment of `HUSILLOS2026_ZENITH.md` §6 implied matter in a deep
+stack, which is an independent arrival at the same number.
+
+Use the **union**. Both eclipse fields above were solved with it.
 
 Real darks remain worth asking Joe for — they are minutes with the cap on, they need no dither,
 and they reach the mildly-hot pixels this method cannot. **1.0 s / gain 0 / offset 220 / 0 °C** and
