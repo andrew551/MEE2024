@@ -37,4 +37,15 @@ WINDOWS = {
         "the same window as Station 1: the same site, the same optic and the same convention, "
         "and Station 2's eclipse field is reduced by the Station 1 technique verbatim "
         "(docs/STEP3_2026.md, \"Station 2's eclipse field\")"),
+    'husillos2026': Window(
+        13.0, 2.0, 10.0,
+        "inherited from cell 2 and cited as inheritance, which is what the cell-4 handoff asked "
+        "for: 'the likely choice is cell 2's G <= 13, 2-10 R_sun by inheritance, cited as such'. "
+        "The outer bound is NOT yet decided on this cell's own data -- cell 2 moved it 9 -> 10 on "
+        "a residual pile-up (docs/MATRIX_2026.md, 'the outer radius') and cell 4 should decide it "
+        "the same way, on a zenith-against-eclipse annulus comparison, once there is more than "
+        "one zenith field. Until then this is a borrowed window and every number fitted through "
+        "it is preliminary (docs/HUSILLOS2026_ECLIPSE.md). Two facts about this frame that the "
+        "window has to live with: the corners reach 13.3 R_sun, so 10 does bite; and the field "
+        "only detects to about G 10.3, so the magnitude bound does not bite at all."),
 }

@@ -325,6 +325,71 @@ assumes the weather, and `RECORD/` is for finished record charts.
 
 ---
 
+## 3e. A first Method 2 — it runs, and it says nothing
+
+Douglas, 2026-09-10: *"Let's do a quick Method 2 calculation with what we have so far."* Done,
+by cell 2's pathway rung for rung (`docs/V1_4_0_TESTING.md` §5), through the window registered as
+`analysis_window.WINDOWS['husillos2026']` before the fit was written:
+
+| rung | setting | result |
+|---|---|---|
+| zenith reference | free **quintic**, gate 0.5 ″, refraction on | 2635 stars, rms 0.1594 ″, ps **2.2059136** |
+| eclipse field | `constant` + `distortion_free_scale`, 20 ″ then 3 ″ | 73 stars, rms **0.8767 ″**, ps **2.2029020** |
+
+The rung is read back from the run's own results, as CLAUDE.md requires: *fixed distortion order:
+**constant***, *plate scale source: **fitted on this field***, *distortion_free_scale: **True***.
+
+**The answer:**
+
+| | L | plate scale |
+|---|---|---|
+| **Method 2** (scale fitted alongside) | **0.562 ± 6.248 ″** | 2.203136 ± 0.000408 (185 ppm) |
+| Method 1 (scale taken as known) | 3.395 ± 3.845 ″ | 2.202902 ± 0.000045 (20 ppm) |
+
+66 stars admitted, deflected-position rms 8.688 ″. **Both are consistent with GR's 1.75 ″ and
+with zero. Neither is a measurement.** The Method 2 bar is 3.6× the quantity being measured.
+
+### Why, and what it tells us to do
+
+**The night zenith's plate scale cannot be imported into the eclipse field.** Fitted freely the
+eclipse field wants **2.2029020** against the reference's **2.2059136** — **−1365 ppm**. Fixing
+the scale to the reference instead of fitting it does not merely bias the answer, it destroys the
+fit: *"second pass: 72 star(s) beyond 3.0 ″ after the refit removed (first gate 20.0 ″, pre-refit
+rms 9.579 ″)"* — 72 of 73 stars gone.
+
+That is not surprising once the altitude is taken seriously. At z = 81.4° refraction compresses
+the field by k(1 + sec²z)/2 ≈ **6270 ppm**, and the fits confirm it: turning corrections on moved
+the eclipse field's scale by −6900 ppm and the zenith field's by −235 ppm, against −6270 and −286
+predicted. **So the eclipse scale carries ~63 ppm per 1 % error in the refraction constant**, and
+the 1365 ppm gap is about 22 % — comfortably inside the uncertainty of *assumed* weather.
+
+Three consequences, and they are the useful output of this exercise:
+
+1. **Cell 4 cannot take its scale from a night zenith field.** It needs **CalibS** — same day,
+   same altitude, minutes apart — which is exactly what the ladder's middle rung is for and is
+   the next capture to reduce.
+2. **The real weather matters here in a way it does not at the zenith.** 926.5 hPa / 25 °C / 35 %
+   are assumed; at 63 ppm per 1 % they are worth more than a thousand ppm of plate scale.
+3. **One 32 s block cannot carry Method 2.** The per-star residual is 0.8767 ″ against cell 2's
+   0.13 ″, on 66 stars against cell 2's 639 observations — about 21× worse in the combination,
+   which is what turns cell 2's ±0.084 ″ into ±3.8 ″ here. Cells 1–3 got their precision from many
+   tiers pooled with a shared scale; Husillos has **one** science block and no second tier.
+
+### What is missing from the budget — not uncertain, absent
+
+* **one zenith field, not seventeen** — no reference field-to-field term at all
+* **no atmospheric data** — Joe took none, so the ±0.11–0.33 ″ every other cell carries from
+  zenith nulls has no counterpart here
+* **the weather is assumed**
+* **no darks and no flats**
+* **the outer radial bound is inherited from cell 2**, not decided on cell 4's own data
+
+So this is a number that exists, not a number that means anything. It is recorded so the next
+session starts from a working pathway rather than a blank page, and **it should not go in the
+matrix.**
+
+---
+
 ## 4. A tool that does not work, and says so
 
 `hu_eclipse_match.py` was written to match the detections against Gaia at the known pointing —
@@ -363,7 +428,9 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    it. 1328 of `sn2_masked`'s 4061 centroids have an area of ≤ 2 px.
 3. **The refraction correction must be on for anything at 8.6° altitude**, and the site is now
    known. Nothing in this document depends on it — these are counts and ratios — but a fit will.
-4. **`CalibS` (`20_30_18`, 145 frames) is the next capture to reduce**, since it carries the plate
-   scale, and its first ~80 frames are inside totality before C3 at 18:30:44.2.
+4. **`CalibS` (`20_30_18`, 145 frames) is now the top priority**, not merely next: §3e shows the
+   night zenith's scale is 1365 ppm from the eclipse field's and cannot be imported at all, so
+   the only route to a usable scale is a same-day, same-altitude calibration field. Its first
+   ~80 frames are inside totality before C3 at 18:30:44.2.
 5. The Sun capture's **gain 125 against Sn2's gain 0** means their scales must not be carried
    across without measurement.
