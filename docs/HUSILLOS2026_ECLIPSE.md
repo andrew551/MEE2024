@@ -1177,8 +1177,16 @@ The two-witness union averages a gain-125 block that carries a Sun-centred syste
 gain-0 block that carries a different (smaller) one. The **−3.37 ± 0.92 ″** 1/r term between
 the full blocks is that systematic, and 1.19 ″ of it is the difference in their fitted L.
 Under **Method 1** only the constant is free, so the whole of it has nowhere to go but L —
-which is why gain 125 reads 4.6 ″ there while gain 0 reads a sensible 2.1 ″. Gain 0 shares
-CalibS' saturation regime; gain 125 does not.
+which is why gain 125 reads 4.6 ″ there while gain 0 reads a sensible 2.1 ″.
+
+*(Correction, Douglas 2026-09-11. An earlier draft said "gain 0 shares CalibS' saturation
+regime". That is wrong: **CalibS does not saturate at all** — its brightest pixel is 10 417
+of 65 535 — so it is in no regime to share. The plate scale is a property of the optics, and
+CalibS measures it without a corona at either gain. The coronal blocks' fitted scales are that
+optical scale plus a Sun-centred contamination from the saturated corona; gain changes the
+contamination, not the optics. Gain 0 sits closer to CalibS simply because its contamination
+is smaller. A CalibS shot at gain 125 would measure the same clean scale and would not bring
+the gain-125 coronal block any closer.)*
 
 **Still open, and separate from the gain question:** the gain-0 halves show a real *uniform*
 scale step of −79.7 ± 21.0 ppm over 15.7 s (3.8 σ) that the gain-125 halves do not, with no
