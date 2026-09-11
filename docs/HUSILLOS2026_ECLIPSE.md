@@ -1171,6 +1171,36 @@ gain-dependent in the chain is **Sun-centred and radially concentrated**, which 
 shape the difference has. León's tiers had different saturation radii too (the 1.2 s tier's
 811 px disk), but in **one** physical regime, and the union machinery managed that.
 
+### ⚠ The mechanism above is withdrawn; the measurement stands
+
+Douglas approved the discriminating experiment (grow gain 0's occulter to 716 px) and reading
+the code before running it showed it **cannot discriminate anything**, and that the
+saturation story cannot carry the effect to where it is measured:
+
+* in `disk` mode the occulter **modifies no pixel** — it is a detection gate — and
+  `blob_radius_extra` is `blob` mode's parameter, unused here; a gate cannot move a star
+  outside it, and every two-witness star is at ≥ 2.35 R☉ (1017 px), beyond both gates;
+* the masked coronal blur's edge effect dies ~3σ = 30 px past the saturated core — at most
+  ~740 px, still inside 1017;
+* the stack is accumulated in **float64** and centroided there, so the 2000 ADU pedestal never
+  clips anything the centroids see (the unsigned-integer clipping is only the file on disk);
+* the raw frames say where saturation actually is: at gain 125, **27 % of pixels at 1.3–1.7 R☉
+  and 0.0 % beyond 1.7**; at gain 0, 0.1 % at 1.3–1.7 and nothing beyond. Both blocks are
+  fully linear at every two-witness star;
+* detection footprints are **identical** in the two blocks at every radius (median 3.5–6 px
+  in both), so the threshold-on-a-gradient idea is out too.
+
+So *nothing gain-dependent in the pipeline reaches 2.35–12 R☉*, and the sentence "everything
+gain-dependent in the chain is Sun-centred and radially concentrated, which is exactly the
+shape the difference has" was true of the pipeline and irrelevant to the stars. **What
+survives is the data**: the Sun-centred structure appears across the gain boundary and not
+within a gain. What carries it is open. The one thing left that is Sun-centred, 1/r-shaped,
+and can change between two sequential captures is the **seeing** — a wider PSF on a steep
+gradient pulls a centroid Sunward by an amount that grows as the width squared — and a seeing
+*step* coincident with the boundary would defeat a test built on ~20 s pairs.
+`tools/husillos2026/hu_seeing.py` measures the star width per frame across both captures on
+the same stars to look for exactly that step.
+
 ### What it does to the numbers
 
 The two-witness union averages a gain-125 block that carries a Sun-centred systematic with a
@@ -1192,11 +1222,10 @@ the gain-125 coronal block any closer.)*
 scale step of −79.7 ± 21.0 ppm over 15.7 s (3.8 σ) that the gain-125 halves do not, with no
 radial structure. That is not the corona and is not explained here.
 
-**The discriminating experiment**, not yet run: re-stack the gain-0 block with its occulter
-grown to gain 125's 716 px (`blob_radius_extra` 200 → 314). If the inner structure vanishes
-the cause is the mask geometry alone; if it persists it is the saturation physics and the
-coronal residual under the Gaussian. Either answer says how the two-gain design should be used
-in 2027.
+~~**The discriminating experiment**: re-stack gain 0 with its occulter grown to 716 px~~ —
+**void**, see above: the occulter is a gate that touches no pixel and no two-witness star is
+inside it, so growing it cannot move the stars the effect is measured on. Replaced by the
+per-frame seeing test.
 
 ### What this is and is not
 
@@ -1281,9 +1310,9 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    1.5 σ at one gain in 20 s). The mechanism is saturation physics: sensor full-well at gain 0
    against ADC clipping at gain 125, occulter 592 vs 706 px. The V/H difference is real but is
    not the explanation of the block disagreement.
-4i. **Run the discriminating experiment** (§3q): re-stack gain 0 with its occulter grown to
-   gain 125's (`blob_radius_extra` 200 → 314). Mask geometry or saturation physics — either
-   answer decides how a two-gain design should be used in 2027.
+4i. ~~Run the occulter experiment~~ — **void** (§3q): a gate cannot move a star outside it.
+   **The mechanism behind the gain-boundary structure is open.** Running: the per-frame seeing
+   test (`hu_seeing.py`) for a width step at 18:29:42.
 4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is
    not the corona.
 4e. **The vertical nuisance is measured and deliberately not applied** (§3h). Re-measure it if
