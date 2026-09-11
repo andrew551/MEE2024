@@ -1,5 +1,18 @@
 """Is the gain-0 / gain-125 disagreement caused by the GAIN, or by the 39 s between them?
 
+*** SUPERSEDED BY hu_block_diff.py -- READ THIS FIRST (2026-09-11, late). ***
+This tool compares RAW DETECTED PIXEL POSITIONS with an ISOTROPIC similarity removed.  At
+8.6 deg altitude that is the wrong nuisance model: the differential refraction across the
+field changes by a few hundred ppm between two epochs 39 s apart, as an ANISOTROPIC compression
+plus a shear from the sensor's 14.9 deg tilt to the vertical, and a similarity removes only the
+isotropic half.  Projected radially about a Sun near the field centre through eleven inner
+stars lopsided in azimuth, the remainder looks Sun-centred and monotonic in radius -- which is
+every "finding" below.  hu_block_diff.py repeats the comparison on refraction-corrected
+displacements with a full affine removed: the blocks then agree to -6 +- 10 ppm in scale and
+~10 ppm in every affine term, and no 1/r term reproduces on held-out stars.  Kept so the
+record's section 3q-3r can be reproduced; do not build on it.
+
+
 Douglas, 2026-09-11: "We did not see such a problem in the Leon 2026 exposure tiers where the
 gain was held constant and the exposure was changed.  Is changing the gain while holding the
 exposure constant fundamentally different in terms of the corona subtraction?"

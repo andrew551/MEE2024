@@ -1225,7 +1225,107 @@ What can: **per-frame positions**. A windowed, background-subtracted centroid is
 and the two blocks collected the same photons, so if the inner-minus-outer displacement
 *steps* at frame 171 → 2 the step is in the electronics, and if it *ramps* through the boundary
 without noticing it the carrier is time — atmosphere, the Moon crossing the corona (~20 ″ in
-39 s), the sky brightening toward C3. `tools/husillos2026/hu_radial_vs_time.py`, running.
+39 s), the sky brightening toward C3. `tools/husillos2026/hu_radial_vs_time.py`.
+
+### The answer: it is neither a step nor a ramp — it moves on a 10–30 s timescale
+
+Fifteen-frame sub-stacks (a single 315 ms frame reaches only the brightest handful of stars;
+15 summed reach G ≈ 10 and 19–25 two-witness stars per bin), windowed centroids, a similarity
+removed about the Sun, then the radial residual of the inner stars (2.3–5 R☉, 11 of them) minus
+the outer (> 7 R☉, 32), relative to the gain-0 stack:
+
+| block | frames | mid UTC | inner − outer (px) |
+|---|---|---|---|
+| gain 125 | 46–60 | 18:29:02 | +0.17 ± 0.22 |
+| gain 125 | 61–75 | 18:29:07 | +0.32 ± 0.16 |
+| gain 125 | 76–90 | 18:29:12 | +0.11 ± 0.14 |
+| gain 125 | 91–105 | 18:29:17 | +0.34 ± 0.15 |
+| gain 125 | 106–120 | 18:29:21 | +0.27 ± 0.28 |
+| gain 125 | 121–135 | 18:29:26 | **+0.53 ± 0.20** |
+| gain 125 | 136–150 | 18:29:31 | **+0.63 ± 0.19** |
+| gain 125 | 151–165 | 18:29:35 | +0.42 ± 0.19 |
+| gain 0 | 2–16 | 18:29:46 | −0.10 ± 0.15 |
+| gain 0 | 17–31 | 18:29:50 | +0.07 ± 0.17 |
+| gain 0 | 32–46 | 18:29:55 | +0.11 ± 0.09 |
+| gain 0 | 47–61 | 18:30:00 | +0.11 ± 0.05 |
+| gain 0 | 62–76 | 18:30:04 | −0.03 ± 0.09 |
+| gain 0 | 77–91 | 18:30:09 | −0.16 ± 0.18 |
+| gain 0 | 92–102 | 18:30:13 | **−0.52 ± 0.15** (11 frames, 18 stars) |
+
+Whole blocks, inverse-variance: gain 125 **+0.333 ± 0.063 px**, gain 0 **+0.037 ± 0.034 px**,
+difference **+0.296 ± 0.071 px (4.2 σ)** — the block disagreement, confirmed on scale-invariant
+centroids of identical photons. But look at the shape:
+
+* **within gain 125 it rises**, +0.38 px across the block (first four bins mean +0.24, last
+  four +0.46);
+* **at the boundary it drops** — +0.42 → −0.10, about 2.2 σ;
+* **within gain 0 it is flat for 25 s, then falls** −0.5 px in the last 3.5 s before the
+  capture ends (a thin bin: 11 frames, 4 inner stars).
+
+The whole-block difference is real (4.2 σ) and the within-block bins move by as much as the
+blocks differ. *The paragraphs that first stood here read that as "the atmosphere sampled at
+two moments, on a 10–30 s timescale". That reading is withdrawn below — the sub-stacks share
+the fault that undoes the whole thread.*
+
+## 3r. The Sun-centred thread was differential refraction, projected — withdrawn in full
+
+Two checks on the per-star residuals (`tools/husillos2026/hu_field_shape.py`,
+`hu_block_diff.py`) end it.
+
+**Per bin, nothing reproduces.** Fitting each 15-frame sub-stack's residual field with a
+Sun-centred 1/r term and, separately, a generic quadratic, then scoring on held-out stars: the
+1/r term scores **negative in 14 of 15 bins** (−0.4 to −4.4 %), the quadratic overfits (down to
+−93 %). The per-bin fields are noise. But the quadratic's **linear** coefficients are a clean
+step — stable at (−0.3, +0.45) through every gain-125 bin, ~0 through every gain-0 bin. A
+stable **anisotropic scale and shear** between the blocks is what **differential refraction
+changing between two epochs** produces at z = 81.4°, and an isotropic similarity cannot absorb
+it.
+
+**Then the two blocks compared properly**, 64 shared stars, later minus earlier:
+
+| comparison | model | scale | anisotropy | shear | 1/r term | held-out |
+|---|---|---|---|---|---|---|
+| **raw pixels** (what §3q used) | similarity | −101 ± 16 ppm | — | — | — | — |
+| raw pixels | **full affine** | x −42, y **−302** | **+260 ppm** | **−82, −76 ppm** | −0.40 ± 0.31 px (1.3 σ) | **−0.5 %** |
+| **refraction-corrected** (what stage 3 fits) | similarity | **−6 ± 10 ppm** | — | — | — | — |
+| refraction-corrected | full affine | x −12, y +4 | −16 ppm | 0, +8 ppm | −1.41 ± 0.68 ″ (2.1 σ) | **−0.3 %** |
+
+Read across. The raw-pixel difference is **a 260 ppm vertical compression and an 80 ppm
+shear** — the field set 0.11° in the 39 s between the block mid-times, and at 8.6° altitude
+the differential refraction across a ±2.9° field changes by a few hundred ppm; the shear is the
+sensor's 14.9° tilt from the vertical (§3h). Only the *isotropic* half of that was being
+removed. What remained, projected radially about a Sun near the field centre through **11
+inner stars lopsided in azimuth**, is a pattern that looks Sun-centred and monotonic in radius.
+Once the affine removes it, no 1/r term reproduces on held-out stars. And on the
+refraction-corrected displacements — the ones stage 3 uses — the blocks agree to **6 ppm in
+scale and ~10 ppm in every affine term**, with a residual rms of 0.53 ″ that is exactly §3f's
+per-star noise.
+
+**So, withdrawn:** the −227/−135/−60 ppm "Sun-centred profile" (§3q); "the structure follows
+the gain, 3.3 σ across the boundary" (§3q); the saturation mechanism (already withdrawn);
+and "it is the atmosphere on a 10–30 s timescale" (above). Three analyses in a row were built
+on one wrong nuisance model — a similarity on raw pixels at 8.6° — and each inherited the
+artefact. The sub-stack table's within-block trends are not established either: its per-bin
+fields fail held-out, its linear terms are the refraction ramp, and its last bin is thin.
+
+**What stands** is §3f as first written: the two blocks differ by **per-star noise** — 0.53 ″
+rms per star, correlation 0.484 — with no smooth structure between them, and their 1.19 ″ L
+difference is that noise through the L–scale degeneracy (0.63 ″ with the scale held, 1.19 ″
+free). That noise *is* atmospheric — two independent realisations of the wavefield 39 s apart
+— which is where the León lesson lands, more modestly than claimed: **interleaved tiers share
+one realisation of the atmosphere and sequential blocks do not**, so interleaving raises the
+cross-tier correlation and tightens the union; it does not remove a Sun-centred systematic,
+because there is none. The gain is a bystander.
+
+**Method 1's gain-125 value is still bad**, and the reason is now narrower: on the shared
+stars the blocks agree to 6 ppm, so the 70 ppm between their *stage-2* scales (2.2029009
+against 2.2027459) comes from the non-shared stars and the free quadratic, not from the data
+the union uses; `constant` then converts whatever the import disagrees with into L.
+
+**A trap for the record.** *At 8.6° altitude, any comparison of two epochs on raw pixel
+positions must remove a full affine or correct refraction first.* A similarity leaves a
+few-hundred-ppm anisotropy in, and eleven lopsided stars will make it look like anything.
+This cost three sections and most of a day.
 
 ### What it does to the numbers
 
@@ -1338,10 +1438,16 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    not the explanation of the block disagreement.
 4i. ~~Run the occulter experiment~~ — **void** (§3q): a gate cannot move a star outside it.
    ~~The seeing~~ — **no step** (1.3 σ, wrong sign, and 30× too weak by estimate). **The
-   half-block table was over-read**: within gain 0 carries the same sign at 1.1 σ, so "gain"
-   and "onset in time near 18:29:40" are not yet separated. Running: `hu_radial_vs_time.py`,
-   the inner-minus-outer displacement frame by frame — a step at the boundary is the
-   electronics, a ramp through it is time.
+   half-block table was over-read** — and then §3r withdrew the whole thread: the
+   "Sun-centred structure" was differential refraction between the block epochs, left in by a
+   similarity fit on raw pixels and projected radially through eleven lopsided inner stars.
+   On refraction-corrected displacements the blocks agree to 6 ppm. **There is no block
+   systematic to explain; §3f stands.** The gain is a bystander.
+4k. **Cell 4 still has no atmospheric term.** The blocks' per-star noise (r = 0.484) is two
+   realisations of the wavefield 39 s apart, which is what the term would price. The horizon
+   fields (§3i) remain the route to it.
+4l. ~~Sun-centred or smooth field~~ — **neither** (§3r): per bin nothing reproduces on held-out
+   stars, and the linear terms are the refraction ramp.
 4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is
    not the corona.
 4e. **The vertical nuisance is measured and deliberately not applied** (§3h). Re-measure it if
