@@ -63,6 +63,14 @@ HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'step3')
 UNI = os.path.join(OUT, 'union')  # per-host subdirectory below, so a swap cannot overwrite
 
+#: Which stage-2 outputs to union, and which estimator to ask stage 3 for.  Defaults are the
+#: Method 2 pathway this tool was written for (`eclipse_<tag>`, cubic-and-above frozen from the
+#: zenith, scale fitted).  `HU_STAGE2_PREFIX=m1_` unions the METHOD 1 pathway instead
+#: (`hu_method1.py`: linear-and-above frozen from CalibS, scale imported), so the two ladders
+#: are combined by one implementation rather than two.
+PREFIX = os.environ.get('HU_STAGE2_PREFIX', 'eclipse_')
+METHOD = os.environ.get('HU_ECLIPSE_METHOD', 'Method 2')
+
 #: The host is the block whose frame the union is expressed in.  gain125 is the deeper of
 #: the two -- 84 matched stars against 75 -- which is the same reason Leon hosted on its
 #: best-populated tier rather than its longest exposure.
@@ -93,7 +101,7 @@ W_NORM = float(NX) / 2.0  # field-normalised coordinates for the transfer polyno
 
 
 def _zip(tag):
-    z = glob.glob(os.path.join(OUT, 'eclipse_%s' % tag, '**', 'distortion_data*.zip'),
+    z = glob.glob(os.path.join(OUT, PREFIX + tag, '**', 'distortion_data*.zip'),
                   recursive=True)
     if not z:
         raise SystemExit('no stage-2 output for %s: run hu_step3.py stage2 first' % tag)
@@ -263,7 +271,7 @@ def _stage3(z, tag):
     d = os.path.join(UNI, 'method2_%s' % tag)
     os.makedirs(d, exist_ok=True)
     cmd = [PY, '-m', 'mee2024.cli', 'eclipse', z,
-           '--set', 'eclipse_method=Method 2',
+           '--set', 'eclipse_method=' + METHOD,
            '--set', 'eclipse_limiting_mag=%.1f' % WIN.mag,
            # not cropped radially: Douglas, 2026-09-10
            '--set', 'limit_radial_sun_radii=False',
@@ -277,8 +285,8 @@ def _stage3(z, tag):
         return
     for line in io.open(fs[0], encoding='utf-8', errors='replace').read().splitlines():
         s = line.strip()
-        if any(k in s for k in ('Method 2 results', 'number of stars',
-                                'deflected star position rms')):
+        if any(k in s for k in ('Method 1 results', 'Method 2 results',
+                                'number of stars', 'deflected star position rms')):
             print('  %-14s %s' % (tag, s.replace(u'\u00b1', ' +- ')
                                   .encode('ascii', 'replace').decode('ascii')[:130]))
 
@@ -294,7 +302,7 @@ def stage3():
 
 if __name__ == '__main__':
     cmd = sys.argv[1] if len(sys.argv) > 1 else 'stage3'
-    UNI = os.path.join(UNI, 'host_%s' % HOST)
+    UNI = os.path.join(UNI, ('' if PREFIX == 'eclipse_' else PREFIX) + 'host_%s' % HOST)
     os.makedirs(UNI, exist_ok=True)
-    print('host = %s (union expressed in its frame; its fitted scale is adopted)' % HOST)
+    print('host = %s, stage-2 prefix %r, estimator %r' % (HOST, PREFIX, METHOD))
     {'build': build, 'stage3': stage3}[cmd]()

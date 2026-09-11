@@ -682,6 +682,255 @@ missing (*"no atmospheric data — Joe took none, so the ±0.11–0.33 ″ every
 from zenith nulls has no counterpart"*). That statement was wrong. He took the fields that
 matter most, and they were sitting on the drive under `cal 8 deg` and `10 deg`.
 
+## 3j. CalibS reduced — cell 4 gets an importable plate scale, and Method 1 at last
+
+Douglas, 2026-09-11: start the calibration field taken after the two eclipse blocks.
+`G:\Joe Izen Spain 2026\2026-08-12\CalibS_Joe_20260812_183018\20_30_18.ser`, 145 frames,
+9576×6388, 315.0 ms, **gain 0**, offset 200, 17.7 GB, sensor −0.2 °C.
+`tools/husillos2026/hu_calibs.py`.
+
+### Where it sits in time — *after* the eclipse blocks, not before
+
+| against | | CalibS is |
+|---|---|---|
+| eclipse gain 125 mid (18:29:20) | | **+71 s after** |
+| eclipse gain 0 mid (18:29:59) | | **+32 s after** |
+| C2 (18:29:00) | | +91 s after |
+| C3 (18:30:44) | | 13 s **before** |
+
+The capture runs 18:30:18 → 18:31:04, beginning 19 s after the gain-0 block ends. It is the
+last thing shot inside totality. (An earlier draft of this document said "106 s before the
+eclipse blocks' mid-times" — that was the gap to the *Sun capture's start*, quoted against
+the wrong reference and with the sign reversed. Douglas caught it.)
+
+### The C3 boundary, measured rather than divided
+
+C3 falls 25.87 s into a 45.7 s capture — frame 82.0 by the clock. But **CalibS is not pointed
+at the Sun**: no pixel saturates in any of the 145 frames (band max 2399–10417 ADU against a
+65535 full scale), so there is no disk, no beads and no photosphere. It is a genuine **offset
+calibration field**, which is what the ladder's middle rung is supposed to be.
+
+So C3 shows itself in the **sky level** instead, and unmistakably:
+
+| frames | band sky | behaviour |
+|---|---|---|
+| 57 → 82 | 1852 → 1913 ADU | creeping at ~2.4 ADU/frame — the last of totality |
+| **83 onward** | +7, +11, +13, +17 … per frame | **accelerating every frame** |
+| 140 | 8002 ADU | 4.4× its starting value |
+
+The knee is at **frame 82–83** against the clock's 82.0. Two independent routes, one answer.
+**Frames 1–81 are stacked**, mid-time **18:30:31 UTC** from their own SER timestamps.
+
+### The fit, and why it matters
+
+| | |
+|---|---|
+| stars used | 26 (from 29 centroids) |
+| rms | 0.4818 ″ |
+| **plate scale** | **2.2029895 ″/px, ±25.2 ppm** |
+| pointing | RA 149.2185, Dec 7.5042, roll 326.2099 |
+| at 18:30:31 | **alt 8.82°, az 272.00°** (the Sun: 8.51°, 282.28°) |
+| separation from the Sun | **10.17°** |
+
+| field | plate scale | CalibS is |
+|---|---|---|
+| eclipse gain 0 | 2.2029009 | **+40 ppm** |
+| eclipse gain 125 | 2.2027459 | +111 ppm |
+| night zenith | 2.2059136 | **−1326 ppm** |
+
+**That is the whole point.** The night zenith is 1326 ppm away and unusable as an import; CalibS
+is 40 ppm from the gain-0 block. At 0.0324 ″/ppm that is 1.3 ″ of L against 43 ″. **Cell 4 has
+a same-day, same-altitude importable scale for the first time.**
+
+Two supporting checks came out right. The camera was **not rotated** all night — roll 326.148
+(eclipse), 326.210 (CalibS), 326.266 (a night horizon field), three independent solves inside
+0.12°. And the geometry is a proper calibration sightline: same air, 0.3° apart in altitude.
+
+### ⚠ The detection settings were wrong, and this fit is provisional
+
+Douglas, 2026-09-11: *"I'm surprised there were fewer stars detected at gain zero and 315 ms
+than the corresponding exposure with the Sun. Were the same sensitivity settings used?"*
+**They were not.** Read back from the runs' own records:
+
+| stage-1 option | **CalibS** | eclipse gain 0 | eclipse gain 125 |
+|---|---|---|---|
+| `field preset` | **zenith** | custom | custom |
+| sigma threshold detection | **5.0** | 4.0 | 4.0 |
+| `min_area` | **4** | 2 | 2 |
+| `sigma_subtract` | **3.0** | 0.0 | 0.0 |
+| Gaussian-subtracted detection | **False** | True | True |
+| **centroids** | **29** | **115** | **97** |
+
+Every difference runs in the strict direction for CalibS. The original reasoning was half right
+— this field has no Sun in it, so it needs no occulter and no coronal subtraction — but it then
+took the zenith preset's **detection thresholds** as well, which nothing required. Two things
+were changed at once and only one was justified.
+
+It is not tidiness. CalibS' ±25.2 ppm is the **binding term in the whole cell**, and
+`mee2024/field_presets.py` requires that an imported scale be centroided the way the science
+field was: the *estimator* does match (windowed 2.0 px, annular — verified), but detection
+decides which stars are admitted and how bright they are, and this optic's centroid bias is
+brightness-dependent. A re-run under the eclipse settings is in progress; if the scale itself
+moves, §3k and the drift analysis below move with it.
+
+## 3k. Method 1, at the ladder's third rung
+
+`tools/husillos2026/hu_method1.py`. The pathway, which is **León's for CAL_piLeo, rung for
+rung** (`docs/STEP3_2026.md` ladder table; `tools/step3_master_vs_union.py:111`):
+
+| step | option | frozen from |
+|---|---|---|
+| night zenith | free quintic | — |
+| CalibS | `distortion_fixed_coefficients=quadratic`, free scale | cubic+ from the zenith |
+| eclipse blocks | **`constant`, `distortion_free_scale=False`** | linear+ from CalibS, **scale imported** |
+
+The chain was verified rather than assumed: **15 of 15 cubic-and-above terms in CalibS are
+bit-identical to the zenith's**, and all 6 constant/linear/quadratic terms were refitted. So
+CalibS' stored model is already the composite object — same-day low order, night high order.
+
+**The scale import is not a separate switch.** `distortion_fitter.py:538` grants it only when
+`constant` **and** `free_scale=False` hold together, so `constant` is mandatory for Method 1
+here. Both blocks read back `fixed distortion order: constant` and *`plate scale source:
+imported from the reference files`*, carrying CalibS' 2.2029895 exactly; the tool refuses to
+continue otherwise.
+
+| pathway | N | rms | **L ± stat** | plate scale | GR at |
+|---|---|---|---|---|---|
+| **Method 1** (imported) | 63 | 0.594 ″ | **2.840 ± 0.884 ″** | 2.202989 *imported* | 1.23 σ |
+| Method 2, CalibS rung | 63 | 0.594 ″ | 2.062 ± 0.528 ″ | 2.203042 fitted | 0.59 σ |
+| Method 2, zenith rung | 63 | 0.550 ″ | 2.129 ± 0.430 ″ | 2.202674 fitted | 0.88 σ |
+
+### The gap between the methods is the scale, exactly
+
+Method 1 and Method 2 sit on the **same 63 stars and the same residuals**, differing only in
+whether the scale is imported or fitted:
+
+| | |
+|---|---|
+| the gap | **0.778 ″** |
+| the scale difference | **+24.1 ppm** |
+| × the measured lever (0.0324 ″/ppm) | **0.779 ″** |
+
+They agree to better than a thousandth of an arcsecond. The lever computed from this field's own
+geometry (h = 34.24 R☉²) is confirmed by the fit's behaviour — and it means **the two methods
+are not independent evidence**, but one measurement at two plate scales. The difference also
+sits **inside CalibS' own ±25.2 ppm** (±0.82 ″), so they are consistent.
+
+**Method 2 remains the more robust number**, and it is stable across rungs: 2.129 ± 0.430
+against the zenith and 2.062 ± 0.528 against CalibS — 0.067 ″ apart on completely different
+frozen coefficients. Method 1 is real but weaker (±0.884 ″), and always was going to be: the
+`constant` rung also freezes the blocks' linear and quadratic from a 26-star fit, which costs
+0.18 and 0.23 ″ of stage-2 residual and widens the per-block spread to 2.50 ″ (1.650 and 4.153)
+against Method 2's 1.19 ″.
+
+**That per-block spread is not outliers.** The two nonsensical stars were in the gain-0 block
+and the two-witness rule removed them long before; the worst Method 1 deflection is 1.69 ″, and
+dropping the eight worst of 64 moves L only 4.153 → 3.636. It is the imported scale: stage 3's
+own Method 2 says gain 0 wants +14.1 ppm above the import and gain 125 wants +35.0 ppm, which at
+the lever are +0.46 and +1.13 ″ — exactly the M1−M2 gaps in each block.
+
+## 3l. The plate scale rises through totality — suggestive, not yet measured
+
+Douglas, 2026-09-11, asked whether the block closer in time to CalibS gave the better scale fit,
+implying a temperature-driven drift. **It does, and the ordering is monotonic:**
+
+| field | mid UTC | gain | stars | plate scale | ±ppm | vs earliest |
+|---|---|---|---|---|---|---|
+| eclipse gain 125 | 18:29:20 | 125 | 84 | 2.2027459 | 21.0 | 0 |
+| eclipse gain 0 | 18:29:59 | 0 | 73 | 2.2029009 | 19.0 | **+70.3 ppm** |
+| CalibS | 18:30:31 | 0 | 26 | 2.2029895 | 25.2 | **+110.6 ppm** |
+
+All three on one rung (`quadratic`, zenith reference, free scale), so directly comparable. The
+sign matches the thermal reading the record already established: a cold tube reads a **larger**
+scale, so warming lengthens the focal length and shrinks it; totality removes the heating and the
+scale comes back up.
+
+| cell | night → day | across totality | ppm/s |
+|---|---|---|---|
+| Bruns 2017 | −466 ppm | **−45.1** (R8 → L) | −0.358 |
+| Mexico 2024 Station 2 | −725 ppm | **+33.7** (right → left) | +0.157 |
+| **Husillos 2026** | **−1326 ppm** | **+110.6** | **+1.558** |
+
+**But it is not established, for three reasons.** The rate is **10× Station 2's** — 2.3 K/min of
+sustained cooling at the tube's −40 ppm/K, against Station 2's 0.24 K/min, on the same class of
+telescope. The only pair at fixed gain is gain 0 → CalibS, **+40.2 ± 31.6 ppm, 1.3 σ**. And
+three variables move together across those three fields: **time, gain** (125 vs 0) **and
+pointing** (CalibS is 10.17° away, where a 0.3° altitude difference interacts strongly with a
+refraction correction driven by *assumed* weather).
+
+Cell 4 is also structurally weaker than Bruns here: **CalibS is one field on one side.** There is
+no R to pair with it, so Bruns' mean-of-two and his half-split error bound are both unavailable.
+The record prices exactly this — Bruns' bracketed reference is 10.3 ppm, León's one-sided CAL is
+25 ppm, and CalibS' ±25.2 ppm is one-sided in the same sense.
+
+**The test that settles it** (`tools/husillos2026/hu_halves.py`, set up and part-run): split
+**both** eclipse blocks in half and refit. The two halves of one block share a gain and a
+pointing and differ only in time, so all three confounds go at once, and two blocks give two
+independent estimates of the same rate.
+
+| half | gain | frames | mid UTC | separation |
+|---|---|---|---|---|
+| `g125_A` | 125 | 46–108 | 18:29:09.9 | **19.9 s** |
+| `g125_B` | 125 | 109–171 | 18:29:29.8 | |
+| `g0_A` | 0 | 2–52 | 18:29:51.2 | **15.8 s** |
+| `g0_B` | 0 | 53–102 | 18:30:06.9 | |
+
+At +1.558 ppm/s the halves should differ by 31 and 25 ppm, same sign in both. Comparing the
+halves' *absolute* fitted scales is underpowered by construction (~±30 ppm each against a 31 ppm
+signal), so the tool also measures the **differential on shared stars**: the catalogue positions,
+the frozen cubic-and-above, the refraction model and the pointing are identical between halves
+and cancel exactly, leaving only centroid noise. The slope of radial displacement against radius
+*is* the fractional scale change.
+
+**A timing trap found on the way.** The Sun capture's per-frame timestamp trailer is present at
+the correct size (1440 bytes for 180 frames) but was **never written** — `read_timestamps`
+returns None for exactly this, "the space is there and unwritten (an aborted capture)", the same
+capture SharpCap never finished delivering. Sn2's trailer *is* written. The fallback reads
+`StartCapture` and `ActualFrameRate` from each capture's own settings file, and the two run at
+3.1705 and 3.1704 fps — not the rate the 315 ms exposure implies. On a test that is entirely
+about time, this would have corrupted the answer silently.
+
+## 3m. The `Capture` folder is not zenith fields — it is the sensor
+
+`tools/husillos2026/hu_capture.py`. Four captures under `2026-08-12/Capture`, but SharpCap
+folder names are local time and the headers are UTC: these are **22:54–23:01 UTC on 11 August**,
+the night *before* the eclipse, at **offset 50** where everything else in the dataset is 200 or
+220.
+
+| capture | start (UTC) | frames | exposure | gain | sensor |
+|---|---|---|---|---|---|
+| `00_54_32` | 11 Aug 22:54:32 | 100 | 1.000 s | 125 | **33.7 °C** |
+| `00_57_43` | 11 Aug 22:57:43 | 100 | 315 ms | 125 | **32.0 °C** |
+| `00_59_36` | 11 Aug 22:59:36 | 100 | 315 ms | 125 | — |
+| `01_01_09` | 11 Aug 23:01:09 | 100 | 315 ms | 0 | — |
+
+315 ms at gains 125 and 0 is the eclipse acquisition's own setting, which reads like a rehearsal.
+**But all four are empty of sky.** All plate solves failed — 18, 6 and 3 centroids, and
+`01_01_09` could not even match frame 0 to frame 1.
+
+| capture | spikes > 20σ | **on the hot-pixel mask** | resolved stars / 5 Mpx |
+|---|---|---|---|
+| `00_54_32` | 161 | **161 (100 %)** | 1 |
+| `00_57_43` | 146 | 137 (93.8 %) | 2 |
+| zenith | 120 | 54 (45 %) | **68** |
+
+`00_54_32` is 1.0 s at gain 125 — a *deeper* configuration than the zenith's 1.0 s at gain 0 —
+and returns 1 star against 68. Focus is fine (FWHM 1.36–1.60 px, same as the zenith's), the field
+is flat to 0.12–0.18 % so there is no cloud structure, and **offset 50 is not clipping anything**
+(zero pixels at the minimum, a clean ~400 ADU pedestal). What remains is a hot uncooled sensor at
+32–34 °C against the zenith's 25.6 °C and `cal 8 deg`'s 2.8 °C, and no sky.
+
+**Most likely these are dark or cap-on frames**, which sits awkwardly against Joe's report that he
+took no darks — worth asking him rather than asserting. Either way: the pointing is undetermined
+and will stay so, `00_54_32`'s stage-1 failure is explained, and they are **not** the second
+star-rich pointing the distortion-order transfer test wants.
+
+**Two measurement traps recorded here**, both of which caught me first. A 1-px matched filter
+"finding ~2600 sources" in one of these frames was finding the sensor, and so was my own count of
+736 peaks above 10 σ. Requiring a source to have **neighbours** — a star has a PSF, a hot pixel
+does not — collapses those to 1. Before that filter, FWHM measured 1.13 px on *every* capture
+including the zenith, which is a one-pixel source and not a PSF.
+
 ### What this is and is not
 
 * The two blocks' separate values (1.596 and 2.782 ″) **are superseded by the union** and should
@@ -743,10 +992,10 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    it. 1328 of `sn2_masked`'s 4061 centroids have an area of ≤ 2 px.
 3. **The refraction correction must be on for anything at 8.6° altitude**, and the site is now
    known. Nothing in this document depends on it — these are counts and ratios — but a fit will.
-4. **`CalibS` (`20_30_18`, 145 frames) is now the top priority**, not merely next: the night
-   zenith's scale is 1365 ppm from the eclipse field's, so the only route to an imported scale —
-   and therefore to a real Method 1 — is a same-day, same-altitude calibration field. Its first
-   ~80 frames are inside totality before C3 at 18:30:44.2.
+4. ~~**`CalibS` is now the top priority**~~ — **done** (§3j–3k): reduced, importable at 40 ppm
+   from the gain-0 block, and Method 1 run for the first time. What remains on it: the stage-1
+   re-run under the eclipse detection settings, since the first used the zenith preset's
+   thresholds and its ±25.2 ppm is the cell's binding term.
 4b. **Stage 3 ignores `flag_is_outlier`** (§3e). It re-admitted the two stars that wreck the
    gain-0 block. Cell 2 reduced through `s1_pooled_fit.py` rather than the CLI's stage 3, which
    is probably why this has not bitten before. The two-witness rule removes those two stars

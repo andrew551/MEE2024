@@ -25,8 +25,8 @@ pixels in cost the eclipse field its plate solve (section 3c of the eclipse reco
 
     .venv/Scripts/python.exe tools/husillos2026/hu_horizon_reduce.py [probe|all]
 
-`probe` does one capture per window and reports whether they solve and how deep; `all` does
-every capture.  Each stage 1 reads a 12 GB SER, so `all` is an hours-long job.
+`probe` does one capture per window; `deep` re-runs the three `cal 8 deg` captures with the
+eclipse blocks' own detection settings (see DEEP below); `all` does every capture.  Each stage 1 reads a 12 GB SER, so `all` is an hours-long job.
 """
 import glob
 import json
@@ -67,6 +67,25 @@ S1 = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract
       '--set', 'sigma_subtract=3.0', '--set', 'delete_saturated_blob=False',
       '--set', 'remove_edgy_centroids=True', '--set', 'centroid_window_sigma=2.0',
       '--set', 'centroid_refine_window=True', '--set', 'background_subtraction_mode=annular']
+
+#: The `cal 8 deg` window needs this, and it is a borrowed convention rather than a new number.
+#:
+#: The probe found `cal 8 deg` 6x shallower than `10 deg` -- 27 centroids against 165, and stage
+#: 2 stopped at 20 matched stars where a quintic needs 21 -- and the cause is physical, not a
+#: setting: it was shot with the Sun 15.6 to 16.5 deg below the horizon, i.e. still inside
+#: ASTRONOMICAL TWILIGHT, looking due west (az 272.7) at alt 8.5 into the residual glow.  The
+#: `10 deg` window is 35 minutes later at Sun -21 to -22.5 deg, in full night.
+#:
+#: So the shallow field is given the DETECTION SETTINGS THE ECLIPSE BLOCKS THEMSELVES USE
+#: (min_area 2, Gaussian-subtracted detection at 4.0 sigma, sigma_subtract 0) -- cell 2's
+#: eclipse convention, `tools/matrix_station1/s1_eclipse_corona.py`, already the convention of
+#: record for this cell's science frames.  What is NOT taken from there is the coronal
+#: subtraction and the occulter: there is no Sun in these frames.
+DEEP = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract=True',
+        '--set', 'centroid_gaussian_thresh=4.0', '--set', 'min_area=2',
+        '--set', 'sigma_subtract=0.0', '--set', 'delete_saturated_blob=False',
+        '--set', 'remove_edgy_centroids=True', '--set', 'centroid_window_sigma=2.0',
+        '--set', 'centroid_refine_window=True', '--set', 'background_subtraction_mode=annular']
 
 #: corrections ON: at 8-10 deg altitude nothing is refraction-safe
 SITE = ['--set', 'enable_corrections=True', '--set', 'enable_corrections_ref=True',
@@ -113,21 +132,21 @@ def refzip():
     return r[0]
 
 
-def stage1(tag, folder, name, first, last):
-    d = os.path.join(OUT, 's1_' + tag)
+def stage1(tag, folder, name, first, last, deep=False):
+    d = os.path.join(OUT, ('s1d_' if deep else 's1_') + tag)
     if czip(d):
         return d
     ser = os.path.join(SRC, folder, name + '.ser')
     # the container plus --frames: a `path.ser#N` on the command line globs to nothing
     run([PY, '-m', 'mee2024.cli', 'stack', ser,
          '--frames', '%d-%d' % (first, last), '--dark', DARK,
-         *S1, '--no-display', '--quiet', '-o', d],
+         *(DEEP if deep else S1), '--no-display', '--quiet', '-o', d],
         os.path.join(d, 'stage1.log'))
     return d
 
 
-def stage2(tag, d1, tmid):
-    d = os.path.join(OUT, 's2_' + tag)
+def stage2(tag, d1, tmid, deep=False):
+    d = os.path.join(OUT, ('s2d_' if deep else 's2_') + tag)
     if results(d):
         return d
     z = czip(d1)
@@ -147,17 +166,29 @@ def stage2(tag, d1, tmid):
 
 def main(which):
     os.makedirs(OUT, exist_ok=True)
-    todo = [c for c in CAPTURES if which == 'all' or c[0] in PROBE]
-    print('reducing %d horizon captures\n' % len(todo))
+    deep = which == 'deep'
+    if deep:
+        # gain 125 FIRST: it is the decisive one. The probe left it at 20 matched stars
+        # against the 21 a quintic needs, so it is the capture that decides whether the
+        # eclipse-altitude window is usable at all; the two gain-0 captures are shallower
+        # and were shot even earlier in twilight. Deep detection costs ~45 min per capture
+        # against ~7 for the zenith preset (min_area 2 on a twilight-bright field makes a
+        # great many candidates), so running the decisive one first is worth an hour.
+        order = {'h8_g125': 0, 'h8_g0_b': 1, 'h8_g0_a': 2}
+        todo = sorted([c for c in CAPTURES if c[1] == 'cal 8 deg'],
+                      key=lambda c: order[c[0]])
+    else:
+        todo = [c for c in CAPTURES if which == 'all' or c[0] in PROBE]
+    print('reducing %d horizon captures%s\n' % (len(todo), ' (deep detection)' if deep else ''))
     print('%-11s %5s %7s %9s %10s %12s' % ('tag', 'gain', 'stars', 'rms (")', 'ps ("/px)',
                                            'centroids'))
     for tag, folder, name, gain, first, last in todo:
-        d1 = stage1(tag, folder, name, first, last)
+        d1 = stage1(tag, folder, name, first, last, deep)
         z = czip(d1)
         if not z:
             print('%-11s %5d   stage 1 FAILED (see %s)' % (tag, gain, d1))
             continue
-        d2 = stage2(tag, d1, midtime(folder, name))
+        d2 = stage2(tag, d1, midtime(folder, name), deep)
         j = results(d2) if d2 else None
         import zipfile
         import pandas as pd
