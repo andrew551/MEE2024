@@ -1198,8 +1198,34 @@ within a gain. What carries it is open. The one thing left that is Sun-centred, 
 and can change between two sequential captures is the **seeing** — a wider PSF on a steep
 gradient pulls a centroid Sunward by an amount that grows as the width squared — and a seeing
 *step* coincident with the boundary would defeat a test built on ~20 s pairs.
-`tools/husillos2026/hu_seeing.py` measures the star width per frame across both captures on
-the same stars to look for exactly that step.
+`tools/husillos2026/hu_seeing.py` measured the star width per frame across both captures on
+the same stars, and **there is no step**:
+
+| | FWHM (half-maximum footprint) |
+|---|---|
+| gain 125, whole block | 2.106 px, IQR 0.30 |
+| gain 0, whole block | 2.106 px, IQR 0.30 |
+| last 20 frames of gain 125 → first 20 of gain 0 | 2.106 ± 0.083 → 1.954 ± 0.077 px, **1.3 σ** |
+
+And the 1.3 σ hint runs the *wrong* way: a wider PSF pulls a centroid Sunward, but gain 125's
+inner stars sit *further* from the Sun. A back-of-envelope kills it independently — at 2.35 R☉
+the coronal gradient is ~1.5 ADU/px at gain 0 and a windowed centroid's pull is ~gσ²/S ≈
+0.01–0.06 px, thirty times short of the 0.4 px measured. **Seeing is not the carrier.**
+
+### ⚠ And the half-block table was over-read
+
+Inner minus outer, from §3q's own table: same gain 125, **+57 ± 37** (nothing); cross the
+boundary, **−119 ± 36**; same gain 0, **−50 ± 45** — *the same sign as the boundary, at 1.1 σ*.
+"It follows the gain" was read from the first two rows. All three together are equally
+consistent with something **absent in the first 20 s, starting around 18:29:30–50 and growing
+through the gain-0 block** — an onset in time that happens to straddle the boundary. With
+27–34 shared stars per pair the within-gain-0 term cannot decide it either way.
+
+What can: **per-frame positions**. A windowed, background-subtracted centroid is scale-invariant
+and the two blocks collected the same photons, so if the inner-minus-outer displacement
+*steps* at frame 171 → 2 the step is in the electronics, and if it *ramps* through the boundary
+without noticing it the carrier is time — atmosphere, the Moon crossing the corona (~20 ″ in
+39 s), the sky brightening toward C3. `tools/husillos2026/hu_radial_vs_time.py`, running.
 
 ### What it does to the numbers
 
@@ -1311,8 +1337,11 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    against ADC clipping at gain 125, occulter 592 vs 706 px. The V/H difference is real but is
    not the explanation of the block disagreement.
 4i. ~~Run the occulter experiment~~ — **void** (§3q): a gate cannot move a star outside it.
-   **The mechanism behind the gain-boundary structure is open.** Running: the per-frame seeing
-   test (`hu_seeing.py`) for a width step at 18:29:42.
+   ~~The seeing~~ — **no step** (1.3 σ, wrong sign, and 30× too weak by estimate). **The
+   half-block table was over-read**: within gain 0 carries the same sign at 1.1 σ, so "gain"
+   and "onset in time near 18:29:40" are not yet separated. Running: `hu_radial_vs_time.py`,
+   the inner-minus-outer displacement frame by frame — a step at the boundary is the
+   electronics, a ramp through it is time.
 4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is
    not the corona.
 4e. **The vertical nuisance is measured and deliberately not applied** (§3h). Re-measure it if
