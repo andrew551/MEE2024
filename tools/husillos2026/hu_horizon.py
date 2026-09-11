@@ -46,7 +46,12 @@ from astropy.time import Time
 import astropy.units as u
 
 ROOT = r'G:\Joe Izen Spain 2026\2026-08-12'
-FIELDS = [('cal 8 deg', 'the eclipse altitude'), ('10 deg', 'Leon H2 analogue, ~+2 deg')]
+#: The `10 deg` note used to read "Leon H2 analogue, ~+2 deg" -- one plate solve propagated
+#: over the folder.  Solved capture by capture (hu_horizon_reduce.py h10) it is THREE
+#: pointings: 23_31_59 and 23_34_38 at alt 10.0 deg, 23_41_01 at 5.7 deg, 23_44_06 at 15.0 deg,
+#: with the slew between the last two inside 23_42_43.
+FIELDS = [('cal 8 deg', 'the eclipse altitude'),
+          ('10 deg', 'three pointings by plate solve: 10.0, 5.7 and 15.0 deg (not one field)')]
 
 #: Husillos, from `G:\Joe Izen Spain 2026\Husillos Spain.JPG`
 LAT, LON, HEIGHT = 42.09293, -4.52702, 743.0

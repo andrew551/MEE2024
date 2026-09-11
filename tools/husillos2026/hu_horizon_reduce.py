@@ -11,7 +11,7 @@ Husillos has the equivalent data, on the SAME NIGHT as the eclipse and at both e
 (`hu_horizon.py`):
 
     cal 8 deg   3 captures, 20:53-20:59 UTC   gains 0, 0, 125    the eclipse altitude
-    10 deg      7 captures, 21:31-21:44 UTC   gains 0, 125, ...  ~+2 deg, Leon's H2 analogue
+    10 deg      7 captures, 21:31-21:44 UTC   gains 0, 125, ...  THREE pointings (see main)
 
 This tool stacks them and fits them against the same zenith quintic reference the eclipse
 blocks use, at the same rung.  Corrections are ON with the site: at 8-10 degrees altitude
@@ -25,8 +25,11 @@ pixels in cost the eclipse field its plate solve (section 3c of the eclipse reco
 
     .venv/Scripts/python.exe tools/husillos2026/hu_horizon_reduce.py [probe|all]
 
-`probe` does one capture per window; `deep` re-runs the three `cal 8 deg` captures with the
-eclipse blocks' own detection settings (see DEEP below); `all` does every capture.  Each stage 1 reads a 12 GB SER, so `all` is an hours-long job.
+`probe` does one capture per window; `h10` does the dark-sky `10 deg` window only; `deep` re-runs the three `cal 8 deg` captures with the
+eclipse blocks' own detection settings (see DEEP below); `deep10` does the same for the `10 deg` window; `all` does every capture.
+Each stage 1 reads a 12 GB SER, so `all` is an hours-long job.  Outputs go to s1_/s2_<tag> (zenith preset) and s1d_/s2d_<tag> (DEEP).
+
+The `10 deg` folder is NOT one tracked field -- see main(): three pointings at 10.0, 5.7 and 15.0 deg altitude.
 """
 import glob
 import json
@@ -55,7 +58,9 @@ CAPTURES = [
     ('h10_g125a', '10 deg',    '23_34_38', 125, 1, 99),
     ('h10_g125b', '10 deg',    '23_37_17', 125, 1, 99),
     ('h10_g0_c',  '10 deg',    '23_41_01',   0, 1, 50),
-    ('h10_g125c', '10 deg',    '23_42_43', 125, 1, 49),
+    # 23_42_43: stage 1 cannot match frame 48 to frame 0 -- the mount slewed from the 5.7 deg
+    # pointing to the 15 deg one INSIDE this capture, so only the frames before the slew stack
+    ('h10_g125c_pre', '10 deg', '23_42_43', 125, 1, 47),
     ('h10_g125d', '10 deg',    '23_44_06', 125, 1, 49),
     # 23_40_27 has 14 frames; too short to stack against the others, left out deliberately
 ]
@@ -167,7 +172,21 @@ def stage2(tag, d1, tmid, deep=False):
 def main(which):
     os.makedirs(OUT, exist_ok=True)
     deep = which == 'deep'
-    if deep:
+    if which in ('h10', 'deep10'):
+        # The dark-sky window in time order.  An earlier comment here called it "seven
+        # consecutive captures of one tracked field 2.5 min apart at 10.4 -> 8.5 deg" -- that
+        # was one plate solve propagated over the whole folder.  Solving each capture
+        # (2026-09-12) gives THREE pointings: 23_31_59 and 23_34_38 at alt 10.0 deg (re-pointed
+        # 0.66 deg in RA between them, i.e. Joe held 10 deg), 23_41_01 at 5.7 deg, and 23_44_06
+        # at 15.0 deg, with the slew between the last two caught inside 23_42_43.  Only
+        # consecutive captures of ONE pointing make a null pair (hu_atmosphere.py checks).
+        #
+        # `deep10` repeats the window with the eclipse blocks' detection settings (DEEP): at
+        # gain 0 and 1 s through 5.6 air masses the zenith preset found 71 stars, and a null
+        # pair is only as good as its shallower member.
+        deep = which == 'deep10'
+        todo = [c for c in CAPTURES if c[1] == '10 deg']
+    elif deep:
         # gain 125 FIRST: it is the decisive one. The probe left it at 20 matched stars
         # against the 21 a quintic needs, so it is the capture that decides whether the
         # eclipse-altitude window is usable at all; the two gain-0 captures are shallower

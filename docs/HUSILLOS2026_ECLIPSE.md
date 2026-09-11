@@ -663,7 +663,7 @@ measurements: the 14.9° sensor-to-vertical angle, and V/H = 1.80.
 | window | captures | UTC | gains | frames | what it is |
 |---|---|---|---|---|---|
 | `cal 8 deg` | 3 | 20:53–20:59 | 0, 0, 125 | 100 each | **the eclipse altitude** (Sun 8.72° at 18:29:20) |
-| `10 deg` | 7 | 21:31–21:44 | 0 and 125 | 100, 100, 100, 14, 51, 50, 50 | ~+2° — León's **H2** analogue |
+| `10 deg` | 7 | 21:31–21:44 | 0 and 125 | 100, 100, 100, 14, 51, 50, 50 | ~~~+2° — León's H2 analogue~~ **three pointings**: 10.0°, 5.7° and 15.0° by plate solve (§3s) |
 
 93.6 GB, all 1.000 s at offset 220 — the same settings as the zenith field, which is why the
 `cal 8 deg` captures were already the source of the hot-pixel mask (§3c). They sit 2.4–3.2
@@ -809,6 +809,10 @@ is the eclipse field SKIPPING the middle rung, as Station 1 does. Douglas, 2026-
 Only the second of those is Method 2 for this cell. The first is Method 2's estimator run on
 residuals whose stage 2 had already **imported** CalibS' scale and frozen its linear and
 quadratic — useful for isolating what the estimator alone does, not a pathway.
+
+*(2026-09-12, §3s: the second row's pathway — quadratic free against the zenith — passes only
+f = 0.863 of a 1/r deflection through to stage 3, measured by injection; the first row's rung
+passes all of it. Read the 0.067 ″ agreement between them with that in mind.)*
 
 ### The gap between the methods is the scale, exactly
 
@@ -1376,6 +1380,163 @@ more zenith fields for a reference term.
 
 ---
 
+## 3s. The horizon fields reduced — three pointings, a first atmosphere term, and a pathway that under-reads the deflection by 14 %
+
+Douglas, 2026-09-12: *"Reduce the horizon fields so we can get an atmosphere term."* Three
+things came out, in the order they were found. Tools: `tools/husillos2026/hu_horizon_reduce.py`
+(modes `h10`, `deep`, `deep10`), `hu_atmosphere.py` (the nulls), `hu_absorption.py` and
+`hu_inject.py` (the third finding).
+
+### The `10 deg` window is three pointings, not one field
+
+§3i's table and the `h10` comment in `hu_horizon_reduce.py` described the window as one
+tracked field sweeping 10.4° → 8.5° — one plate solve, propagated over seven captures. Solving
+each capture on its own (zenith star-field preset, refraction on, each capture's own
+`MidCapture` time):
+
+| capture (local name) | UTC | gain | frames | stars | rms | plate scale | RA / Dec | alt / az | pointing |
+|---|---|---|---|---|---|---|---|---|---|
+| `23_31_59` | 21:31:59 | 0 | 100 | 71 | 1.189 ″ | 2.2058838 | 175.72 / +29.60 | 10.03° / 300.9° | **A** |
+| `23_34_38` | 21:34:38 | 125 | 100 | 135 | 0.737 ″ | 2.2059863 | 176.38 / +29.60 | 10.01° / 300.9° | **A**, re-pointed +0.66° in RA to hold 10° |
+| `23_37_17` | 21:37:17 | 125 | 100 | — | — | — | 35 centroids, 19 matched | — | no solve |
+| `23_40_27` | 21:40:27 | 0 | 14 | — | — | — | not stacked | — | — |
+| `23_41_01` | 21:41:02 | 0 | 51 | 22 | 0.703 ″ | 2.2089558 (**+1350 ppm**) | 177.87 / +23.28 | 5.73° / 296.2° | **B** |
+| `23_42_43` | 21:42:43 | 125 | 50 | 74 (frames 1–47) | 1.575 ″ | 2.2102915 (**+2000 ppm**) | — | 5.45° | **B**; frame 48 will not align to frame 0 — the slew to C is inside this capture |
+| `23_44_06` | 21:44:06 | 125 | 50 | **685** | **0.326 ″** | 2.2058177 | 178.01 / +37.54 | 14.97° / 307.4° | **C** |
+
+Two captures at 10.0° that are one field (0.57° apart on the sky); one pointing at 5.7° whose
+two solves are 1350–2000 ppm off in scale — at 5.5° the assumed weather's refraction error is
+that large, and they are excluded; and one capture at 15.0° that is the best field of the night.
+The "~+2°, León's H2 analogue" row in §3i is struck. The only consecutive same-field pair in the
+window is `23_31_59` → `23_34_38`, 2 min 39 s apart at 10.0°. (The wrong description lived in
+the tool's comment and in conversation; the record's §3n settling analysis did not use it.)
+
+### Two null constructions, because the cell has two pathways
+
+The matrix's construction (`docs/STEP3_CHARTS_AND_SETTINGS.md` §2) is: refit each night field
+**constant-only against the previous field of the same night**, impose the eclipse Sun's frame
+position, apply the science cuts, fit L; true L is zero, the rms over fields is the term. Its
+rule — *match the null's construction to the science design, or it charges the wrong thing* —
+means cell 4 needs two:
+
+* **field-to-zenith**, the analogue of Method 2 of record: each horizon field fitted at the
+  eclipse blocks' own rung (quadratic free, cubic and above frozen from the night zenith, scale
+  free), the Sun imposed, L fitted. This is what the pathway of record manufactures on a field
+  with no deflection — model transfer from 85° to 9°, refraction with the assumed weather, and
+  the atmosphere — and it works on fields at different pointings;
+* **consecutive pairs**, the matrix's standard and the analogue of Method 1: constant-only
+  against the neighbouring capture, both ways round, **same field only** — the tool checks the
+  solved centres and discards pairs more than 2° apart. A host with fewer than 40 stars is
+  not trusted.
+
+Cuts are the registered window (G ≤ 13, R > 2 R☉, no outer crop); the Sun is at (5043, 3386)
+px; "L scale" is Method 2's freedoms with no nuisance (the cell's estimator), León's base and
+v-deg2 beside it; the floor is a bootstrap on the per-star residuals; the 63-star column is a
+subsample at the union's star count.
+
+### Results — zenith star-field preset (`s2_`)
+
+Field-to-zenith:
+
+| field | alt | gain | N | rms | L base | **L scale** | L v-deg2 | floor | 63-star | |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `23_31_59` | 10.03° | 0 | 66 | 0.843 ″ | +0.037 | **+0.112** | +0.120 | 0.758 | 0.211 | |
+| `23_34_38` | 10.01° | 125 | 122 | 0.528 ″ | −0.161 | **−0.321** | −0.371 | 0.370 | 0.460 | |
+| `23_42_43` | 5.45° | 125 | 72 | 1.133 ″ | +0.349 | +0.795 | +0.603 | 0.741 | 0.896 | outside 7.5–12°, not averaged |
+| `23_44_06` | 14.97° | 125 | **653** | **0.231 ″** | +0.074 | **+0.137** | +0.091 | **0.071** | 0.247 | outside 7.5–12°, not averaged |
+
+The two fields inside the band: **rms 0.241 ″** on the cell's estimator (base 0.117, v-deg2
+0.276), against a **0.597 ″ floor** from their own per-star noise — the null is *below* the
+noise of these shallow fields (1 s at gain 0 through 5.6 air masses gives 71 stars at 1.19 ″).
+The one field deep enough to resolve structure above its noise is the 15° one: **+0.137 ″
+against a 0.071 ″ floor**, 1.9 σ, with 653 stars — a first look at what the pathway
+manufactures on a well-measured low field.
+
+Consecutive pairs (constant-only, same field):
+
+| field | host | way | N | rms | L base | L scale | L v-deg2 | floor |
+|---|---|---|---|---|---|---|---|---|
+| `23_34_38` | `23_31_59` | forward | 69 | 1.122 ″ | −0.245 | +2.064 | −3.567 | 1.116 |
+| `23_31_59` | `23_34_38` | reversed | 48 | 1.381 ″ | +0.507 | −1.254 | +1.761 | 1.247 |
+
+Noise, both ways: the gain-0 field can neither host nor be hosted at 71 stars, and the
+constant-only refit inherits the host's model noise on top of its own. The pairs at 5.7° were
+discarded by the tool (host 22 stars; different fields).
+
+**The term, as it stands** — on the matrix's rule (quote the total, show the floor beside it,
+do not subtract): **±0.24 ″** at the pathway's own rung, from two fields at 10°, unresolved
+above a 0.60 ″ floor; the 15° field says the manufactured structure is ~0.14 ″ at 653 stars.
+This is provisional in two ways. Deep-detection re-stacks (`deep`, `deep10`: the eclipse
+blocks' own detection settings, already the convention for the twilight window) are running
+on both windows to bring the floor down; and the `cal 8 deg` window — the eclipse altitude
+itself, 20:53–20:59 UTC in astronomical twilight — has not yet produced a solve at all (the
+zenith preset found 27 centroids, 20 matched, one short of a quintic). When they land this
+section gets a second results table.
+
+### The pathway of record under-reads a 1/r deflection by 14 %
+
+Building the field-to-zenith null meant asking what the pathway does to a 1/r pattern, and
+the answer is not "nothing". Method 2 of record fits the eclipse field with **the quadratic
+free** — twelve polynomial terms: translation, rotation, scale, two shears, six quadratics —
+and stage 3 then refits only translation, rotation and scale (mode 2's *r* column) jointly
+with L. Whatever part of the deflection the two shears and six quadratics absorbed in stage 2
+is gone before stage 3 sees it. On a Sun at the field centre with a symmetric star set that
+part is zero (1/r is odd about the Sun, a quadratic is even); on the real star set it is not.
+
+`hu_absorption.py` computes it from the star geometry alone — a unit-L deflection about the
+eclipse Sun, the stage-2 freedoms projected out over every star the block matched, stage 3's
+[N1, N2, Θ, S, L] refitted on the science-cut stars:
+
+| star set | stage-2 fit on | stage 3 on | `constant` + free scale | `linear` | **`quadratic` (record)** |
+|---|---|---|---|---|---|
+| gain-125 block | 84 | 84 | 1.000 | 0.941 | **0.897** |
+| gain-0 block | 74 | 74 | 1.000 | 0.929 | **0.841** |
+| **two-witness union** | 84 and 74 | 63 | 1.000 | — | **0.863** |
+
+`hu_inject.py` then measured it on the pipeline itself: every centroid of the gain-125 block
+pushed radially away from the Sun by exactly **2.000 ″ of L** (0.07–0.42 px), stage 2 and
+stage 3 run unchanged:
+
+| rung | original L (Method 2) | injected L | **rise** | predicted |
+|---|---|---|---|---|
+| `quadratic`, free scale (record) | 2.215 ± 0.433 ″ | 4.002 ± 0.444 ″ | **+1.787 ″** | 2.000 × 0.897 = 1.794 |
+| `constant`, free scale (control) | 2.039 ± 0.465 ″ | 4.031 ± 0.463 ″ | **+1.992 ″** | 2.000 × 1.000 = 2.000 |
+
+The geometry and the pipeline agree to 0.3 %. (The test's Method 1 columns are not
+meaningful: with the stage-2 scale free, the injection moves the base scale the import fixes.)
+
+**What it means.** L = 2.129 ± 0.430 ″ is **0.863 × the sky's deflection**; undone, **2.467 ±
+0.498 ″**, GR at 1.44 σ. Per block: 2.782/0.897 = 3.10 ″ and 1.596/0.841 = 1.90 ″. No other
+cell has this: León's eclipse field is at `constant` against CAL_piLeo, Station 1's at
+`constant` + free scale against the zenith, Bruns' at constant against L/R8 — all f = 1, as the
+control column says. Cell 4 is the only cell that fits its eclipse field with the quadratic
+free, and §3e chose that because `constant` against the zenith cost 0.18 ″ of *residual* (the
+day–night low orders had moved). The choice was right for the residual and wrong for the
+signal, and nobody asked what it did to the signal. The `constant` rung has its own problem —
+its original-centroid L (2.039 ″) is *lower* than the quadratic rung's 2.215 ″, so the frozen
+day–night low orders push the other way, and the injection cannot arbitrate between rungs,
+only certify each one's response.
+
+The same absorption acts on the field-to-zenith null, which is why the two are reported
+together: the null charges the pathway what it does to a field with no deflection; f says what
+it does to the deflection. If the record's L is divided by f, so is the null (×1.16).
+
+**A decision for Douglas, not made here.** Three ways to carry it:
+
+* (a) divide Method 2 of record by f = 0.863 — deterministic, geometry-only, verified on the
+  pipeline: 2.129 → **2.467 ± 0.498 ″**;
+* (b) move the eclipse field to **`constant` + free scale against the settled CalibS** — León's
+  pathway rung for rung, f = 1, no scale import (the scale stays free), the low orders from a
+  same-day 88-star calibration at the same altitude instead of from the night zenith. The
+  per-block numbers on that pathway already exist from the `m1s_` runs' Method 2 columns
+  (1.676 ± 0.540 and 3.508 ± 0.545 ″) but no union has been built on it;
+* (c) leave 2.129 and state f beside it.
+
+Recommendation: **(b) as the pathway, (a) as its check.** The ladder rule says the eclipse
+field gets `constant`, and CalibS is exactly the same-day calibration the rule wants; (a) is
+what (b) should reproduce within the CalibS quadratic's own noise. Method 1 (3.290 ± 0.681 ″,
+f = 1 by construction) and the corrected Method 2 are 0.82 ″ apart instead of 1.16.
+
 ## 4. A tool that does not work, and says so
 
 `hu_eclipse_match.py` was written to match the detections against Gaia at the known pointing —
@@ -1443,9 +1604,17 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    similarity fit on raw pixels and projected radially through eleven lopsided inner stars.
    On refraction-corrected displacements the blocks agree to 6 ppm. **There is no block
    systematic to explain; §3f stands.** The gain is a bystander.
-4k. **Cell 4 still has no atmospheric term.** The blocks' per-star noise (r = 0.484) is two
-   realisations of the wavefield 39 s apart, which is what the term would price. The horizon
-   fields (§3i) remain the route to it.
+4k. **Cell 4 has a first atmosphere term, provisional** (§3s): field-to-zenith nulls on the
+   two 10° fields give **±0.24 ″** at the pathway's own rung, unresolved above those shallow
+   fields' 0.60 ″ noise floor; the one deep field (15°, 653 stars) resolves +0.14 ± 0.07 ″.
+   Deep-detection re-stacks of both horizon windows are running to bring the floor down; the
+   `cal 8 deg` window (the eclipse altitude itself) has not yet produced a solve.
+4m. **The pathway of record under-reads the deflection by 14 %** (§3s) — fitting the eclipse
+   field with the quadratic free lets f = 0.863 of a 1/r pattern through to stage 3, measured
+   on the pipeline by injection (2.000 ″ in, 1.787 ″ out on the gain-125 block). **Decision
+   needed:** divide Method 2 of record by f (2.129 → 2.467 ± 0.498 ″), or move the eclipse
+   field to `constant` + free scale against the settled CalibS (León's pathway, f = 1), or
+   leave 2.129 and state f. Recommendation in §3s.
 4l. ~~Sun-centred or smooth field~~ — **neither** (§3r): per bin nothing reproduces on held-out
    stars, and the linear terms are the refraction ramp.
 4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is
