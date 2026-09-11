@@ -51,7 +51,17 @@ WIN = WINDOWS['husillos2026']
 PY = os.path.join(REPO, '.venv', 'Scripts', 'python.exe')
 HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'step3')
-CALIBS = os.path.join(HUS, 'calibs', 's2_calibs')
+#: Which CalibS reduction to import from.  `s2_calibs_ecl` is the one detected the way the
+#: science blocks were (cell 2's eclipse settings): 86 stars and +-18.7 ppm, against the first
+#: run's zenith-preset 26 stars and +-25.2 ppm.  The zenith-preset run is kept reachable via
+#: HU_CALIBS so the earlier Method 1 numbers stay reproducible.
+CALIBS = os.path.join(HUS, 'calibs', os.environ.get('HU_CALIBS', 's2_calibs_ecl'))
+#: Output prefix, DERIVED FROM THE CALIBRATION NAME so a swap can neither overwrite the other's
+#: results nor silently reuse them.  The first version keyed only on "is it the zenith-preset
+#: run", so the settled re-run landed in the eclipse run's directory, found results already
+#: there and skipped -- reporting the OLD imported scale as though it were the new one.
+TAGP = {'s2_calibs': 'm1_', 's2_calibs_ecl': 'm1e_',
+        's2_calibs_ecl_settled': 'm1s_'}[os.path.basename(CALIBS)]
 
 #: the two science blocks, as hu_step3 defines them
 BLOCKS = [('gain0', os.path.join(HUS, 'eclipse', 's1_sn2_darkall'), '18:29:59'),
@@ -92,7 +102,7 @@ def calibs_zip():
 
 
 def dzip(tag):
-    z = glob.glob(os.path.join(OUT, 'm1_%s' % tag, '**', 'distortion_data*.zip'),
+    z = glob.glob(os.path.join(OUT, TAGP + '%s' % tag, '**', 'distortion_data*.zip'),
                   recursive=True)
     return z[0] if z else None
 
@@ -107,7 +117,7 @@ def do_stage2():
              calres['#stars used'], calres['final rms error (arcseconds)']))
     print()
     for tag, src, tmid in BLOCKS:
-        d = os.path.join(OUT, 'm1_%s' % tag)
+        d = os.path.join(OUT, TAGP + '%s' % tag)
         if not results(d):
             run([PY, '-m', 'mee2024.cli', 'distortion', czip(src), '--order', 'quintic',
                  '--set', 'distortion_reference_files=' + cal,
@@ -161,7 +171,7 @@ def do_stage3():
         t = tabs[tag]
         keep = t['ID'].isin(both)
         src = dzip(tag)
-        dst = os.path.join(OUT, 'm1_witness_%s.zip' % tag)
+        dst = os.path.join(OUT, TAGP + 'witness_%s.zip' % tag)
         zin = zipfile.ZipFile(src)
         with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zout:
             for item in zin.infolist():
@@ -171,7 +181,7 @@ def do_stage3():
                     t[keep].to_csv(buf, index=False)
                     data = buf.getvalue().encode('utf-8')
                 zout.writestr(item, data)
-        d = os.path.join(OUT, 'method1_%s_witness' % tag)
+        d = os.path.join(OUT, TAGP + 'method1_%s_witness' % tag)
         run([PY, '-m', 'mee2024.cli', 'eclipse', dst,
              '--set', 'eclipse_method=Method 1 & 2',
              '--set', 'eclipse_limiting_mag=%.1f' % WIN.mag,

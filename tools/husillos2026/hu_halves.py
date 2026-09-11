@@ -205,19 +205,26 @@ def do_report():
 def do_diff():
     """The differential scale between two halves, measured on the stars they SHARE.
 
-    This is the sensitive version of the same test, and the reason it is worth doing is the
-    same one the two-witness union ran into from the other side: a difference between two
-    fits of the same field is far better determined than either fit's absolute value.  The
-    catalogue positions, the frozen zenith cubic-and-above, the refraction model and the
-    pointing are IDENTICAL for the two halves and cancel exactly in the difference; only the
-    centroid noise, which is what actually differs, survives.  Comparing the two fitted plate
-    scales instead throws that cancellation away -- each half's absolute scale carries ~30 ppm
-    against a predicted 31 ppm signal, so the absolute comparison is underpowered by
-    construction while this one is not.
+    This is the sensitive version of the test.  A difference between two fits of the SAME
+    field is far better determined than either fit's absolute value: the catalogue positions,
+    the frozen zenith cubic-and-above, the refraction model and the pointing are identical
+    between halves and cancel exactly, leaving only centroid noise.  The absolute comparison
+    in `report` carries ~+-30 ppm per half against a predicted ~31 ppm signal and is
+    underpowered by construction; this one need not be.
 
-    The estimator: for stars in both halves, regress the radial component of (B - A) on
-    radius from the field centre.  A pure scale change gives a displacement proportional to
-    radius; the slope IS the fractional scale difference.
+    THE ESTIMATOR MUST BE A FULL SIMILARITY, and the first version of this function got that
+    wrong.  Each half is stacked and aligned against ITS OWN first frame, so the two stacks'
+    pixel grids differ by an arbitrary whole-pixel translation (and, in principle, a small
+    rotation).  Regressing radial displacement on radius with no intercept, as the first
+    version did, feeds that translation straight into the slope: it returned -618 +- 500 ppm
+    on the gain-0 pair, which is not a measurement of anything.  So four parameters are fitted
+    together --
+
+        dx = tx - theta * ry + s * rx
+        dy = ty + theta * rx + s * ry
+
+    -- and `s`, the isotropic scale term, is the answer.  tx/ty absorb the stack offset and
+    theta any roll between them.
     """
     import numpy as np
     import pandas as pd
@@ -236,33 +243,57 @@ def do_diff():
         return t.set_index('ID')
 
     print()
-    print('DIFFERENTIAL SCALE on shared stars (the sensitive test)')
-    print('%-12s %7s %11s %12s %10s' % ('pair', 'shared', 'dt (s)', 'dscale(ppm)', 'ppm/s'))
+    print('DIFFERENTIAL SCALE on shared stars (similarity fit: translation + rotation + scale)')
+    print('%-10s %7s %8s %16s %18s' % ('pair', 'shared', 'dt (s)', 'dscale (ppm)', 'ppm/s'))
     for lo, hi, gain in (('g125_A', 'g125_B', 125), ('g0_A', 'g0_B', 0)):
         A, B = matched(lo), matched(hi)
         if A is None or B is None:
-            print('%-12s   stage 2 missing' % (lo + '/' + hi))
+            print('%-10s   stage 2 missing' % (lo + '/' + hi))
             continue
         both = A.index.intersection(B.index)
         a, b = A.loc[both], B.loc[both]
-        # field centre from the shared stars themselves, so no external geometry is assumed
+        n = len(both)
+        if n < 8:
+            print('%-10s %7d   too few shared stars to fit' % ('gain %d' % gain, n))
+            continue
         cx, cy = a['px'].mean(), a['py'].mean()
         rx, ry = a['px'].values - cx, a['py'].values - cy
-        R = np.hypot(rx, ry)
-        # displacement B - A in PIXELS, projected onto the radial direction
         dx = b['px'].values - a['px'].values
         dy = b['py'].values - a['py'].values
-        ok = R > 200.0                       # a radial direction needs a radius
-        rad = (dx[ok] * rx[ok] + dy[ok] * ry[ok]) / R[ok]
-        # slope of radial displacement against radius = fractional scale change
-        slope, *_ = np.linalg.lstsq(R[ok, None], rad, rcond=None)
-        resid = rad - R[ok] * slope[0]
-        se = float(np.std(resid) / np.sqrt(np.sum(R[ok] ** 2)))
-        d = {t: (c, x, y) for t, c, x, y, _ in HALVES}
-        dt = (midtime(*d[hi]) - midtime(*d[lo])).total_seconds()
-        print('%-12s %7d %11.1f %6.1f +- %-4.1f %7.3f +- %.3f'
-              % (gain and 'gain 125' or 'gain 0', int(ok.sum()), dt,
-                 slope[0] * 1e6, se * 1e6, slope[0] * 1e6 / dt, se * 1e6 / dt))
+        Z, O = np.zeros(n), np.ones(n)
+        M = np.vstack([np.column_stack([O, Z, -ry, rx]),
+                       np.column_stack([Z, O, rx, ry])])
+        d = np.concatenate([dx, dy])
+        # A SIGMA CLIP IS NOT OPTIONAL HERE. The gain-0 pair first fitted with a 4.8 px rms
+        # residual against the gain-125 pair's 0.29 -- a handful of bad centroids in the
+        # shallower halves, and on 27 stars they dominate a 4-parameter fit completely
+        # (-619 +- 359 ppm, which is not a measurement). Three passes at 3 sigma, with the
+        # count of survivors reported so a heavy cut cannot pass unnoticed.
+        keep = np.ones(2 * n, bool)
+        for _ in range(3):
+            c, *_ = np.linalg.lstsq(M[keep], d[keep], rcond=None)
+            r = d - M @ c
+            sd = float(np.std(r[keep]))
+            new_keep = np.abs(r) < 3 * sd
+            if new_keep.sum() == keep.sum() or new_keep.sum() < 12:
+                break
+            keep = new_keep
+        M, d, n_clip = M[keep], d[keep], int((~keep).sum())
+        c, *_ = np.linalg.lstsq(M, d, rcond=None)
+        resid = d - M @ c
+        dof = max(len(d) - 4, 1)
+        s2 = float(resid @ resid) / dof
+        cov = s2 * np.linalg.inv(M.T @ M)
+        scale_ppm = c[3] * 1e6
+        se_ppm = float(np.sqrt(cov[3, 3])) * 1e6
+        dd = {t: (cc, x, y) for t, cc, x, y, _ in HALVES}
+        dt = (midtime(*dd[hi]) - midtime(*dd[lo])).total_seconds()
+        print('%-10s %7d %8.1f %7.1f +- %-5.1f %8.3f +- %.3f'
+              % ('gain %d' % gain, n, dt, scale_ppm, se_ppm, scale_ppm / dt, se_ppm / dt))
+        print('%-10s          residual %.3f px rms, %d of %d components clipped, '
+              'translation (%+.2f, %+.2f) px, rotation %+.1f arcsec'
+              % ('', float(np.std(resid)), n_clip, 2 * n, c[0], c[1],
+                 np.degrees(c[2]) * 3600))
     print()
     print('   predicted by the three-field trend: +1.558 ppm/s')
     print('   Station 2 across totality +0.157 ppm/s, Bruns -0.358 ppm/s')

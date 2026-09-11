@@ -797,8 +797,18 @@ continue otherwise.
 | pathway | N | rms | **L ± stat** | plate scale | GR at |
 |---|---|---|---|---|---|
 | **Method 1** (imported) | 63 | 0.594 ″ | **2.840 ± 0.884 ″** | 2.202989 *imported* | 1.23 σ |
-| Method 2, CalibS rung | 63 | 0.594 ″ | 2.062 ± 0.528 ″ | 2.203042 fitted | 0.59 σ |
-| Method 2, zenith rung | 63 | 0.550 ″ | 2.129 ± 0.430 ″ | 2.202674 fitted | 0.88 σ |
+| Method 2, on the Method 1 residuals | 63 | 0.594 ″ | 2.062 ± 0.528 ″ | 2.203042 fitted | 0.59 σ |
+| **Method 2** (fitted straight against the zenith, scale free) | 63 | 0.550 ″ | **2.129 ± 0.430 ″** | 2.202674 fitted | 0.88 σ |
+
+*(An earlier version of this table called those two rows "Method 2, CalibS rung" and "Method 2,
+zenith rung". **Both terms were my coinage**, appear in no specification, and the second is
+actively misleading: the ladder's rungs are the zenith reference, the daytime L/R calibration
+and the eclipse field, so "the zenith rung" would name the first of them — where what is meant
+is the eclipse field SKIPPING the middle rung, as Station 1 does. Douglas, 2026-09-11.)*
+
+Only the second of those is Method 2 for this cell. The first is Method 2's estimator run on
+residuals whose stage 2 had already **imported** CalibS' scale and frozen its linear and
+quadratic — useful for isolating what the estimator alone does, not a pathway.
 
 ### The gap between the methods is the scale, exactly
 
@@ -931,6 +941,159 @@ star-rich pointing the distortion-order transfer test wants.
 does not — collapses those to 1. Before that filter, FWHM measured 1.13 px on *every* capture
 including the zenith, which is a one-pixel source and not a PSF.
 
+## 3n. The mount was still settling through CalibS — and the AM5's settling time
+
+Douglas, 2026-09-11, reading `TWOD_RESIDUALS20260911025309.png`: *"this suggests to me
+something was wrong with the tracking; perhaps at the beginning of the SER files the mount was
+still slewing."* Correct, and it is CalibS. From stage 1's own per-frame alignment record:
+
+| field | frames | **total drift** | max step |
+|---|---|---|---|
+| **CalibS** | 81 | **23.0 px** | 2.5 px |
+| eclipse gain 0 | 101 | 1.0 px | 0.8 px |
+| eclipse gain 125 | 126 | 3.2 px | 0.7 px |
+| zenith | 50 | 1.2 px | 0.4 px |
+
+### The totality timeline (`tools/husillos2026/hu_timeline.py`)
+
+**C2 18:29:00.5 → C3 18:30:44.2, 103.7 s.**
+
+| block | start UTC | end UTC | dur | frames | gain | used |
+|---|---|---|---|---|---|---|
+| 1 Sun | 18:28:45.593 | 18:29:42.366 | 56.8 s | 180 | 125 | 46–171 |
+| 2 Sn2 | 18:29:42.689 | 18:30:15.177 | 32.5 s | 103 | 0 | 2–102 |
+| 3 CalibS | 18:30:18.333 | 18:31:04.048 | 45.7 s | 145 | 0 | 1–81 |
+
+* **1 → 2: 0.323 s = 1.02 frame intervals.** No real gap — one frame period, which is why
+  SharpCap's buffer handed Sn2 the last two frames of the Sun capture (§2).
+* **2 → 3: 3.156 s = 10.01 frame intervals.** A real gap, and it contains the slew.
+
+**The slew is entirely inside the gap.** It is 10.17° = 36 612 ″; block 3 moves only 49.6 ″
+across its whole capture, **738× smaller**. So the mount finished slewing before block 3's first
+frame, and what block 3's alignment records is the **settling tail**. Douglas, 2026-09-11: the
+AM5 slews at about 6 °/s, so the slew itself took ~1.7 s plus ramps — leaving roughly 0.6–1.5 s
+of wait, not the 3.2 s an earlier draft of this section claimed by assuming the slew filled the
+gap. (That was an upper bound on duration quoted as a measurement.)
+
+### The settling time
+
+Fitted on the **rate**, not the displacement — block 3 starts part-way through the settle so its
+zero is arbitrary, and the rate does not care where the clock started:
+
+> **τ = 9.2 s** after a 10.2° slew (15 windows, r = −0.90). **27 s to 5 %**, 42 s to 1 %.
+
+Peak rate 19.4 ″/s, **470×** the AM5's ordinary 2.48 ″/min tracking drift. What it costs a
+0.315 s exposure against a ~1.6 px PSF:
+
+| stack index | 0–10 | 10–20 | 20–30 | 30–80 |
+|---|---|---|---|---|
+| smear per exposure | **0.79 px** | **0.54 px** | 0.27 px | ≤ 0.21 px |
+
+So the first ~20 frames are measurably trailed, and it bites twice: `add_img_to_stack` aligns
+**every** frame against `files[0]`, so the whole stack was referenced to the most disturbed
+frame in it. That is Douglas' standing rule from 2026-09-09 — *"better to use a good frame in
+the middle of the series than the first one at the beginning"* — failing on the one field whose
+plate scale is the cell's binding term. **For 2027: after a ~10° slew, wait ~30 s.**
+
+### CalibS re-reduced on the settled frames
+
+| CalibS variant | stars | rms | plate scale | ±ppm |
+|---|---|---|---|---|
+| zenith preset, 1–81 | 26 | 0.4818 ″ | 2.2029895 | 25.2 |
+| eclipse detection, 1–81 | 86 | 0.6613 ″ | 2.2030097 | 18.7 |
+| **eclipse detection, 21–81 (settled)** | **88** | 0.6647 ″ | **2.2030306** | 19.0 |
+
+Dropping the trailed frames **does not improve the error bar** (±18.7 → ±19.0) despite losing a
+quarter of the integration — fewer frames costs depth, cleaner stars recovers it, and it finds
+two *more* stars. But **the scale moved +9.5 ppm**, which is what mattered: the trailing was
+biasing it. Cumulatively CalibS has walked **2.2029895 → 2.2030097 → 2.2030306, +18.6 ppm =
+0.60 ″ of L**, under two corrections that were each clearly right, while its formal error bar
+says ±19 ppm. **Treat ±19 ppm as a floor, not the budget.**
+
+## 3o. The plate-scale drift hypothesis fails its own test
+
+§3l proposed that the monotonic rise across the three fields was a cooling tube. The test that
+removes all three confounds at once — split **both** eclipse blocks in half, so each pair shares
+a gain and a pointing and differs only in time (`tools/husillos2026/hu_halves.py`):
+
+| half | gain | frames | mid UTC | separation |
+|---|---|---|---|---|
+| `g125_A` / `g125_B` | 125 | 46–108 / 109–171 | 18:29:09.9 / 18:29:29.8 | 19.9 s |
+| `g0_A` / `g0_B` | 0 | 2–52 / 53–102 | 18:29:51.2 / 18:30:06.9 | 15.8 s |
+
+**The differential on shared stars** (the sensitive form: catalogue positions, frozen
+cubic-and-above, refraction model and pointing are identical between halves and cancel exactly,
+leaving only centroid noise):
+
+| pair | shared | dt | **Δscale** | **ppm/s** | residual |
+|---|---|---|---|---|---|
+| gain 125 | 34 | 19.9 s | **−7.9 ± 15.8 ppm** | **−0.397 ± 0.793** | 0.246 px |
+| gain 0 | 27 | 15.8 s | **−79.7 ± 21.0 ppm** | **−5.056 ± 1.334** | 0.276 px |
+
+**Neither supports the predicted +1.558 ppm/s.** Gain 125 is consistent with zero and 2.5 σ
+below it; gain 0 is 4.9 σ below and *negative*. The absolute comparison agrees more weakly
+(−0.970 and +3.182 ppm/s, opposite signs, neither significant). **So the three-field rise is not
+a within-block time drift**, and there is no case for extrapolating CalibS' scale back 71 s.
+
+**The two halves disagree with each other at 3.0 σ**, which is its own open question: the gain-0
+block shows a real −79.7 ± 21.0 ppm step that gain 125 does not. Candidates: the gain-0 halves
+are the shallowest fits here (30 and 54 stars) so an unmodelled low-order term could leak into
+the scale; 27 shared stars may be too few for a well-conditioned 4-parameter similarity; or
+something genuinely changed during the Sn2 block.
+
+**Two estimator bugs**, both of which produced confident nonsense first. (1) **No intercept**:
+each half is aligned against *its own* first frame, so the two pixel grids differ by an
+arbitrary whole-pixel translation; regressing radial displacement on radius without one fed that
+into the slope and returned −618 ± 500 ppm. Fixed by fitting a full similarity — translation,
+rotation, scale — and taking the scale term. (2) **No clipping**: even then the gain-0 pair
+fitted at 4.8 px rms against gain 125's 0.29, a few bad centroids dominating a 4-parameter fit
+on 27 stars. Three passes at 3 σ bring both to ~0.25 px, and the clip count is reported so a
+heavy cut cannot pass unnoticed.
+
+## 3p. The record charts
+
+`tools/husillos2026/hu_field_charts.py` and `hu_covariance.py`, drawn through
+`tools/record_charts.py` and published through `hu_record.publish()`.
+
+**The two blocks' displacement fields**, same 64 two-witness stars, one arrow scale, in
+**alt/az** as León's `record_field.png` is — the frame the atmosphere is polarised in:
+
+| block | rms vector | radial mean ± sd | tangential mean ± sd | **V/H** |
+|---|---|---|---|---|
+| gain 0 | 0.650 ″ | **+0.073 ± 0.455 ″** | −0.005 ± 0.459 ″ | **1.43** |
+| gain 125 | 0.770 ″ | **+0.153 ± 0.519 ″** | −0.006 ± 0.548 ″ | **1.89** |
+
+The tangential mean is zero to 0.006 ″ in both — the null the geometry demands, and it passing
+says neither block is grossly broken. Gain 125's radial mean is 2.1× gain 0's, which is the L
+difference seen directly rather than through a fit. **And gain 125's excess is vertically
+polarised** (V/H 1.89 against 1.43), so the block reading high in L is the one carrying more
+vertical structure — which points at the atmosphere rather than at photometry.
+
+**`record_covariance.png`** puts L against the plate scale, both ellipses on one base (ppm from
+CalibS' import), and **`record_covariance_method2.png`** is cell 2's single-ellipse variant on
+an absolute scale axis — the honest chart for the number of record, since Method 2 has no
+imported scale to measure a ppm difference from.
+
+The tilt is the cell in one picture: **correlation −0.90 (Method 1) and −0.78 (Method 2)**. And
+**Method 2's fitted scale sits 162.0 ± 10.3 ppm below CalibS' import** — **8 σ** on CalibS' own
+error bar. Two same-day fields 10° apart at the same altitude disagreeing that hard about the
+scale is the thing Method 1 rests on.
+
+Note the gap between the two ellipses is **not** the lever times the scale difference: −162 ppm
+× 0.0324 would be −5.25 ″ against an observed **+1.16 ″**, opposite sign and five times the
+size. Within one run that relation held to a thousandth of an arcsec; across these two it fails
+because they are different distortion models, not merely different scale choices.
+
+**Four chart faults corrected, all mine.** Method 2 was first drawn from the Method 1 run
+because `Method 1 & 2` prints both adjacently — so it carried an **imported** scale, which is
+not Method 2 (Douglas: *"Method 2 should not use an imported platescale"*). The Newton line was
+removed. The text box was covering Method 2's ellipse entirely — drawn, then hidden, which is
+worse than omitting it — so it is now cut to the two methods' own lines and **placed by a tested
+overlap check** against both ellipses' bounding boxes; it rejected upper-left, which is where it
+would have gone by eye. And `record_covariance.png` was **overwritten** once, from a run whose
+parser read L = 64 ″/px because `np.float64(` contains the digits 64; that revision is not
+recoverable, and `hu_record.publish()` now supersedes rather than overwrites.
+
 ### What this is and is not
 
 * The two blocks' separate values (1.596 and 2.782 ″) **are superseded by the union** and should
@@ -1004,6 +1167,14 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    noise, and the León union averages it. The blocks are no longer quoted separately.
 4d. **The union is the reduction of record for cell 4** (§3g), and it will need re-running when
    CalibS arrives or a second zenith field changes the reference.
+4f. **CalibS' ±19 ppm is a floor, not a budget** (§3n): its scale walked +18.6 ppm under two
+   corrections that were each right. Method 1 walked 2.840 → 3.000 → 3.290 ″ with it and should
+   not be quoted as a measurement in that state.
+4g. ~~The plate scale drifts through totality~~ — **tested and rejected** (§3o). Open instead:
+   why the two gain-0 halves differ by −79.7 ± 21.0 ppm when the gain-125 halves do not.
+4h. **Gain 125's excess is vertically polarised** (V/H 1.89 against gain 0's 1.43, §3p) — the
+   first evidence pointing at the atmosphere rather than photometry for the block disagreement.
+   The horizon null fields (§3i) are what would test it.
 4e. **The vertical nuisance is measured and deliberately not applied** (§3h). Re-measure it if
    the star count grows: V/H = 1.80 says the polarisation is real, only its smooth part is
    absent. Applying it would also need the estimator fitted in a frame rotated 14.9° from the

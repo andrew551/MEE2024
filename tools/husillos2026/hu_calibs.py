@@ -107,6 +107,32 @@ def do_scan():
 #: Frame 0 is dropped as everywhere else in this cell.
 FIRST, LAST = 1, 81
 
+#: THE MOUNT WAS STILL SETTLING FOR THE FIRST ~20 FRAMES, and it is the largest defect in this
+#: capture.  Sn2 ends 18:30:15.178 and CalibS starts 18:30:18.334 -- a 3.16 s gap in which the
+#: mount slewed the 10.17 deg from the Sun to this field, at about 3.2 deg/s -- and the capture
+#: began before it had settled.  Measured from stage 1's own per-frame alignment record:
+#:
+#:     field          frames   total drift   max step
+#:     CalibS             81      23.0 px      2.5 px     <-- peak rate 470x the AM5's tracking
+#:     eclipse gain 0    101       1.0 px      0.8 px
+#:     eclipse gain 125  126       3.2 px      0.7 px
+#:     zenith             50       1.2 px      0.4 px
+#:
+#: The drift grows and asymptotes -- the signature of settling, not of tracking error -- and
+#: what it costs is SMEAR WITHIN each 315 ms exposure against a ~1.6 px PSF:
+#:
+#:     stack index  0-10   0.79 px per exposure     20-30   0.27 px
+#:                 10-20   0.54 px                  30-80   <= 0.21 px
+#:
+#: So frames 21-81 are the settled ones.  This is exactly Douglas' standing rule from 2026-09-09
+#: -- "it is always better to use a good frame in the middle of the series than the first one at
+#: the beginning" -- and it bites twice here, because `add_img_to_stack` aligns EVERY frame
+#: against files[0], so the whole stack was referenced to the most disturbed frame in it.
+SETTLED_FIRST = 21
+
+if os.environ.get('HU_CALIBS_SETTLED'):
+    FIRST = SETTLED_FIRST
+
 #: THE ZENITH PRESET WAS THE WRONG CHOICE HERE, and Douglas caught it: "I'm surprised there
 #: were fewer stars detected at gain zero and 315ms than the corresponding exposure with the
 #: Sun. Were the same sensitivity settings used?"  They were not.  Read back from the runs:
@@ -197,6 +223,8 @@ def do_stack(variant='zenith'):
                                   stderr=subprocess.STDOUT).returncode
 
     suffix = '' if variant == 'zenith' else '_' + variant
+    if os.environ.get('HU_CALIBS_SETTLED'):
+        suffix += '_settled'
     d1 = os.path.join(OUT, 's1_calibs' + suffix)
     z = glob.glob(os.path.join(d1, 'centroid_data*.zip'))
     if not z:
