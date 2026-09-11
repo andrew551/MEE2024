@@ -210,19 +210,37 @@ def main():
         raise SystemExit('no corner is clear of both ellipses -- widen the axes')
     os.makedirs(OUT, exist_ok=True)
     fig.savefig(os.path.join(OUT, 'record_covariance.png'), dpi=130)
-    # --- and the Method 2 alone variant, on an ABSOLUTE plate-scale axis
+    # --- and the Method 2 alone variant, built to match cell 2's record_covariance.png
     #
-    # This is cell 2's construction (`record_charts.covariance_chart_single`, used by
-    # `tools/matrix_station1/s1_charts_record.py`), and it is the honest chart for cell 4's
-    # number of record: Method 2 has NO imported scale to measure a ppm difference from, so a
-    # "ppm from imported" axis would be quoting it against a calibration it does not use. The
-    # two-ellipse chart above needs that axis because Method 1 lives on it; this one does not.
+    # Douglas, 2026-09-11: "was record_covariance_method2.png done the same way as
+    # record_covariance.png in mexico2024?  Can we make it look more similar."  It was not --
+    # it carried only the two blue lines.  Cell 2's chart
+    # (`tools/matrix_station1/s1_charts_record.py` through `covariance_chart_single`) puts the
+    # plate scale with its ABSOLUTE error, the L-vs-scale correlation and the sample size in
+    # the box, on an absolute plate-scale axis with no Newton line, and titles it "L and plate
+    # scale -- <cell>, <what was fitted>".  All of that is matched here.
+    #
+    # The one line that CANNOT be matched is cell 2's second blue line, "+- 0.139" with the
+    # atmosphere term 0.11".  Cell 4 has no atmosphere term (section 3i), so that slot says so
+    # rather than being quietly dropped: an absent term should be visible on the chart, not
+    # inferred from its absence.
+    ps_abs_err = sS2 * 1e-6 * mu2[1]
+    n_stars = 63
+    lines2 = [
+        ('Method 2:  L = %.3f $\\pm$ %.3f" (stat)' % (mu2[0], sL2), 'tab:blue'),
+        ('      NO atmosphere term yet \u2014 every other cell carries \u00b10.11\u20130.33"',
+         'tab:blue'),
+        ('Plate scale: %.7f $\\pm$ %.1f$\\times$10$^{-5}$ "/px'
+         % (mu2[1], ps_abs_err * 1e5), 'black'),
+        ('      (plate scale found by fitting S with L, %.1f ppm)' % sS2, 'black'),
+        ('correlation L vs plate scale = %.2f' % (C2[0, 1] / (sL2 * np.sqrt(C2[1, 1]))),
+         'black'),
+        ('from %d stars, each measured in BOTH gain blocks (%d observations)'
+         % (n_stars, 2 * n_stars), 'black'),
+    ]
     fig2, ax2 = covariance_chart_single(
-        C2, mu2,
-        [('Method 2:  L = %.3f $\\pm$ %.3f"' % (mu2[0], sL2), 'tab:blue'),
-         ('      scale fitted on the field, %.7f "/px $\\pm$ %.1f ppm'
-          % (mu2[1], sS2), 'tab:blue')],
-        'Husillos 2026 \u2014 Method 2, two-gain union, 63 two-witness stars',
+        C2, mu2, lines2,
+        'L and plate scale \u2014 Husillos 2026, two-gain union, one fitted scale',
         name='Method 2 (scale fitted with L)')
     fig2.savefig(os.path.join(OUT, 'record_covariance_method2.png'), dpi=130)
     publish(['record_covariance.png', 'record_covariance_method2.png'], OUT)

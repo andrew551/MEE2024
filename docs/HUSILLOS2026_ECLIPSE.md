@@ -1094,6 +1094,102 @@ would have gone by eye. And `record_covariance.png` was **overwritten** once, fr
 parser read L = 64 ″/px because `np.float64(` contains the digits 64; that revision is not
 recoverable, and `hu_record.publish()` now supersedes rather than overwrites.
 
+## 3q. The block disagreement is the GAIN, and the mechanism is saturation — not the clock
+
+Douglas, 2026-09-11: *"We did not see such a problem in the Leon 2026 exposure tiers where the
+gain was held constant and the exposure was changed. Is changing the gain while holding the
+exposure constant fundamentally different in terms of the corona subtraction?"*
+`tools/husillos2026/hu_gain_or_time.py`.
+
+**Yes, and the data says so directly.** But the reason is not the subtraction itself.
+
+### First, why León could not have seen it either way
+
+León's tiers were **interleaved**: the folder timestamps put 0.1 s at 18:28:13–45, 0.3 s at
+18:28:21–41, 0.6 s at 18:28:26–37 and 1.2 s at 18:28:29 — all inside one 32 s window. Every
+tier saw the same atmosphere at the same moment. Husillos' blocks are **sequential, 39 s
+apart**. So *"León did not see it"* is compatible with either explanation, and the question
+has to be settled on Husillos' own data.
+
+### The test that separates gain from time
+
+The four half-blocks (§3o) form pairs at the same gain ~20 s apart and across the gain
+boundary ~21 s apart. For each, the star-to-star displacement is fitted **about the Sun** with
+translation + rotation + scale, then with a 1/r term added, and split into inner and outer
+halves by solar radius. A pure scale is the same in both halves by definition; a Sun-centred
+structure is not.
+
+| pair | kind | dt | 1/r term | inner (ppm) | outer (ppm) | inner − outer |
+|---|---|---|---|---|---|---|
+| g125_A → g125_B | same gain 125 | 19.9 s | +0.81 ± 0.68 ″ | +38 ± 34 | −19 ± 14 | 1.5 σ |
+| g0_A → g0_B | same gain 0 | 15.7 s | −1.25 ± 1.08 ″ | −114 ± 34 | −64 ± 29 | 1.1 σ |
+| **g125_B → g0_A** | **cross gain** | **21.4 s** | **−3.18 ± 1.07 ″** | **−162 ± 31** | −43 ± 18 | **3.3 σ** |
+| g125_A → g0_B | cross gain | 57.0 s | −1.96 ± 1.20 ″ | −259 ± 46 | −81 ± 22 | **3.5 σ** |
+
+**The Sun-centred structure appears in both cross-gain pairs and in neither same-gain pair.**
+The decisive contrast is the top and third rows: **19.9 s at one gain shows nothing; 21.4 s
+across the gain boundary shows it at 3.3 σ.** Same time separation, opposite result. It is
+the gain.
+
+On the two full blocks it is monotonic in radius — a scale is uniform, this is not:
+
+| solar radius | scale difference (gain 0 − gain 125) |
+|---|---|
+| 2.3–6.0 R☉ | **−227 ± 35 ppm** |
+| 6.0–8.2 R☉ | −135 ± 30 ppm |
+| 8.2–12.1 R☉ | −60 ± 22 ppm |
+
+And it is **not** brightness-dependent: the brighter half of the stars gives −99 ± 20 ppm,
+the fainter half −90 ± 25. So saturation *of the stars* and this optic's brightness-dependent
+centroid bias are ruled out — which was the leading suspect and is dead.
+
+### Why gain at fixed exposure is fundamentally different from exposure at fixed gain
+
+The coronal subtraction itself is **linear**: a Gaussian blur and a subtraction. The two blocks
+collected the *same photons* — same exposure, same sky, same corona — and differ only by a
+×4.217 in ADU per electron. A linear operation on a scaled image gives a scaled result, so for
+the subtraction alone changing the gain is not merely equivalent to changing the exposure, it
+is *cleaner*: no change in photon statistics, trailing, or time-averaging.
+
+**What is not linear is saturation, and gain changes its physics where exposure does not.**
+
+* At **gain 0** the ADC's 65 535 ADU corresponds to roughly the sensor's full well, so
+  saturation is **sensor** saturation — soft, with a nonlinear approach and charge blooming
+  around the core.
+* At **gain 125** the ADC clips at 65 535 / 4.217 ≈ 15.5 k e⁻-equivalent, far below full well,
+  so saturation is **ADC clipping** — hard, with the sensor itself still linear right up to
+  the edge.
+* Changing the exposure at fixed gain keeps the **same** mechanism at every tier; only the
+  intensity at which it engages moves.
+
+The footprint is measured, not inferred. Stage 1 finds the saturated coronal core at
+**592 px at gain 0 and 706 px at gain 125** — the occulter is 114 px larger at the high gain
+(1.38 against 1.64 R☉), the 95 % threshold is catching a soft-bloomed edge in one block and
+a hard clip in the other, and the Gaussian near the mask edge is estimated over different
+regions. The 2000 ADU pedestal is 2000 e⁻ at gain 0 and 474 e⁻ at gain 125. Everything
+gain-dependent in the chain is **Sun-centred and radially concentrated**, which is exactly the
+shape the difference has. León's tiers had different saturation radii too (the 1.2 s tier's
+811 px disk), but in **one** physical regime, and the union machinery managed that.
+
+### What it does to the numbers
+
+The two-witness union averages a gain-125 block that carries a Sun-centred systematic with a
+gain-0 block that carries a different (smaller) one. The **−3.37 ± 0.92 ″** 1/r term between
+the full blocks is that systematic, and 1.19 ″ of it is the difference in their fitted L.
+Under **Method 1** only the constant is free, so the whole of it has nowhere to go but L —
+which is why gain 125 reads 4.6 ″ there while gain 0 reads a sensible 2.1 ″. Gain 0 shares
+CalibS' saturation regime; gain 125 does not.
+
+**Still open, and separate from the gain question:** the gain-0 halves show a real *uniform*
+scale step of −79.7 ± 21.0 ppm over 15.7 s (3.8 σ) that the gain-125 halves do not, with no
+radial structure. That is not the corona and is not explained here.
+
+**The discriminating experiment**, not yet run: re-stack the gain-0 block with its occulter
+grown to gain 125's 716 px (`blob_radius_extra` 200 → 314). If the inner structure vanishes
+the cause is the mask geometry alone; if it persists it is the saturation physics and the
+coronal residual under the Gaussian. Either answer says how the two-gain design should be used
+in 2027.
+
 ### What this is and is not
 
 * The two blocks' separate values (1.596 and 2.782 ″) **are superseded by the union** and should
@@ -1172,9 +1268,16 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    not be quoted as a measurement in that state.
 4g. ~~The plate scale drifts through totality~~ — **tested and rejected** (§3o). Open instead:
    why the two gain-0 halves differ by −79.7 ± 21.0 ppm when the gain-125 halves do not.
-4h. **Gain 125's excess is vertically polarised** (V/H 1.89 against gain 0's 1.43, §3p) — the
-   first evidence pointing at the atmosphere rather than photometry for the block disagreement.
-   The horizon null fields (§3i) are what would test it.
+4h. ~~Gain 125's excess points at the atmosphere~~ — **superseded by §3q**: the Sun-centred
+   structure follows the GAIN boundary and not the clock (3.3 σ across the gain in 21 s,
+   1.5 σ at one gain in 20 s). The mechanism is saturation physics: sensor full-well at gain 0
+   against ADC clipping at gain 125, occulter 592 vs 706 px. The V/H difference is real but is
+   not the explanation of the block disagreement.
+4i. **Run the discriminating experiment** (§3q): re-stack gain 0 with its occulter grown to
+   gain 125's (`blob_radius_extra` 200 → 314). Mask geometry or saturation physics — either
+   answer decides how a two-gain design should be used in 2027.
+4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is
+   not the corona.
 4e. **The vertical nuisance is measured and deliberately not applied** (§3h). Re-measure it if
    the star count grows: V/H = 1.80 says the polarisation is real, only its smooth part is
    absent. Applying it would also need the estimator fitted in a frame rotated 14.9° from the
