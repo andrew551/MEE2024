@@ -1879,6 +1879,83 @@ transfer, not atmosphere. It is also the correct behaviour for that chart — "w
 fit cannot absorb" is defined to include model error — but the split should be stated, and now
 it is.
 
+## 3v. Husillos' night sky is rougher than León's — by 2× at the zenith and 3× at 10°, and it is structure, not noise
+
+Douglas, 2026-09-12, on the night maps: *"Although the vertical polarisation of the León site
+may be greater, the absolute value of the atmospheric disturbance at Husillos looks
+considerably larger, even at the zenith, but particularly near the horizon."*
+
+It does, and before agreeing that the difference is the *atmosphere*, two things that are not
+atmosphere had to come out, because both are larger at Husillos: per-star centroid noise (the
+1 s gain-0 frames are read-noise limited by 11×; León's 4 s gain-101 frames are sky-limited)
+and model transfer (one zenith field's quintic frozen onto 10°, against León's six-field cubic
+average). `tools/husillos2026/hu_maps_bymag.py` applies the matrix's own discriminator
+(`floor_vs_sampling.py`, §2 of `STEP3_CHARTS_AND_SETTINGS.md`): **bin the residuals in
+magnitude.** Noise is magnitude-dependent, structure is not, so the bright-end asymptote is
+the structure. The free-quintic fits from §3u sit beside the frozen ones, so the transfer's
+share is visible too. León's horizon rows are rebuilt the way its map was drawn (per-star
+medians over ~45 per-frame quadratic-free fits, corrections on) — the like-for-like row for
+Husillos' frozen 10° fields.
+
+| set | 4–8 | 8–9 | 9–10 | 10–11 | 11–12 | 12–13 | **bright (8–10)** | faint (11–13) | f/b |
+|---|---|---|---|---|---|---|---|---|---|
+| Husillos zenith (own free quintic) | 0.093 | 0.130 | 0.137 | 0.139 | 0.153 | 0.180 | **0.133 ″** | 0.167 | 1.25 |
+| León zenith, 12 fields (six-field cubic frozen) | 0.086 | 0.070 | 0.066 | 0.065 | 0.063 | 0.069 | **0.068 ″** | 0.066 | 0.97 |
+| Husillos 15°, frozen (the map) | 0.239 | 0.274 | 0.339 | 0.304 | 0.409 | 0.517 | 0.306 ″ | 0.463 | 1.51 |
+| Husillos 15°, **free quintic** | 0.227 | 0.236 | 0.259 | 0.250 | 0.374 | 0.491 | **0.248 ″** | 0.432 | 1.75 |
+| Husillos 10°, frozen, 2 fields (the map) | 1.125 | 1.202 | 1.244 | 1.212 | 0.947 | 0.858 | 1.223 ″ | 0.903 | 0.74 |
+| Husillos 10°, **free quintic** (gain 0) | 1.083 | 0.763 | 0.891 | 0.911 | 0.779 | — | **0.827 ″** | 0.779 | 0.94 |
+| León horizon, 9 windows at 8.5–12.4° | 0.236 | 0.281 | 0.276 | 0.258 | 0.258 | 0.266 | **0.279 ″** | 0.262 | 0.94 |
+
+*(arcsec; one rms per field per bin, fields equal-weighted, a bin needs 8 stars.)*
+
+**Read the bright columns and the f/b ratio.**
+
+* **At the zenith Husillos is 2× León and it is structure**: 0.133 ″ against 0.068 ″ at G 8–10,
+  with a faint/bright ratio of only 1.25, so noise adds little. This is the more telling of the
+  two comparisons, because León's 0.068 is not a León number — Leakey gives 0.072 and Bruns
+  0.052 on different optics in different years (`floor_vs_sampling.csv`). Three instruments
+  sit at 0.05–0.07 ″ and Husillos sits at 0.13. And the constructions are not like-for-like in
+  the direction that *favours* Husillos: a free quintic on its own field should leave less
+  than a cubic frozen from five other fields, not more. What it is — the optic (this is the
+  cell that needed a quintic, §HUSILLOS2026_ZENITH), or the night — is open.
+* **At 10°, once model transfer is removed, Husillos is 3× León and it is structure**: the free
+  quintic takes the bright end 1.223 → 0.827 ″, so a third of the map's residual was the frozen
+  zenith model (§3u said a quarter of the rms; at the bright end it is a third); what remains
+  is 0.827 ″ against León's 0.279 ″ with f/b = 0.94 — flat across magnitude, the matrix's own
+  criterion for structure. Photon noise is *not* what makes the Husillos horizon panels look
+  rough.
+* **At 15° they nearly meet**: Husillos free 0.248 ″ against León's 0.279 ″ at 8.5–12°. But 15°
+  is a gentler altitude than any León window, so at equal altitude Husillos is still the
+  worse.
+
+**What the excess is made of.** The free-quintic row has every smooth low-order error taken
+out — model transfer and whatever the assumed weather does to the refraction correction at
+cubic order and below — so its 0.83 ″ is high-order and it is not noise. That points at the
+turbulent atmosphere through 5.6 air masses, and the polarisation says the same thing from a
+different side: León's excess over its own zenith is almost all **vertical** (0.240 against
+0.098 ″, V/H 2.4), while Husillos' is large in **both** components (vertical 0.84–0.99 ″,
+horizontal 0.55–0.72 ″, V/H 1.4–1.5). A refraction-related term is vertical; an isotropic
+turbulent term added on top of one lowers V/H exactly as seen. The simplest consistent
+picture is **León's vertical structure plus a large isotropic component that León did not
+have**, which is what a hot August plain at 743 m three hours after sunset, seen through six
+air masses, would be expected to produce; León's site is at 1101 m. This is the most
+consistent reading, not a measurement of the cause.
+
+**One construction difference that could contribute and is not separated here.** León's map
+is a per-star median over forty-five *separately solved* 4 s frames, so each frame's own
+low-order atmospheric distortion is absorbed before the median; Husillos' is one 100 s stack
+with one quadratic at the end. Over ~100–180 s of averaging the two should converge on the
+same quasi-static field, but they are not the same operation, and a per-frame reduction of a
+Husillos horizon capture would settle how much of the 3× is the construction. Cell 4 has the
+frames to do it.
+
+**What this means for the record.** §3s's atmosphere term (±0.25 ″, unresolved above noise)
+stands — that number was built from *L* fitted on these residuals, and the structure seen here
+is what the estimator's four freedoms could not project into a 1/r pattern. But the excess is
+real and it is the physical reason cell 4's per-star noise (0.53 ″ between the blocks, §3f) is
+the largest in the matrix: the eclipse field was shot through the same air.
+
 ## 4. A tool that does not work, and says so
 
 `hu_eclipse_match.py` was written to match the detections against Gaia at the known pointing —
