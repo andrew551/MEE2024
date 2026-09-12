@@ -1469,15 +1469,71 @@ Noise, both ways: the gain-0 field can neither host nor be hosted at 71 stars, a
 constant-only refit inherits the host's model noise on top of its own. The pairs at 5.7° were
 discarded by the tool (host 22 stars; different fields).
 
-**The term, as it stands** — on the matrix's rule (quote the total, show the floor beside it,
-do not subtract): **±0.24 ″** at the pathway's own rung, from two fields at 10°, unresolved
-above a 0.60 ″ floor; the 15° field says the manufactured structure is ~0.14 ″ at 653 stars.
-This is provisional in two ways. Deep-detection re-stacks (`deep`, `deep10`: the eclipse
-blocks' own detection settings, already the convention for the twilight window) are running
-on both windows to bring the floor down; and the `cal 8 deg` window — the eclipse altitude
-itself, 20:53–20:59 UTC in astronomical twilight — has not yet produced a solve at all (the
-zenith preset found 27 centroids, 20 matched, one short of a quintic). When they land this
-section gets a second results table.
+### Deep detection (`s2d_`) — and the eclipse altitude itself, at last
+
+Re-stacked with the eclipse blocks' own detection settings (`hu_horizon_reduce.py deep`,
+`deep10`), the twilight window **solves**, and the dark-sky fields roughly triple their star
+counts. The sentence that first stood here — *"the `cal 8 deg` window has not yet produced a
+solve at all"* — is superseded.
+
+`cal 8 deg` turns out to be the best null geometry in the dataset: **one tracked field, two
+captures 2 min 33 s apart, straddling the eclipse altitude**, which is also the matrix's own
+cadence (León's zenith pairs are 2 min 34 s apart).
+
+| capture | UTC mid | gain | stars | rms | RA / Dec | alt / az |
+|---|---|---|---|---|---|---|
+| `22_56_41` | 20:57:46.5 | 0 | 37 | 1.056 ″ | 185.9908 / +7.8545 | 9.01° / 272.30° |
+| `22_59_14` | 21:00:19.6 | 125 | 53 | 1.099 ″ | 185.9918 / +7.8534 | 8.54° / 272.73° |
+| `22_53_15` | — | 0 | — | — | 260 centroids, no solve | — |
+
+Field-to-zenith, deep:
+
+| field | alt | gain | N | rms | L base | **L scale** | L v-deg2 | floor | 63-star | |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `22_56_41` | 9.01° | 0 | 34 | 0.742 ″ | −0.531 | −1.540 | −0.728 | 1.498 | 1.540 | 37 stars: excluded |
+| `22_59_14` | 8.54° | 125 | 47 | 0.790 ″ | +0.390 | +1.881 | +0.528 | 1.331 | 1.881 | |
+| `23_31_59` | 10.03° | 0 | **174** | 0.884 ″ | +0.134 | **+0.235** | +0.200 | 0.407 | 0.616 | |
+| `23_34_38` | 10.01° | 125 | **314** | 0.776 ″ | −0.140 | **−0.261** | −0.237 | 0.280 | 0.415 | |
+
+Consecutive pairs, deep: `22_56_41` against `22_59_14`'s model (35 stars) gives −1.803 ″
+against a 1.760 ″ floor; the 10° pair gives **+0.058 ″** forward (145 stars, floor 0.641) and
++0.215 ″ reversed (84 stars, floor 0.638).
+
+### The term: nothing is resolved above per-star noise
+
+`hu_atmosphere.py` now reports the decomposition the matrix reports beside its totals —
+`structure = √(total² − floor²)`:
+
+| construction | fields | total | floor | **structure** | at 63 stars |
+|---|---|---|---|---|---|
+| field-to-zenith, deep, 8.5–10° | 3 | 1.105 ″ | 0.820 ″ | 0.741 ″ | 1.168 ″ |
+| **field-to-zenith, deep, the two with >126 stars** | 2 | **0.248 ″** | 0.349 ″ | **0.000 ″** | 0.526 ″ |
+| field-to-zenith, zenith preset, 10° | 2 | 0.241 ″ | 0.597 ″ | 0.000 ″ | 0.358 ″ |
+| consecutive pairs, deep, 8.5–10° | 3 | 1.049 ″ | 1.142 ″ | 0.000 ″ | 1.117 ″ |
+| **consecutive pairs, deep, the one with >126 stars** | 1 | **0.058 ″** | 0.641 ″ | **0.000 ″** | 0.571 ″ |
+| the one field deep enough to resolve anything (15°, 653 stars) | 1 | 0.137 ″ | 0.071 ″ | **0.117 ″** | 0.247 ″ |
+
+**Read the star-count column, not the altitude column.** Every construction with enough stars
+to test the question returns 0.06–0.25 ″ and **no resolved structure**; every construction
+that returns a large number does so on a field whose own photon noise is larger still. The
+1.105 ″ row is one 47-star twilight field at +1.881 ″ against its own 1.331 ″ floor — 1.4 σ
+from zero. The split is by star count and is stated in the tool rather than applied after
+seeing the answers, but it is a split made after the fact and should be read as such.
+
+**The term, provisionally: ±0.25 ″** — the total on the fields that can measure it, quoted
+without subtracting the floor as the matrix requires. It sits between Station 1's ±0.11 ″ and
+León's ±0.33 ″, which is where a 9–10° site belongs. The only resolved structure measurement
+anywhere in the window is **0.117 ″ at 15° on 653 stars**.
+
+**And a warning against double-counting.** The 63-star column is ~0.5 ″ everywhere, but that
+is sampling noise, not atmosphere: at the union's own star count the residual field is sparsely
+sampled, and that is the same quantity as the union's ±0.430 ″ statistical error. Adding it as
+a systematic would charge it twice. Unlike every other cell in the matrix, cell 4's null floor
+**exceeds** its null total, because a 1 s exposure through six air masses is photon-starved.
+
+Still to land: deep re-stacks of the four remaining `10 deg` captures, of which `23_44_06`
+(685 stars at the zenith preset, the 15° pointing) will give the best structure measurement in
+the dataset. `22_53_15` does not solve at either detection setting.
 
 ### The pathway of record under-reads a 1/r deflection by 14 %
 
@@ -1710,11 +1766,14 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    similarity fit on raw pixels and projected radially through eleven lopsided inner stars.
    On refraction-corrected displacements the blocks agree to 6 ppm. **There is no block
    systematic to explain; §3f stands.** The gain is a bystander.
-4k. **Cell 4 has a first atmosphere term, provisional** (§3s): field-to-zenith nulls on the
-   two 10° fields give **±0.24 ″** at the pathway's own rung, unresolved above those shallow
-   fields' 0.60 ″ noise floor; the one deep field (15°, 653 stars) resolves +0.14 ± 0.07 ″.
-   Deep-detection re-stacks of both horizon windows are running to bring the floor down; the
-   `cal 8 deg` window (the eclipse altitude itself) has not yet produced a solve.
+4k. **Cell 4 has a first atmosphere term, provisional: ±0.25 ″** (§3s), the total on the
+   fields with enough stars to measure it, floor not subtracted. **No structure is resolved
+   on any of them** — the floor exceeds the total, which happens in no other cell, because
+   1 s through six air masses is photon-starved. The only resolved structure in the window is
+   0.117 ″ at 15° on 653 stars. Deep detection cracked the `cal 8 deg` window and it is the
+   best geometry in the dataset: one tracked field, 2 min 33 s apart, straddling the eclipse
+   altitude — but at 37 and 53 stars it measures nothing. **Do not add the 63-star column
+   (~0.5 ″) as a systematic**: that is sampling noise and is already the union's ±0.430 ″.
 4m. **The pathway of record under-reads the deflection by 14 %** (§3s) — fitting the eclipse
    field with the quadratic free lets f = 0.860 of a 1/r pattern through to stage 3, measured
    on the pipeline by injection (2.000 ″ in, 1.787 ″ out on the gain-125 block) and

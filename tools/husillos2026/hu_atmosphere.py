@@ -199,15 +199,28 @@ def refit_constant(label, s1zip, ref_results, tmid):
 
 
 def summarise(N, title):
+    """Total, floor, and the structure the two imply.
+
+    The matrix quotes the TOTAL and never subtracts the floor
+    (docs/STEP3_CHARTS_AND_SETTINGS.md section 2), but it does report the decomposition
+    beside it -- "Bruns' +-0.15 leaves only +-0.05 of atmosphere and Leon's +-0.33 leaves
+    +-0.30".  Cell 4 needs that decomposition more than any other cell, because here the
+    floor can EXCEED the total: a horizon field of 47 stars at 1 s through 6 air masses
+    carries more per-star noise than it carries atmosphere, and that noise is already priced
+    in the union's own statistical error bar.  structure = sqrt(max(0, total^2 - floor^2)).
+    """
     print()
     print(title)
+    fl = np.sqrt(np.mean(N.floor.values ** 2))
     for col, lab in (('L_scale', "THE CELL'S ESTIMATOR (Method 2 freedoms, no nuisance)"),
                      ('L_base', 'Leon base'), ('L_vdeg2', 'Leon v-deg2')):
         v = N[col].values
-        print('   %-52s rms %.3f "   mean %+.3f   worst %+.3f'
-              % (lab, np.sqrt(np.mean(v ** 2)), v.mean(), v[np.argmax(np.abs(v))]))
-    print('   floor (per-star noise alone, scale-free)             %.3f "'
-          % np.sqrt(np.mean(N.floor.values ** 2)))
+        tot = np.sqrt(np.mean(v ** 2))
+        print('   %-52s rms %.3f "   mean %+.3f   worst %+.3f   structure %.3f "'
+              % (lab, tot, v.mean(), v[np.argmax(np.abs(v))],
+                 np.sqrt(max(0.0, tot ** 2 - fl ** 2))))
+    print('   floor (per-star noise alone, scale-free)             %.3f "   [%s]'
+          % (fl, ', '.join('%d stars' % n for n in N.n.values)))
     print('   at the union\'s 63 stars (subsample rms)               %.3f "'
           % np.sqrt(np.mean(N.sub63_rms.values ** 2)))
 
@@ -259,6 +272,16 @@ def run_variant(v, vname, rng):
     if len(Z) and Z.used.any():
         summarise(Z[Z.used], 'FIELD-TO-ZENITH, %d field(s) inside %.1f-%.1f deg:'
                   % (int(Z.used.sum()), ALT_LO, ALT_HI))
+        # The `cal 8 deg` captures were shot inside astronomical twilight and carry 37-53
+        # stars against the dark-sky window's 184-345, so a plain rms over the band is
+        # dominated by the thinnest field's photon noise rather than by any atmosphere.
+        # The deep-field line below is the same construction on the fields that can
+        # actually resolve structure; it is a STAR-COUNT split, stated, not a quality gate
+        # applied after seeing the answers.
+        deep = Z[Z.used & (Z.n >= N_UNION * 2)]
+        if len(deep) and len(deep) < int(Z.used.sum()):
+            summarise(deep, '   -- of those, the %d with more than %d stars after the cuts:'
+                      % (len(deep), N_UNION * 2))
     # ---------------------------------------------------------------- consecutive pairs
     print()
     print('CONSECUTIVE-PAIR NULLS: constant-only against the neighbouring capture, same field only')
@@ -298,6 +321,10 @@ def run_variant(v, vname, rng):
     if len(P) and P.used.any():
         summarise(P[P.used], 'CONSECUTIVE PAIRS inside %.1f-%.1f deg, %d refit(s):'
                   % (ALT_LO, ALT_HI, int(P.used.sum())))
+        deep = P[P.used & (P.n >= N_UNION * 2)]
+        if len(deep) and len(deep) < int(P.used.sum()):
+            summarise(deep, '   -- of those, the %d with more than %d stars after the cuts:'
+                      % (len(deep), N_UNION * 2))
     return Z, P
 
 
