@@ -1774,6 +1774,111 @@ Revised recommendation, still Douglas': **quote the record's rung with f applied
 0.500 ″ — and carry the `linear` rung as the check at 2.463 ± 0.492 ″.** They differ by
 0.013 ″. Whichever is chosen, the f division is the substantive change and the rung is not.
 
+## 3u. The night maps, and what 23_37_17 settles about refraction
+
+Two requests from Douglas on 2026-09-12, and they answer each other.
+
+### `atmosphere_night_maps.png` — cell 4 joins the matrix's night-map series
+
+*"Are we able to create a chart like this one with the Husillos atmosphere and zenith fields?
+Let's confine it to only the 10 degree data … and only the data above 10 degrees. So just four
+fields."* `tools/husillos2026/hu_atmos_maps.py`, published through `hu_record.publish()`.
+
+The construction is cells 1 and 3's, not a new one: every night field re-fitted **the way a
+calibration field is reduced** — cubic and above frozen from the reference, quadratic free —
+so what is drawn is what a calibration fit cannot absorb. Cell 4's horizon fields are already
+reduced exactly that way, so their stage-2 residuals *are* the map. Positions and arrows both
+in sensor axes, `LSCALE = 0.0018` identical to the León and Bruns maps (legitimate because the
+two plate scales agree to 0.1 %), crimson 1 ″ reference, green increasing-altitude arrow,
+per-star median removed, 3 × MAD clip.
+
+| panel | alt | gain | stars | rms | vertical | horizontal | **V/H** |
+|---|---|---|---|---|---|---|---|
+| `23_31_59` | 10.03° | 0 | 182 | 1.223 ″ | 0.986 ″ | 0.724 ″ | **1.36** |
+| `23_34_38` | 10.01° | 125 | 339 | 1.006 ″ | 0.843 ″ | 0.548 ″ | **1.54** |
+| `23_44_06` | 14.97° | 125 | 972 | 0.451 ″ | 0.339 ″ | 0.298 ″ | **1.14** |
+| zenith | 81.09° | 0 | 2635 | 0.159 ″ | 0.117 ″ | 0.110 ″ | **1.06** |
+
+**The zenith panel is the control and it passes.** V/H = 1.06 overhead, the same value León's
+zenith row gives, which is what proves the vertical excess below is not manufactured by the
+decomposition — a mis-set vertical can only drive V/H *toward* 1. Above that floor the ratio
+climbs toward the horizon: 1.14 at 15°, 1.36 and 1.54 at 10°. **This is the first time cell 4
+has measured its vertical polarisation on fields with no Sun in them**, which is exactly what
+§3h said it could not do and §3i said the horizon fields would allow. León gives 2.4 at the
+same geometry, so Husillos is polarised in the same direction and less strongly.
+
+Two honest caveats on the chart. The zenith panel is **not** the same construction — cell 4
+has one zenith field, nothing can be frozen onto it from elsewhere, and it shows its own
+free-quintic residuals, the machinery floor; the chart says so. And the panel rms values are
+**totals**: §3s's bootstrap floors say photon noise is a large part of them at 10°, so arrow
+length there is not all atmosphere. The 10.0° gain-125 panel also carries a **coherent swirl
+that no linear term can absorb** (rotation is free in the fit), which is unexplained and worth
+a look.
+
+### 23_37_17 re-solved — the plate-scale blow-up at 5.5° is refraction, not model transfer
+
+*"Can we try to solve this one again? We probably have a very good idea where it was
+pointing."* We do, and it already solved: deep detection puts it at **RA 176.990, Dec +23.284,
+alt 5.70°** — pointing B, the same field as `23_41_01` and `23_42_43`, not the 10° pointing its
+folder position suggests. So the plate solve was never the problem.
+
+`tools/husillos2026/hu_lowfield.py` fits every low field three ways on the same deep stack to
+separate §3s's two candidates, which that section could not:
+
+| capture | alt | fit | stars | rms | **scale vs the zenith** |
+|---|---|---|---|---|---|
+| `23_37_17` | 5.70° | frozen (of record) | 77 | 1.392 ″ | +1804 ppm |
+| | | **free quintic, corrections ON** | 63 | **0.553 ″** | +1686 ppm |
+| | | free quintic, corrections OFF | 38 | 0.390 ″ | **+9366 ppm** |
+| `23_41_01` | 5.73° | frozen | 63 | 1.014 ″ | +1222 ppm |
+| | | free, corr ON | 71 | 1.005 ″ | +1364 ppm |
+| | | free, corr OFF | 43 | 0.473 ″ | **+9240 ppm** |
+| `23_42_43` | 5.45° | frozen | 132 | 1.095 ″ | +1565 ppm |
+| | | free, corr ON | 129 | 0.833 ″ | +1424 ppm |
+| | | free, corr OFF | 99 | 0.808 ″ | **+9728 ppm** |
+| `23_31_59` | 10.03° | frozen | 184 | 1.256 ″ | −72 ppm |
+| | | free, corr ON | 187 | 0.928 ″ | −145 ppm |
+| | | free, corr OFF | 154 | 0.896 ″ | +3378 ppm |
+| `23_44_06` | 14.97° | frozen | 972 | 0.451 ″ | −43 ppm |
+| | | free, corr ON | 971 | 0.431 ″ | −96 ppm |
+| | | free, corr OFF | 969 | 0.431 ″ | +1698 ppm |
+
+**Two separate effects, and the test separates them cleanly.**
+
+*The scale is refraction.* Freeing the whole quintic barely moves it at any altitude (+1804 →
++1686, −72 → −145), so the frozen zenith model is not what puts it there. Turning the
+correction off shows the size of the thing being corrected, and how well:
+
+| alt | raw compression | left after correction | **correction accurate to** |
+|---|---|---|---|
+| 14.97° | +1698 ppm | −96 ppm | 5.7 % |
+| 10.03° | +3378 ppm | −145 ppm | 4.3 % |
+| 5.70° | +9366 ppm | +1686 ppm | **18.0 %** |
+| 5.73° | +9240 ppm | +1364 ppm | **14.8 %** |
+| 5.45° | +9728 ppm | +1424 ppm | **14.6 %** |
+
+At 10° and 15° the correction removes slightly *more* than the whole compression and lands
+within ~150 ppm. At 5.5° it under-removes by 15–18 %. That is the signature of a refraction
+model leaving its valid range, which standard formulations do below roughly 5–10° altitude,
+not of anything wrong with the captures.
+
+**And the eclipse altitude is inside the working range.** This does not have to be
+extrapolated: the `cal 8 deg` captures at **8.54° and 9.01°** — the eclipse geometry itself —
+solve at **−44 and −158 ppm** from the zenith, the same small size as 10° and 15°, not the
+thousand-ppm size of 5.5°. **The breakdown happens between 8.5° and 5.7°, below anything the
+eclipse used.** It is the first empirical evidence in this cell that the assumed weather
+(926.5 hPa, 25 °C, 35 %) survives where the science was taken, and it bounds §3r's "single
+largest unquantified term" at roughly 150 ppm of scale rather than leaving it open.
+
+*The shape is model transfer, and it is a different quantity.* Freeing the quintic improves
+the residual everywhere and most where the transfer is longest: 1.392 → 0.553 ″ at 5.70°,
+1.256 → 0.928 ″ at 10.03°, 0.451 → 0.431 ″ at 14.97°. So the zenith's frozen cubic-and-above
+**is** wrong at low altitude, in shape rather than in scale. That is a caveat on the night maps
+above, which freeze it by construction: a quarter of the 10° panels' residual is model
+transfer, not atmosphere. It is also the correct behaviour for that chart — "what a calibration
+fit cannot absorb" is defined to include model error — but the split should be stated, and now
+it is.
+
 ## 4. A tool that does not work, and says so
 
 `hu_eclipse_match.py` was written to match the detections against Gaia at the known pointing —
@@ -1861,6 +1966,17 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    quadratic frozen, 70.9 ppm with it free, 20.9 ppm once the linear is frozen too. It is
    §3r's anisotropic affine seen from the other side. Open: whether the residual 20.9 ± 18.6
    ppm is anything at all, and whether real weather would remove the affine.
+4o. **The assumed weather is no longer wholly unquantified** (§3u). Turning the correction off
+   measures what it removes: at 10–15° it lands within ~150 ppm of a 1700–3400 ppm
+   compression, and the eclipse-altitude captures at 8.54° and 9.01° sit at −44 and −158 ppm.
+   The model breaks between 8.5° and 5.7°, below anything the eclipse used. **Still worth
+   asking Joe for the real weather**, but the bound is now ~150 ppm of scale, not unknown.
+4p. **The frozen zenith cubic-and-above is wrong in SHAPE at low altitude** (§3u): freeing the
+   quintic takes the residual 1.392 → 0.553 ″ at 5.70° and 1.256 → 0.928 ″ at 10.03°, while
+   moving the scale by under 80 ppm. The eclipse blocks are at 8.6° on a frozen zenith model;
+   what this costs them has not been measured, and it is the natural next test.
+4q. **The 10.0° gain-125 night map carries a coherent swirl** (§3u) that no linear term can
+   absorb, since rotation is free in the fit. Unexplained.
 4l. ~~Sun-centred or smooth field~~ — **neither** (§3r): per bin nothing reproduces on held-out
    stars, and the linear terms are the refraction ramp.
 4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is
