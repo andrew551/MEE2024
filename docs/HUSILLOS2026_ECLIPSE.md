@@ -1323,8 +1323,14 @@ because there is none. The gain is a bystander.
 
 **Method 1's gain-125 value is still bad**, and the reason is now narrower: on the shared
 stars the blocks agree to 6 ppm, so the 70 ppm between their *stage-2* scales (2.2029009
-against 2.2027459) comes from the non-shared stars and the free quadratic, not from the data
-the union uses; `constant` then converts whatever the import disagrees with into L.
+against 2.2027459) comes from the non-shared stars and the free low-order fit, not from the
+data the union uses; `constant` then converts whatever the import disagrees with into L.
+
+*(2026-09-12, §3t: "the free low-order fit" is the **linear** terms, not the quadratic. The
+rung ladder run against CalibS shows the 70 ppm survives freezing the quadratic — 72.8 ppm at
+`linear` against 70.9 ppm at `quadratic` — and collapses to 20.9 ppm only when the linear
+terms are frozen too. That is the same object §3r's affine found: an anisotropic linear map
+between the block epochs, not a curvature difference.)*
 
 **A trap for the record.** *At 8.6° altitude, any comparison of two epochs on raw pixel
 positions must remove a full affine or correct refraction first.* A similarity leaves a
@@ -1537,6 +1543,106 @@ field gets `constant`, and CalibS is exactly the same-day calibration the rule w
 what (b) should reproduce within the CalibS quadratic's own noise. Method 1 (3.290 ± 0.681 ″,
 f = 1 by construction) and the corrected Method 2 are 0.82 ″ apart instead of 1.16.
 
+## 3t. The whole ladder against CalibS — and four pathways that agree once each is divided by its own f
+
+Douglas, 2026-09-12: *"What is the value of L in a Method 1 calculation where we import only
+the quadratic terms from CalibS but not the linear term?"* `tools/husillos2026/hu_rung.py`
+runs all three rungs against the settled CalibS so the ladder is one table.
+
+### That setting cannot be Method 1, and the reason is structural
+
+`distortion_fixed_coefficients` names the highest order left **free**, so "quadratic and above
+from CalibS, linear free" is **`linear`**. But **the plate scale is the isotropic part of the
+linear term**. `distortion_polynomial.py:298–312` is explicit: only at `order_free == 0` does
+the fitter run a linear fit, discard the stretch and skew, and then *replace* the scale with
+the reference's `fix_platescale` — and even then only when `distortion_free_scale` is off. At
+`linear` or above the linear coefficients are fitted on the eclipse field and the scale comes
+with them. Every run below reads back `plate scale source: fitted on this field`, and the tool
+asserts on that readback rather than on the arguments passed.
+
+So the ask is **Method 2 with CalibS' quadratic**, not Method 1. Stage 3 still prints a
+Method 1 line at that rung, but it holds a scale the same data just set — which is why its
+uncertainty is 74.9 % against Method 2's 20.0 %. It is reported and not used.
+
+### Stage 2, all six runs, rung read back from each run's own results
+
+CalibS (settled, 88 stars, rms 0.6647 ″, ps 2.2030306 ″/px ± 19.0 ppm) is the reference for
+all of them.
+
+| rung | what is free | block | stars | rms | fitted scale | scale source |
+|---|---|---|---|---|---|---|
+| `constant` | constant only | gain 0 | 73 | 0.7915 ″ | 2.2030306 | **imported** |
+| | | gain 125 | 84 | 1.0867 ″ | 2.2030306 | **imported** |
+| `linear` | + linear (scale, rotation, 2 shears) | gain 0 | 73 | 0.7161 ″ | 2.2029526 | fitted |
+| | | gain 125 | 84 | 0.8340 ″ | 2.2027922 | fitted |
+| `quadratic` | + the six quadratics | gain 0 | 73 | 0.6951 ″ | 2.2029559 | fitted |
+| | | gain 125 | 84 | 0.8027 ″ | 2.2027997 | fitted |
+
+### The answer, and the three rungs beside it
+
+Two-witness, 63 stars in the union, uncropped, G ≤ 13:
+
+| rung | gain 0 | gain 125 | **union** | f | **union ÷ f** | GR at |
+|---|---|---|---|---|---|---|
+| `constant`, Method 1 (scale imported) | 2.110 ± 0.701 | 4.613 ± 0.710 | **3.290 ± 0.681 ″** | 1.000 | 3.290 ± 0.681 | 2.26 σ |
+| `constant`, Method 2 (scale refit in stage 3) | 1.676 ± 0.540 | 3.508 ± 0.545 | **2.532 ± 0.453 ″** | 1.000 | 2.532 ± 0.453 | 1.72 σ |
+| **`linear`** — *the question asked* | 1.744 ± 0.504 | 2.658 ± 0.574 | **2.244 ± 0.448 ″** | 0.911 | 2.463 ± 0.492 | 1.45 σ |
+| `quadratic` vs CalibS | 1.603 ± 0.507 | 2.788 ± 0.541 | **2.135 ± 0.431 ″** | 0.860 | 2.483 ± 0.501 | 1.46 σ |
+| `quadratic` vs the zenith — **the record** | 1.596 ± 0.507 | 2.782 ± 0.540 | **2.129 ± 0.430 ″** | 0.860 | 2.476 ± 0.500 | 1.45 σ |
+
+**So: L = 2.244 ± 0.448 ″** for the pathway asked about, against the record's 2.129 ± 0.430 ″.
+
+### The headline is the last column
+
+Four pathways — scale imported, scale refit after a full CalibS freeze, CalibS' quadratic
+with the linear free, and the record's own quadratic-free fit against the zenith — **span
+2.463 to 2.532 ″, a spread of 0.069 ″**, against error bars of ±0.45–0.50 ″. Before the
+division they span 2.129 to 2.532, a spread of 0.403 ″.
+
+That is an independent confirmation of §3s's absorption fraction that uses no injection at
+all: f was computed from the star geometry, and dividing by it collapses the rung dependence
+of L to a twentieth of its error bar. The `constant` rung needs no correction (nothing it
+frees can absorb a 1/r pattern) and lands in the same place. **The rung choice is not a real
+degree of freedom in the answer once f is applied** — which is the strongest argument yet that
+f is a property of the pathway and not an artefact of how it was measured.
+
+Method 1 at 3.290 ″ is the one row that does not join, and §3k already says why: the imported
+scale sits 21 ppm from what the blocks' own residuals want, and the 0.0324 ″/ppm lever turns
+that into +0.68 ″.
+
+### A correction to §3r's attribution
+
+§3r said the 70 ppm between the blocks' stage-2 scales came from "the non-shared stars and the
+free quadratic". The quadratic half is wrong, and this ladder shows it:
+
+| what stage 2 leaves free | gain 0 − gain 125 |
+|---|---|
+| constant + linear + quadratic | +70.9 ppm |
+| constant + linear (quadratic frozen from CalibS) | **+72.8 ppm** |
+| constant only (linear and quadratic frozen), scale refit in stage 3 | **+20.9 ppm** |
+
+Freezing the quadratic changes nothing; freezing the **linear** terms is what brings the
+blocks together. That is the same object §3r's full affine already found — a **260 ppm
+anisotropic compression and an 80 ppm shear** between the two block epochs at 8.6° altitude —
+seen from the other side: it is a linear-map difference, and an isotropic scale fitted on two
+different star sets splits it two different ways. Nothing about curvature, and nothing about
+gain.
+
+### What this does to §3s's open decision
+
+Option (b) was "move the eclipse field to `constant` + free scale against the settled CalibS".
+The ladder now prices every option on one star set, and the case for (b) is weaker than it
+looked: its Method 2 row (2.532 ± 0.453 ″) is the *highest* of the four and its stage-2
+residual is the *worst* (0.79 and 1.09 ″ against 0.70 and 0.80). The `linear` rung is the
+better-behaved middle: it takes the field curvature from the 88-star same-day calibration
+instead of fitting it on 73–84 eclipse stars, keeps the scale free so no ±19 ppm import
+enters, costs only 0.02 ″ of stage-2 residual against the record's rung, and carries a
+**smaller absorption correction** (f = 0.911 against 0.860).
+
+Revised recommendation, still Douglas': **quote the record's rung with f applied — 2.476 ±
+0.500 ″ — and carry the `linear` rung as the check at 2.463 ± 0.492 ″.** They differ by
+0.013 ″. Whichever is chosen, the f division is the substantive change and the rung is not.
+
 ## 4. A tool that does not work, and says so
 
 `hu_eclipse_match.py` was written to match the detections against Gaia at the known pointing —
@@ -1610,11 +1716,17 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    Deep-detection re-stacks of both horizon windows are running to bring the floor down; the
    `cal 8 deg` window (the eclipse altitude itself) has not yet produced a solve.
 4m. **The pathway of record under-reads the deflection by 14 %** (§3s) — fitting the eclipse
-   field with the quadratic free lets f = 0.863 of a 1/r pattern through to stage 3, measured
-   on the pipeline by injection (2.000 ″ in, 1.787 ″ out on the gain-125 block). **Decision
-   needed:** divide Method 2 of record by f (2.129 → 2.467 ± 0.498 ″), or move the eclipse
-   field to `constant` + free scale against the settled CalibS (León's pathway, f = 1), or
-   leave 2.129 and state f. Recommendation in §3s.
+   field with the quadratic free lets f = 0.860 of a 1/r pattern through to stage 3, measured
+   on the pipeline by injection (2.000 ″ in, 1.787 ″ out on the gain-125 block) and
+   **confirmed independently by the rung ladder** (§3t): four pathways spanning 0.403 ″ of L
+   collapse to a 0.069 ″ spread once each is divided by its own f. **Decision needed:** the
+   f division is the substantive change; the rung is not. Recommended in §3t — quote the
+   record's rung with f applied, **2.476 ± 0.500 ″**, with the `linear` rung's 2.463 ± 0.492 ″
+   as the check.
+4n. **The block scale disagreement lives in the LINEAR terms** (§3t): 72.8 ppm with the
+   quadratic frozen, 70.9 ppm with it free, 20.9 ppm once the linear is frozen too. It is
+   §3r's anisotropic affine seen from the other side. Open: whether the residual 20.9 ± 18.6
+   ppm is anything at all, and whether real weather would remove the affine.
 4l. ~~Sun-centred or smooth field~~ — **neither** (§3r): per bin nothing reproduces on held-out
    stars, and the linear terms are the refraction ramp.
 4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is

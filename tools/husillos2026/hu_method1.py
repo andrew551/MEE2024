@@ -189,11 +189,13 @@ def do_stage3():
              '--set', 'limit_radial_sun_radii=False',
              '--set', 'remove_double_stars_eclipse=False',
              '--no-display', '--quiet', '-o', d], os.path.join(d, 'stage3.log'))
-        fs = sorted(glob.glob(os.path.join(d, '**', 'ECLIPSE_OUTPUT*.txt'), recursive=True))
+        # newest, not first-sorted -- see the note in hu_union._stage3
+        fs = sorted(glob.glob(os.path.join(d, '**', 'ECLIPSE_OUTPUT*.txt'), recursive=True),
+                    key=os.path.getmtime)
         if not fs:
             print('   %-8s stage 3 FAILED' % tag)
             continue
-        for line in io.open(fs[0], encoding='utf-8', errors='replace').read().splitlines():
+        for line in io.open(fs[-1], encoding='utf-8', errors='replace').read().splitlines():
             s = line.strip()
             if any(k in s for k in ('Method 1 results', 'Method 2 results',
                                     'number of stars', 'deflected star position rms')):

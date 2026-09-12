@@ -279,11 +279,17 @@ def _stage3(z, tag):
            '--no-display', '--quiet', '-o', d]
     with open(os.path.join(d, 'stage3.log'), 'w') as f:
         subprocess.run(cmd, cwd=REPO, stdout=f, stderr=subprocess.STDOUT)
-    fs = sorted(glob.glob(os.path.join(d, '**', 'ECLIPSE_OUTPUT*.txt'), recursive=True))
+    # NEWEST, not first-sorted.  Stage 3 stamps each output with its start time and never
+    # overwrites, so a re-run into a directory that already holds one leaves two; `fs[0]`
+    # sorted ascending is the OLDEST, and this tool would then report the previous run's
+    # numbers as though they were the new ones.  Same species as the m1e_ cache reuse of
+    # 2026-09-11: the answer looked plausible and was stale.
+    fs = sorted(glob.glob(os.path.join(d, '**', 'ECLIPSE_OUTPUT*.txt'), recursive=True),
+                key=os.path.getmtime)
     if not fs:
         print('  %-14s stage 3 FAILED' % tag)
         return
-    for line in io.open(fs[0], encoding='utf-8', errors='replace').read().splitlines():
+    for line in io.open(fs[-1], encoding='utf-8', errors='replace').read().splitlines():
         s = line.strip()
         if any(k in s for k in ('Method 1 results', 'Method 2 results',
                                 'number of stars', 'deflected star position rms')):
