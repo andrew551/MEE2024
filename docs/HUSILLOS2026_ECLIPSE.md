@@ -1881,6 +1881,12 @@ it is.
 
 ## 3v. Husillos' night sky is rougher than León's — by 2× at the zenith and 3× at 10°, and it is structure, not noise
 
+*(Superseded in part by §3w, same day: the 10° "structure" is the stacking of UNTRACKED
+captures, not the sky. The magnitude test below is right that it is structure; the reading
+that it is atmosphere is withdrawn. The zenith comparison stands. Kept as written because the
+reasoning is what a reader should check against, and the correction is stated where it was
+found.)*
+
 Douglas, 2026-09-12, on the night maps: *"Although the vertical polarisation of the León site
 may be greater, the absolute value of the atmospheric disturbance at Husillos looks
 considerably larger, even at the zenith, but particularly near the horizon."*
@@ -1955,6 +1961,110 @@ stands — that number was built from *L* fitted on these residuals, and the str
 is what the estimator's four freedoms could not project into a 1/r pattern. But the excess is
 real and it is the physical reason cell 4's per-star noise (0.53 ″ between the blocks, §3f) is
 the largest in the matrix: the eclipse field was shot through the same air.
+
+## 3w. The first three `10 deg` captures were UNTRACKED — and that, not the sky, is the 3×
+
+Douglas, 2026-09-12: *"Do the per-frame reduction of one horizon capture."* It was meant to
+split §3v's 3× between site and construction. It did, and then it found why.
+
+### The per-frame reduction, León's construction on 23_34_38
+
+`tools/husillos2026/hu_perframe.py`: every frame 1–99 of `23_34_38` reduced alone — stage 1
+on one frame at the zenith star-field preset (which is also León's per-frame regime,
+`drive_horizon.STAGE1`), stage 2 against the same zenith quintic at the same rung as the
+stack, corrections on at the frame's own mid-time from the SER trailer; then per star the
+median over frames, a star needing 20. All 99 frames solved, 22–77 stars each (median 61),
+rms 1.12–1.65 ″ each alone.
+
+| same capture, bright end G 8–10 | stars | rms | vertical | horizontal | V/H |
+|---|---|---|---|---|---|
+| one 100-frame stack, zenith model frozen (the night map) | 339 | **1.171 ″** | 0.843 | 0.548 | 1.54 |
+| one stack, whole quintic free | 351 | 1.006 ″ (all G) | | | |
+| **per-frame median over 70 frames per star** | 75 | **0.393 ″** | 0.328 | 0.172 | **1.90** |
+| León horizon, per-frame medians | — | 0.279 ″ | 0.240 | 0.098 | 2.4 |
+
+A factor of **3.0 from the construction alone, on the same photons**. With the construction
+matched, Husillos at 10° is 1.4× León, and its polarisation (V/H 1.90) is close to León's
+2.4 rather than the stack's 1.54. Freeing the quintic on the stack changes nothing here
+(1.006 ″ against 1.006), so the stack's excess is not the frozen model either.
+
+### Why: the stack is smeared, and the smear is drift, not refraction
+
+`hu_streak.py` measured every star's second moments in the stack and in one frame. The
+stack's stars are streaked and the streak grows toward the edges — **along sensor x, not the
+vertical**: σ_x 1.98 → 2.58 → 3.43 px from the centre band outward, σ_y 2.14 → 2.30 → 2.40;
+the single frame is flat at ~2.2 / ~1.75 in every band. Streaks along RA growing with the
+offset perpendicular to it are differential drift, not refraction (which would streak along
+the vertical). The 99 single-frame solves then said it outright:
+
+| over the 130 s capture | first | last | slope |
+|---|---|---|---|
+| **RA of the field centre** | 176.3776° | 176.9191° | **+15.09 ″/s = +0.545°** |
+| Dec | 29.5996° | 29.5995° | −0.006 ″/s |
+| roll | 326.1668° | 326.1648° | +0.02 ″/s |
+
+**The sidereal rate to 0.3 %, with the roll constant to 0.0007°: an equatorial mount with
+tracking off.** (A stationary alt-az pointing would rotate the field at the 5.8 ″/s
+parallactic rate; it did not, which is what pins the mount as equatorial and the tracking as
+the thing that was off.) The stacks' own alignment records, which the pipeline writes for
+every capture, close the case:
+
+| capture | frames | total drift | per frame | tracked? |
+|---|---|---|---|---|
+| `23_31_59` | 99 | **774 px** | **7.83 px** | **no** |
+| `23_34_38` | 99 | **767 px** | **7.84 px** | **no** |
+| `23_37_17` | 99 | **800 px** | **8.25 px** | **no** |
+| `23_41_01` | 50 | 5.4 px | 0.60 px | yes |
+| `23_42_43` | 47 | 5.4 px | 0.32 px | yes |
+| `23_44_06` | 49 | 1.3 px | 0.17 px | yes |
+| `22_56_41` (cal 8 deg) | 99 | 6.8 px | 2.53 px | yes |
+| `22_59_14` (cal 8 deg) | 99 | 7.4 px | 1.06 px | yes |
+| zenith `00_00_21` | 50 | 1.2 px | 0.14 px | yes |
+| eclipse gain 125 | 126 | 2.4 px | 0.25 px | yes |
+| eclipse gain 0 | 101 | 0.7 px | 0.26 px | yes |
+| CalibS | 61 | 8.6 px | 0.29 px | yes |
+
+7.8 px per 1.316 s frame is 15.04 ″/s × cos(29.6°) ÷ 2.2028 ″/px. Tracking came on between
+`23_37_17` and `23_41_01` — the 14-frame `23_40_27` is very likely the moment it was
+noticed. **Everything the science rests on was tracked**: both eclipse blocks, CalibS, the
+zenith, and the `cal 8 deg` pair.
+
+What an untracked stack does to its stars: each 1 s frame already carries a 6 px trail along
+RA (the single frame's σ_x > σ_y says so), the aligner's one global shift can follow the
+field's mean drift but not the cos(Dec) spread in drift rate across ±2.9° of declination, so
+the edge stars are laid down as ~10 px streaks, and a windowed centroid on a uniform streak
+lands wherever noise made it brightest. That is a magnitude-independent, non-smooth,
+edge-weighted error of order a pixel — **exactly what §3v measured, correctly called
+structure, and wrongly called the atmosphere.**
+
+### What this corrects, and what it leaves standing
+
+* **§3v's conclusion is withdrawn as stated.** Husillos' 10° fields are not "3× rougher than
+  León's". Like for like, they are ~1.4× (0.393 against 0.279 ″), and the per-frame medians
+  carry more sampling noise than León's (70 frames of 1.33 ″ against 45 of ~0.5 ″), so the
+  true ratio is nearer 1.2. The "large isotropic component" was drift smear. The zenith
+  comparison (0.133 against 0.068 ″) is untouched — that capture was tracked.
+* **§3u's night map is wrong in its two 10° panels**: they are stacks of untracked captures,
+  and the swirl in the `23_34_38` panel is a drift-stack artefact, not sky. The map will be
+  redrawn from per-frame medians for those two panels (`23_31_59`'s per-frame run is under
+  way); the 15° and zenith panels stand.
+* **§3s's atmosphere term needs its 10° rows rebuilt.** The field-to-zenith nulls at 10°
+  (+0.235 and −0.261 ″) and the deep 10° consecutive pair were fitted on the smeared stacks;
+  their floors (0.46 and 0.29 ″) are partly smear. The 15° field and the `cal 8 deg` pair are
+  unaffected. The term is to be re-derived on the per-frame medians before it is quoted
+  again; the interim ±0.25 ″ should be read as an upper bound from contaminated inputs.
+* **§3s's pointing map is wrong in one word**: the "re-pointing 0.66° in RA to hold 10°" was
+  158 s of sidereal drift through a fixed telescope (0.0042°/s × 158 s = 0.66°); so was the
+  0.88° between `23_37_17` and `23_41_01`. The declination changes were real slews.
+* **§3u's refraction result stands.** All three 5.5° captures gave +1200–1800 ppm, two of them
+  tracked; the scale blow-up is not a tracking artefact.
+
+### For 2027
+
+Check tracking before every capture, not only after slews. Three of seven captures in the
+best-populated horizon window were lost to it, and the loss was invisible in the folder
+names, the frame counts, the headers and the plate solves — the RA drift and the alignment
+record were the only witnesses, and nobody had asked them.
 
 ## 4. A tool that does not work, and says so
 
@@ -2052,8 +2162,13 @@ of distortion across an 11 000 px baseline. Neither is fixed.
    quintic takes the residual 1.392 → 0.553 ″ at 5.70° and 1.256 → 0.928 ″ at 10.03°, while
    moving the scale by under 80 ppm. The eclipse blocks are at 8.6° on a frozen zenith model;
    what this costs them has not been measured, and it is the natural next test.
-4q. **The 10.0° gain-125 night map carries a coherent swirl** (§3u) that no linear term can
-   absorb, since rotation is free in the fit. Unexplained.
+4q. ~~The 10.0° gain-125 night map carries a coherent swirl~~ — **explained** (§3w): a stack
+   of an untracked capture. Not sky.
+4r. **The first three `10 deg` captures were untracked** (§3w: 770–800 px of sidereal drift
+   over 99 frames). Their stacks are invalid for astrometry. **To do:** finish `23_31_59`'s
+   per-frame run; redraw the night map's two 10° panels from per-frame medians; rebuild the
+   §3s atmosphere term on per-frame residuals and re-quote it. Until then ±0.25 ″ is an
+   upper bound from contaminated inputs. **2027: check tracking before every capture.**
 4l. ~~Sun-centred or smooth field~~ — **neither** (§3r): per bin nothing reproduces on held-out
    stars, and the linear terms are the refraction ramp.
 4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is
