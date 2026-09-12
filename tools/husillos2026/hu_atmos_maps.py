@@ -98,11 +98,24 @@ SITE = EarthLocation(lat=42.09293 * u.deg, lon=-4.52702 * u.deg, height=743 * u.
 #: and no alt/az split -- Leon's rule for its zenith panels
 ZENITH_ALT = 70.0
 
-#: (panel label, stage-2 directory, what it is)
-PANELS = [('23_31_59', os.path.join(HOR, 's2d_h10_g0'), 'horizon'),
-          ('23_34_38', os.path.join(HOR, 's2d_h10_g125a'), 'horizon'),
-          ('23_44_06', os.path.join(HOR, 's2d_h10_g125d'), 'horizon'),
-          ('zenith', os.path.join(HUS, 'step3', 'ref'), 'zenith')]
+#: (panel label, stage-2 directory the alt/az basis and epoch come from, what it is,
+#:  residual table -- None means the stage-2 directory's own TWOD_RESIDUALS.csv).
+#:
+#: The two 10-degree captures were UNTRACKED (record section 3w: 770 px of sidereal drift over
+#: 99 frames), so their stacks are smeared and the first two revisions of this chart drew
+#: that smear as sky.  Their panels now come from hu_perframe.py's per-star medians over 99
+#: separately solved frames -- Leon's construction -- with the alt/az basis taken from one
+#: mid-capture frame's own solve.  The 15-degree capture and the zenith were tracked and
+#: keep their stacks.
+def _pf(tag):
+    return (os.path.join(HOR, 'perframe_' + tag, 's1', 'f050', 's2'),
+            os.path.join(HOR, 'perframe_' + tag, 's1_TWOD_RESIDUALS.csv'))
+
+
+PANELS = [('23_31_59', *_pf('h10_g0'), 'horizon, per-frame medians'),
+          ('23_34_38', *_pf('h10_g125a'), 'horizon, per-frame medians'),
+          ('23_44_06', os.path.join(HOR, 's2d_h10_g125d'), None, 'horizon'),
+          ('zenith', os.path.join(HUS, 'step3', 'ref'), None, 'zenith')]
 
 
 def one(pattern):
@@ -158,9 +171,9 @@ def altaz_basis(t, j):
             float(alt.mean()), float(aa.az.deg.mean()))
 
 
-def residuals(d, magcut):
+def residuals(d, magcut, table=None):
     """Median-removed sensor-axis residuals, 3 x MAD clipped as on the other cells' maps."""
-    r = pd.read_csv(one(os.path.join(d, '**', 'TWOD_RESIDUALS.csv')))
+    r = pd.read_csv(table or one(os.path.join(d, '**', 'TWOD_RESIDUALS.csv')))
     r.columns = [c.strip() for c in r.columns]
     r = r[r['magV'] <= magcut]
     px, py = r['px'].values.astype(float), r['py'].values.astype(float)
@@ -175,17 +188,18 @@ def residuals(d, magcut):
 def main():
     os.makedirs(OUT, exist_ok=True)
     rows, panels = [], []
-    for label, d, kind in PANELS:
+    for label, d, table, kind in PANELS:
         t, j = matched_and_time(d)
         v_alt, v_az, _fit_alt, _fit_az = altaz_basis(t, j)
         alt, az = logged_altaz(d)
-        px, py, qx, qy, nclip = residuals(d, MAGCUT)
+        px, py, qx, qy, nclip = residuals(d, MAGCUT, table)
         q_alt = qx * v_alt[0] + qy * v_alt[1]
         q_az = qx * v_az[0] + qy * v_az[1]
         rms = float(np.sqrt(np.mean(qx ** 2 + qy ** 2)))
         va, ha = float(np.sqrt(np.mean(q_alt ** 2))), float(np.sqrt(np.mean(q_az ** 2)))
-        _, _, cx11, cy11, _ = residuals(d, COMPARE_MAG)
-        rows.append(dict(field=label, kind=kind, alt=alt, az=az,
+        _, _, cx11, cy11, _ = residuals(d, COMPARE_MAG, table)
+        rows.append(dict(field=label, kind=kind, source=('per-frame medians' if table
+                                                          else 'stack'), alt=alt, az=az,
                          gain=j.get('analogue gain', ''), n=len(px), clipped=nclip,
                          rms=rms, vertical=va, horizontal=ha, v_over_h=va / max(ha, 1e-9),
                          n_g11=len(cx11),
@@ -194,7 +208,8 @@ def main():
                          stars_solved=j['#stars used'],
                          platescale=j['platescale (arcseconds/pixel)'],
                          rung=j.get('fixed distortion order', '?')))
-        panels.append((label, px, py, qx, qy, alt, None if alt > ZENITH_ALT else v_alt))
+        panels.append((label + (', per-frame medians' if table else ''), px, py, qx, qy, alt,
+                       None if alt > ZENITH_ALT else v_alt))
         print('%-10s alt %6.2f az %6.2f  N=%4d (%d clipped)  rms %.3f " '
               '(vertical %.3f, horizontal %.3f, V/H %.2f)  [G<=11: N=%d, rms %.3f "]'
               % (label, alt, az, len(px), nclip, rms, va, ha, va / max(ha, 1e-9),
@@ -237,23 +252,24 @@ def main():
         ax.axis('off')
     fig.suptitle(
         'Husillos 2026 night fields: residual structure a calibration fit cannot absorb\n'
-        'Three `10 deg` window pointings at and above 10\u00b0, one deep-detection stack each,'
-        ' the zenith quintic\u2019s cubic-and-above frozen and the\nquadratic and scale free,'
-        ' corrections ON \u2014 the way a calibration field is reduced. The zenith panel is NOT'
-        ' that construction:\ncell 4 has ONE zenith field, so nothing can be frozen onto it'
-        ' from elsewhere, and it shows its own free-quintic residuals,\nthe machinery floor.'
-        ' G \u2264 13, this cell\u2019s registered window (Le\u00f3n\u2019s maps used G \u2264'
-        ' 11; that column is in atmos_maps_stats.csv).\nArrows and positions both in SENSOR'
-        ' axes; arrow scale identical to the Le\u00f3n 2026 and Bruns 2017 maps.\nLeft out:'
-        ' the `cal 8 deg` window (8.5\u20139.0\u00b0, the eclipse altitude itself, but shot in'
-        ' astronomical twilight \u2014 34 and 47 stars)\nand pointing B (5.5\u00b0, plate scale'
-        ' 1200\u20131800 ppm out).',
+        'Three `10 deg` window pointings at and above 10\u00b0, the zenith quintic\u2019s'
+        ' cubic-and-above frozen and the quadratic and scale free, corrections ON \u2014\nthe way'
+        ' a calibration field is reduced. The two 10\u00b0 captures were UNTRACKED (770 px of'
+        ' sidereal drift over 99 frames; record \u00a73w), so their\npanels are per-star MEDIANS'
+        ' over 99 separately solved frames, Le\u00f3n\u2019s construction, not stacks; the 15\u00b0 capture'
+        ' was tracked and is one\ndeep-detection stack. The zenith panel is its own'
+        ' free-quintic residual \u2014 cell 4 has ONE zenith field, nothing can be frozen onto'
+        ' it \u2014 the\nmachinery floor. G \u2264 13, this cell\u2019s registered window (Le\u00f3n\u2019s maps'
+        ' used G \u2264 11; that column is in atmos_maps_stats.csv). Arrows and\npositions both'
+        ' in SENSOR axes; arrow scale identical to the Le\u00f3n 2026 and Bruns 2017 maps. Left'
+        ' out: the `cal 8 deg` window (8.5\u20139.0\u00b0,\nthe eclipse altitude, shot in astronomical'
+        ' twilight: 34 and 47 stars) and pointing B (5.5\u00b0, plate scale 1200\u20131800 ppm out).',
         fontsize=10.5, y=0.985, va='top')
     fig.subplots_adjust(left=0.025, right=0.975, bottom=0.025, top=0.80,
                         wspace=0.06, hspace=0.12)
     ChartWriter(OUT, REV).save(fig, 'atmosphere_night_maps.png')
 
-    H = S[S.kind == 'horizon']
+    H = S[S.kind.str.startswith('horizon')]
     print()
     print('horizon panels (alt %.2f-%.2f deg): rms %.3f " (%.3f-%.3f), vertical %.3f, '
           'horizontal %.3f, V/H %.2f'

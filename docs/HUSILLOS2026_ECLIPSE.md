@@ -1601,6 +1601,10 @@ floor, 1.8 σ). The number did not move when the four extra pointing-B and point
 landed, which is the best evidence available that ±0.25 ″ is not an artefact of which fields
 happened to solve.
 
+*(Superseded the same day by §3w: the two 10° fields in the tables above were stacks of
+UNTRACKED captures and their residuals are drift smear. Rebuilt on per-frame medians the term
+is **±0.10 ″**. The 15° row and the `cal 8 deg` rows are unaffected.)*
+
 **And a warning against double-counting.** The 63-star column is ~0.5 ″ everywhere, but that
 is sampling noise, not atmosphere: at the union's own star count the residual field is sparsely
 sampled, and that is the same quantity as the union's ±0.430 ″ statistical error. Adding it as
@@ -1794,10 +1798,15 @@ per-star median removed, 3 × MAD clip.
 
 | panel | alt | gain | stars | rms | vertical | horizontal | **V/H** |
 |---|---|---|---|---|---|---|---|
-| `23_31_59` | 10.03° | 0 | 182 | 1.223 ″ | 0.986 ″ | 0.724 ″ | **1.36** |
-| `23_34_38` | 10.01° | 125 | 339 | 1.006 ″ | 0.843 ″ | 0.548 ″ | **1.54** |
+| ~~`23_31_59`, stack~~ | 10.03° | 0 | 182 | 1.223 ″ | 0.986 ″ | 0.724 ″ | 1.36 |
+| ~~`23_34_38`, stack~~ | 10.01° | 125 | 339 | 1.006 ″ | 0.843 ″ | 0.548 ″ | 1.54 |
+| **`23_31_59`, per-frame medians** (rev. 4) | 10.2° | 0 | 42 | 0.540 ″ | 0.509 ″ | 0.182 ″ | **2.80** |
+| **`23_34_38`, per-frame medians** (rev. 4) | 10.2° | 125 | 75 | 0.371 ″ | 0.328 ″ | 0.172 ″ | **1.90** |
 | `23_44_06` | 14.97° | 125 | 972 | 0.451 ″ | 0.339 ″ | 0.298 ″ | **1.14** |
 | zenith | 81.09° | 0 | 2635 | 0.159 ″ | 0.117 ″ | 0.110 ″ | **1.06** |
+
+*(The struck rows are revisions 1–3 of the chart: stacks of captures that §3w found were
+untracked. Revision 4 draws those two panels from per-frame medians.)*
 
 **The zenith panel is the control and it passes.** V/H = 1.06 overhead, the same value León's
 zenith row gives, which is what proves the vertical excess below is not manufactured by the
@@ -2059,12 +2068,54 @@ structure, and wrongly called the atmosphere.**
 * **§3u's refraction result stands.** All three 5.5° captures gave +1200–1800 ppm, two of them
   tracked; the scale blow-up is not a tracking artefact.
 
+### Rebuilt on per-frame medians: both 10° captures, the map, the term
+
+`23_31_59` reduced the same way (all 99 gain-0 frames solved, 22–40 stars each; 42 stars with
+20 or more frames). The two untracked captures, like for like with León:
+
+| per-frame medians, bright end G 8–10 | stars | rms (all) | vertical | horizontal | **V/H** |
+|---|---|---|---|---|---|
+| `23_31_59`, gain 0 | 42 | 0.540 ″ | 0.509 | 0.182 | **2.80** |
+| `23_34_38`, gain 125 | 75 | 0.371 ″ | 0.328 | 0.172 | **1.90** |
+| León horizon, 9 windows | — | 0.279 ″ | 0.240 | 0.098 | 2.4 |
+
+Bright-end mean 0.442 ″ against León's 0.279 (`hu_maps_bymag.py`, row "PER-FRAME (2)"), and
+the medians here carry ~0.2 ″ of their own sampling noise (70 frames of 1.34 ″ against León's
+45 of ~0.5 ″), so the structure is nearer 0.39 ″: **1.4× León, polarised the same way (V/H
+1.9–2.8 against 2.4)**. That is the end of §3v's question: Husillos' 10° sky is León's 10° sky
+within the noise, once both are reduced the same way.
+
+The night map (`atmosphere_night_maps.png`, revision 4, the third revision superseded) now
+draws both 10° panels from the per-frame medians; the swirl is gone with the smear.
+
+**The atmosphere term, rebuilt on the valid fields** (`hu_atmosphere.py`, variant `p`: the
+per-frame medians in place of the untracked stacks, the tracked deep stacks elsewhere):
+
+| field-to-zenith null, the cell's estimator | alt | N | total | floor | structure |
+|---|---|---|---|---|---|
+| `23_31_59`, per-frame medians | 10.2° | 40 | +0.034 ″ | 0.401 ″ | 0 |
+| `23_34_38`, per-frame medians | 10.2° | 71 | −0.097 ″ | 0.251 ″ | 0 |
+| `23_44_06`, tracked stack | 15.0° | 935 | +0.142 ″ | 0.078 ″ | 0.119 ″ |
+| `22_59_14`, tracked stack (twilight) | 8.5° | 47 | +1.881 ″ | 1.220 ″ | noise |
+
+**±0.10 ″** — the rms over the three fields that can carry the construction (0.034, 0.097,
+0.142), quoted as the total per the matrix rule, with the only resolved structure the 0.119 ″
+at 15°. Against the interim ±0.25 ″ (contaminated inputs), León's ±0.33 ″, Station 1's
+±0.11 ″ and Bruns' ±0.15 ″. Two caveats travel with it: the per-frame floors (0.25–0.40 ″) are
+overestimates, because the bootstrap perturbs by the median's whole residual rather than by a
+median-over-70-frames' noise, so "unresolved" at 10° is conservative; and the eclipse-altitude
+pair is still too thin to contribute. **The atmosphere is not what limits cell 4.** Its
+largest term is the per-star noise of a 315 ms coronal field through six air masses (§3f),
+and that is already in the ±0.430 ″.
+
 ### For 2027
 
 Check tracking before every capture, not only after slews. Three of seven captures in the
 best-populated horizon window were lost to it, and the loss was invisible in the folder
 names, the frame counts, the headers and the plate solves — the RA drift and the alignment
-record were the only witnesses, and nobody had asked them.
+record were the only witnesses, and nobody had asked them. And reduce horizon captures
+frame by frame, as León did, whatever the tracking: a 100 s stack at 10° is smeared by
+refraction evolution even when the mount is perfect.
 
 ## 4. A tool that does not work, and says so
 
@@ -2165,10 +2216,13 @@ of distortion across an 11 000 px baseline. Neither is fixed.
 4q. ~~The 10.0° gain-125 night map carries a coherent swirl~~ — **explained** (§3w): a stack
    of an untracked capture. Not sky.
 4r. **The first three `10 deg` captures were untracked** (§3w: 770–800 px of sidereal drift
-   over 99 frames). Their stacks are invalid for astrometry. **To do:** finish `23_31_59`'s
-   per-frame run; redraw the night map's two 10° panels from per-frame medians; rebuild the
-   §3s atmosphere term on per-frame residuals and re-quote it. Until then ±0.25 ″ is an
-   upper bound from contaminated inputs. **2027: check tracking before every capture.**
+   over 99 frames). Their stacks are invalid for astrometry. ~~To do~~ — **done**: both
+   reduced per frame, the night map redrawn (rev. 4), the term rebuilt: **±0.10 ″**, with
+   the 10° sky 1.4× León's and polarised the same way. Left: a proper floor for per-frame
+   medians (bootstrap over frames, not over the median's residual), which would only make
+   the 10° rows better resolved. **2027: check tracking before every capture, and reduce
+   horizon captures frame by frame.**
+4k. *(superseded)* The atmosphere term is **±0.10 ″** (§3w), not ±0.25 ″.
 4l. ~~Sun-centred or smooth field~~ — **neither** (§3r): per bin nothing reproduces on held-out
    stars, and the linear terms are the refraction ramp.
 4j. **The gain-0 halves' uniform −79.7 ± 21.0 ppm scale step** (§3o, §3q) is unexplained and is

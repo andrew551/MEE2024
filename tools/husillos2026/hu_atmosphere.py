@@ -89,7 +89,14 @@ ALT_LO, ALT_HI = 7.5, 12.0
 #: consecutive captures are the same field only if their solved centres are within this
 SAME_FIELD_DEG = 2.0
 MIN_REF_STARS = 40
-VARIANTS = (('', 'zenith star-field preset'), ('d', 'deep: the eclipse blocks\' detection'))
+#: The third variant exists because the first three `10 deg` captures were UNTRACKED
+#: (record section 3w): their stacks are smeared, so the '' and 'd' rows for 23_31_59,
+#: 23_34_38 and 23_37_17 are contaminated, and the only valid residuals for them are
+#: hu_perframe.py's per-star medians over separately solved frames.  Those have no stage-1
+#: zip, so the consecutive-pair construction does not apply to them; field-to-zenith does.
+VARIANTS = (('', 'zenith star-field preset'), ('d', 'deep: the eclipse blocks\' detection'),
+            ('p', 'per-frame medians (hu_perframe.py; the untracked captures)'))
+UNTRACKED = ('h10_g0', 'h10_g125a', 'h10_g125b')
 
 
 def design(px, py, rx, ry, R, scale=False, nuis_deg=None):
@@ -124,6 +131,14 @@ def fit_L(dx, dy, px, py, rx, ry, R, scale=False, nuis_deg=None):
 
 
 def paths(tag, v):
+    if v == 'p':
+        pf = os.path.join(HOR, 'perframe_' + tag)
+        table = os.path.join(pf, 's1_TWOD_RESIDUALS.csv')
+        mid = os.path.join(pf, 's1', 'f050', 's2')
+        res = glob.glob(os.path.join(mid, '**', 'distortion_results.txt'), recursive=True)
+        return dict(res=res[0] if (res and os.path.exists(table)) else None,
+                    resid=table if os.path.exists(table) else None,
+                    log=os.path.join(mid, 'stage2.log'), s1zip=None)
     d2 = os.path.join(HOR, 's2%s_%s' % (v, tag))
     res = glob.glob(os.path.join(d2, '**', 'distortion_results.txt'), recursive=True)
     resid = glob.glob(os.path.join(d2, '**', 'TWOD_RESIDUALS.csv'), recursive=True)
@@ -277,8 +292,11 @@ def run_variant(v, vname, rng):
             continue
         ok = ALT_LO <= s_['alt'] <= ALT_HI
         note = '' if ok else '<- outside %.1f-%.1f deg: reported, not averaged' % (ALT_LO, ALT_HI)
-        if s_['j']['#stars used'] < MIN_REF_STARS:
+        if v != 'p' and s_['j']['#stars used'] < MIN_REF_STARS:
             note = '<- %d stars: solve not trusted, excluded' % s_['j']['#stars used']
+            ok = False
+        if v != 'p' and s_['tag'] in UNTRACKED:
+            note = '<- UNTRACKED capture (section 3w): a smeared stack, excluded'
             ok = False
         r.update(field=s_['tag'], alt=s_['alt'], gain=s_['gain'], used=ok, variant=vname)
         zrows.append(r)
@@ -306,6 +324,14 @@ def run_variant(v, vname, rng):
     for k in range(1, len(solved)):
         s_, p_ = solved[k], solved[k - 1]
         if s_['folder'] != p_['folder']:
+            continue
+        if not s_['s1zip'] or not p_['s1zip']:
+            print('   %-14s vs %-14s  per-frame medians have no stage-1 zip: pairs not applicable'
+                  % (s_['tag'], p_['tag']))
+            continue
+        if s_['tag'] in UNTRACKED or p_['tag'] in UNTRACKED:
+            print('   %-14s vs %-14s  an untracked capture (section 3w): stack pairs discarded'
+                  % (s_['tag'], p_['tag']))
             continue
         sep = sep_deg(s_['j'], p_['j'])
         if sep > SAME_FIELD_DEG:
@@ -353,7 +379,8 @@ def by_altitude(Z):
     which is the one thing an atmospheric term ought to do.
     """
     print()
-    print('FIELD-TO-ZENITH AGAINST ALTITUDE (every solved field, band membership ignored)')
+    print('FIELD-TO-ZENITH AGAINST ALTITUDE (every VALID field -- per-frame medians for the '
+          'untracked captures, deep stacks otherwise -- band membership ignored)')
     print('   %-18s %7s %8s %9s %9s %11s' % ('altitude', 'fields', 'stars', 'total (")',
                                              'floor (")', 'structure'))
     for lab, lo, hi in (('below %.1f deg' % ALT_LO, 0.0, ALT_LO),
@@ -385,8 +412,11 @@ def main():
     if Zs:
         Z = pd.concat(Zs)
         Z.to_csv(os.path.join(OUT, 'horizon_nulls_zenith.csv'), index=False)
-        deepest = Z[Z.variant.str.startswith('deep')]
-        by_altitude(deepest if len(deepest) else Z)
+        # the VALID set, one row per capture: per-frame medians for the untracked captures
+        # (section 3w), the deep stack for everything else -- never a smeared stack
+        valid = Z[(Z.variant.str.startswith('per-frame'))
+                  | (Z.variant.str.startswith('deep') & ~Z.field.isin(UNTRACKED))]
+        by_altitude(valid if len(valid) else Z)
     if Ps:
         pd.concat(Ps).to_csv(os.path.join(OUT, 'horizon_nulls_pairs.csv'), index=False)
     print('Leon carries +-0.33 " (v-deg2, horizon nights), Station 1 +-0.11 " (zenith nulls),')

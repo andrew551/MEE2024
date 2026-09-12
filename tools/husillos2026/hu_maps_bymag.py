@@ -65,6 +65,12 @@ SETS = [
       os.path.join(HOR, 's2d_h10_g125a', '**', 'TWOD_RESIDUALS.csv')]),
     ('Husillos 10 deg, FREE', 'whole quintic free, corr ON -- model transfer removed (gain 0 only)',
      [os.path.join(HOR, 's2f_h10_g0', '**', 'TWOD_RESIDUALS.csv')]),
+    # the two 10 deg captures were UNTRACKED (record section 3w); the rows above are their
+    # smeared stacks, kept so the correction can be seen; this row is the valid reduction
+    ('Husillos 10 deg, PER-FRAME (2)', 'per-star medians over 99 separately solved frames (the valid '
+     'reduction of an untracked capture)',
+     [os.path.join(HOR, 'perframe_h10_g0', 's1_TWOD_RESIDUALS.csv'),
+      os.path.join(HOR, 'perframe_h10_g125a', 's1_TWOD_RESIDUALS.csv')]),
     ('Leon horizon (9)', 'per-star median of ~45 per-frame quadratic-free corr-ON fits (the map)',
      'leon-horizon'),
 ]
