@@ -1372,8 +1372,9 @@ per-frame seeing test.
   refraction constant, so this is the single largest unquantified term.
 * **One zenith field, not seventeen** — no reference field-to-field term at all.
 * ~~**No atmospheric data** — Joe took none~~ — **wrong** (§3i). Ten horizon captures at the
-  eclipse altitude, on the eclipse night, at both eclipse gains. Not yet reduced, so the term
-  is still absent from the budget, but it is available rather than missing.
+  eclipse altitude, on the eclipse night, at both eclipse gains. ~~Not yet reduced, so the term
+  is still absent from the budget~~ — **reduced 2026-09-12 (§3s): ±0.25 ″, provisional, with no
+  structure resolved above photon noise.**
 * **No darks and no flats.**
 * **The outer radial bound is inherited**, and is not applied.
 
@@ -1486,18 +1487,75 @@ cadence (León's zenith pairs are 2 min 34 s apart).
 | `22_59_14` | 21:00:19.6 | 125 | 53 | 1.099 ″ | 185.9918 / +7.8534 | 8.54° / 272.73° |
 | `22_53_15` | — | 0 | — | — | 260 centroids, no solve | — |
 
-Field-to-zenith, deep:
+Field-to-zenith, deep, every capture that solves:
 
 | field | alt | gain | N | rms | L base | **L scale** | L v-deg2 | floor | 63-star | |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `22_56_41` | 9.01° | 0 | 34 | 0.742 ″ | −0.531 | −1.540 | −0.728 | 1.498 | 1.540 | 37 stars: excluded |
-| `22_59_14` | 8.54° | 125 | 47 | 0.790 ″ | +0.390 | +1.881 | +0.528 | 1.331 | 1.881 | |
-| `23_31_59` | 10.03° | 0 | **174** | 0.884 ″ | +0.134 | **+0.235** | +0.200 | 0.407 | 0.616 | |
-| `23_34_38` | 10.01° | 125 | **314** | 0.776 ″ | −0.140 | **−0.261** | −0.237 | 0.280 | 0.415 | |
+| `22_56_41` | 9.01° | 0 | 34 | 0.742 ″ | −0.531 | −1.540 | −0.728 | 1.242 | 1.540 | 37 stars: excluded |
+| `22_59_14` | 8.54° | 125 | 47 | 0.790 ″ | +0.390 | +1.881 | +0.528 | 1.220 | 1.881 | |
+| `23_31_59` | 10.03° | 0 | **174** | 0.884 ″ | +0.134 | **+0.235** | +0.200 | 0.457 | 0.645 | |
+| `23_34_38` | 10.01° | 125 | **314** | 0.776 ″ | −0.140 | **−0.261** | −0.237 | 0.291 | 0.438 | |
+| `23_37_17` | 5.70° | 125 | 69 | 0.993 ″ | +0.031 | +0.500 | +0.047 | 1.170 | 0.607 | pointing B |
+| `23_41_01` | 5.73° | 0 | 61 | 0.721 ″ | −0.566 | −1.124 | −0.807 | 0.682 | 1.124 | pointing B |
+| `23_42_43` | 5.45° | 125 | 128 | 0.780 ″ | −0.427 | −0.586 | −0.483 | 0.424 | 0.738 | pointing B |
+| `23_44_06` | 14.97° | 125 | **935** | **0.321 ″** | +0.074 | **+0.142** | +0.092 | **0.078** | 0.335 | pointing C |
 
 Consecutive pairs, deep: `22_56_41` against `22_59_14`'s model (35 stars) gives −1.803 ″
-against a 1.760 ″ floor; the 10° pair gives **+0.058 ″** forward (145 stars, floor 0.641) and
-+0.215 ″ reversed (84 stars, floor 0.638).
+against a 1.242 ″ floor; the 10° pair gives **+0.058 ″** forward (145 stars, floor 0.649) and
++0.215 ″ reversed (84 stars). Pointing B's four refits run from −2.235 to +1.069 ″ with floors
+of the same size, and are excluded on altitude.
+
+**Two reproducibility faults were fixed while building this table**, both of which had already
+produced numbers. The bootstrap floor drew from one random stream shared by every field, so
+adding a capture to the run changed the floors already reported for the others — the same
+145-star pair read 0.641 ″ and 0.773 ″ on identical input. Each field now seeds from its own
+tag through `zlib.crc32` (Python salts `hash()` per process, so that would not have fixed it).
+And the floor used 60 draws, whose ~9 % standard error on a standard deviation could not
+support the 0.407-against-0.522 swing it was showing; it is now 300. **The floor decides
+whether a null is structure or photon noise, so it has to be quieter than the thing it
+judges.** The L values themselves never moved — they are a deterministic least squares.
+
+### The complete pointing map, and where the refraction model gives way
+
+With deep detection every capture in both windows solves except `22_53_15`. The `10 deg`
+folder is **three pointings, and the middle one holds three captures, not one** — the earlier
+table above could not place `23_37_17` because it did not solve at the zenith preset.
+
+| pointing | declination | altitude | captures |
+|---|---|---|---|
+| **A** | +29.60° | 10.0° | `23_31_59`, `23_34_38` (re-pointed 0.66° in RA to hold 10°) |
+| **B** | +23.28° | 5.5–5.7° | `23_37_17`, `23_41_01`, `23_42_43` (again re-pointed ~0.88° in RA) |
+| **C** | +37.55° | 15.0° | `23_44_06` |
+
+Every deep solve, plate scale against the night zenith's 2.2059136 ″/px:
+
+| capture | alt | gain | stars | rms | **scale vs the zenith** |
+|---|---|---|---|---|---|
+| `23_44_06` | 14.97° | 125 | **972** | **0.451 ″** | −43 ppm |
+| `23_34_38` | 10.01° | 125 | 345 | 1.069 ″ | +52 ppm |
+| `23_31_59` | 10.03° | 0 | 184 | 1.256 ″ | −72 ppm |
+| `22_56_41` | 9.01° | 0 | 37 | 1.056 ″ | −158 ppm |
+| `22_59_14` | 8.54° | 125 | 53 | 1.099 ″ | −44 ppm |
+| `23_37_17` | 5.70° | 125 | 77 | 1.392 ″ | **+1804 ppm** |
+| `23_41_01` | 5.73° | 0 | 63 | 1.014 ″ | **+1222 ppm** |
+| `23_42_43` | 5.45° | 125 | 132 | 1.095 ″ | **+1565 ppm** |
+
+Everything from 15° down to 8.5° sits within ±160 ppm of the zenith scale. The three captures
+at 5.5° are more than a thousand ppm out, **all in the same direction, at both gains and at
+both detection settings** — so it is not a detection artefact and not a bad solve in the
+ordinary sense. Something breaks between 8.5° and 5.7°, and there are two candidates, not one:
+the **refraction correction**, whose differential across a ±2.9° field grows steeply toward the
+horizon and whose weather here is assumed rather than measured (926.5 hPa, 25 °C, 35 %; the
+scale carries ~63 ppm per 1 % of the refraction constant at the eclipse altitude); and
+**model transfer**, since the frozen cubic-and-above come from a zenith field at 85° and a
+field compressed this hard may simply not be described by them. This window cannot separate
+the two.
+
+**The eclipse blocks sit at 8.6°, inside the range that still holds but not far inside.** This
+is a bound on the assumed weather rather than a measurement of it, and it is the first
+empirical evidence in this cell that the assumption survives at the eclipse altitude at all.
+Pointing B is excluded from every average below on its altitude, which was decided before
+these scales were known.
 
 ### The term: nothing is resolved above per-star noise
 
@@ -1506,12 +1564,27 @@ against a 1.760 ″ floor; the 10° pair gives **+0.058 ″** forward (145 stars
 
 | construction | fields | total | floor | **structure** | at 63 stars |
 |---|---|---|---|---|---|
-| field-to-zenith, deep, 8.5–10° | 3 | 1.105 ″ | 0.820 ″ | 0.741 ″ | 1.168 ″ |
-| **field-to-zenith, deep, the two with >126 stars** | 2 | **0.248 ″** | 0.349 ″ | **0.000 ″** | 0.526 ″ |
-| field-to-zenith, zenith preset, 10° | 2 | 0.241 ″ | 0.597 ″ | 0.000 ″ | 0.358 ″ |
-| consecutive pairs, deep, 8.5–10° | 3 | 1.049 ″ | 1.142 ″ | 0.000 ″ | 1.117 ″ |
-| **consecutive pairs, deep, the one with >126 stars** | 1 | **0.058 ″** | 0.641 ″ | **0.000 ″** | 0.571 ″ |
-| the one field deep enough to resolve anything (15°, 653 stars) | 1 | 0.137 ″ | 0.071 ″ | **0.117 ″** | 0.247 ″ |
+| field-to-zenith, deep, 8.5–10° | 3 | 1.105 ″ | 0.771 ″ | 0.792 ″ | 1.176 ″ |
+| **field-to-zenith, deep, the two with >126 stars** | 2 | **0.248 ″** | 0.383 ″ | **0.000 ″** | 0.551 ″ |
+| field-to-zenith, zenith preset, 10° | 2 | 0.241 ″ | 0.622 ″ | 0.000 ″ | 0.381 ″ |
+| consecutive pairs, deep, 8.5–10° | 3 | 1.049 ″ | 1.038 ″ | 0.147 ″ | 1.124 ″ |
+| **consecutive pairs, deep, the one with >126 stars** | 1 | **0.058 ″** | 0.649 ″ | **0.000 ″** | 0.565 ″ |
+| consecutive pairs, zenith preset, 10° | 2 | 1.707 ″ | 1.010 ″ | 1.376 ″ | 1.720 ″ |
+| **the one field deep enough to resolve anything** (15°, 935 stars) | 1 | 0.142 ″ | 0.078 ″ | **0.119 ″** | 0.335 ″ |
+
+Grouped by altitude instead, which is the axis an atmospheric term ought to follow:
+
+| altitude | fields | stars | total | floor | structure |
+|---|---|---|---|---|---|
+| below 7.5° | 3 | 258 | 0.787 ″ | 0.819 ″ | 0.000 ″ |
+| 7.5–12.0° | 4 | 569 | 1.228 ″ | 0.912 ″ | 0.823 ″ |
+| above 12.0° | 1 | 935 | 0.142 ″ | 0.078 ″ | 0.119 ″ |
+
+**There is no clean altitude trend, and the reason is that star count confounds it.** The
+7.5–12° row is the highest of the three only because it contains both twilight fields; the
+5.5° row is *lower* than it. Altitude and depth are anti-correlated in this dataset — the
+fields nearest the eclipse geometry are the ones shot in twilight — so this window cannot
+separate the two. The table is kept as the honest negative.
 
 **Read the star-count column, not the altitude column.** Every construction with enough stars
 to test the question returns 0.06–0.25 ″ and **no resolved structure**; every construction
@@ -1523,7 +1596,10 @@ seeing the answers, but it is a split made after the fact and should be read as 
 **The term, provisionally: ±0.25 ″** — the total on the fields that can measure it, quoted
 without subtracting the floor as the matrix requires. It sits between Station 1's ±0.11 ″ and
 León's ±0.33 ″, which is where a 9–10° site belongs. The only resolved structure measurement
-anywhere in the window is **0.117 ″ at 15° on 653 stars**.
+anywhere in either window is **0.119 ″ at 15° on 935 stars** (0.142 ″ total against a 0.078 ″
+floor, 1.8 σ). The number did not move when the four extra pointing-B and pointing-C fields
+landed, which is the best evidence available that ±0.25 ″ is not an artefact of which fields
+happened to solve.
 
 **And a warning against double-counting.** The 63-star column is ~0.5 ″ everywhere, but that
 is sampling noise, not atmosphere: at the union's own star count the residual field is sparsely
@@ -1531,9 +1607,8 @@ sampled, and that is the same quantity as the union's ±0.430 ″ statistical er
 a systematic would charge it twice. Unlike every other cell in the matrix, cell 4's null floor
 **exceeds** its null total, because a 1 s exposure through six air masses is photon-starved.
 
-Still to land: deep re-stacks of the four remaining `10 deg` captures, of which `23_44_06`
-(685 stars at the zenith preset, the 15° pointing) will give the best structure measurement in
-the dataset. `22_53_15` does not solve at either detection setting.
+Every horizon capture in both windows has now been reduced at both detection settings, except
+`22_53_15`, which does not solve at either. Nothing in the window is left to run.
 
 ### The pathway of record under-reads a 1/r deflection by 14 %
 

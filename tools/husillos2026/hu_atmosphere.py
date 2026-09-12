@@ -60,6 +60,7 @@ import os
 import re
 import subprocess
 import sys
+import zlib
 
 import numpy as np
 import pandas as pd
@@ -146,6 +147,18 @@ def sep_deg(j1, j2):
     return float(np.degrees(np.arccos(np.clip(c, -1, 1))))
 
 
+def field_rng(label):
+    """A random stream keyed to the FIELD, not to its position in the run.
+
+    The first version drew the bootstrap floor and the 63-star subsample from one rng shared
+    by every field, so adding a capture to the run advanced the stream and changed the floors
+    already reported for the others -- the same 145-star pair read 0.641 " in one run and
+    0.773 " in the next with identical input.  `zlib.crc32`, not `hash()`: Python salts
+    string hashing per process, so `hash()` is not stable between runs either.
+    """
+    return np.random.default_rng(zlib.crc32(label.encode()) ^ 11)
+
+
 def null_from(path, rng):
     """Impose the Sun on a residual table, apply the cell's cuts, run the estimators."""
     d = pd.read_csv(path)
@@ -164,9 +177,13 @@ def null_from(path, rng):
     Lb = fit_L(dx, dy, px, py, rx, ry, R)
     Ls = fit_L(dx, dy, px, py, rx, ry, R, scale=True)
     Lv = fit_L(dx, dy, px, py, rx, ry, R, nuis_deg=2)
+    # 300 draws, not 60.  At 60 the standard error on a standard deviation is ~9 %, and the
+    # same 174-star field read 0.407 " and 0.522 " under two different seeds -- a 28 % swing
+    # that would have been reported as a floor.  The floor decides whether a null is
+    # structure or photon noise, so it has to be quieter than the thing it is judging.
     floor = float(np.std([fit_L(dx + rng.normal(0, err / np.sqrt(2)),
                                 dy + rng.normal(0, err / np.sqrt(2)),
-                                px, py, rx, ry, R, scale=True) for _ in range(60)], ddof=1))
+                                px, py, rx, ry, R, scale=True) for _ in range(300)], ddof=1))
     sub = []
     for _ in range(200):
         i = rng.choice(len(px), min(N_UNION, len(px)), replace=False)
@@ -254,7 +271,7 @@ def run_variant(v, vname, rng):
              '63-star', ''))
     zrows = []
     for s_ in solved:
-        r = null_from(s_['resid'], rng) if s_['resid'] else None
+        r = null_from(s_['resid'], field_rng('z' + v + s_['tag'])) if s_['resid'] else None
         if r is None:
             print('%-14s %6.2f   too few stars after the cuts' % (s_['tag'], s_['alt']))
             continue
@@ -303,7 +320,7 @@ def run_variant(v, vname, rng):
             label = 's2%s_%s_vs_%s' % (v, fld['tag'], ref['tag'])
             path = refit_constant(label, fld['s1zip'], ref['res'],
                                   midtime(fld['folder'], fld['name']))
-            r = null_from(path, rng) if path else None
+            r = null_from(path, field_rng(label)) if path else None
             if r is None:
                 print('   %-14s vs %-14s  constant-only refit gave no usable residuals'
                       % (fld['tag'], ref['tag']))
@@ -328,9 +345,35 @@ def run_variant(v, vname, rng):
     return Z, P
 
 
+def by_altitude(Z):
+    """The field-to-zenith null against altitude, which is the physical axis.
+
+    The 7.5-12 deg band exists to select fields comparable to the eclipse; it hides the trend.
+    Grouping every solved field by altitude shows whether the null grows toward the horizon,
+    which is the one thing an atmospheric term ought to do.
+    """
+    print()
+    print('FIELD-TO-ZENITH AGAINST ALTITUDE (every solved field, band membership ignored)')
+    print('   %-18s %7s %8s %9s %9s %11s' % ('altitude', 'fields', 'stars', 'total (")',
+                                             'floor (")', 'structure'))
+    for lab, lo, hi in (('below %.1f deg' % ALT_LO, 0.0, ALT_LO),
+                        ('%.1f-%.1f deg' % (ALT_LO, ALT_HI), ALT_LO, ALT_HI),
+                        ('above %.1f deg' % ALT_HI, ALT_HI, 90.0)):
+        g = Z[(Z.alt >= lo) & (Z.alt < hi)]
+        if not len(g):
+            continue
+        tot = np.sqrt(np.mean(g.L_scale.values ** 2))
+        fl = np.sqrt(np.mean(g.floor.values ** 2))
+        print('   %-18s %7d %8d %9.3f %9.3f %11.3f'
+              % (lab, len(g), int(g.n.sum()), tot, fl,
+                 np.sqrt(max(0.0, tot ** 2 - fl ** 2))))
+    print('   (the cell\'s estimator; every field, including those excluded from the averages')
+    print('   above for thin solves, because the trend is the point and the floor is shown)')
+
+
 def main():
     os.makedirs(NULLS, exist_ok=True)
-    rng = np.random.default_rng(11)
+    rng = None
     Zs, Ps = [], []
     for v, vname in VARIANTS:
         Z, P = run_variant(v, vname, rng)
@@ -340,7 +383,10 @@ def main():
             Ps.append(P)
         print()
     if Zs:
-        pd.concat(Zs).to_csv(os.path.join(OUT, 'horizon_nulls_zenith.csv'), index=False)
+        Z = pd.concat(Zs)
+        Z.to_csv(os.path.join(OUT, 'horizon_nulls_zenith.csv'), index=False)
+        deepest = Z[Z.variant.str.startswith('deep')]
+        by_altitude(deepest if len(deepest) else Z)
     if Ps:
         pd.concat(Ps).to_csv(os.path.join(OUT, 'horizon_nulls_pairs.csv'), index=False)
     print('Leon carries +-0.33 " (v-deg2, horizon nights), Station 1 +-0.11 " (zenith nulls),')
