@@ -74,14 +74,16 @@ CAPTURES = {
     'calibs': dict(name='calibs', label='CalibS', src=os.path.join(HUS, 'calibs', 's1_calibs_ecl'),
                    s2=os.path.join(HUS, 'calibs', 's2_calibs_ecl'), dt=0.3153, slew_deg=10.17,
                    gap_note='Frame 1 began 3.156 s after the last gain-0 coronal frame;\nthe '
-                            '10.17° slew from the Sun completed inside that gap. '),
+                            '10.17° slew from the Sun completed inside that gap. ',
+                   axis_note='The slew from the Sun was 10.17°, mostly in RA. Each component fitted alone with a pure exponential; the rate over the last 5 s\nis measured, not fitted. Dec is at the tracking floor by 20 s; RA is still creeping at 25 s.'),
     'h10_g125d': dict(name='h10_g125d', label='23_44_06',
                       src=os.path.join(HUS, 'horizon', 's1d_h10_g125d'),
                       s2=os.path.join(HUS, 'horizon', 's2d_h10_g125d'), dt=1.3163, slew_deg=14.3,
                       gap_s=18.5,
                       gap_note='The 14.3° slew (pointing B → C, almost all in Dec)\nbegan at '
                                '21:43:45.6 by 23_42_43\u2019s own frames; frame 1 opened 21.4 s '
-                               'later, ~18–19 s after the mount stopped.'),
+                               'later, ~18–19 s after the mount stopped.',
+                      axis_note='First capture after the 14.3° slew from pointing B to C, almost all in Dec; frame 1 opened 21.4 s after the slew began,\n~18–19 s after the mount stopped. Neither component has an exponential to fit: both are lines at the tracking floor from frame 1.'),
 }
 #: the CalibS displacement fits, carried so 23_44_06 can be drawn against their predictions
 CALIBS_FITS = dict(pure=(50.10, 7.29), drift=(33.94, 4.59, 0.667))
@@ -136,52 +138,70 @@ TRACKING_FLOOR_DEC = 2.5 / 60.0     # arcsec per second
 
 
 def chart_by_axis(c):
-    """Douglas, 2026-09-13: "Plot the CalibS drift split by RA and Dec axis."  The two sky
-    components of the same 81 shifts, each with its own pure-exponential fit, and the mount's
-    Dec tracking floor drawn as the slope a settled axis would show."""
+    """Douglas, 2026-09-13: "Plot the CalibS drift split by RA and Dec axis."  2026-09-14: "Let's
+    do the RA and DEC drift for the 23_44_06 field."  The two sky components of a capture's
+    alignment shifts on one time axis, each fitted alone -- a pure exponential where the data
+    constrain one, a straight line where they do not (the 1-sigma error on tau exceeding tau
+    is the test; 23_44_06's components are lines) -- with the mount's Dec tracking floor drawn
+    as the slope a settled axis shows, both signs, since a Dec drift can run either way."""
     tt, comps = axis_components(c['src'], c['s2'], c['dt'])
     fig, ax, axr = figure()
     tf = np.linspace(0, tt[-1], 400)
     late = tt >= tt[-1] - 5.0
     ends = {}
     for (lab, y), col, short in zip(comps.items(), (S1, S2), ('RA', 'Dec')):
-        p, cov = curve_fit(m1, tt, y, p0=(0.9 * y[-1], 8))
-        e = np.sqrt(np.diag(cov))
-        res = y - m1(tt, *p)
         v_late = np.polyfit(tt[late], y[late], 1)[0]
+        model = None
+        try:
+            p, cov = curve_fit(m1, tt, y, p0=(0.9 * y[-1] if abs(y[-1]) > 1 else 1.0, 8),
+                               maxfev=20000)
+            e = np.sqrt(np.diag(cov))
+            if np.isfinite(e[1]) and e[1] < p[1]:
+                model = ('exp', p, e)
+        except Exception:                                           # noqa: BLE001
+            model = None
+        if model:
+            _, p, e = model
+            fit_y, fit_f = m1(tt, *p), m1(tf, *p)
+            desc = 'τ = %.1f ± %.1f s' % (p[1], e[1])
+        else:
+            lin = np.polyfit(tt, y, 1)
+            fit_y, fit_f = np.polyval(lin, tt), np.polyval(lin, tf)
+            desc = 'no exponential to fit: a line at %+.1f ″/min' % (lin[0] * 60)
+        res = y - fit_y
         ax.plot(tt, y, 'o', ms=5, color=col, markeredgecolor=SURFACE, markeredgewidth=1.2,
                 zorder=3)
-        ax.plot(tf, m1(tf, *p), '-', lw=2, color=col, solid_capstyle='round', zorder=4,
-                label='%s:  %+.1f ″ total,  τ = %.1f ± %.1f s,  last 5 s %+.0f ″/min'
-                      % (lab, y[-1], p[1], e[1], v_late * 60))
+        ax.plot(tf, fit_f, '-', lw=2, color=col, solid_capstyle='round', zorder=4,
+                label='%s:  %+.1f ″ total,  %s,  last 5 s %+.0f ″/min'
+                      % (lab, y[-1], desc, v_late * 60))
         axr.plot(tt, res, 'o', ms=4.5, color=col, markeredgecolor=SURFACE, markeredgewidth=1.0,
                  label='%s residual, rms %.2f ″' % (short, res.std()))
         ends[short] = y[-1]
-    # the tracking floor, as a slope from the origin: what a settled axis does
-    ax.plot(tf, TRACKING_FLOOR_DEC * tf, '-', lw=1, color=INK2, alpha=0.7, zorder=2,
-            label='the AM5 tracking floor: %.1f ″/min, the drift of a settled axis'
-                  % (TRACKING_FLOOR_DEC * 60))
-    tcut = (SETTLED_FIRST - 1) * c['dt']
-    for a in (ax, axr):
-        a.axvline(tcut, color=INK2, lw=1, alpha=0.6)
-    ax.text(tcut + 0.25, 2.0, 'settled stack begins\n(frame %d, %.1f s)' % (SETTLED_FIRST, tcut),
-            color=INK2, fontsize=9, va='bottom')
+    # the tracking floor, both signs, as slopes from the origin: what a settled axis does
+    for sign, lab in ((+1, 'the AM5 tracking floor: ±%.1f ″/min, the drift of a settled axis'
+                       % (TRACKING_FLOOR_DEC * 60)), (-1, None)):
+        ax.plot(tf, sign * TRACKING_FLOOR_DEC * tf, '-', lw=1, color=INK2, alpha=0.7,
+                zorder=2, label=lab)
+    if c['name'] == 'calibs':
+        tcut = (SETTLED_FIRST - 1) * c['dt']
+        for a_ in (ax, axr):
+            a_.axvline(tcut, color=INK2, lw=1, alpha=0.6)
+        ax.text(tcut + 0.25, 2.0, 'settled stack begins\n(frame %d, %.1f s)'
+                % (SETTLED_FIRST, tcut), color=INK2, fontsize=9, va='bottom')
     for short, y_end in ends.items():
-        ax.text(tt[-1] + 0.3, y_end, short, color=INK2, fontsize=9, va='center')
+        ax.text(tt[-1] + 0.02 * tt[-1], y_end, short, color=INK2, fontsize=9, va='center')
     ax.set_ylabel('displacement on the sky (″)\n1 px = %.4f ″' % PS, color=INK, fontsize=10.5)
-    # upper left: the only corner the two curves and the floor line leave empty
+    # upper left: the only corner the curves and the floor lines leave empty
     ax.legend(loc='upper left', fontsize=9.5, frameon=False, labelcolor=INK)
-    ax.set_xlim(-0.5, tt[-1] + 3.0)
-    ax.set_title('CalibS: the same settle, split into its RA and Dec components\n'
-                 'Stage-1 alignment record of frames 1–81 (`s1_calibs_ecl`), resolved onto the '
-                 'sky through the affine of the capture’s own\nmatched stars. The slew from '
-                 'the Sun was %.2f°, mostly in RA. Each component fitted alone with a pure '
-                 'exponential;\nthe rate over the last 5 s is measured, not fitted. Dec is at the '
-                 'tracking floor by 20 s; RA is still creeping at 25 s.' % c['slew_deg'],
+    ax.set_xlim(-0.02 * tt[-1], tt[-1] * 1.12)
+    ax.set_title('%s: the drift split into its RA and Dec components\n' % c['label']
+                 + 'Stage-1 alignment record (%s), resolved onto the sky through the affine of '
+                 'the capture\u2019s own matched stars.\n' % os.path.basename(c['src'])
+                 + c['axis_note'],
                  fontsize=10.5, color=INK, loc='left')
     axr.axhline(0, color=INK2, lw=1)
     axr.set_ylabel('residual (″)', color=INK, fontsize=10.5)
-    axr.set_xlabel('time from CalibS frame 1 (s)', color=INK, fontsize=10.5)
+    axr.set_xlabel('time from %s frame 1 (s)' % c['label'], color=INK, fontsize=10.5)
     axr.legend(loc='upper right', fontsize=9, frameon=False, ncol=2, labelcolor=INK)
     fig.subplots_adjust(left=0.09, right=0.98, top=0.83, bottom=0.09)
     return fig

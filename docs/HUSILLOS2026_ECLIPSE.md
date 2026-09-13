@@ -1061,6 +1061,20 @@ frames per axis (`hu_settle_chart.py` prints it):
 draws the two components on one time axis, each with its own pure-exponential fit and the
 2.5 ″/min tracking floor as the slope a settled axis would show.
 
+**`h10_g125d_settling_by_axis.png`** is `23_44_06` drawn the same way (Douglas, 2026-09-14).
+Neither component has an exponential to fit — the tool falls back to a line when the
+1 σ error on τ exceeds τ — and the lines are the floor itself:
+
+| `23_44_06`, per sky axis | total over 63 s | linear rate | residual rms |
+|---|---|---|---|
+| RA·cos δ | −0.5 ″ | +1.1 ″/min | 0.59 ″ |
+| Dec | −2.8 ″ | **−2.7 ″/min** | 0.35 ″ |
+
+Dec runs down the −2.5 ″/min floor line from frame 1; RA is flat to a slow ±1 ″ wander over
+the minute, which is the RA drive's periodic error at a level nothing here needs to resolve.
+Put beside the CalibS chart it is the same two axes in their finished state: Dec at the floor,
+RA at rest — where 18 s earlier, after a slew that moved the RA axis, RA had not been.
+
 **The Dec axis was at the tracking floor by 20 s in CalibS too** — 3 ″/min against the mount's
 2.5 ″/min Dec drift — exactly as `23_44_06` shows for its Dec-only slew. What was still moving
 at 25 s in CalibS was the **RA axis**, at 31 ″/min, and `23_44_06` never exercised the RA axis
