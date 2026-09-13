@@ -986,6 +986,42 @@ zero is arbitrary, and the rate does not care where the clock started:
 
 > **τ = 9.2 s** after a 10.2° slew (15 windows, r = −0.90). **27 s to 5 %**, 42 s to 1 %.
 
+*(2026-09-13, on Douglas revisiting the settling question.)* The same 81-frame displacement
+admits a second description, and the record should carry both. Fitted as **exponential plus a
+steady drift** — the settle riding on tracking error — it gives **A = 33.9 ± 1.6 ″, τ = 4.6 ±
+0.3 s, drift 0.67 ± 0.07 ″/s (40 ″/min)**, residual 1.25 ″ rms (frame-to-frame image motion at
+8.8°). The two fits agree on what matters and differ on what a 25 s capture cannot settle:
+
+| | pure exponential (the record) | exponential + drift |
+|---|---|---|
+| velocity at frame 1 | 5.5 ″/s | 8.1 ″/s |
+| smear inside the first 0.315 s exposure | 0.8 px | 1.15 px |
+| velocity at frame 20 (6.3 s) | 3.8 ″/s | 2.5 ″/s |
+| velocity at 20 s | 0.6 ″/s | 0.76 ″/s (0.67 of it drift) |
+| what the frames-21–81 stack still carries of the settle | 15 ″ | 8.5 of its 20 ″ |
+
+A 10.17° slew at 6 °/s moves 6810 ″ in one exposure; frame 1 moved ~2.5 ″. **The mount was
+not slewing at frame 1 under either model; it was settling.** The 40 ″/min steady term is
+suspect: the AM5 tracks at 2.5 ″/min overhead (§HUSILLOS2026_ZENITH) and refraction adds ~8
+″/min at 8.8°, so ~10 ″/min is what a settled mount should show here, and the excess is more
+plausibly a slower settling component that a 25 s record cannot separate from drift. The
+recommendation is the same under both: **wait ~30 s after a ~10° slew.** No other capture in
+the campaign is a clean second measurement — `23_44_06` began ~20 s after a 9° slew and its
+first frames move at 0.2 ″/s, consistent with both models, and the 14-frame `23_40_27` that
+sits right after the slew to pointing B turns out to be untracked (8.07 px/frame, sidereal),
+which dates the tracking switch-on to the 17 s between 21:40:45 and 21:41:02 (§3w) and makes
+it useless for settling.
+
+Two plots carry the settling and they are not the same. `s1_calibs_ecl_settled`'s
+`TWOD_RESIDUALS20260911160647.png` is the frames-21–81 stack and shows only the **tail**: 8.6 px
+(19 ″) over 19 s. The full settle is in `s1_calibs_ecl`'s `TWOD_RESIDUALS20260911025309.png`,
+frames 1–81: 22.5 px (49.6 ″) over 25 s, the curve visibly decelerating. Against the León AVX
+zenith captures (`f16_zenith_test`, 30 × 4 s): 1.7–16.6 px over 128 s, i.e. 2.6–17 ″/min
+steady, varying capture to capture with the worm phase. The settled-tail plot looks quieter
+than an AVX plot only because it spans 19 s against 128; per unit time the AM5's settling tail
+(60 ″/min) is four times the AVX's periodic error, and the AM5's settled tracking (2.5 ″/min)
+is six times better.
+
 Peak rate 19.4 ″/s, **470×** the AM5's ordinary 2.48 ″/min tracking drift. What it costs a
 0.315 s exposure against a ~1.6 px PSF:
 
