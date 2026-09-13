@@ -164,18 +164,19 @@ def chart_by_axis(c):
     tcut = (SETTLED_FIRST - 1) * c['dt']
     for a in (ax, axr):
         a.axvline(tcut, color=INK2, lw=1, alpha=0.6)
-    ax.text(tcut + 0.25, 27.5, 'settled stack begins\n(frame %d, %.1f s)' % (SETTLED_FIRST, tcut),
+    ax.text(tcut + 0.25, 2.0, 'settled stack begins\n(frame %d, %.1f s)' % (SETTLED_FIRST, tcut),
             color=INK2, fontsize=9, va='bottom')
     for short, y_end in ends.items():
         ax.text(tt[-1] + 0.3, y_end, short, color=INK2, fontsize=9, va='center')
     ax.set_ylabel('displacement on the sky (″)\n1 px = %.4f ″' % PS, color=INK, fontsize=10.5)
-    ax.legend(loc='lower right', fontsize=9.5, frameon=False, labelcolor=INK)
+    # upper left: the only corner the two curves and the floor line leave empty
+    ax.legend(loc='upper left', fontsize=9.5, frameon=False, labelcolor=INK)
     ax.set_xlim(-0.5, tt[-1] + 3.0)
     ax.set_title('CalibS: the same settle, split into its RA and Dec components\n'
                  'Stage-1 alignment record of frames 1–81 (`s1_calibs_ecl`), resolved onto the '
-                 'sky through the affine of the capture’s own matched stars.\nThe slew from '
+                 'sky through the affine of the capture’s own\nmatched stars. The slew from '
                  'the Sun was %.2f°, mostly in RA. Each component fitted alone with a pure '
-                 'exponential; the rate over the last 5 s is\nmeasured, not fitted. Dec is at the '
+                 'exponential;\nthe rate over the last 5 s is measured, not fitted. Dec is at the '
                  'tracking floor by 20 s; RA is still creeping at 25 s.' % c['slew_deg'],
                  fontsize=10.5, color=INK, loc='left')
     axr.axhline(0, color=INK2, lw=1)
