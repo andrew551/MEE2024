@@ -1057,6 +1057,10 @@ frames per axis (`hu_settle_chart.py` prints it):
 | RA·cos δ | 43.2 ″ | 7.7 ± 0.2 s | 4.24 ″/s | **0.51 ″/s = 31 ″/min** |
 | Dec | 24.5 ″ | 6.0 ± 0.4 s | 3.66 ″/s | **0.05 ″/s = 3 ″/min** |
 
+**`calibs_settling_by_axis.png`** (`hu_settle_chart.py --capture calibs --by-axis`, in RECORD)
+draws the two components on one time axis, each with its own pure-exponential fit and the
+2.5 ″/min tracking floor as the slope a settled axis would show.
+
 **The Dec axis was at the tracking floor by 20 s in CalibS too** — 3 ″/min against the mount's
 2.5 ″/min Dec drift — exactly as `23_44_06` shows for its Dec-only slew. What was still moving
 at 25 s in CalibS was the **RA axis**, at 31 ″/min, and `23_44_06` never exercised the RA axis

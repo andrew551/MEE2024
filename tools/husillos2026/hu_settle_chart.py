@@ -103,18 +103,12 @@ def displacement(src, dt):
     return np.arange(len(s)) * dt, along, float(np.hypot(*perp.T).std() * PS)
 
 
-def by_axis(src, s2dir, dt):
-    """The same drift resolved into RA and Dec on the sky, each fitted alone.
+def axis_components(src, s2dir, dt):
+    """The alignment drift resolved onto the sky: (time, {'RA*cos(dec)': arcsec, 'Dec': arcsec}).
 
-    Douglas, 2026-09-13: "So do the last two charts agree with each other or not?"  At face
-    value no -- CalibS is still moving at ~36 "/min 20-25 s after its slew and 23_44_06 is at
-    the 2.5 "/min tracking floor 18 s after its.  Split by axis they agree: the AM5's steady
-    drift is in Dec and nil in RA; CalibS' Dec component is at that floor by 20 s exactly as
-    23_44_06's Dec-only slew is, and what is still creeping at 25 s in CalibS is the RA axis,
-    which 23_44_06 never exercised.  The sky frame is the affine of the capture's own matched
-    stars (its stage-2 CATALOGUE_MATCHED_ERRORS), the same construction record_charts.SkyFrame
-    uses; done inline here because only the two direction vectors are needed.
-    """
+    The sky frame is the affine of the capture's own matched stars (its stage-2
+    CATALOGUE_MATCHED_ERRORS), the construction record_charts.SkyFrame uses; inline because
+    only the two direction vectors are needed."""
     z = glob.glob(os.path.join(src, 'centroid_data*.zip'))[0]
     r = json.load(io.TextIOWrapper(zipfile.ZipFile(z).open('results.txt'), encoding='utf-8',
                                    errors='replace'))
@@ -133,9 +127,80 @@ def by_axis(src, s2dir, dt):
     cd, *_ = np.linalg.lstsq(X, (de - de.mean()) * 3600, rcond=None)
     comps = {'RA*cos(dec)': ca[0] * d[:, 0] + ca[1] * d[:, 1],
              'Dec': cd[0] * d[:, 0] + cd[1] * d[:, 1]}
-    tt = np.arange(len(s)) * dt
+    return np.arange(len(s)) * dt, comps
+
+
+#: the AM5's steady drift with tracking on, measured at the zenith (2.48 "/min) and again on
+#: 23_44_06 at 15 deg (2.5 "/min), both in DECLINATION and nil in RA -- record section 3n
+TRACKING_FLOOR_DEC = 2.5 / 60.0     # arcsec per second
+
+
+def chart_by_axis(c):
+    """Douglas, 2026-09-13: "Plot the CalibS drift split by RA and Dec axis."  The two sky
+    components of the same 81 shifts, each with its own pure-exponential fit, and the mount's
+    Dec tracking floor drawn as the slope a settled axis would show."""
+    tt, comps = axis_components(c['src'], c['s2'], c['dt'])
+    fig, ax, axr = figure()
+    tf = np.linspace(0, tt[-1], 400)
     late = tt >= tt[-1] - 5.0
-    print('drift resolved onto the sky, per axis (%d frames, %.1f s):' % (len(s), tt[-1]))
+    ends = {}
+    for (lab, y), col, short in zip(comps.items(), (S1, S2), ('RA', 'Dec')):
+        p, cov = curve_fit(m1, tt, y, p0=(0.9 * y[-1], 8))
+        e = np.sqrt(np.diag(cov))
+        res = y - m1(tt, *p)
+        v_late = np.polyfit(tt[late], y[late], 1)[0]
+        ax.plot(tt, y, 'o', ms=5, color=col, markeredgecolor=SURFACE, markeredgewidth=1.2,
+                zorder=3)
+        ax.plot(tf, m1(tf, *p), '-', lw=2, color=col, solid_capstyle='round', zorder=4,
+                label='%s:  %+.1f ″ total,  τ = %.1f ± %.1f s,  last 5 s %+.0f ″/min'
+                      % (lab, y[-1], p[1], e[1], v_late * 60))
+        axr.plot(tt, res, 'o', ms=4.5, color=col, markeredgecolor=SURFACE, markeredgewidth=1.0,
+                 label='%s residual, rms %.2f ″' % (short, res.std()))
+        ends[short] = y[-1]
+    # the tracking floor, as a slope from the origin: what a settled axis does
+    ax.plot(tf, TRACKING_FLOOR_DEC * tf, '-', lw=1, color=INK2, alpha=0.7, zorder=2,
+            label='the AM5 tracking floor: %.1f ″/min, the drift of a settled axis'
+                  % (TRACKING_FLOOR_DEC * 60))
+    tcut = (SETTLED_FIRST - 1) * c['dt']
+    for a in (ax, axr):
+        a.axvline(tcut, color=INK2, lw=1, alpha=0.6)
+    ax.text(tcut + 0.25, 27.5, 'settled stack begins\n(frame %d, %.1f s)' % (SETTLED_FIRST, tcut),
+            color=INK2, fontsize=9, va='bottom')
+    for short, y_end in ends.items():
+        ax.text(tt[-1] + 0.3, y_end, short, color=INK2, fontsize=9, va='center')
+    ax.set_ylabel('displacement on the sky (″)\n1 px = %.4f ″' % PS, color=INK, fontsize=10.5)
+    ax.legend(loc='lower right', fontsize=9.5, frameon=False, labelcolor=INK)
+    ax.set_xlim(-0.5, tt[-1] + 3.0)
+    ax.set_title('CalibS: the same settle, split into its RA and Dec components\n'
+                 'Stage-1 alignment record of frames 1–81 (`s1_calibs_ecl`), resolved onto the '
+                 'sky through the affine of the capture’s own matched stars.\nThe slew from '
+                 'the Sun was %.2f°, mostly in RA. Each component fitted alone with a pure '
+                 'exponential; the rate over the last 5 s is\nmeasured, not fitted. Dec is at the '
+                 'tracking floor by 20 s; RA is still creeping at 25 s.' % c['slew_deg'],
+                 fontsize=10.5, color=INK, loc='left')
+    axr.axhline(0, color=INK2, lw=1)
+    axr.set_ylabel('residual (″)', color=INK, fontsize=10.5)
+    axr.set_xlabel('time from CalibS frame 1 (s)', color=INK, fontsize=10.5)
+    axr.legend(loc='upper right', fontsize=9, frameon=False, ncol=2, labelcolor=INK)
+    fig.subplots_adjust(left=0.09, right=0.98, top=0.83, bottom=0.09)
+    return fig
+
+
+def by_axis(src, s2dir, dt):
+    """The same drift resolved into RA and Dec on the sky, each fitted alone.
+
+    Douglas, 2026-09-13: "So do the last two charts agree with each other or not?"  At face
+    value no -- CalibS is still moving at ~36 "/min 20-25 s after its slew and 23_44_06 is at
+    the 2.5 "/min tracking floor 18 s after its.  Split by axis they agree: the AM5's steady
+    drift is in Dec and nil in RA; CalibS' Dec component is at that floor by 20 s exactly as
+    23_44_06's Dec-only slew is, and what is still creeping at 25 s in CalibS is the RA axis,
+    which 23_44_06 never exercised.  The sky frame is the affine of the capture's own matched
+    stars (its stage-2 CATALOGUE_MATCHED_ERRORS), the same construction record_charts.SkyFrame
+    uses; done inline here because only the two direction vectors are needed.
+    """
+    tt, comps = axis_components(src, s2dir, dt)
+    late = tt >= tt[-1] - 5.0
+    print('drift resolved onto the sky, per axis (%d frames, %.1f s):' % (len(tt), tt[-1]))
     for lab, y in comps.items():
         try:
             p, cov = curve_fit(m1, tt, y, p0=(0.9 * y[-1] if abs(y[-1]) > 1 else 1.0, 8))
@@ -291,11 +356,16 @@ def chart_after_slew(c):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--capture', default='calibs', choices=sorted(CAPTURES))
+    ap.add_argument('--by-axis', action='store_true',
+                    help='draw the RA and Dec components separately instead of the total')
     a = ap.parse_args()
     c = CAPTURES[a.capture]
-    fig = chart_calibs(c) if a.capture == 'calibs' else chart_after_slew(c)
+    if a.by_axis:
+        fig = chart_by_axis(c)
+    else:
+        fig = chart_calibs(c) if a.capture == 'calibs' else chart_after_slew(c)
     by_axis(c['src'], c['s2'], c['dt'])
-    name = '%s_settling.png' % c['name']
+    name = '%s_settling%s.png' % (c['name'], '_by_axis' if a.by_axis else '')
     ChartWriter(OUT, REV).save(fig, name)
     hu_record.publish([name], OUT)
 
