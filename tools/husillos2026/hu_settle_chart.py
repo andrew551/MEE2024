@@ -137,7 +137,7 @@ def main():
     ax.set_title('CalibS: the AM5 settling after the %.2f° slew from the Sun\n' % SLEW_DEG
                  + 'Stage-1 alignment record of frames 1–81 (`s1_calibs_ecl`). Frame 1 began '
                  '%.3f s after the last gain-0 coronal frame;\nthe slew completed inside that '
-                 'gap. Perpendicular scatter %.2f ″ rms. The record\'s τ = %.1f s (§3n) was '
+                 'gap. Perpendicular scatter %.2f ″ rms.\nThe record\'s τ = %.1f s (§3n) was '
                  'fitted on the rate, not the displacement.' % (GAP_S, perp_rms, TAU_RECORD),
                  fontsize=10.5, color=INK, loc='left')
     # residuals
@@ -149,7 +149,7 @@ def main():
     axr.set_ylabel('residual (″)', color=INK, fontsize=10.5)
     axr.set_xlabel('time from CalibS frame 1 (s)', color=INK, fontsize=10.5)
     axr.legend(loc='upper right', fontsize=9, frameon=False, ncol=2, labelcolor=INK)
-    fig.subplots_adjust(left=0.09, right=0.98, top=0.85, bottom=0.09)
+    fig.subplots_adjust(left=0.09, right=0.98, top=0.83, bottom=0.09)
     ChartWriter(OUT, REV).save(fig, 'calibs_settling.png')
     hu_record.publish(['calibs_settling.png'], OUT)
 
