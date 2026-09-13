@@ -1000,6 +1000,15 @@ steady drift** — the settle riding on tracking error — it gives **A = 33.9 �
 | velocity at 20 s | 0.6 ″/s | 0.76 ″/s (0.67 of it drift) |
 | what the frames-21–81 stack still carries of the settle | 15 ″ | 8.5 of its 20 ″ |
 
+**`calibs_settling.png`** (`tools/husillos2026/hu_settle_chart.py`, in RECORD) draws the 81
+points with both fits and their residuals. Fitted on the *displacement* rather than the rate,
+the pure exponential returns **τ = 7.3 ± 0.2 s, A = 50.1 ″** (residual 1.58 ″ rms) against the
+exponential-plus-drift's 4.6 s (1.25 ″ rms), so the record's rate-based 9.2 s is the upper end
+of three estimators that all say the same thing at the scale that matters. The residual panel
+shows what neither model has: a **+3 to +5 ″ overshoot at 4–5.5 s** (frames 13–18) that
+decays within two seconds — a single damped oscillation on top of the exponential creep, the
+signature of a strain-wave drive coming to rest.
+
 A 10.17° slew at 6 °/s moves 6810 ″ in one exposure; frame 1 moved ~2.5 ″. **The mount was
 not slewing at frame 1 under either model; it was settling.** The 40 ″/min steady term is
 suspect: the AM5 tracks at 2.5 ″/min overhead (§HUSILLOS2026_ZENITH) and refraction adds ~8
