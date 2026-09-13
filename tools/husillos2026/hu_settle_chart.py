@@ -72,11 +72,12 @@ SETTLED_FIRST = 21          # first frame of the settled CalibS stack (hu_calibs
 
 CAPTURES = {
     'calibs': dict(name='calibs', label='CalibS', src=os.path.join(HUS, 'calibs', 's1_calibs_ecl'),
-                   dt=0.3153, slew_deg=10.17,
+                   s2=os.path.join(HUS, 'calibs', 's2_calibs_ecl'), dt=0.3153, slew_deg=10.17,
                    gap_note='Frame 1 began 3.156 s after the last gain-0 coronal frame;\nthe '
                             '10.17° slew from the Sun completed inside that gap. '),
     'h10_g125d': dict(name='h10_g125d', label='23_44_06',
-                      src=os.path.join(HUS, 'horizon', 's1d_h10_g125d'), dt=1.3163, slew_deg=14.3,
+                      src=os.path.join(HUS, 'horizon', 's1d_h10_g125d'),
+                      s2=os.path.join(HUS, 'horizon', 's2d_h10_g125d'), dt=1.3163, slew_deg=14.3,
                       gap_s=18.5,
                       gap_note='The 14.3° slew (pointing B → C, almost all in Dec)\nbegan at '
                                '21:43:45.6 by 23_42_43\u2019s own frames; frame 1 opened 21.4 s '
@@ -100,6 +101,52 @@ def displacement(src, dt):
     along = d @ u * PS
     perp = d - np.outer(d @ u, u)
     return np.arange(len(s)) * dt, along, float(np.hypot(*perp.T).std() * PS)
+
+
+def by_axis(src, s2dir, dt):
+    """The same drift resolved into RA and Dec on the sky, each fitted alone.
+
+    Douglas, 2026-09-13: "So do the last two charts agree with each other or not?"  At face
+    value no -- CalibS is still moving at ~36 "/min 20-25 s after its slew and 23_44_06 is at
+    the 2.5 "/min tracking floor 18 s after its.  Split by axis they agree: the AM5's steady
+    drift is in Dec and nil in RA; CalibS' Dec component is at that floor by 20 s exactly as
+    23_44_06's Dec-only slew is, and what is still creeping at 25 s in CalibS is the RA axis,
+    which 23_44_06 never exercised.  The sky frame is the affine of the capture's own matched
+    stars (its stage-2 CATALOGUE_MATCHED_ERRORS), the same construction record_charts.SkyFrame
+    uses; done inline here because only the two direction vectors are needed.
+    """
+    z = glob.glob(os.path.join(src, 'centroid_data*.zip'))[0]
+    r = json.load(io.TextIOWrapper(zipfile.ZipFile(z).open('results.txt'), encoding='utf-8',
+                                   errors='replace'))
+    s = np.array(r['alignment']['shifts_px'], float)
+    d = s - s[0]
+    zz = glob.glob(os.path.join(s2dir, '**', 'distortion_data*.zip'), recursive=True)[0]
+    zf = zipfile.ZipFile(zz)
+    n = [x for x in zf.namelist() if x.endswith('CATALOGUE_MATCHED_ERRORS.csv')][0]
+    import pandas as pd
+    t = pd.read_csv(zf.open(n))
+    t.columns = [c.strip() for c in t.columns]
+    ra, de = t['RA(catalog)'].values, t['DEC(catalog)'].values
+    c = np.cos(np.radians(de.mean()))
+    X = np.column_stack([t['px'].values, t['py'].values, np.ones(len(t))])
+    ca, *_ = np.linalg.lstsq(X, (ra - ra.mean()) * c * 3600, rcond=None)
+    cd, *_ = np.linalg.lstsq(X, (de - de.mean()) * 3600, rcond=None)
+    comps = {'RA*cos(dec)': ca[0] * d[:, 0] + ca[1] * d[:, 1],
+             'Dec': cd[0] * d[:, 0] + cd[1] * d[:, 1]}
+    tt = np.arange(len(s)) * dt
+    late = tt >= tt[-1] - 5.0
+    print('drift resolved onto the sky, per axis (%d frames, %.1f s):' % (len(s), tt[-1]))
+    for lab, y in comps.items():
+        try:
+            p, cov = curve_fit(m1, tt, y, p0=(0.9 * y[-1] if abs(y[-1]) > 1 else 1.0, 8))
+            fit = 'pure-exp tau %.1f +- %.1f s' % (p[1], np.sqrt(cov[1, 1]))
+        except Exception:                                           # noqa: BLE001
+            fit = 'pure-exp fit did not converge (a straight line)'
+        print('   %-12s total %+6.1f "   rate first 3 s %+5.2f "/s   rate last 5 s %+5.2f "/s = '
+              '%+4.0f "/min   %s'
+              % (lab, y[-1], np.polyfit(tt[tt < 3], y[tt < 3], 1)[0],
+                 np.polyfit(tt[late], y[late], 1)[0], np.polyfit(tt[late], y[late], 1)[0] * 60,
+                 fit))
 
 
 def m1(t, A, tau):
@@ -247,6 +294,7 @@ def main():
     a = ap.parse_args()
     c = CAPTURES[a.capture]
     fig = chart_calibs(c) if a.capture == 'calibs' else chart_after_slew(c)
+    by_axis(c['src'], c['s2'], c['dt'])
     name = '%s_settling.png' % c['name']
     ChartWriter(OUT, REV).save(fig, name)
     hu_record.publish([name], OUT)

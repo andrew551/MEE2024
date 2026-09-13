@@ -1032,10 +1032,48 @@ The 40 ″/min steady drift is refuted outright — the same mount, twenty minut
 at 2.5 ″/min — so that term in the CalibS fit was a slow settling component, not tracking. And
 the pure exponential's τ = 7.3 s over-predicts the residue too: by 18 s this slew had settled
 to better than 0.4 ″. The two slews differ in size (14.3° against 10.2°) and axis (Dec against
-a mixed slew from the Sun), and a strain-wave mount need not settle alike on both, so the
-CalibS numbers are not simply wrong; but the planning conclusion tightens: **after a ~10–15°
-slew the AM5 is at its tracking floor within 20 s**, and the record's "wait ~30 s" carries a
-margin of ten. The 40 ″/min steady term is
+a mixed slew from the Sun), and a strain-wave mount need not settle alike on both.
+
+**Do the two charts agree? At face value no; split by axis, yes** (Douglas, 2026-09-13). Taken
+as one settling curve they disagree by a factor of two or more: CalibS is still moving at
+~36 ″/min 20–25 s after its slew and would reach the 2.5 ″/min floor only at 37–45 s on either
+of its fits, while `23_44_06` is *at* the floor 18–19 s after its slew. Resolving each
+capture's drift vector into RA and Dec on the sky, through the affine of its own matched
+stars, shows where the disagreement lives:
+
+| | CalibS drift | `23_44_06` drift | zenith drift |
+|---|---|---|---|
+| total | 49.6 ″ in 25.5 s | 2.9 ″ in 64.5 s | 2.6 ″ in 50 s |
+| RA·cos δ component | **+43.2 ″** | −0.5 ″ | +0.2 ″ |
+| Dec component | +24.5 ″ | −2.8 ″ | −2.6 ″ |
+| direction | 30° from the RA axis | along Dec | along Dec |
+
+The AM5's steady tracking drift is ~2.5 ″/min **in Dec** and nil in RA, at the zenith and at
+15° alike. The CalibS slew moved mostly the RA axis and both axes settled; splitting its 81
+frames per axis (`hu_settle_chart.py` prints it):
+
+| CalibS, per sky axis | total | τ (pure exp.) | measured rate, first 3 s | **measured rate, last 5 s (20–25 s)** |
+|---|---|---|---|---|
+| RA·cos δ | 43.2 ″ | 7.7 ± 0.2 s | 4.24 ″/s | **0.51 ″/s = 31 ″/min** |
+| Dec | 24.5 ″ | 6.0 ± 0.4 s | 3.66 ″/s | **0.05 ″/s = 3 ″/min** |
+
+**The Dec axis was at the tracking floor by 20 s in CalibS too** — 3 ″/min against the mount's
+2.5 ″/min Dec drift — exactly as `23_44_06` shows for its Dec-only slew. What was still moving
+at 25 s in CalibS was the **RA axis**, at 31 ″/min, and `23_44_06` never exercised the RA axis
+because its slew was in declination. So the two captures agree on everything they both
+measure, and CalibS alone measures the one thing that matters for a slew from the Sun to a
+calibration field along the ecliptic: **the RA drive settles more slowly than Dec** — its
+pure-exponential τ is longer (7.7 against 6.0 s), and at 20–25 s it still carried a 31 ″/min
+creep that either is a slow second component of its settle or is the tracking re-engaging
+with a transient rate error; a 25 s record cannot tell those apart, and nothing else in the
+campaign followed an RA slew. The "exponential + drift" fit on the combined displacement was
+picking up this RA creep and calling it tracking; the Dec fit's "drift" term (28 ″/min) is
+contradicted by its own last five seconds (3 ″/min) and is a fitting artefact.
+
+**For 2027 this splits the rule in two.** After a Dec slew, 20 s is enough. After an RA slew of
+~10°, allow the full 30 s and expect a small residual RA creep beyond it; if the design allows,
+put the calibration field at the Sun's declination so the slew is RA-only and its settle can
+be timed, or at the Sun's RA so it is Dec-only and fast. The 40 ″/min steady term is
 suspect: the AM5 tracks at 2.5 ″/min overhead (§HUSILLOS2026_ZENITH) and refraction adds ~8
 ″/min at 8.8°, so ~10 ″/min is what a settled mount should show here, and the excess is more
 plausibly a slower settling component that a 25 s record cannot separate from drift. The
