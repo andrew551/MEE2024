@@ -1010,7 +1010,32 @@ decays within two seconds — a single damped oscillation on top of the exponent
 signature of a strain-wave drive coming to rest.
 
 A 10.17° slew at 6 °/s moves 6810 ″ in one exposure; frame 1 moved ~2.5 ″. **The mount was
-not slewing at frame 1 under either model; it was settling.** The 40 ″/min steady term is
+not slewing at frame 1 under either model; it was settling.**
+
+**`23_44_06`, the same treatment, decides between the two models** (`h10_g125d_settling.png`,
+`hu_settle_chart.py --capture h10_g125d`). It is the first capture after the 14.3° slew from
+pointing B to pointing C, almost all in declination, and the slew can be dated from
+`23_42_43`'s own frames: frame 47 (opened 21:43:44.6) aligned to frame 0, frame 48
+(21:43:45.9) did not, so the slew began at ~21:43:45.6; `23_44_06` frame 1 opened at
+21:44:07.0, 21.4 s later, and the slew itself took ~2.5–3 s. **The capture begins 18–19 s after
+the mount stopped, and shows nothing left to settle**: 49 frames over 63 s move 2.87 ″ in a
+straight line, **2.5 ″/min**, residual 0.36 ″ rms — the AM5's zenith tracking rate to the
+decimal (§HUSILLOS2026_ZENITH: 2.48 ″/min). Neither exponential model converges on it; there
+is no curvature to fit. Against the two CalibS fits carried forward to 18.5 s after a slew:
+
+| CalibS model | predicts for `23_44_06` | observed |
+|---|---|---|
+| pure exponential, τ = 7.3 s | 4.0 ″ of settle still to come | < 0.4 ″ |
+| exponential + drift, τ = 4.6 s, 40 ″/min | 0.6 ″ of settle + **42 ″ of drift** over 63 s | **2.9 ″** |
+
+The 40 ″/min steady drift is refuted outright — the same mount, twenty minutes later, tracks
+at 2.5 ″/min — so that term in the CalibS fit was a slow settling component, not tracking. And
+the pure exponential's τ = 7.3 s over-predicts the residue too: by 18 s this slew had settled
+to better than 0.4 ″. The two slews differ in size (14.3° against 10.2°) and axis (Dec against
+a mixed slew from the Sun), and a strain-wave mount need not settle alike on both, so the
+CalibS numbers are not simply wrong; but the planning conclusion tightens: **after a ~10–15°
+slew the AM5 is at its tracking floor within 20 s**, and the record's "wait ~30 s" carries a
+margin of ten. The 40 ″/min steady term is
 suspect: the AM5 tracks at 2.5 ″/min overhead (§HUSILLOS2026_ZENITH) and refraction adds ~8
 ″/min at 8.8°, so ~10 ″/min is what a settled mount should show here, and the excess is more
 plausibly a slower settling component that a 25 s record cannot separate from drift. The
