@@ -1028,7 +1028,10 @@ pointing B to pointing C, almost all in declination, and the slew can be dated f
 the mount stopped, and shows nothing left to settle**: 49 frames over 63 s move 2.87 ″ in a
 straight line, **2.5 ″/min**, residual 0.36 ″ rms — the AM5's zenith tracking rate to the
 decimal (§HUSILLOS2026_ZENITH: 2.48 ″/min). Neither exponential model converges on it; there
-is no curvature to fit. Against the two CalibS fits carried forward to 18.5 s after a slew:
+is no curvature to fit. Against the two CalibS fits carried forward to 18.5 s after a slew
+*(the chart drew both predictions through its third revision and from the fourth draws the
+pure exponential's only, to match the CalibS chart — Douglas, 2026-09-14; the table keeps
+both)*:
 
 | CalibS model | predicts for `23_44_06` | observed |
 |---|---|---|

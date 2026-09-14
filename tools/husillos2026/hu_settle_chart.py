@@ -26,8 +26,8 @@ of 23_44_06 opened at 21:44:07.0, 21.4 s later, and the slew itself took ~2.5-3 
 DO NOT CONVERGE on it -- the displacement is a straight line (2.5 "/min, 0.36 " rms) with no
 curvature to fit -- so what is drawn is that line and, over it, what each CalibS fit PREDICTS
 should still be happening 18.5 s after a slew: the pure exponential's remaining settle
-A exp(-g/tau)(1 - exp(-t/tau)) and the drift model's remaining settle plus its v t.  Neither
-prediction is what the data show, and the chart is the record of that.
+A exp(-g/tau)(1 - exp(-t/tau)).  (Revisions 1-3 also drew the drift model's prediction, 42 "
+of drift over the capture against 2.9 " seen; dropped 2026-09-14 with the CalibS chart's.)
 
 Chart conventions follow the dataviz reference palette: data in the secondary text ink, the
 fitted or predicted curves in categorical slots 1-3 (blue, orange, aqua -- the three slots
@@ -84,7 +84,7 @@ CAPTURES = {
                       axis_note='First capture after the 14.3° slew from pointing B to C, almost all in Dec; frame 1 opened 21.4 s after the slew began,\n~18–19 s after the mount stopped. Neither component has an exponential to fit: both are lines at the tracking floor from frame 1.'),
 }
 #: the CalibS displacement fits, carried so 23_44_06 can be drawn against their predictions
-CALIBS_FITS = dict(pure=(50.10, 7.29), drift=(33.94, 4.59, 0.667))
+CALIBS_FITS = dict(pure=(50.10, 7.29))     # the drift model lives in hu_settle_models.py
 
 # dataviz reference palette, light mode
 INK, INK2, GRID, SURFACE = '#0b0b0b', '#52514e', '#e6e5e1', '#fcfcfb'
@@ -320,28 +320,30 @@ def chart_calibs(c):
 
 def chart_after_slew(c):
     """A capture that began well after its slew: the linear drift that fits it, and what the
-    two CalibS models predict should still have been happening."""
+    CalibS pure exponential predicts should still have been happening.
+
+    Douglas, 2026-09-14: drop the exponential-plus-drift prediction here too, as on the CalibS
+    chart, so the set is consistent.  Revisions 1-3 drew it; its refutation (42 " of drift
+    predicted, 2.9 " seen) stays in the record's tables and in hu_settle_models.py.
+    """
     t, x, perp_rms = displacement(c['src'], c['dt'])
     g = c['gap_s']
     lin = np.polyfit(t, x, 1)
     res = x - np.polyval(lin, t)
     A1, tau1 = CALIBS_FITS['pure']
-    A2, tau2, v2 = CALIBS_FITS['drift']
     pred1 = A1 * np.exp(-g / tau1) * (1 - np.exp(-t / tau1))
-    pred2 = A2 * np.exp(-g / tau2) * (1 - np.exp(-t / tau2)) + v2 * t
     for lab, m, p0 in (('pure exponential', m1, (3, 8)), ('exponential + drift', m2, (2, 8, 0.03))):
         try:
             p, cov = curve_fit(m, t, x, p0=p0, maxfev=20000)
-            print('%-22s ' % lab + '  '.join('%.3g +- %.3g' % (a, b) for a, b in
+            print('%-22s ' % lab + '  '.join('%.3g +- %.3g' % (a_, b_) for a_, b_ in
                                              zip(p, np.sqrt(np.diag(cov)))) + '  (unconstrained)')
         except Exception as ex:                                     # noqa: BLE001
             print('%-22s did not converge (%s)' % (lab, ex))
     print('linear drift %.3f "/s = %.1f "/min, residual rms %.2f "; perpendicular scatter %.2f "; '
           'total %.2f " (%.2f px) over %.1f s'
           % (lin[0], lin[0] * 60, res.std(), perp_rms, x[-1], x[-1] / PS, t[-1]))
-    print('CalibS models %.1f s after a slew predict: pure exp %.1f " more settle; exp+drift %.1f " '
-          'more settle + %.1f " of drift over this capture'
-          % (g, A1 * np.exp(-g / tau1), A2 * np.exp(-g / tau2), v2 * t[-1]))
+    print('the CalibS pure exponential %.1f s after a slew predicts %.1f " more settle'
+          % (g, A1 * np.exp(-g / tau1)))
 
     fig, ax, axr = figure()
     tt = np.linspace(0, t[-1], 400)
@@ -353,12 +355,7 @@ def chart_after_slew(c):
     ax.plot(tt, A1 * np.exp(-g / tau1) * (1 - np.exp(-tt / tau1)), '-', lw=1.4, color=S1,
             alpha=0.9, label='predicted from CalibS, pure exponential (τ = %.1f s): %.1f ″ of '
                              'settle still to come' % (tau1, A1 * np.exp(-g / tau1)), zorder=4)
-    ax.plot(tt, A2 * np.exp(-g / tau2) * (1 - np.exp(-tt / tau2)) + v2 * tt, '-', lw=1.4,
-            color=S2, alpha=0.9,
-            label='predicted from CalibS, exponential + drift (τ = %.1f s, %.0f ″/min)'
-                  % (tau2, v2 * 60), zorder=4)
-    ax.text(t[-1] + 0.6, pred1[-1], 'pure exp.', color=INK2, fontsize=9, va='center')
-    ax.text(t[-1] + 0.6, pred2[-1], 'exp. + drift', color=INK2, fontsize=9, va='center')
+    ax.text(t[-1] + 0.6, pred1[-1], 'predicted', color=INK2, fontsize=9, va='center')
     ax.text(t[-1] + 0.6, np.polyval(lin, t[-1]), 'fitted', color=INK2, fontsize=9, va='center')
     ax.set_ylabel('displacement along the drift direction (″)\n1 px = %.4f ″' % PS, color=INK,
                   fontsize=10.5)
@@ -376,7 +373,7 @@ def chart_after_slew(c):
     axr.set_ylabel('residual (″)', color=INK, fontsize=10.5)
     axr.set_xlabel('time from %s frame 1 (s)' % c['label'], color=INK, fontsize=10.5)
     axr.legend(loc='upper right', fontsize=9, frameon=False, labelcolor=INK)
-    fig.subplots_adjust(left=0.09, right=0.98, top=0.83, bottom=0.09)
+    fig.subplots_adjust(left=0.09, right=0.98, top=0.85, bottom=0.09)
     return fig
 
 
