@@ -1155,7 +1155,7 @@ above.
 
 Douglas: *"record_covariance.png ... can we create a new version that includes the new Method 3
 (import quadratic coefficients)."* `tools/matrix_station2/s2_method3.py` produces the stage-2
-runs, `s2_charts_record.py` draws them, chart **revision 7** (rev06 archived, not overwritten).
+runs, `s2_charts_record.py` computes them, chart **revision 7** — **and Douglas took it back off at revision 8; see the end of this section.**
 
 The stage-2 call is the Method 1 call with one word changed — `distortion_fixed_coefficients`
 from `constant` to `linear` — so the reference files, tolerances, magnitude cut, match
@@ -1197,3 +1197,24 @@ calibration field and a star-rich eclipse field, and the matrix does not yet hav
 is the closest: its `linear` rung is Method 3 by another name, and it moved L by 0.115 ″ rather
 than 1.04 ″ (§3t), on a CalibS calibration with 88 stars instead of 82 at a third of the
 residual.
+
+**Reverted at revision 8** (Douglas, 2026-09-14: *"That does not look very convincing. Let's
+revert back to the previous version. Method 3 does not look like it gives a sensible result."*)
+The covariance chart is two ellipses again. Revision 7 stays in `chart_versions/` as the record
+that the third ellipse was drawn and what it showed; revision 8 is a new revision rather than a
+restored rev06, because a chart revision is never overwritten.
+
+The decision is the right one on the evidence, and the reason is worth keeping straight: what
+is unconvincing is **this cell's Method 3 number, not the arithmetic that produced it**. The
+run is clean — 17 stars per tier, 0.41 ″ and 0.39 ″ rms, the rung and the fitted scale read back
+from each run's own results file — and it is one word different from the Method 1 run beside
+it. What it inherits is Station 2's bracket, which the two sections above showed to be the
+weakest calibration field in the matrix. A pathway whose whole purpose is to import a quadratic
+cannot be judged on the cell with the worst quadratic to import, and a 1.04 ″ swing from
+changing that one input is a measurement of the bracket at least as much as of the pathway.
+
+So Method 3 stays defined, its tool stays (`s2_method3.py`), and `s2_charts_record.py` still
+computes and prints the number without plotting it. What it does not have is a place on a
+record chart until a cell can test it properly: **a strong daytime calibration field and a
+star-rich eclipse field, neither of which Station 2 has.** Cell 4 is the nearest candidate and
+its `linear` rung already exists (§3t, L = 2.244 ± 0.448 ″, a 0.115 ″ move rather than 1.04 ″).
