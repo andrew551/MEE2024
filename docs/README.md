@@ -129,9 +129,14 @@ moved to `RECORD/refraction/` with everything else.
 crash before. `tools/export_transcripts.py` (Andrew's, 2026-08-20; in the repository since
 2026-09-06) writes each session as readable Markdown with an `INDEX.md`, conversation text in
 full and tool output truncated. Each machine keeps its own archive and runs the export on a
-daily Windows scheduled task named **MEE transcript export**: Douglas' at
-`F:\MEE_transcripts\` (on `D:` until 2026-09-14), Andrew's under his OneDrive
-Documents. The archive on
+daily Windows scheduled task named **MEE transcript export**, writing to
+`OneDrive\Documents\MEE_transcripts\` on each machine. The archive is deliberately in
+OneDrive rather than beside the output tree: it exists because transcripts get pruned
+and the desktop app crashes, and a copy that shares a disk with the original answers
+neither. It is 9 MB. Douglas' archive was on `D:` and then `F:` until 2026-09-14, when
+a SECOND daily task was found exporting the same sessions to OneDrive from a forked,
+hardcoded copy of the script; the fork and the duplicate task were removed and the
+repository's copy now writes the one archive. The archive on
 `I:\MEE_transcripts\` is Andrew's export of 2026-08-25. Re-running is safe; a session whose
 title changed replaces its earlier file.
 
