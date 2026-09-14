@@ -1278,6 +1278,74 @@ sits right after the slew to pointing B turns out to be untracked (8.07 px/frame
 which dates the tracking switch-on to the 17 s between 21:40:45 and 21:41:02 (§3w) and makes
 it useless for settling.
 
+**What the exponential is physically, and whether a strain-wave drive can produce it**
+(Douglas, 2026-09-14: *"What is the physical significance of the exponential fit to the time
+vs displacement braking? … Do any of these fit with how a harmonic drive works?"*)
+
+The fitted form x(t) = A (1 − e^(−t/τ)) is the same statement as ẋ = (A − x) / τ: the speed
+is proportional to the distance still to go. That is first-order relaxation, and it fixes what
+the three numbers mean. A is how far the axis still had to go when frame 1 opened; τ is the
+relaxation's own rate constant; A/τ is the speed at frame 1 — 6.8 ″/s on RA, 5.5 ″/s on Dec.
+It also says what is *not* being fitted: the slew's braking. Seven degrees per axis
+decelerated to a stop inside the 3.16 s gap, under the controller's rate profile, at degrees
+per second; the 49 ″ recorded afterwards is 0.2 % of the slew and begins at a thousandth of
+the slew's speed. It is a relaxation after the drive has stopped, not the stopping.
+
+Three mechanisms give an exponential displacement, and the record can tell them apart:
+
+| mechanism | A | τ | A/τ | against this record |
+|---|---|---|---|---|
+| a free inertia coasting against a velocity-proportional drag (viscous, or eddy-current — the "electromagnetic braking" picture) | v₀ τ | I/c | v₀, the arrival speed | excluded mechanically: the axis sits behind a large-ratio strain-wave reducer held by its stepper and cannot coast, and the slew arrived at degrees per second, not at 6 ″/s |
+| a position loop approaching its target at a speed proportional to the error | the error at frame 1 | 1/gain | — | one firmware constant for both axes, independent of load; the shared τ is rejected at p = 6 × 10⁻⁸, and nothing in the AM5's published description gives it an output encoder to close such a loop |
+| elastic wind-up of the drive train released against a velocity-proportional resistance, inertia negligible | T/k, the wind-up under the transmitted torque T | c/k, damping over stiffness | T/c | fits: A is load-driven, τ is an axis property, and A/τ is independent of stiffness |
+
+Coulomb friction is not in the table because it does not give an exponential: a spring
+releasing against a fixed friction torque stops dead where the two balance, and the fit said
+so (RA rms 2.62 ″ against 1.53 ″, a dead stop at 17.5 s that the 29 ″/min tail contradicts).
+
+What a strain-wave gear brings to the third row. It has no backlash — the flexspline's teeth
+are engaged over a wide arc of the circular spline — so there is no free play to take up at a
+reversal, which is why the record shows a smooth relaxation and not a step. What it has instead
+is low, non-linear torsional stiffness with hysteresis ("lost motion"): catalogue wind-up for
+small units is of order an arcminute at rated torque, and 49 ″ is 0.8′, the right size for a
+fraction of rated torque. So a wind-up of tens of arcseconds under the torque the RA gear was
+transmitting at the end of the slew is what the part is specified to have. The wind-up is
+elastic, and steel does not creep at room temperature, so the 7 s is not in the flexspline: a
+steel spring against the OTA's inertia would ring at hertz to tens of hertz and be over in a
+fraction of a second. The release is resistance-limited, and the resistance is in the
+grease-lubricated sliding contacts of the tooth mesh and the wave-generator bearing. At the
+sliding speeds of an arcsecond-per-second release those contacts are in boundary lubrication,
+where friction rises with sliding speed, and a resistance that falls as the motion slows is
+what lets the release slow down without ever stopping — the RA tail.
+
+Why the two axes differ, in that picture. The RA axis carries the OTA's gravity torque with no
+counterweight and turns at the sidereal rate, so it is never at rest; the Dec axis is nearly
+balanced and static. If the resistance scales with the load, as boundary-lubricated contacts
+do, then A = T/k and τ = c/k both scale with T while A/τ = T/c does not: the loaded axis has
+both the larger wind-up and the longer τ, and the two axes start their release at the same
+speed. That is what was measured — A eight times larger, τ eight times longer, A/τ equal
+within Dec's ±33 % — and neither the coasting row nor the position-loop row predicts that
+coincidence. An alternative that also fits is regime rather than load: the static Dec axis
+releases only until the spring torque falls below static friction, a fast partial release that
+reads as a small A and a short τ, while the always-moving RA axis releases fully and slowly.
+
+What one event cannot settle. Both axes crept in their own slew directions, which is what
+wind-up predicts — the output lags the motor by the wind-up and catches up — but that is two
+axes of one slew, and a mechanism with a fixed direction (thermal, gravitational sag) matches
+it by chance one time in four. The pure exponential's residuals carry a slow wave (+4 ″ at
+4–6 s, −2 ″ at 10–19 s, +2 ″ at 20–25 s), so a single τ is an approximation and a slower
+component is present that 25 s cannot separate from drift. And nothing here uses the AM5's
+actual gear ratio, motor or encoder arrangement, which the record does not have.
+
+The 2027 experiment therefore has predictions to discriminate with, not only an amplitude to
+measure:
+
+| test | wind-up, load-scaled resistance | wind-up, static/kinetic regime | position loop | fixed direction (thermal, sag) |
+|---|---|---|---|---|
+| RA counterweight on / off | A and τ both shrink, A/τ unchanged | A shrinks, τ stays ≈ 7 s | no change | no change |
+| the same slew reversed | creep reverses | creep reverses | creep reverses | creep does not |
+| RA-only and Dec-only slews | separates the axis from the load direction | | | |
+
 Two plots carry the settling and they are not the same. `s1_calibs_ecl_settled`'s
 `TWOD_RESIDUALS20260911160647.png` is the frames-21–81 stack and shows only the **tail**: 8.6 px
 (19 ″) over 19 s. The full settle is in `s1_calibs_ecl`'s `TWOD_RESIDUALS20260911025309.png`,
@@ -2418,6 +2486,12 @@ names, the frame counts, the headers and the plate solves — the RA drift and t
 record were the only witnesses, and nobody had asked them. And reduce horizon captures
 frame by frame, as León did, whatever the tracking: a 100 s stack at 10° is smeared by
 refraction evolution even when the mount is perfect.
+
+The settling experiment (§3n, *"What the exponential is physically"*) is now a discriminating
+one: read A, τ and A/τ from the alignment record with and without an RA counterweight, with the
+slew reversed, and with RA-only and Dec-only slews. The wind-up model predicts A and τ shrink
+together under the counterweight while A/τ holds; a controller or a thermal origin predicts no
+change.
 
 ## 4. A tool that does not work, and says so
 
