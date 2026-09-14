@@ -75,7 +75,7 @@ CAPTURES = {
                    s2=os.path.join(HUS, 'calibs', 's2_calibs_ecl'), dt=0.3153, slew_deg=10.17,
                    gap_note='Frame 1 began 3.156 s after the last gain-0 coronal frame;\nthe '
                             '10.17° slew from the Sun completed inside that gap. ',
-                   axis_note='The slew from the Sun was 10.17°: RA +7.12°, Dec −7.40°, equal travel. Each component fitted alone with a pure exponential; the rate over the last 5 s\nis measured, not fitted. Dec is at the tracking floor by 20 s; RA is still creeping at 25 s.'),
+                   axis_note='The slew from the Sun was 10.17°: RA +7.12°, Dec −7.40°, equal travel.\nEach component fitted alone with a pure exponential; the rate over the last 5 s is measured, not fitted. Dec sheds its 6″ within ~3 s; RA carries 49″ of creep and is still moving at 25 s.'),
     'h10_g125d': dict(name='h10_g125d', label='23_44_06',
                       src=os.path.join(HUS, 'horizon', 's1d_h10_g125d'),
                       s2=os.path.join(HUS, 'horizon', 's2d_h10_g125d'), dt=1.3163, slew_deg=14.3,
@@ -127,8 +127,14 @@ def axis_components(src, s2dir, dt):
     X = np.column_stack([t['px'].values, t['py'].values, np.ones(len(t))])
     ca, *_ = np.linalg.lstsq(X, (ra - ra.mean()) * c * 3600, rcond=None)
     cd, *_ = np.linalg.lstsq(X, (de - de.mean()) * 3600, rcond=None)
-    comps = {'RA*cos(dec)': ca[0] * d[:, 0] + ca[1] * d[:, 1],
-             'Dec': cd[0] * d[:, 0] + cd[1] * d[:, 1]}
+    # shifts_px is stored (ROW, COLUMN) = (y, x), numpy order -- NOT (x, y).  Calibrated
+    # 2026-09-14 on the three untracked captures, whose pointing moved purely in RA at the
+    # sidereal rate (section 3w): read as (y, x) they map to RA +1692 / +1711 / +1765 " and
+    # Dec -2 / +4 / -16 "; read as (x, y) they acquire a spurious 22-degree Dec component.
+    # Every RA/Dec split made before this line existed used the wrong order (record 3n).
+    dx, dy = d[:, 1], d[:, 0]
+    comps = {'RA*cos(dec)': ca[0] * dx + ca[1] * dy,
+             'Dec': cd[0] * dx + cd[1] * dy}
     return np.arange(len(s)) * dt, comps
 
 
@@ -141,7 +147,7 @@ def chart_by_axis(c):
     """Douglas, 2026-09-13: "Plot the CalibS drift split by RA and Dec axis."  2026-09-14: "Let's
     do the RA and DEC drift for the 23_44_06 field."  The two sky components of a capture's
     alignment shifts on one time axis, each fitted alone -- a pure exponential where the data
-    constrain one, a straight line where they do not (the 1-sigma error on tau exceeding tau
+    constrain one, a straight line where they do not (a 1-sigma error on tau above half of tau
     is the test; 23_44_06's components are lines) -- with the mount's Dec tracking floor drawn
     as the slope a settled axis shows, both signs, since a Dec drift can run either way."""
     tt, comps = axis_components(c['src'], c['s2'], c['dt'])
@@ -156,7 +162,7 @@ def chart_by_axis(c):
             p, cov = curve_fit(m1, tt, y, p0=(0.9 * y[-1] if abs(y[-1]) > 1 else 1.0, 8),
                                maxfev=20000)
             e = np.sqrt(np.diag(cov))
-            if np.isfinite(e[1]) and e[1] < p[1]:
+            if np.isfinite(e[1]) and e[1] < 0.5 * p[1]:
                 model = ('exp', p, e)
         except Exception:                                           # noqa: BLE001
             model = None

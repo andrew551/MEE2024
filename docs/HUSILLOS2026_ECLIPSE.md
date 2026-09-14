@@ -1044,11 +1044,19 @@ stars, shows where the disagreement lives:
 | | CalibS drift | `23_44_06` drift | zenith drift |
 |---|---|---|---|
 | total | 49.6 ″ in 25.5 s | 2.9 ″ in 64.5 s | 2.6 ″ in 50 s |
-| RA·cos δ component | **+43.2 ″** | −0.5 ″ | +0.2 ″ |
-| Dec component | +24.5 ″ | −2.8 ″ | −2.6 ″ |
-| direction | 30° from the RA axis | along Dec | along Dec |
+| RA·cos δ component | **+49.2 ″** | −1.5 ″ | −0.8 ″ |
+| Dec component | −6.2 ″ | +2.4 ″ | +2.5 ″ |
+| direction | **7° from the RA axis** | 58° (mixed) | 72° (mostly Dec) |
 
-The AM5's steady tracking drift is ~2.5 ″/min **in Dec** and nil in RA, at the zenith and at
+*(Corrected 2026-09-14. The stacker stores `shifts_px` as **(row, column) = (y, x)**, and every
+RA/Dec split in this section had read it as (x, y). The error was caught by calibrating the
+split on the three untracked captures, whose pointing is known to have moved purely in RA at
+the sidereal rate: read as (y, x) they resolve to RA +1692 / +1711 / +1765 ″ and Dec −2 / +4 /
+−16 ″; read as (x, y) they acquire a spurious 22° Dec component. The swapped values are struck
+through below where they were quoted; the total-drift charts are unaffected, since a projection
+onto the drift's own direction does not depend on the order.)*
+
+The AM5's steady tracking drift is ~2.5 ″/min, mostly **in Dec** with ≤ 1.4 ″/min in RA, at the zenith and at
 15° alike. The CalibS slew moved the two axes almost equally — RA +7.12°, Dec −7.40°, the Sun
 at RA 142.106° Dec +14.907° to CalibS at 149.227° +7.503° (an earlier draft of this paragraph
 said "mostly the RA axis", reading the *drift* direction as the *slew* direction; corrected
@@ -1057,8 +1065,8 @@ frames per axis (`hu_settle_chart.py` prints it):
 
 | CalibS, per sky axis | total | τ (pure exp.) | measured rate, first 3 s | **measured rate, last 5 s (20–25 s)** |
 |---|---|---|---|---|
-| RA·cos δ | 43.2 ″ | 7.7 ± 0.2 s | 4.24 ″/s | **0.51 ″/s = 31 ″/min** |
-| Dec | 24.5 ″ | 6.0 ± 0.4 s | 3.66 ″/s | **0.05 ″/s = 3 ″/min** |
+| RA·cos δ | **+49.2 ″** ~~43.2~~ | **7.4 ± 0.2 s** ~~7.7~~ | 5.31 ″/s | **0.49 ″/s = 29 ″/min** |
+| Dec | **−6.2 ″** ~~24.5~~ | **0.9 ± 0.3 s** ~~6.0~~ | −1.77 ″/s | **0.15 ″/s = 9 ″/min** (noise: the settle is over by ~3 s) |
 
 **`calibs_settling_by_axis.png`** (`hu_settle_chart.py --capture calibs --by-axis`, in RECORD)
 draws the two components on one time axis, each with its own pure-exponential fit and the
@@ -1070,8 +1078,11 @@ Neither component has an exponential to fit — the tool falls back to a line wh
 
 | `23_44_06`, per sky axis | total over 63 s | linear rate | residual rms |
 |---|---|---|---|
-| RA·cos δ | −0.5 ″ | +1.1 ″/min | 0.59 ″ |
-| Dec | −2.8 ″ | **−2.7 ″/min** | 0.35 ″ |
+| RA·cos δ | −1.5 ″ ~~−0.5~~ | −1.4 ″/min | — |
+| Dec | +2.4 ″ ~~−2.8~~ | **+2.3 ″/min** | — |
+
+*(Corrected 2026-09-14 with the (row, column) fix; the drift is 58° from the RA axis here, at
+the floor on both axes.)*
 
 Dec runs down the −2.5 ″/min floor line from frame 1; RA is flat to a slow ±1 ″ wander over
 the minute, which is the RA drive's periodic error at a level nothing here needs to resolve.
@@ -1080,11 +1091,11 @@ RA at rest — where 18 s earlier, after a slew that moved the RA axis, RA had n
 
 **The Dec axis was at the tracking floor by 20 s in CalibS too** — 3 ″/min against the mount's
 2.5 ″/min Dec drift — exactly as `23_44_06` shows for its Dec-only slew. What was still moving
-at 25 s in CalibS was the **RA axis**, at 31 ″/min, and `23_44_06` never exercised the RA axis
+at 25 s in CalibS was the **RA axis**, at 29 ″/min ~~31~~, and `23_44_06` never exercised the RA axis
 because its slew was in declination. So the two captures agree on everything they both
 measure, and CalibS alone measures the one thing that matters for a slew from the Sun to a
 calibration field along the ecliptic: **the RA drive settles more slowly than Dec** — its
-pure-exponential τ is longer (7.7 against 6.0 s), and at 20–25 s it still carried a 31 ″/min
+pure-exponential τ is eight times longer (7.4 against 0.9 s ~~7.7 against 6.0~~), and at 20–25 s it still carried a 29 ″/min
 creep that either is a slow second component of its settle or is the tracking re-engaging
 with a transient rate error; a 25 s record cannot tell those apart, and nothing else in the
 campaign followed an RA slew. The "exponential + drift" fit on the combined displacement was
@@ -1121,10 +1132,12 @@ a testable joint fit:
 | one shared τ | 43.5 ″ | 24.9 ″ | 7.29 s | 435.4 |
 | separate τ | 44.2 ″ | 23.7 ″ | **7.70 / 6.02 s** | 402.5 |
 
-F(1, 158) = 12.9, **p = 0.0004**: the data demand two time constants. With the 3.5–6.5 s
-overshoot frames excluded, since no model has the overshoot, it is 8.50 against 7.06 s, F = 7.1,
-p = 0.008 — still demanded. The axes differ in τ, and equal travel means that is not the
-velocity's doing.
+*(Corrected 2026-09-14 for the (row, column) fix; the swapped-axis values were 7.70 / 6.02 s,
+F = 12.9, p = 0.0004.)* Shared τ 7.29 s (RSS 435.3) against separate **7.38 / 0.95 s** (RSS
+361.2): F(1, 158) = 32.4, **p = 6 × 10⁻⁸** — the data demand two time constants, and not by a
+little. With the 3.5–6.5 s overshoot frames excluded, since no model has the overshoot, it is
+8.24 against 0.95 s, F = 31.9, p = 9 × 10⁻⁸. The axes differ in τ by a factor of eight, and
+equal travel means that is not the velocity's doing.
 
 **A velocity-dependent effective τ needs a nonlinear law, and the nonlinear laws fit worse.**
 Coulomb friction (constant deceleration to a hard stop) would make the faster axis take
@@ -1133,25 +1146,34 @@ per axis:
 
 | law | RA rms | Dec rms | what it says |
 |---|---|---|---|
-| exponential (linear damping) | **1.40 ″** | 1.72 ″ | τ 7.7 / 6.0 s |
-| Coulomb friction | 2.19 ″ | 2.25 ″ | stops dead at 18.0 / 15.1 s — the tail says no |
-| quadratic drag | 1.63 ″ | **1.37 ″** | half-life 1.9 / 0.9 s |
+| exponential (linear damping) | **1.53 ″** | 1.45 ″ | τ 7.4 / 0.9 s |
+| Coulomb friction | 2.62 ″ | 1.46 ″ | RA would stop dead at 17.5 s — the tail says no |
+| quadratic drag | 1.57 ″ | 1.38 ″ | half-life 1.7 s on RA |
 
-The exponential is the best of the three on RA and within the noise of the best on Dec;
-friction is the worst on both, because the settle has a tail and friction stops dead. A
+*(Corrected 2026-09-14, (row, column) fix.)* On RA, where there are 49 ″ and 25 s of settle to
+test against, the exponential is the best of the three and friction is clearly the worst,
+because the settle has a tail and friction stops dead. On Dec the three are indistinguishable,
+because a 6 ″ settle that is over in three seconds does not discriminate anything. A
 two-time-constant exponential adds nothing either axis can constrain in 25 s — the second
-term degenerates into a straight line on RA (which is the 31 ″/min creep again) and into
-τ₂ = 50 ± 85 s on Dec.
+term degenerates into a straight line on both (on RA it is the 29 ″/min creep again).
 
 **So the difference is in the axes, not in the velocities**, and the settle's own numbers say
-how: with equal travel, the exponential's implied arrival velocity A/τ is **5.7 ″/s on RA and
-3.9 ″/s on Dec**, the RA axis left the slew carrying half again as much residual motion, and
-the two axes settled in **opposite senses relative to their own slew directions** — the sign of
-drift × slew is + on one axis and − on the other, whichever overall sign convention the shift
-record has. One axis kept creeping the way it had been going; the other sprang back. The RA
-axis carries the Dec assembly, the OTA and the counterweight; the Dec axis carries the OTA
-alone; different loads on the same strain-wave drive give different compliance, different
-damping and a different τ, which is what is measured. The electromagnetic-braking picture is
+how *(corrected 2026-09-14; the swapped-axis draft read 5.7 / 3.9 ″/s and claimed the axes
+settled in opposite senses, which was the swap talking)*: with equal travel, the exponential's
+implied arrival velocity A/τ is **6.8 ″/s on RA and 5.5 ″/s on Dec** — nearly the same, as
+equal travel on one rate profile predicts — and yet RA shed its motion with **τ = 7.4 s over
+49 ″** while Dec shed its in **τ = 0.9 s over 6 ″**. Same arrival speed, an eightfold
+difference in how long it took to stop: that is an axis property and nothing else. **Both axes
+kept creeping in the direction they had been slewing** — the shift record's sign was calibrated
+on the untracked captures, whose pointing is known to move to increasing RA, and it reads as the
+motion of the pointing; RA continued +49 ″ along its +7.12° slew, Dec continued −6 ″ along its
+−7.40° slew. Neither sprang back. The RA
+axis carries the Dec assembly and the OTA; the Dec axis carries the OTA alone — and this AM5
+was run **without a counterweight**, as strain-wave mounts commonly are with light loads
+(Douglas, 2026-09-14; an earlier draft of this sentence put one on the RA axis), so the RA
+axis also carries whatever gravity torque the unbalanced load puts on it. Different loads on
+the same strain-wave drive give different compliance, different damping and a different τ,
+which is what is measured. The electromagnetic-braking picture is
 right as far as it goes — the exponential is the mark of linear damping and nothing frictional
 fits — but the braking is the controller's business during the slew; what these 25 s show is
 the mechanical relaxation after it, and that is a property of each axis.
