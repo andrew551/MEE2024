@@ -1049,7 +1049,7 @@ still eats part of a 1/r pattern, measured there as f = 0.911, and Method 3 inhe
 
 Douglas, 2026-09-14: *"look at the L and R fields from Bruns 2017. Compare the two fields and
 tell me whether the quadratic components are more stable than the linear components. Only look
-at these two fields."* `tools/matrix_bruns/b17_lr_coeffs.py`.
+at these two fields."* `tools/calib_pair_coeffs.py --pair bruns`.
 
 **On these two fields alone the answer is no: the linear components agree about ten times
 better than the quadratic.** The stored coefficients, in pixels of displacement at the
@@ -1100,3 +1100,53 @@ stars is noisier than importing one that repeats to 0.02 ″. **Method 3 is ther
 about star-rich fields on both sides, and cell 1 is not one of them.** Before it is used
 anywhere, the arithmetic to do is the noise of the imported quadratic against the day–night
 drift it avoids, per cell.
+
+### The same comparison on Station 2's bracket: same direction, and it settles nothing
+
+Douglas, 2026-09-14: *"Now do the same comparison for the Mexico 2024 Station 2 bracket"*.
+`tools/calib_pair_coeffs.py --pair s2`.
+
+| field | stars | rms | altitude | UTC |
+|---|---|---|---|---|
+| right | 82 | 0.592 ″ | 73.49° | 18:10:55 |
+| left | 83 | 0.708 ″ | 63.35° | 18:14:30 |
+
+**This bracket is not the same object as Bruns'.** His L and R8 were shot in the same minute
+0.73° apart in altitude; Station 2's two fields are **3 min 35 s apart and 10.1° apart in
+altitude**, which is the 10° slew whose settling §"Station 2 left bracket" already measured as
+*still moving at 10 s*. `left` is the field taken after that slew, and it is the noisier of the
+two. So where the Bruns pair holds the instrument still and varies only the sky, this one
+varies pointing, flexure and time together, and one of its two members is the suspect field
+`s2_bracket_lr_split.py` was written to investigate.
+
+Stored coefficients, in pixels at the long-axis edge:
+
+| term | left (x) | right (x) | diff | left (y) | right (y) | diff |
+|---|---|---|---|---|---|---|
+| `x` | +0.022159 | +0.058286 | +0.036127 | −0.233716 | −0.157820 | +0.075897 |
+| `y` | 0 | 0 | 0 | −0.022159 | −0.058285 | −0.036125 |
+| `x²` | +0.305134 | +0.101367 | −0.203768 | +0.157902 | −0.036862 | −0.194764 |
+| `x·y` | −0.203043 | +0.134063 | +0.337107 | +0.123526 | −0.163755 | −0.287281 |
+| `y²` | −0.008901 | +0.189639 | +0.198540 | +0.275419 | −0.131877 | **−0.407296** |
+
+| order | left | right | difference | noise | |
+|---|---|---|---|---|---|
+| linear | 0.2598 ″ | 0.1920 ″ | **0.0976 ″** | ± 0.2151 | 0.5 σ |
+| quadratic | 0.3785 ″ | 0.2120 ″ | **0.4233 ″** | ± 0.3697 | 1.1 σ |
+
+The check reduction (`bracket_freecubic`, the same two fields with the cubic free as well)
+gives 0.2122 ″ (1.0 σ) and 0.4467 ″ (1.2 σ).
+
+**The direction agrees with Bruns — the linear components differ less, by 4.3× here and 2.1×
+in the check — and that is as far as it goes.** Nothing is established: 0.5 σ and 1.1 σ against
+noise floors of 0.215 ″ and 0.370 ″, which are three and a half times Bruns'. Two 82-star fits
+at 0.6–0.7 ″ rms cannot measure their own transfer error at all. Note also that Station 2's
+quadratic coefficients are three to five times LARGER than Bruns' and disagree by up to
+0.41 px; with fits this loose that is as likely to be unconstrained fitting as real optics, and
+the two cannot be separated from these two fields.
+
+**So across both brackets the finding is the same and the strength is the same: the linear half
+transfers better between two contemporaneous calibration fields, and neither bracket has the
+stars to prove it.** The evidence that the linear terms are the unstable half is the night-to-day
+step, not the brackets — and those two statements are about different transfers, as set out
+above.
