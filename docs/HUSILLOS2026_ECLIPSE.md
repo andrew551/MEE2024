@@ -1001,10 +1001,17 @@ steady drift** — the settle riding on tracking error — it gives **A = 33.9 �
 | what the frames-21–81 stack still carries of the settle | 15 ″ | 8.5 of its 20 ″ |
 
 **`calibs_settling.png`** (`tools/husillos2026/hu_settle_chart.py`, in RECORD) draws the 81
-points with both fits and their residuals. Fitted on the *displacement* rather than the rate,
-the pure exponential returns **τ = 7.3 ± 0.2 s, A = 50.1 ″** (residual 1.58 ″ rms) against the
-exponential-plus-drift's 4.6 s (1.25 ″ rms), so the record's rate-based 9.2 s is the upper end
-of three estimators that all say the same thing at the scale that matters. The residual panel
+points with the pure exponential and its residuals. Fitted on the *displacement* rather than
+the rate, it returns **τ = 7.3 ± 0.2 s, A = 50.1 ″** (residual 1.58 ″ rms); the
+exponential-plus-drift alternative (4.6 s, 1.25 ″ rms) was drawn on this chart through its
+sixth revision and is left out from the seventh (Douglas, 2026-09-14: it is not reconcilable
+with the by-axis chart, which fits a pure exponential per axis, and the "drift" is now known
+to be the RA tail). It survives in `hu_settle_models.py` and in the tables below. So the
+record's rate-based 9.2 s is the upper end of three estimators that all say the same thing at
+the scale that matters. **The total and the by-axis charts reconcile exactly**: projected onto
+the drift's own direction the total is 0.992 × RA + 0.125 × |Dec|, so the 0.9 s Dec settle
+contributes 0.8 ″ of the 49.6 ″ and a single exponential through the total returns the RA
+axis's constant, 7.3 against 7.4 s. The residual panel
 shows what neither model has: a **+3 to +5 ″ overshoot at 4–5.5 s** (frames 13–18) that
 decays within two seconds — a single damped oscillation on top of the exponential creep, the
 signature of a strain-wave drive coming to rest.

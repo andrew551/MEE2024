@@ -11,13 +11,11 @@ Time runs from the capture's first used frame.
 
 CALIBS (`--capture calibs`, the default).  Frames 1-81 at 0.3153 s, beginning 3.156 s after the
 last gain-0 coronal frame with the 10.17 deg slew completed inside that gap (record section
-3n).  Two least-squares fits on the displacement:
-
-    pure exponential      x(t) = A (1 - exp(-t / tau))
-    exponential + drift   x(t) = A (1 - exp(-t / tau)) + v t
-
-The record's tau = 9.2 s was fitted on the RATE over 15 windows, not the displacement, so the
-pure-exponential displacement fit need not return it; the legend carries what each fit found.
+3n).  One least-squares fit on the displacement, the pure exponential
+x(t) = A (1 - exp(-t / tau)); the exponential-plus-drift alternative was drawn in revisions 1-6
+and dropped on 2026-09-14 (Douglas: not reconcilable with the by-axis chart, which has none) --
+hu_settle_models.py still fits it.  The record's tau = 9.2 s was fitted on the RATE over 15
+windows, not the displacement, so the displacement fit need not return it.
 
 23_44_06 (`--capture h10_g125d`).  Frames 1-49 at 1.3163 s, the first capture after the slew
 from pointing B (Dec +23.28) to pointing C (Dec +37.55), 14.3 deg almost entirely in
@@ -269,15 +267,23 @@ def figure():
 
 
 def chart_calibs(c):
+    """The total displacement with ONE fit, the pure exponential.
+
+    Douglas, 2026-09-14: the exponential-plus-drift model that the first six revisions also
+    drew "is not reconcilable" with the by-axis chart, which fits a pure exponential per axis,
+    so it is left out here for simplicity.  It still exists -- hu_settle_models.py fits it and
+    the record's tables carry it -- but the chart shows what the by-axis chart shows.  The
+    reconciliation is exact: projected onto the drift's own direction the total is
+    0.992 x RA + 0.125 x |Dec|, so the 0.9 s Dec settle contributes 0.8 " of the 49.6 " and a
+    single exponential through the total returns the RA axis's time constant (7.3 against 7.4 s).
+    """
     t, x, perp_rms = displacement(c['src'], c['dt'])
     p1, c1 = curve_fit(m1, t, x, p0=(45, 9))
-    p2, c2 = curve_fit(m2, t, x, p0=(35, 5, 0.5))
-    e1, e2 = np.sqrt(np.diag(c1)), np.sqrt(np.diag(c2))
-    r1, r2 = x - m1(t, *p1), x - m2(t, *p2)
+    e1 = np.sqrt(np.diag(c1))
+    r1 = x - m1(t, *p1)
     tt = np.linspace(0, t[-1], 400)
-    for lab, p, e, r in (('pure exponential', p1, e1, r1), ('exponential + drift', p2, e2, r2)):
-        print('%-22s ' % lab + '  '.join('%.2f +- %.2f' % (a, b) for a, b in zip(p, e))
-              + '   residual rms %.2f "' % r.std())
+    print('pure exponential   A %.2f +- %.2f   tau %.2f +- %.2f s   residual rms %.2f "'
+          % (p1[0], e1[0], p1[1], e1[1], r1.std()))
     print('perpendicular scatter %.2f " rms; total along-drift displacement %.1f " (%.1f px)'
           % (perp_rms, x[-1], x[-1] / PS))
 
@@ -287,16 +293,11 @@ def chart_calibs(c):
     ax.plot(tt, m1(tt, *p1), '-', lw=2, color=S1, solid_capstyle='round',
             label='pure exponential:  A = %.1f ″,  τ = %.1f ± %.1f s' % (p1[0], p1[1], e1[1]),
             zorder=4)
-    ax.plot(tt, m2(tt, *p2), '-', lw=2, color=S2, solid_capstyle='round',
-            label='exponential + drift:  A = %.1f ″,  τ = %.1f ± %.1f s,  drift %.0f ″/min'
-                  % (p2[0], p2[1], e2[1], p2[2] * 60), zorder=4)
     tcut = (SETTLED_FIRST - 1) * c['dt']
-    for a in (ax, axr):
-        a.axvline(tcut, color=INK2, lw=1, alpha=0.6)
+    for a_ in (ax, axr):
+        a_.axvline(tcut, color=INK2, lw=1, alpha=0.6)
     ax.text(tcut + 0.25, 1.5, 'settled stack begins\n(frame %d, %.1f s)' % (SETTLED_FIRST, tcut),
             color=INK2, fontsize=9, va='bottom')
-    ax.text(t[-1] + 0.3, m1(t[-1], *p1), 'exp.', color=INK2, fontsize=9, va='center')
-    ax.text(t[-1] + 0.3, m2(t[-1], *p2), 'exp. + drift', color=INK2, fontsize=9, va='center')
     ax.set_ylabel('displacement along the drift direction (″)\n1 px = %.4f ″' % PS, color=INK,
                   fontsize=10.5)
     ax.legend(loc='lower right', fontsize=9.5, frameon=False, labelcolor=INK)
@@ -304,16 +305,15 @@ def chart_calibs(c):
     ax.set_title('CalibS: the AM5 settling after the %.2f° slew from the Sun\n' % c['slew_deg']
                  + 'Stage-1 alignment record of frames 1–81 (`s1_calibs_ecl`). ' + c['gap_note']
                  + 'Perpendicular scatter %.2f ″ rms.\nThe record\u2019s τ = %.1f s (§3n) was '
-                 'fitted on the rate, not the displacement.' % (perp_rms, TAU_RECORD),
+                 'fitted on the rate, not the displacement. Split by axis: '
+                 'calibs_settling_by_axis.png.' % (perp_rms, TAU_RECORD),
                  fontsize=10.5, color=INK, loc='left')
     axr.axhline(0, color=INK2, lw=1)
     axr.plot(t, r1, 'o', ms=5, color=S1, markeredgecolor=SURFACE, markeredgewidth=1.2,
-             label='pure exponential, rms %.2f ″' % r1.std())
-    axr.plot(t, r2, 'o', ms=5, color=S2, markeredgecolor=SURFACE, markeredgewidth=1.2,
-             label='exponential + drift, rms %.2f ″' % r2.std())
+             label='residual, rms %.2f ″' % r1.std())
     axr.set_ylabel('residual (″)', color=INK, fontsize=10.5)
     axr.set_xlabel('time from CalibS frame 1 (s)', color=INK, fontsize=10.5)
-    axr.legend(loc='upper right', fontsize=9, frameon=False, ncol=2, labelcolor=INK)
+    axr.legend(loc='upper right', fontsize=9, frameon=False, labelcolor=INK)
     fig.subplots_adjust(left=0.09, right=0.98, top=0.83, bottom=0.09)
     return fig
 
