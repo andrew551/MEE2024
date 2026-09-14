@@ -1150,3 +1150,50 @@ transfers better between two contemporaneous calibration fields, and neither bra
 stars to prove it.** The evidence that the linear terms are the unstable half is the night-to-day
 step, not the brackets — and those two statements are about different transfers, as set out
 above.
+
+### Method 3 measured on Station 2, and what it costs (2026-09-14)
+
+Douglas: *"record_covariance.png ... can we create a new version that includes the new Method 3
+(import quadratic coefficients)."* `tools/matrix_station2/s2_method3.py` produces the stage-2
+runs, `s2_charts_record.py` draws them, chart **revision 7** (rev06 archived, not overwritten).
+
+The stage-2 call is the Method 1 call with one word changed — `distortion_fixed_coefficients`
+from `constant` to `linear` — so the reference files, tolerances, magnitude cut, match
+threshold, site and time are identical and the rung is the only difference. Both tiers solved
+17 stars, rms 0.411 ″ and 0.389 ″, and each run's own results file confirms it: *fixed above
+linear, plate scale source "fitted on this field"*. Method 3 cannot import a scale, because the
+plate scale is the isotropic part of the linear map and `distortion_polynomial` substitutes the
+reference's only at `order_free == 0`. That is why it belongs beside Method 2 on this chart and
+not beside Method 1.
+
+| pathway | L | scale vs imported | |
+|---|---|---|---|
+| Method 1 — everything from the bracket, scale imported | 2.265 ± 0.468 ″ | 0 by construction | |
+| Method 2 — against the 15-field cubic zenith reference | 1.570 ± 0.672 ″ | +54.1 ppm | |
+| **Method 3 — quadratic and cubic from the bracket, linear refitted here** | **0.529 ± 0.678 ″** | +55.9 ppm | **1.8 σ below Einstein** |
+
+**The result to take from the chart is the size of the swing.** Method 3's ellipse is Method
+2's ellipse translated 1.04 ″ to the left: the same shape, the same error bar to within 0.006 ″,
+and a plate scale 1.8 ppm away. The scale is being set by the eclipse field either way. **What
+moves L by an arcsecond is nothing but the choice of where the quadratic comes from** — the
+night zenith reference or the eclipse-day bracket — and that is four times Station 2's
+atmosphere term and one and a half times its statistical error.
+
+That is consistent with what the brackets themselves said above: each bracket field's quadratic
+is uncertain by 0.075 ″ at the sensor edge and their mean by ~0.053 ″, and with 17 stars in a
+small annulus that propagates into L with real leverage. But the swing is not only bracket
+noise — the two references also differ physically, night zenith against daytime bracket, which
+is the very day–night step §"Method 3, and what the calibration fields say about it" measured
+as 0.099 ″ on the linear terms. **These two fields cannot separate the two causes**, and on this
+cell Method 3 is therefore not a correction but a third reading whose spread is the finding.
+
+**What this does NOT license.** Nothing here says 0.529 ″ is a better estimate than 1.570 ″.
+Station 2 is the cell whose bracket was shown above to be the weakest in the matrix — two
+82-star fits at 0.6–0.7 ″ rms, taken 10° of altitude and three and a half minutes apart, one of
+them straight after a slew that was still settling. Importing a quadratic from that bracket
+imports its faults, and the 1.04 ″ swing is as likely to be measuring the bracket's quality as
+the pathway's merit. **The cell that can actually test Method 3 is one with a strong
+calibration field and a star-rich eclipse field, and the matrix does not yet have one.** Cell 4
+is the closest: its `linear` rung is Method 3 by another name, and it moved L by 0.115 ″ rather
+than 1.04 ″ (§3t), on a CalibS calibration with 88 stars instead of 82 at a third of the
+residual.

@@ -37,7 +37,7 @@ from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, covaria
                                  reference_curves, scale_bars)
 from matplotlib.patches import Circle
 
-REV = 'rev06'
+REV = 'rev07'
 OUT = r"F:/MEE_output/station2_transfer"
 CHARTS = os.path.join(OUT, 'charts')
 VER = os.path.join(CHARTS, 'chart_versions')
@@ -54,7 +54,12 @@ TIERS = (('100ms', '0.100 s, 18:11:30-18:12:44', 'tab:blue'),
          ('075ms', '0.075 s, 18:12:45-18:13:55', 'tab:orange'))
 SUB = {'m2': {'100ms': 'eclipse/100ms/stage2', '075ms': 'eclipse/075ms/stage2_rmt36'},
        'm1': {'100ms': 'eclipse/100ms/stage2_method1_quadfree',
-       '075ms': 'eclipse/075ms/stage2_method1_quadfree'}}
+       '075ms': 'eclipse/075ms/stage2_method1_quadfree'},
+       # Method 3 (2026-09-14): quadratic and cubic from the quadratic-free bracket, constant
+       # and linear refitted on the eclipse field, scale fitted -- tools/matrix_station2/
+       # s2_method3.py.  Same reference files and tolerances as m1; only the rung differs.
+       'm3': {'100ms': 'eclipse/100ms/stage2_method3',
+       '075ms': 'eclipse/075ms/stage2_method3'}}
 
 
 _writer = ChartWriter(CHARTS, REV, ver=VER)
@@ -152,6 +157,14 @@ L2_TIERS = c2t[lab2t.index('L')]
 S2_TIERS, _ = bootstrap(D2, True, shared_scale=False)
 TIER_SCALE_PPM = {tag: 1e6 * c2t[lab2t.index('S_' + tag)] for tag, _, _ in TIERS}
 
+# Method 3: solved exactly as Method 2 is -- both tiers pooled, one shared scale, the scale
+# free -- because Method 3's scale IS fitted (the linear terms are free, so
+# distortion_polynomial never substitutes the reference's).  Only the stage-2 rung differs.
+D3 = load('m3')
+c3, lab3, rx3, ry3, A3 = solve(D3, True)
+L3 = c3[lab3.index('L')]
+S3, n3 = bootstrap(D3, True)
+
 D1 = load('m1')
 c1, lab1, rx1, ry1, A1 = solve(D1, False)
 L1 = c1[lab1.index('L')]
@@ -173,7 +186,7 @@ BRK_SIG = float(np.mean([json.load(open(glob.glob(os.path.join(
 LEVERAGE = 0.0171                    # arcsec of L per ppm, measured on this field
 S1_SCALE = 1e6 * BRK_SIG * LEVERAGE  # the imported scale's contribution to L, in arcsec
 TOT2 = float(np.hypot(S2, ATM_ERR))
-print('Method 2, one shared scale: L = %+.3f +- %.3f (stat, %d draws), %d obs of %d stars'
+print('Method 2, one shared scale: L = %+.3f +- %.3f (stat, %d draws), %d obs of %d observations'
       % (L2, S2, n2, len(D2), D2.ID.nunique()))
 print('Method 2, a scale per tier:  L = %+.3f +- %.3f  (tier scales %s ppm from the reference)'
       % (L2_TIERS, S2_TIERS, ', '.join('%s %+.1f' % (k, v) for k, v in TIER_SCALE_PPM.items())))
@@ -233,7 +246,7 @@ def field_chart(u, fname, title, note, star_rms, colour='tab:blue', label=None):
     lo_ra, hi_ra, _, _ = draw_field(
         ax, sra, sdec, vra, vdec, SF.corners(NX, NY),
         (float(sun_ra[0]), float(sun_de[0]), R_SUN_AS / 3600), ARROW_DEG, SF.cos0,
-        groups=[(np.ones(len(u), bool), dict(s=26, color=colour, label=label or '%d stars' % len(u)))],
+        groups=[(np.ones(len(u), bool), dict(s=26, color=colour, label=label or '%d observations' % len(u)))],
         arrow_color=colour, arrow_lw=1.3, sun_ring2=True, include_sun_in_limits=True,
         pad=(0.05, 0.05), title=title)
     scale_bars(ax, ((0.40, 1.0, '1 arcsec of displacement'),
@@ -291,7 +304,7 @@ S_avg = float(np.std(bl, ddof=1)); TOT_avg = float(np.hypot(S_avg, ATM_ERR))
 uxa, uya = (both.px.values - SUNPX) * PS / R_avg, (both.py.values - SUNPY) * PS / R_avg
 both['rad'] = (rxa * uxa + rya * uya) + L_avg * R_SUN_AS / R_avg
 both['Rsun'] = R_avg / R_SUN_AS
-print('Both tiers, averaged: L = %+.3f +- %.3f (stat, %d draws), %d stars'
+print('Both tiers, averaged: L = %+.3f +- %.3f (stat, %d draws), %d observations'
       % (L_avg, S_avg, len(bl), len(both)))
 
 fig, ax = plt.subplots(figsize=(10, 6.8))
@@ -354,6 +367,20 @@ C2[0, 0] = S2 ** 2                                  # carry the bootstrap sigma 
 RHO = C2[0, 1] / np.sqrt(C2[0, 0] * C2[1, 1])
 SCALE_PPM = 1e6 * BRK_SIG                           # the imported scale's own uncertainty
 C1 = np.array([[S1 ** 2 + S1_SCALE ** 2, -S1_SCALE * SCALE_PPM], [-S1_SCALE * SCALE_PPM, SCALE_PPM ** 2]])
+# Method 3's ellipse, built by the same construction as Method 2's: its own stage-2 scale
+# carried through joint_plate_scale, and the bootstrap sigma on the diagonal.
+sig3 = float(np.sqrt(np.mean(np.concatenate([rx3, ry3]) ** 2)))
+cov3 = sig3 ** 2 * np.linalg.pinv(A3.T @ A3)
+iL3, iS3 = lab3.index('L'), lab3.index('S')
+STAGE2_SCALE3 = float(np.mean([json.load(open(glob.glob(os.path.join(
+    OUT, SUB['m3'][tag], '**', 'distortion_results.txt'), recursive=True)[0],
+    encoding='utf-8'))['platescale (arcseconds/pixel)'] for tag, _, _ in TIERS]))
+joint3 = joint_plate_scale(STAGE2_SCALE3, c3[iS3], PS)
+JOINT_PPM3 = ppm_from(joint3, IMPORTED)
+Y3 = -JOINT_PPM3
+C3 = np.array([[cov3[iL3, iL3], cov3[iL3, iS3] * 1e6], [cov3[iS3, iL3] * 1e6, cov3[iS3, iS3] * 1e12]])
+C3[0, 0] = S3 ** 2
+TOT3 = float(np.hypot(S3, ATM_ERR))
 _tot1 = float(np.hypot(np.sqrt(C1[0, 0]), ATM_ERR))
 _lines = [('Method 1:  L = %.3f $\\pm$ %.3f" (stat %.3f + scale %.3f)' % (L1, np.sqrt(C1[0, 0]), S1, S1_SCALE), 'darkred'),
           ('      $\\pm$ %.3f" with the atmosphere term %.2f' % (_tot1, ATM_ERR), 'darkred'),
@@ -362,13 +389,20 @@ _lines = [('Method 1:  L = %.3f $\\pm$ %.3f" (stat %.3f + scale %.3f)' % (L1, np
           ('      correlation L vs scale = %+.2f' % RHO, 'tab:blue'),
           ('Imported plate scale: %.7f "/px' % IMPORTED, 'black'),
           ('      (the L/R bracket mean, $\\pm$%.1f ppm from its own fits)' % SCALE_PPM, 'black'),
+          ('Method 3:  L = %.3f $\\pm$ %.3f" (stat), $\\pm$%.3f" with atmosphere' % (L3, S3, TOT3), 'tab:purple'),
+          ('      quadratic + cubic imported from the bracket, linear refitted here', 'tab:purple'),
+          ('      scale %+.1f ppm from imported (%.7f "/px)' % (Y3, joint3), 'tab:purple'),
           ('from %d observations of %d stars, both tiers pooled, one shared scale' % (len(D2), D2.ID.nunique()), 'black')]
 fig, ax = covariance_chart(C1, (L1, 0.0), C2, (L2, Y2), _lines,
                            'L and plate scale — Mexico 2024 Station 2, G $\\leq$ 13, both tiers, one scale',
                            newton=True, newton_lw=1.5,
-                           name1='Method 1 (scale imported; stat + scale)', name2='Method 2 (scale free)')
+                           name1='Method 1 (scale imported; stat + scale)', name2='Method 2 (scale free)',
+                           C3=C3, mu3=(L3, Y3),
+                           name3='Method 3 (quadratic imported, scale free)')
 save(fig, 'record_covariance.png')
 print('covariance: Method 2 rho %+.2f, joint scale %.7f; Method 1 imported %.7f' % (RHO, joint, IMPORTED))
+print('            Method 3 L = %.3f +- %.3f, joint scale %.7f (%+.1f ppm), %d observations'
+      % (L3, S3, joint3, Y3, len(D3)))
 
 # ---------------------------------------------------------------- 4. the annotated masters
 from astropy.io import fits as pyfits

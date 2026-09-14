@@ -279,18 +279,31 @@ def bar_frame(ax, rect=(1.02, 0.29, 0.30, 0.22)):
 # ---------------------------------------------------------------- the covariance chart
 def covariance_chart(C1, mu1, C2, mu2, lines, title, *, newton=True, newton_lw=1.2,
                      name1='Method 1 (scale imported)', name2='Method 2 (scale free)',
+                     C3=None, mu3=None, name3='Method 3 (quadratic imported, scale free)',
+                     colour3='tab:purple',
                      ylabel='Plate scale (ppm difference from imported value)',
                      figsize=(9.5, 7), margins=0.15, box_alpha=None):
-    """L against the plate scale: two 1-sigma ellipses, Einstein (and Newton), a packed box.
+    """L against the plate scale: two or three 1-sigma ellipses, Einstein (and Newton), a box.
 
     The cells-1-and-3 construction. `mu1 = (L1, 0)` with C1 carrying the statistical AND the
     imported-scale terms; `mu2 = (L2, S in ppm)` with C2 the free-scale fit's covariance in
     (arcsec, ppm). The vertical axis is S in the residual convention -- see the module docstring.
+
+    `C3`/`mu3` add an optional THIRD ellipse for Method 3 -- the quadratic and above imported
+    from a calibration field, the constant and linear refitted on the eclipse field, the scale
+    fitted (2026-09-14, Douglas). It is plotted on the same axis as Method 2 and for the same
+    reason: once the linear terms are free the plate scale is fitted rather than imported
+    (`distortion_polynomial` replaces the scale only at order_free == 0), so Method 3 has a
+    fitted scale to place, not a pinned one. Omit it and the chart is exactly as it was, which
+    is what the other three cells still draw.
+
     Returns (fig, ax); the caller saves it.
     """
     fig, ax = plt.subplots(figsize=figsize)
     draw_ellipse(ax, C1, np.asarray(mu1, float), 'darkred', name1)
     draw_ellipse(ax, C2, np.asarray(mu2, float), 'tab:blue', name2)
+    if C3 is not None:
+        draw_ellipse(ax, C3, np.asarray(mu3, float), colour3, name3)
     ax.axvline(GR, color='green', lw=1.5, label='Einstein 1.751"')
     if newton:
         ax.axvline(NEWTON, color='orange', lw=newton_lw, ls='--', label='Newton 0.876"')
