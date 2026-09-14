@@ -1197,6 +1197,39 @@ velocity of 13 ″/min, which the residual panel shows as the RA points rising o
 20 s: the RA tail is longer than a single exponential. Dec is consistent with zero and with the
 floor.
 
+**What the frame-21 cut is, and what the stacker does with the rest** (Douglas, 2026-09-14:
+*"This seems to be implying that stacking is ok after this time and that the MEE program can
+accommodate the drift after this point."*). Two different things happen to a settling capture
+and the cut addresses only one of them. *Within* each 0.315 s exposure the stars are trailed by
+the mount's velocity: 0.79 px per exposure over frames 0–10, 0.54 over 10–20, 0.27 over 20–30,
+≤ 0.21 thereafter, against a 1.6 px PSF (`hu_calibs.py`). Nothing removes that trail; frame 21
+is where it falls below about a fifth of the PSF, a judgement, not a measured threshold.
+*Between* exposures the field moves, and that the stacker does accommodate: `_align_frames`
+fits each frame's shift against frame 0 and `add_img_to_stack` applies it with `np.roll`, a
+**whole-pixel** shift, so the between-frame drift is absorbed to ±0.5 px per frame and the
+sub-pixel remainders average out as a small broadening rather than a bias. So yes: after the
+cut, stacking is sound and the remaining 19 ″ of RA creep across frames 21–81 is taken out by
+the alignment, not tolerated. The test that it worked is the settled re-reduction above: the
+scale moved +9.5 ppm and the error bar did not, which is what removing a trailing bias and
+losing a quarter of the depth should look like. The calibrated (row, column) order of the
+alignment record is the same order `add_img_to_stack` rolls by.
+
+**The tracking floor is a magnitude, and its sign carries nothing** (Douglas, 2026-09-14: does
+the 2.5 ″/min apply only to Dec, and does the floor line's positive slope against the negative
+Dec settle matter?). Measured with tracking on and nothing settling, the residual drift is
+2.3–3 ″/min in Dec and 0.8–1.4 ″/min in RA (zenith: RA −0.8 ″, Dec +2.5 ″ over 49 s;
+`23_44_06`: RA −1.5 ″, Dec +2.4 ″ over 63 s), so "2.5 ″/min" is the Dec-dominated total and
+the RA floor is smaller. The Dec drift is polar-misalignment drift, whose sign depends on the
+hour angle and on which way the polar axis is off, so it is not a fixed sign; the by-axis
+charts draw the floor as ±2.5 ″/min for that reason, and an axis is "settled" when its slope
+lies within that band. The CalibS Dec settle running to −6 ″ while the floor line rises has no
+consequence for anything computed: the settle is a transient whose sign is the slew's, the
+floor drift is a steady term whose sign is the polar alignment's, and both are pure
+translations of the field that the stacker's alignment removes and stage 2's constant term
+absorbs. Where the sign would matter — a drift that reversed mid-capture, or a settle and a
+drift that partly cancelled so that "at rest" was read too early — nothing in these records
+shows it.
+
 **Balance, and an experiment for 2027** (Douglas, 2026-09-14). The Dec axis of a strain-wave
 mount is essentially balanced; the RA axis, run without a counterweight, carries a
 gravitational torque at every pointing and must also turn at the sidereal rate, so it is never
