@@ -111,7 +111,9 @@ far too large to version. **It has moved twice in three weeks**: `D:\MEE_output`
 — the D: drive had 28 GB left and this tree was 245 GB of it. Older handoffs, transcripts and the
 paths recorded inside the output files themselves still name the D: locations; they mean
 this tree. The documents and tools here were rewritten at the move, except where they
-recount the history above. Its curated index is **`RECORD\`**: for each finished piece of work,
+recount the history above. All three stages were then re-run from F: on a real capture
+and reproduced the recorded run field for field, down to the 49-frame alignment record
+(`tools/husillos2026/hu_pipeline_check.py`). Its curated index is **`RECORD\`**: for each finished piece of work,
 the outputs someone would need to check it, re-quote it or publish from it — one folder per
 matrix cell in a common shape (`bruns2017`, `leon2026`, `mexico2024`), plus `refraction` for
 the Leon campaign physics that feeds the atmosphere term. Every file there is a copy of one in
