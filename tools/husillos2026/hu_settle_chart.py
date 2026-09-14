@@ -75,7 +75,7 @@ CAPTURES = {
                    s2=os.path.join(HUS, 'calibs', 's2_calibs_ecl'), dt=0.3153, slew_deg=10.17,
                    gap_note='Frame 1 began 3.156 s after the last gain-0 coronal frame;\nthe '
                             '10.17° slew from the Sun completed inside that gap. ',
-                   axis_note='The slew from the Sun was 10.17°: RA +7.12°, Dec −7.40°, equal travel.\nEach component fitted alone with a pure exponential; the rate over the last 5 s is measured, not fitted. Dec sheds its 6″ within ~3 s; RA carries 49″ of creep and is still moving at 25 s.'),
+                   axis_note='The slew from the Sun was 10.17°: RA +7.12°, Dec −7.40°, equal travel.\nEach component fitted alone with a pure exponential; the rate over the last 5 s is measured, not fitted.\nDec sheds its 6″ within ~3 s; RA carries 49″ of creep and is still moving at 25 s.'),
     'h10_g125d': dict(name='h10_g125d', label='23_44_06',
                       src=os.path.join(HUS, 'horizon', 's1d_h10_g125d'),
                       s2=os.path.join(HUS, 'horizon', 's2d_h10_g125d'), dt=1.3163, slew_deg=14.3,
