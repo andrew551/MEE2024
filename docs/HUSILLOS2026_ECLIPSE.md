@@ -1346,6 +1346,73 @@ measure:
 | the same slew reversed | creep reverses | creep reverses | creep reverses | creep does not |
 | RA-only and Dec-only slews | separates the axis from the load direction | | | |
 
+**Douglas' hypothesis: the RA axis is never brought to rest, only let approach the sidereal
+rate** (2026-09-14: *"by design the RA axis is not 'stopped' with maximum electromagnetic force
+but rather is allowed to asymptotically approach the correct angular velocity … This
+possibility could be tested by measuring the drift after a slew when the tracking is turned
+off."*). `tools/husillos2026/hu_switch_on.py`.
+
+It fits the sign and the shape as well as wind-up does, and it reads the fit differently. A
+pointing that creeps to +RA is a mount tracking *below* the sidereal rate and converging on it
+from below, so A/τ is the tracking-rate deficit: 6.8 ″/s at frame 1 against 14.9 ″/s of
+sidereal arc at CalibS' Dec +7.5°, the mount at 54 % of rate when CalibS opened and at 97 %
+(the 29 ″/min tail) by 25 s. And the RA slew was eastward, +7.12° against the tracking
+direction, so the RA motor had to pass through zero and spin up westward, while Dec had only to
+stop: the axes differed in the controller's task, not only in their loads.
+
+Two things in the record bear on it, one a wrinkle and one a constraint.
+
+*The wrinkle is timing.* If the approach to the sidereal rate began from rest, falling from
+14.9 to 6.8 ″/s takes τ ln(14.9/6.8) = 5.8 s at τ = 7.4 s, and the whole gap between the last
+Sn2 frame and CalibS frame 1 was 3.16 s with the slew inside it. So the hypothesis needs the
+slew's own deceleration to hand the motor over already running westward at about half the
+sidereal rate, with only the remainder approached asymptotically — a two-stage profile. The
+wind-up picture needs nothing of the kind: A is whatever the wind-up was. Not a refutation,
+since the firmware is unknown, but a specific requirement.
+
+*The constraint is the tracking switch-on, which the record dates.* `23_40_27` (14 frames,
+gain 0, 21:40:26.7–21:40:44.8) is untracked to its last frame: a straight line at
+**13.84 ± 0.04 ″/s** against 13.82 ″/s of sidereal arc at Dec +23.28°, residual 0.71 ″ rms, and
+an exponential of CalibS' τ fitted on top is **0.4 ± 3.0 ″**. `23_41_01` (51 frames, gain 0)
+is tracked from its first frame at 21:41:01.0. So the RA motor went from rest to the sidereal
+rate inside a **16.2 s window**, and `23_41_01` shows what was left of that approach when it
+opened. A first-order approach with τ = 7.4 s, even if begun at the very start of the window,
+would still be 1.6 ″/s short at frame 1 and add at least 11 ″ over the capture; the record
+allows **A = +1.0 ± 0.7 ″** on the RA axis with τ fixed at 7.4 s (−6.5 ″/min straight-line
+drift, residual 0.81 ″ rms, the first eight frames at −0.25 ″/s and the last twenty at
+−0.15 ″/s). A τ of 4 s from the start of the window would leave 1 ″; 5 s would leave 2.7 ″. The Dec
+axis of the same record carries a curvature of 2.2 ± 0.6 ″ that nothing here attributes
+(refraction's own curvature at 5.7° is ~0.3 ″ over the minute), so 2 ″ is taken as the
+systematic on the RA bound, and 11.5 ″ is still excluded by more than 4σ.
+**The AM5 reaches the sidereal rate from rest with τ ≲ 5 s, not 7.4.** So a slow approach to
+the sidereal rate is not intrinsic to the RA drive or to tracking engagement; if the
+hypothesis holds, it is a property of the GoTo's end-of-slew hand-over specifically, a
+different code path from "tracking on". That narrows it without deciding it.
+
+The same two captures carry an undated RA-only move. Between the `23_37_17` deep solve
+(RA 176.990 at 21:38:22) and the `23_41_01` solve (RA 177.87, pointing fixed from the
+switch-on) the pointing gained 0.22–0.28° in RA beyond the 0.60–0.66° of sidereal drift: Joe
+nudged east by ~0.25° in one of the two gaps, 21:39:28–21:40:27 or 21:40:45–21:41:01, and
+`23_40_27`'s record has no jump, so not during it. If it fell in the second gap, a tracked
+RA move produced no CalibS-like transient (49 ″ with τ 7.4 s would have left ≥ 5.6 ″;
+allowed 1.0 ± 0.7 ″), which would count against both the hand-over and the wind-up pictures
+for a small move — but a hand-controller nudge at centring speed is not a GoTo. If it fell in
+the first gap more than ~15 s before `23_40_27`, both records are expected to be null and say
+nothing. It cannot be placed, so it is recorded and not used.
+
+*What the tracking-off test decides, and what it does not.* After an RA slew with tracking
+off, the alignment record is a sidereal line of 13–15 ″/s from frame 1 (1.5 px per 0.3 s
+frame; keep exposures short so the trail stays under the PSF, and fit line + exponential).
+The hand-over hypothesis predicts a clean line: with the target rate zero, RA is stopped like
+Dec. Wind-up released against a kinetic (moving-axis) resistance predicts the line plus an
+exponential of tens of arcseconds and τ ≈ 7 s — a 30σ detection against 1.5 ″ of jitter in
+25 s. But two mechanical variants also predict a clean line: a static axis whose release is
+cut off by static friction, and a take-up of the gear's soft zero-torque region by the
+tracking motor, which does not move when tracking is off. So an exponential on the line
+refutes the hand-over hypothesis; a clean line supports it and leaves those two standing, and
+the RA-counterweight test (above) then separates them, since none of the controller pictures
+depends on the load. Both tests are a minute each and belong together on the same night.
+
 Two plots carry the settling and they are not the same. `s1_calibs_ecl_settled`'s
 `TWOD_RESIDUALS20260911160647.png` is the frames-21–81 stack and shows only the **tail**: 8.6 px
 (19 ″) over 19 s. The full settle is in `s1_calibs_ecl`'s `TWOD_RESIDUALS20260911025309.png`,
@@ -2492,6 +2559,10 @@ one: read A, τ and A/τ from the alignment record with and without an RA counte
 slew reversed, and with RA-only and Dec-only slews. The wind-up model predicts A and τ shrink
 together under the counterweight while A/τ holds; a controller or a thermal origin predicts no
 change.
+Add the tracking-off slew (§3n, *"Douglas' hypothesis"*): an RA slew with tracking off, read
+from the alignment record — a clean sidereal line supports the end-of-slew hand-over picture,
+an exponential on the line refutes it. The tracking switch-on from rest is already measured:
+τ ≲ 5 s, so the slow approach, if it exists, belongs to the GoTo's hand-over alone.
 
 ## 4. A tool that does not work, and says so
 
