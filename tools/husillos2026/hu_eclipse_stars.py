@@ -45,7 +45,7 @@ import zipfile
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 G = r"G:/Joe Izen Spain 2026/2026-08-12"
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/eclipse"
+OUT = r"F:/MEE_output/husillos2026/eclipse"
 
 SUN = os.path.join(G, 'SunJoe_20260812_182845', '20_28_45.ser')
 SN2 = os.path.join(G, 'Sn2_Joe_20260812_182942', '20_29_43.ser')
@@ -90,7 +90,7 @@ MASK_EXTRA = ['--set', 'blob_radius_extra=1750', '--set', 'centroid_gap_blob=150
 #: the 304 centroids -- 191 of them sat on a flagged pixel -- and the field then plate-solves in
 #: 1.1 s on 20 matched stars, where the unmasked list failed after 15 s. A cleaner list, not a
 #: bigger one, was what the solver needed.
-DARK = r"D:/MEE2024 output/MEE_output/husillos2026/hotpixels/husillos_synthetic_dark.fit"
+DARK = r"F:/MEE_output/husillos2026/hotpixels/husillos_synthetic_dark.fit"
 DARKED = {'sn2_dark': (SN2, 2, 102, 'the trimmed field with the hot-pixel mask applied')}
 
 

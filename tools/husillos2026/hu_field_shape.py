@@ -29,7 +29,7 @@ import os
 import numpy as np
 import pandas as pd
 
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 CSV = os.path.join(HUS, 'seeing', 'radial_vs_time_stars.csv')
 SUNX, SUNY, PS, RS = 5043.0, 3386.0, 2.2028, 947.1
 W = 4788.0            # NX / 2, field-normalised coordinates for the quadratic

@@ -53,7 +53,7 @@ from astropy.coordinates import EarthLocation, get_body
 from astropy.time import Time
 import astropy.units as u
 
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 PS, R_SUN_AS = 2.2028, 947.1
 SITE = EarthLocation(lat=42.09293 * u.deg, lon=-4.52702 * u.deg, height=743 * u.m)
 

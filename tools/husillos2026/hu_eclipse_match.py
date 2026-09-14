@@ -64,7 +64,7 @@ import zipfile
 import numpy as np
 import pandas as pd
 
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/eclipse"
+OUT = r"F:/MEE_output/husillos2026/eclipse"
 CAT = r"C:/Users/dpesm/AppData/Local/MEE2024/MEE2024/catalogues/gaia_dr3_g13"
 
 #: the science field's own numbers
@@ -265,7 +265,7 @@ def match(name='sn2_trimmed', maglim=13.0, source='stack'):
 #: the zenith field stage 1 solved blind, which this tool must be able to recover before any
 #: statement about a field it has NOT solved can be believed
 CONTROL = dict(stack='with_f0', ra=281.7427, dec=50.2092, roll=325.902,
-               root=r"D:/MEE2024 output/MEE_output/husillos2026/zenith_order")
+               root=r"F:/MEE_output/husillos2026/zenith_order")
 
 
 def control_passes(verbose=True):

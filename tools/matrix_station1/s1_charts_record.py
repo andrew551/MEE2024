@@ -83,10 +83,10 @@ from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, covaria
                                  scale_bars)
 
 REV = 'rev05'
-REC = r"D:/MEE2024 output/MEE_output/station1_record"
+REC = r"F:/MEE_output/station1_record"
 OUT = os.path.join(REC, 'charts')
 VER = os.path.join(OUT, 'chart_versions')
-RECORD = r"D:/MEE2024 output/MEE_output/RECORD/mexico2024"
+RECORD = r"F:/MEE_output/RECORD/mexico2024"
 POOLED = os.path.join(REC, 'pooled_fit', 'twopass')
 STAGE2 = 'stage2_twopass_reftol0p5'     # the record's stage-2 tree, as in s1_pooled_fit.py
 os.makedirs(VER, exist_ok=True)

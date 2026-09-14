@@ -27,9 +27,9 @@ import numpy as np, pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 RAWCAL = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images"
-MAIN = r"D:/MEE2024 output/MEE_output/matrix_bruns2017"
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_moment"
-NIGHTREFS = json.load(open(glob.glob(r'D:/MEE2024 output/MEE_output/bruns2017_lr/L/stage2/DISTORTION_OUTPUT*/distortion/distortion_results.txt')[0], encoding='utf-8'))['fixed distortion reference files'].split(';')
+MAIN = r"F:/MEE_output/matrix_bruns2017"
+OUT = r"F:/MEE_output/matrix_bruns2017_moment"
+NIGHTREFS = json.load(open(glob.glob(r'F:/MEE_output/bruns2017_lr/L/stage2/DISTORTION_OUTPUT*/distortion/distortion_results.txt')[0], encoding='utf-8'))['fixed distortion reference files'].split(';')
 
 S1_MOMENT = ['--set','sensitive_mode_stack=False','--set','centroid_gaussian_subtract=False',
              '--set','centroid_refine_window=False','--set','min_area=2',

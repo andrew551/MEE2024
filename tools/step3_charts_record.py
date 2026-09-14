@@ -82,11 +82,11 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from astropy.time import Time
 import astropy.units as u
 
-OUT = r"D:/MEE2024 output/MEE_output/step3_record"
+OUT = r"F:/MEE_output/step3_record"
 VER = os.path.join(OUT, 'chart_versions')
 os.makedirs(VER, exist_ok=True)
 REV = os.environ.get('L26_REV', 'rev01')
-RECORD = r"D:/MEE2024 output/MEE_output/RECORD/leon2026"
+RECORD = r"F:/MEE_output/RECORD/leon2026"
 
 meta = json.load(open(os.path.join(OUT, 'leon_union_meta.json'), encoding='utf-8'))
 PS, NX, NY, W_NORM = meta['PS'], meta['NX'], meta['NY'], meta['W_NORM']
@@ -401,7 +401,7 @@ print('atmosphere: quoted +-%.2f (S1 gate max); cell-1 statistic rms %.3f, max %
 from astropy.io import fits as pyfits
 from scipy.ndimage import gaussian_filter
 
-STACKS = r"D:/MEE2024 output/MEE_output/SCI_tier_stacks"
+STACKS = r"F:/MEE_output/SCI_tier_stacks"
 allmatch = pd.read_csv(os.path.join(OUT, 'leon_union_star_table.csv'))
 
 

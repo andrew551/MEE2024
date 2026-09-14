@@ -37,7 +37,7 @@ from mee2024.MEE2024util import get_data_root
 from tools.analysis_window import WINDOWS
 
 SEARCH_AS = 60.0
-REC1 = r"D:/MEE2024 output/MEE_output/station1_record"
+REC1 = r"F:/MEE_output/station1_record"
 POOLED = os.path.join(REC1, 'pooled_fit', 'twopass')
 ZEN = os.path.join(REC1, 'zenith_nulls_corr', '**', 'CATALOGUE_MATCHED_ERRORS.csv')
 NX, NY, PS1 = 9576, 6388, 1.84847
@@ -208,18 +208,18 @@ cells = []
 t1 = pd.read_csv(os.path.join(POOLED, 'pooled_rows.csv'))
 s1 = t1.drop_duplicates('key')[['key', 'ra', 'dec', 'magV']]
 cells.append(('Mexico 2024 Station 1', s1, 'key', 'magV', 'ra', 'dec'))
-p2 = r"D:/MEE2024 output/MEE_output/station2_transfer/charts/station2_star_table.csv"
+p2 = r"F:/MEE_output/station2_transfer/charts/station2_star_table.csv"
 if os.path.exists(p2):
     t2 = pd.read_csv(p2)
     if 'ra' in t2.columns:
         cells.append(('Mexico 2024 Station 2', t2.drop_duplicates('ID')[['ID', 'ra', 'dec', 'magV']],
                       'ID', 'magV', 'ra', 'dec'))
-pl = r"D:/MEE2024 output/MEE_output/RECORD/leon2026/leon_union_star_table.csv"
+pl = r"F:/MEE_output/RECORD/leon2026/leon_union_star_table.csv"
 if os.path.exists(pl):
     tl = pd.read_csv(pl)
     cells.append(('Leon 2026', tl.drop_duplicates('gaia_id')[['gaia_id', 'ra_cat', 'dec_cat', 'mag']],
                   'gaia_id', 'mag', 'ra_cat', 'dec_cat'))
-pb = glob.glob(r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod/master062/"
+pb = glob.glob(r"F:/MEE_output/matrix_bruns2017_brunsmethod/master062/"
                r"**/CATALOGUE_MATCHED_ERRORS.csv", recursive=True)
 if pb:
     tb = pd.read_csv(pb[0]).rename(columns={'RA(catalog)': 'ra', 'DEC(catalog)': 'dec'})

@@ -69,8 +69,8 @@ from record_charts import (covariance_chart, covariance_chart_single,  # noqa: E
 sys.path.insert(0, os.path.join(REPO, 'tools', 'husillos2026'))
 from hu_record import publish  # noqa: E402
 
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
-RECORD = r'D:\MEE2024 output\MEE_output\RECORD\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
+RECORD = r'F:\MEE_output\RECORD\husillos2026'
 OUT = os.path.join(HUS, 'charts')
 
 #: Method 1: the two-gain union, two-witness, importing the SETTLED CalibS (frames 21-81,

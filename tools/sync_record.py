@@ -1,6 +1,6 @@
 """Keep the RECORD folder's non-cell entries in step with their sources.
 
-RECORD (`D:\\MEE2024 output\\MEE_output\\RECORD`) is the curated index to a ~140 GB output
+RECORD (`F:\\MEE_output\\RECORD`) is the curated index to a ~140 GB output
 tree: for each finished piece of work, the outputs someone would need to check it,
 re-quote it, or publish it. The three cell folders (bruns2017, leon2026, mexico2024) are
 written by their own chart tools with a RECORD-copy switch. This script covers the rest:
@@ -31,7 +31,7 @@ import shutil
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = r"D:\MEE2024 output\MEE_output"
+OUT = r"F:\MEE_output"
 RECORD = os.path.join(OUT, "RECORD")
 REFRACTION_SRC = os.path.join(OUT, "refraction")
 
@@ -60,7 +60,7 @@ REFRACTION_FILES = [
 
 REFRACTION_INDEX = """# Leon 2026 refraction -- the record set
 
-Copied from `D:\\MEE2024 output\\MEE_output\\refraction\\` by `tools/sync_record.py`; the
+Copied from `F:\\MEE_output\\refraction\\` by `tools/sync_record.py`; the
 argument these belong to is `docs/REFRACTION_2026.md` in the repository, and
 `tools/refraction/FIGURES.md` names the script that regenerates each figure. This is not a
 matrix cell -- it measures no deflection constant -- but it is where the atmosphere term

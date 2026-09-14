@@ -1,6 +1,6 @@
 REPO="C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY="$REPO/.venv/Scripts/python.exe"
-OUT="D:/MEE2024 output/MEE_output/cal_pileo_step2"
+OUT="F:/MEE_output/cal_pileo_step2"
 REFDIR="H:/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
 # an array, not a string: REFDIR contains a space and word-splitting turns it into "H:\Claude"
 REFS=()

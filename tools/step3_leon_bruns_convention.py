@@ -35,8 +35,8 @@ import glob, json, os, subprocess, sys, zipfile
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-V4 = r"D:/MEE2024 output/MEE_output/step3_s0_v4"
-OUT = r"D:/MEE2024 output/MEE_output/step3_bruns_convention"
+V4 = r"F:/MEE_output/step3_s0_v4"
+OUT = r"F:/MEE_output/step3_bruns_convention"
 REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
 FRAMES = [l.strip() for l in open(os.path.join(REPO, "calibration", "cal_pileo_frames.txt"),
                                   encoding="utf-8") if l.strip()]
@@ -122,12 +122,12 @@ for tier in ('0p1s','0p3s','0p6s','1p2s'):
 # ---- 3. the union and the estimator, same machinery as the headline
 print('\n--- union + estimator (Bruns convention) ---', flush=True)
 src = open(os.path.join(REPO, 'tools', 'step3_s2_union.py'), encoding='utf-8').read()
-src = src.replace(r"BL = r\"D:/MEE2024 output/MEE_output/step3_prelim_L\"",
-                  r"BL = r\"D:/MEE2024 output/MEE_output/step3_bruns_convention\"")
-src = src.replace('D:/MEE2024 output/MEE_output/step3_prelim_L',
-                  'D:/MEE2024 output/MEE_output/step3_bruns_convention')
-src = src.replace('D:/MEE2024 output/MEE_output/step3_s0_v4',
-                  'D:/MEE2024 output/MEE_output/step3_bruns_convention')
+src = src.replace(r"BL = r\"F:/MEE_output/step3_prelim_L\"",
+                  r"BL = r\"F:/MEE_output/step3_bruns_convention\"")
+src = src.replace('F:/MEE_output/step3_prelim_L',
+                  'F:/MEE_output/step3_bruns_convention')
+src = src.replace('F:/MEE_output/step3_s0_v4',
+                  'F:/MEE_output/step3_bruns_convention')
 src = src.replace("PS, NX, NY, W_NORM = 2.2054043",
                   f"PS, NX, NY, W_NORM = {PS_NEW:.7f}")
 exec(compile(src, 'step3_s2_union_bruns_convention', 'exec'))

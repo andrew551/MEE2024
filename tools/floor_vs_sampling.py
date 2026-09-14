@@ -34,7 +34,7 @@ same fields the table's rows are built from. No re-fitting.
 import glob, os
 import numpy as np, pandas as pd
 
-R = r"D:/MEE2024 output/MEE_output"
+R = r"F:/MEE_output"
 OUT = os.path.join(R, 'step3_record', 'floor_vs_sampling.csv')
 # FWHM medians from the campaign's own PSF surveys (psf_bruns2017 / psf_leakey /
 # psf_portland). Portland stands in for Leon: same FRA500 + 0.7x + ASI2600 rig, a

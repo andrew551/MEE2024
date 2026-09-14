@@ -38,9 +38,9 @@ PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 PEDESTAL, BLUR_SIGMA = 2000.0, 10.0
 
 BRUNS_RAW = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
-BRUNS_OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_gate"
+BRUNS_OUT = r"F:/MEE_output/matrix_bruns2017_gate"
 LEON_RAW = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"
-LEON_OUT = r"D:/MEE2024 output/MEE_output/step3_gate"
+LEON_OUT = r"F:/MEE_output/step3_gate"
 
 # the convention of record for both cells: Gaussian background + footprint moments,
 # plus the pipeline disk gate (delete_saturated_blob on, nothing painted)
@@ -160,7 +160,7 @@ which = sys.argv[1] if len(sys.argv) > 1 else 'both'
 
 if which in ('both', 'bruns'):
     print('=== Bruns 2017, gate rerun ===', flush=True)
-    refs = [glob.glob(r'D:/MEE2024 output/MEE_output/matrix_bruns2017_like2024/%s/stage2/'
+    refs = [glob.glob(r'F:/MEE_output/matrix_bruns2017_like2024/%s/stage2/'
                       r'**/distortion_results.txt' % t, recursive=True)[0]
             for t in ('L', 'R8')]
     for tier in ('EA', 'E2', 'EB'):
@@ -170,7 +170,7 @@ if which in ('both', 'bruns'):
 
 if which in ('both', 'leon'):
     print('\n=== Leon 2026, gate rerun ===', flush=True)
-    cal = glob.glob(r'D:/MEE2024 output/MEE_output/step3_bruns_convention/cal_pileo/'
+    cal = glob.glob(r'F:/MEE_output/step3_bruns_convention/cal_pileo/'
                     r'stage2/**/distortion_results.txt', recursive=True)
     if not cal:
         print('no Bruns-convention CAL_piLeo; run tools/step3_leon_bruns_convention.py first')

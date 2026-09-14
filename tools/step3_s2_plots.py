@@ -7,7 +7,7 @@ Reuses step3_s2_union.py's build by executing it, then draws the classic trio:
   3. radial deflection vs radial position with the fitted L/r curve, for both methods --
      the plotted deflections are the per-star displacements with the fitted offsets, roll
      and NUISANCE removed, projected radially (i.e. what the L column actually sees).
-PNGs to D:\\MEE2024 output\\MEE_output\\step3_s2_plots\\.
+PNGs to F:\\MEE_output\\step3_s2_plots\\.
 """
 import os, sys
 import numpy as np
@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 src = open(os.path.join(HERE, 'step3_s2_union.py'), encoding='utf-8').read()
 exec(src.split("print()\nfor t in (")[0])          # build machinery + tier tables, skip reports
 
-OUT = r"D:/MEE2024 output/MEE_output/step3_s2_plots"
+OUT = r"F:/MEE_output/step3_s2_plots"
 os.makedirs(OUT, exist_ok=True)
 SUN_RA, SUN_DEC = 142.107, 14.909
 GR = 1.7512

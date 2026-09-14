@@ -14,7 +14,7 @@ import pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 TOOL = os.path.join(REPO, 'tools', 'matrix_station1', 's1_pooled_fit.py')
-REC = r"D:/MEE2024 output/MEE_output/station1_record"
+REC = r"F:/MEE_output/station1_record"
 REF = sys.argv[1] if len(sys.argv) > 1 else 'twopass'
 
 cells = []

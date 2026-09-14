@@ -25,11 +25,11 @@ def ps_of(resglob):
 
 rows = []
 # ---- Leon zenith
-Z = pd.read_csv(r"D:/MEE2024 output/MEE_output/step3_record/zenith_nulls.csv")
+Z = pd.read_csv(r"F:/MEE_output/step3_record/zenith_nulls.csv")
 for _, r in Z.iterrows():
-    ps_f = ps_of(rf"D:/MEE2024 output/MEE_output/refraction/zenith12/{r.field}/stage2/**/distortion_results.txt")
-    ps_r = ps_of(rf"D:/MEE2024 output/MEE_output/refraction/zenith12/{r.ref}/stage2/**/distortion_results.txt")
-    res = glob.glob(rf"D:/MEE2024 output/MEE_output/step3_record/zenith_nulls/{r.field}/**/TWOD_RESIDUALS.csv", recursive=True)[0]
+    ps_f = ps_of(rf"F:/MEE_output/refraction/zenith12/{r.field}/stage2/**/distortion_results.txt")
+    ps_r = ps_of(rf"F:/MEE_output/refraction/zenith12/{r.ref}/stage2/**/distortion_results.txt")
+    res = glob.glob(rf"F:/MEE_output/step3_record/zenith_nulls/{r.field}/**/TWOD_RESIDUALS.csv", recursive=True)[0]
     d = pd.read_csv(res); d = d[d['magV'] <= 11]
     px, py = d.px.values, d.py.values
     R = np.hypot((px-3171)*2.2054043, (py-3232)*2.2054043); k = R > 2*947.1
@@ -37,8 +37,8 @@ for _, r in Z.iterrows():
     step = 1e6*(ps_f-ps_r)/ps_r
     rows.append(dict(set='Leon zenith', pair=f'{r.field} vs {r.ref}', step_ppm=step, lev=g, pred=g*step, null=r.Lv))
 # ---- Bruns nights (atmosphere3): field vs previous same-night field; free-fit scales from bruns2017_nights
-B = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_atmosphere3"
-NIGHTS = r"D:/MEE2024 output/MEE_output/bruns2017_nights"
+B = r"F:/MEE_output/matrix_bruns2017_atmosphere3"
+NIGHTS = r"F:/MEE_output/bruns2017_nights"
 for group in ('EC', 'LC', 'RC'):
     ep = []
     for i in range(1, 11):
@@ -88,4 +88,4 @@ for s, sub in T.groupby('set', sort=False):
     print(f'  null rms {np.sqrt(np.mean(y**2)):.3f}"; rms after removing the scale-step part {np.sqrt(np.mean(resid**2)):.3f}"; '
           f'rms of the scale-step part alone {np.sqrt(np.mean(x**2)):.3f}"')
     print(f'  scale steps: rms {np.sqrt(np.mean(sub.step_ppm.values**2)):.1f} ppm, max {np.abs(sub.step_ppm.values).max():.1f} ppm')
-T.to_csv(r"D:/MEE2024 output/MEE_output/step3_record/null_vs_scale_step.csv", index=False)
+T.to_csv(r"F:/MEE_output/step3_record/null_vs_scale_step.csv", index=False)

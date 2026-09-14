@@ -56,9 +56,9 @@ import pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-HUS = r"D:/MEE2024 output/MEE_output/husillos2026"
+HUS = r"F:/MEE_output/husillos2026"
 OUT = os.path.join(HUS, 'vs_station1')
-S1REC = r"D:/MEE2024 output/MEE_output/station1_record/zenith_recentroid"
+S1REC = r"F:/MEE_output/station1_record/zenith_recentroid"
 
 #: Not an analysis window and not a new choice: these are copied verbatim from
 #: `tools/husillos2026/hu_zenith_order.py` so that Station 1 and Husillos are fitted by identical

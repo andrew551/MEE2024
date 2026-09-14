@@ -33,7 +33,7 @@ import numpy as np, pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 RAW = r"I:/Mexico 2024/Station 1 Zenith"
-OUT = r"D:/MEE2024 output/MEE_output/station1_record/zenith_raw_ab"
+OUT = r"F:/MEE_output/station1_record/zenith_raw_ab"
 NX, NY, PS = 9576, 6388, 1.84847
 SUNPX, SUNPY, R_SUN_AS = 4309.0, 2730.0, 958.2
 BLOCKS = [('f1', '2024-04-08_05_32_53Z', '05:33:30'), ('f2', '2024-04-08_05_35_48Z', '05:36:25'),

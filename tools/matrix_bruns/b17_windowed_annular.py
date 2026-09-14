@@ -25,7 +25,7 @@ import numpy as np, pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-M = r"D:/MEE2024 output/MEE_output"
+M = r"F:/MEE_output"
 MAIN = os.path.join(M, 'matrix_bruns2017')                    # preprocessed EA/EB/E2 frames
 RAWCAL = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images"
 WSIG = os.environ.get('B17M_WINDOW_SIGMA', '2.0')      # the window, px; see b17_bruns_method.py

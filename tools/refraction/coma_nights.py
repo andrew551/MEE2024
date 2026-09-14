@@ -4,7 +4,7 @@ import glob, os, sys, zipfile
 import numpy as np, pandas as pd
 from astropy.io import fits
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 NX, NY, PS = 6248, 4176, 2.2054
 
 def adaptive(cut, n=25):

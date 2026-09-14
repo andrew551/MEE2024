@@ -1,7 +1,7 @@
 """Station 1's atmosphere night maps, in the construction and style of cells 1 and 3.
 
 Douglas, 2026-09-04: "this is not what I was looking for. I wanted a chart like
-atmosphere_night_maps.png in D:\\MEE2024 output\\MEE_output\\RECORD\\bruns2017".
+atmosphere_night_maps.png in F:\\MEE_output\\RECORD\\bruns2017".
 
 The bar-and-run chart of `s1_atmosphere_chart.py` summarised the null test. This is the other
 thing, and the one the other two cells have: **the residual structure a calibration fit cannot
@@ -32,7 +32,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-REC = r"D:/MEE2024 output/MEE_output/station1_record"
+REC = r"F:/MEE_output/station1_record"
 QF = os.path.join(REC, 'zenith_quadfree_corr')
 OUT = os.path.join(REC, 'atmosphere_night_maps.png')
 NX, NY = 9576, 6388

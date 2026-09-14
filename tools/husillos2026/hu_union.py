@@ -59,7 +59,7 @@ from analysis_window import WINDOWS  # noqa: E402
 
 WIN = WINDOWS['husillos2026']
 PY = os.path.join(REPO, '.venv', 'Scripts', 'python.exe')
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'step3')
 UNI = os.path.join(OUT, 'union')  # per-host subdirectory below, so a swap cannot overwrite
 

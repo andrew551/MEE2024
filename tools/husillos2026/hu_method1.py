@@ -49,7 +49,7 @@ from analysis_window import WINDOWS  # noqa: E402
 
 WIN = WINDOWS['husillos2026']
 PY = os.path.join(REPO, '.venv', 'Scripts', 'python.exe')
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'step3')
 #: Which CalibS reduction to import from.  `s2_calibs_ecl` is the one detected the way the
 #: science blocks were (cell 2's eclipse settings): 86 stars and +-18.7 ppm, against the first

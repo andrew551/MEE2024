@@ -55,7 +55,7 @@ print(f'FULL UNION, inverse-variance weighted: N={n}, '
 # (CAL's own quadratic-free fit removed deg<=2 content from its residuals, so sharing
 # deg<=2 would bias the science nuisance toward zero -- the honest joint model shares
 # exactly the orders CAL legitimately measures).
-calres = glob.glob(r'D:/MEE2024 output/MEE_output/cal_pileo_step2/canonical_16f_night2refs/**/TWOD_RESIDUALS.csv', recursive=True)[0]
+calres = glob.glob(r'F:/MEE_output/cal_pileo_step2/canonical_16f_night2refs/**/TWOD_RESIDUALS.csv', recursive=True)[0]
 dc = pd.read_csv(calres)
 cdx = dc['dx_arcsec'].values - np.median(dc['dx_arcsec'])
 cdy = dc['dy_arcsec'].values - np.median(dc['dy_arcsec'])

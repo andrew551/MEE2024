@@ -10,7 +10,7 @@ import glob, io, os, shutil, subprocess, zipfile
 import pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-B = r"D:/MEE2024 output/MEE_output/step3_prelim_L"
+B = r"F:/MEE_output/step3_prelim_L"
 COMMON = ['--set','enable_corrections=True','--set','enable_corrections_ref=True',
           '--set','observation_lat=42.740470','--set','observation_long=-5.613780',
           '--set','observation_height=1101','--set','observation_temp=29.2',

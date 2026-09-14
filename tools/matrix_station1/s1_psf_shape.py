@@ -40,12 +40,12 @@ import glob, json, os, zipfile
 import numpy as np, pandas as pd
 from astropy.io import fits
 
-REC = r"D:/MEE2024 output/MEE_output/station1_record"
+REC = r"F:/MEE_output/station1_record"
 Z24 = r"D:/MEE2024 output/Station 1/zenith fields"
-LEON = r"D:/MEE2024 output/MEE_output/refraction/zenith12"
-LEAKEY = r"D:/MEE2024 output/MEE_output/leakey_zenith/zenith1"
-BRUNS = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
-BRUNS_NIGHTS = r"D:/MEE2024 output/MEE_output/bruns2017_nights"
+LEON = r"F:/MEE_output/refraction/zenith12"
+LEAKEY = r"F:/MEE_output/leakey_zenith/zenith1"
+BRUNS = r"F:/MEE_output/matrix_bruns2017_brunsmethod"
+BRUNS_NIGHTS = r"F:/MEE_output/bruns2017_nights"
 EDGES = [0, 0.3, 0.5, 0.7, 0.85, 1.0]
 GMIN, GMAX = 8.0, 11.5
 BOX, RAP, RIN, ROUT = 15, 8.0, 11.0, 15.0     # cutout half-size, aperture, background annulus (px)

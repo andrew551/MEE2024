@@ -39,9 +39,9 @@ from mee2024.distortion_polynomial import apply_corrections
 from mee2024.starcat import providers
 from mee2024.MEE2024util import date_string_to_float
 
-V4 = r"D:/MEE2024 output/MEE_output/step3_s0_v4"
-OUT = r"D:/MEE2024 output/MEE_output/step3_record/master0612"
-CAL = glob.glob(r"D:/MEE2024 output/MEE_output/cal_pileo_step2/canonical_16f_night2refs/"
+V4 = r"F:/MEE_output/step3_s0_v4"
+OUT = r"F:/MEE_output/step3_record/master0612"
+CAL = glob.glob(r"F:/MEE_output/cal_pileo_step2/canonical_16f_night2refs/"
                 r"DISTORTION_OUTPUT*/distortion/distortion_results.txt")[0]
 PS, NX, NY, W_NORM = 2.2054043, 6248, 4176, 3124.0
 SUNPX, SUNPY = 3171.0, 3232.0
@@ -191,7 +191,7 @@ print('master0612 table: %d stars G<=11 outside 2 R_sun, anchor %s'
       % (len(tab), 'in' if tab.is_anchor.any() else 'OUT'), flush=True)
 
 # membership against the union of record
-U = pd.read_csv(r"D:/MEE2024 output/MEE_output/step3_record/leon_union_star_table.csv")
+U = pd.read_csv(r"F:/MEE_output/step3_record/leon_union_star_table.csv")
 def key(t):
     return set(zip(np.round(t.px.values/8).astype(int), np.round(t.py.values/8).astype(int)))
 only_master = key(tab) - key(U); only_union = key(U) - key(tab)

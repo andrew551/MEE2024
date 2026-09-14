@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ser_track import read_header, read_timestamps  # noqa: E402
 
 G = r"G:/Joe Izen Spain 2026/2026-08-12"
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/eclipse"
+OUT = r"F:/MEE_output/husillos2026/eclipse"
 
 SUN = os.path.join(G, 'SunJoe_20260812_182845', '20_28_45.ser')
 SN2 = os.path.join(G, 'Sn2_Joe_20260812_182942', '20_29_43.ser')

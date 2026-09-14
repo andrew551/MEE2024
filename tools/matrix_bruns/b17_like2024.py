@@ -31,8 +31,8 @@ import glob, json, os, subprocess, zipfile
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-MAIN = r"D:/MEE2024 output/MEE_output/matrix_bruns2017"
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_like2024"
+MAIN = r"F:/MEE_output/matrix_bruns2017"
+OUT = r"F:/MEE_output/matrix_bruns2017_like2024"
 MIDT = {'EA': '17:43:22', 'E2': '17:43:47', 'EB': '17:44:13'}
 SITE = ['--set','observation_lat=42 44 11 N','--set','observation_long=106 19 05 W',
         '--set','observation_height=2400','--set','observation_temp=13.0',

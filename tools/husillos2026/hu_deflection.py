@@ -42,7 +42,7 @@ sys.path.insert(0, os.path.join(REPO, 'tools', 'husillos2026'))
 from record_charts import reference_curves  # noqa: E402
 from hu_record import publish  # noqa: E402
 
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'charts')
 
 #: the reduction of record: two-gain union, two-witness, fitted straight against the zenith

@@ -54,7 +54,7 @@ from analysis_window import WINDOWS  # noqa: E402
 from hu_method1 import BLOCKS, CALIBS, PY, SITE, calibs_zip, czip, results, run  # noqa: E402
 
 WIN = WINDOWS['husillos2026']
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'step3')
 
 #: (rung, output prefix, expected `plate scale source`, absorption fraction for the union).

@@ -13,7 +13,7 @@ from drive_mosaic import load_logger
 from band_stability import d3000
 from astropy.io import fits
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 logger = load_logger()
 REF = 2.2068828     # arcsec/px, night-2 zenith corrections-ON mean (6 fields)
 
@@ -26,7 +26,7 @@ def zen_points(night, tag):
     for fld in ("Z1_base", "Z2_mid_left", "Z3_top_left", "Z4_top_right",
                 "Z5_mid_right", "Z6_bottom_right"):
         if night == "08-12" and fld == "Z1_base":
-            r = glob.glob(os.path.join(r"D:/MEE2024 output/MEE_output/cal_pileo_step2",
+            r = glob.glob(os.path.join(r"F:/MEE_output/cal_pileo_step2",
                           "zenith_0812_Z1", "corr_on", "**", "distortion_results.txt"),
                           recursive=True)
         else:
@@ -77,7 +77,7 @@ cb = pd.read_csv(os.path.join(RD, "band_cubic_results.csv"))
 cb["m22"] = [(m - 1320) if m >= 1320 else (m + 120) for m in cb.t_min]
 cb["T_C"] = [T_at(datetime.datetime(2026, 8, 12, 22, 0) + datetime.timedelta(minutes=float(m)))
              for m in cb.m22]
-H = r"D:/MEE2024 output/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
+H = r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
 zc = []
 for night, Tz in (("08-12", None), ("08-11", None)):
     for fld in ("Z1_base", "Z2_mid_left", "Z3_top_left", "Z4_top_right",

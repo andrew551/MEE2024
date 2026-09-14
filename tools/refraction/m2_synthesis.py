@@ -7,7 +7,7 @@ Zenith corrections-ON references: 08-12 measured directly (2.2068874 arcsec/px, 
 import csv, glob, json, os
 import numpy as np
 
-BASE = r"D:/MEE2024 output/MEE_output/refraction/perframe"
+BASE = r"F:/MEE_output/refraction/perframe"
 ZREF = {'N1': 2.2077996 * (1 - 221.9e-6), 'N2': 2.2068874, 'N3': 2.2068874}
 UTC  = {('N1','H1'):'23:16',('N1','H2'):'23:21',('N1','H3'):'23:26',
         ('N2','H1'):'22:31',('N2','H2'):'22:36',('N2','H3'):'22:41',

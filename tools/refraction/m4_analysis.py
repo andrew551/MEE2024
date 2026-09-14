@@ -20,7 +20,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 OUT = os.path.join(RD, "m4_mosaic")
 os.makedirs(OUT, exist_ok=True)
 

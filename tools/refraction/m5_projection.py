@@ -22,7 +22,7 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord, get_sun
 from astropy.time import Time
 import astropy.units as u
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 sys.path.insert(0, REPO)
 

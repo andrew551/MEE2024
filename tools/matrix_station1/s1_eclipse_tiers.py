@@ -60,9 +60,9 @@ REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data"
 Z24 = r"D:/MEE2024 output/Station 1/zenith calibrations"
-RECEN = r"D:/MEE2024 output/MEE_output/station1_record/zenith_recentroid"
-CAL04 = r"D:/MEE2024 output/MEE_output/station1_record/eclipse_calibrated"
-OUT = r"D:/MEE2024 output/MEE_output/station1_record/eclipse_tiers"
+RECEN = r"F:/MEE_output/station1_record/zenith_recentroid"
+CAL04 = r"F:/MEE_output/station1_record/eclipse_calibrated"
+OUT = r"F:/MEE_output/station1_record/eclipse_tiers"
 NX, NY, PS = 9576, 6388, 1.84847
 MAGCUT, RCUT, RMAX = 12.0, 2.0, 9.0
 

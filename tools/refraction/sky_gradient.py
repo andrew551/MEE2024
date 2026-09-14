@@ -25,7 +25,7 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord, get_sun
 from astropy.time import Time
 import astropy.units as u
 
-B = r"D:/MEE2024 output/MEE_output/cal_pileo_step2"
+B = r"F:/MEE_output/cal_pileo_step2"
 SITE = EarthLocation(lat=42.740470 * u.deg, lon=-5.613780 * u.deg, height=1101 * u.m)
 T0 = Time("2026-08-12T18:29:34", scale="utc")
 NX, NY = 6248, 4176

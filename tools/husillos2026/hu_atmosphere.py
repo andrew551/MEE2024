@@ -72,7 +72,7 @@ from analysis_window import WINDOWS  # noqa: E402
 from hu_horizon_reduce import CAPTURES, midtime, SITE  # noqa: E402
 
 PY = os.path.join(REPO, '.venv', 'Scripts', 'python.exe')
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 HOR = os.path.join(HUS, 'horizon')
 OUT = os.path.join(HUS, 'atmosphere')
 NULLS = os.path.join(OUT, 'nulls')

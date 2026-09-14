@@ -29,7 +29,7 @@ import json, os, sys
 import numpy as np, pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = r"D:/MEE2024 output/MEE_output/step3_record"
+OUT = r"F:/MEE_output/step3_record"
 os.makedirs(OUT, exist_ok=True)
 
 src = open(os.path.join(HERE, 'step3_s2_union.py'), encoding='utf-8').read()

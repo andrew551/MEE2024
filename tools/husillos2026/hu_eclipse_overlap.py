@@ -44,7 +44,7 @@ import pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/eclipse"
+OUT = r"F:/MEE_output/husillos2026/eclipse"
 
 PS = 2.2064323            # "/px
 R_SUN_AS = 958.2

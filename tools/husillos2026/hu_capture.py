@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ser_track import read_header  # noqa: E402
 
 SRC = r'G:\Joe Izen Spain 2026\2026-08-12\Capture'          # READ ONLY
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'capture')
 DARK = os.path.join(HUS, 'hotpixels', 'husillos_synthetic_dark_all.fit')
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

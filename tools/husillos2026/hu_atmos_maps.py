@@ -82,7 +82,7 @@ from record_charts import ChartWriter  # noqa: E402
 import hu_record  # noqa: E402
 
 WIN = WINDOWS['husillos2026']
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 HOR = os.path.join(HUS, 'horizon')
 OUT = os.path.join(HUS, 'atmosphere')
 REV = os.environ.get('HU_REV', 'rev01')

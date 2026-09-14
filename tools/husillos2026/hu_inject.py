@@ -22,7 +22,7 @@ record's own invocation (hu_step3._stage2_one, hu_union._stage3).  A rise of 2.0
 quadratic rung would mean hu_absorption.py is wrong; a rise near 1.79 means the record's
 2.129 " is f x the sky's deflection.
 
-Outputs under D:/MEE2024 output/MEE_output/husillos2026/absorption/.
+Outputs under F:/MEE_output/husillos2026/absorption/.
 
     .venv/Scripts/python.exe tools/husillos2026/hu_inject.py
 """
@@ -43,7 +43,7 @@ from analysis_window import WINDOWS  # noqa: E402
 from hu_step3 import BLOCKS, PY, SITE, czip, refpath, results, run  # noqa: E402
 
 WIN = WINDOWS['husillos2026']
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'absorption')
 PS, R_SUN_AS = 2.2028, 947.1
 SUNPX, SUNPY = 5043.0, 3386.0

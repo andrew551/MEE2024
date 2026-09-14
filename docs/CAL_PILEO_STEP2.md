@@ -37,7 +37,7 @@
 
 
 > **Versioned into the repository 2026-08-28.** This document lived only on
-> `D:\MEE2024 output\MEE_output` until then, and that copy has been deleted so there is no
+> `F:\MEE_output` until then, and that copy has been deleted so there is no
 > rival. Three artefacts it refers to moved with it:
 > `cal_pileo_step2_frames.txt` → `calibration/cal_pileo_frames.txt`;
 > `cal_pileo_step2/analysis/` → `tools/cal_pileo_step2/` (with a README recording that its
@@ -47,7 +47,7 @@
 
 **Date:** 2026-08-26. Every number here was produced this week on `v1.4.0-dev` from the raw
 frames on `I:\Leon 2026\2026-08-12\Eclipse\CAL_piLeo`. Reductions under
-`D:\MEE2024 output\MEE_output\cal_pileo_step2\`.
+`F:\MEE_output\cal_pileo_step2\`.
 
 This is step 2 of the three-step chain of `LEON_2026-08-11.md` §16 — the eclipse-day
 calibration, which imports the zenith cubic and re-fits the low orders at the eclipse-day
@@ -652,7 +652,7 @@ corrections on, site 42.740470 / −5.613780 / 1101 m, 30.5 °C / 896.6 hPa / 0.
 
 The twelve zenith reference files are the `inpipeline_windowed` set of §18.8, held at
 
-    D:\MEE2024 output\MEE_output\Claude Code\HANDOFF_zenith_cubic\inpipeline_windowed\
+    F:\MEE_output\Claude Code\HANDOFF_zenith_cubic\inpipeline_windowed\
 
 The frame list is verified against the headers: all 17 end before C3 = 18:29:53.9. Note that the
 `I:\` copy is organised flat by timestamp and is **clean** — the exposure-mismatched `(2)` files

@@ -32,7 +32,7 @@ import pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
+OUT = r"F:/MEE_output/station2_transfer"
 NULLS = os.path.join(OUT, "zenith_nulls")
 
 # The zenith fields are near the pole of refraction -- alt 86-90 deg -- so the correction is

@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hu_settle_chart as H  # noqa: E402
 
 G = r'G:\Joe Izen Spain 2026\2026-08-12\10 deg'          # READ ONLY
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026\horizon'
+HUS = r'F:\MEE_output\husillos2026\horizon'
 
 SIDEREAL = 360.0 * 3600.0 / 86164.0905     # arcsec/s
 DEC_B = 23.284                             # deg, pointing B (record section 3u, 23_37_17 deep solve)

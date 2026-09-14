@@ -17,7 +17,7 @@ from drive_mosaic import load_logger
 from band_stability import d3000
 from astropy.io import fits
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 logger = load_logger()
 
 def T_at(t_utc):
@@ -33,7 +33,7 @@ pts = []   # (t_min, T, ps_on, kind)
 for fld in ("Z1_base", "Z2_mid_left", "Z3_top_left", "Z4_top_right",
             "Z5_mid_right", "Z6_bottom_right"):
     if fld == "Z1_base":
-        r = glob.glob(os.path.join(r"D:/MEE2024 output/MEE_output/cal_pileo_step2",
+        r = glob.glob(os.path.join(r"F:/MEE_output/cal_pileo_step2",
                                    "zenith_0812_Z1", "corr_on", "**",
                                    "distortion_results.txt"), recursive=True)
     else:
@@ -83,7 +83,7 @@ cb["T_C"] = [float(np.interp((datetime.datetime(2026, 8, 12, 22, 0)
              + (86400 if m > 1300 else 0), logger[:, 0], logger[:, 1]))
              for m in cb.t_min]
 zen = []
-H = r"D:/MEE2024 output/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
+H = r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
 for fld in ("Z1_base", "Z2_mid_left", "Z3_top_left", "Z4_top_right",
             "Z5_mid_right", "Z6_bottom_right"):
     j = json.load(open(os.path.join(H, f"08-12_{fld}.txt")))

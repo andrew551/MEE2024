@@ -335,4 +335,4 @@ Proposals, not changes:
 Data: `I:\Don Bruns TV-85 calibration`, `I:\Don Bruns 2024`, `I:\2017 eclipse images Don
 Bruns`, `I:\Kenneth Carrell 2024\FRA500`, `I:\Leakey 2024 data`, `J:\Eclipse data\Toby
 Portland data\2026-07-29`, `G:\SharpCap\2026-08-06\Zenith`. Reductions under
-`D:\MEE2024 output\MEE_output\`.
+`F:\MEE_output\`.

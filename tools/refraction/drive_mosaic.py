@@ -24,8 +24,8 @@ from astropy.io import fits
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 G = r"G:/Leon Aug 2026/2026-08-13/Refraction mosaic"
-RD = r"D:/MEE2024 output/MEE_output/refraction"
-REFROOT = r"D:/MEE2024 output/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
+RD = r"F:/MEE_output/refraction"
+REFROOT = r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
 LOGGER = r"I:/Leon location and weather data/leon_temp_press_humid.csv"
 
 SITE = ['--set', 'observation_lat=42.740470', '--set', 'observation_long=-5.613780',

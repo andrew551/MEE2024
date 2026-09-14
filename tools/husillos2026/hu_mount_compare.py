@@ -55,7 +55,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ser_track import (find_stars, moments, coarse_shift, similarity_fit,  # noqa: E402
                        sky_level, read_header, read_timestamps, read_frame)
 
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/mount"
+OUT = r"F:/MEE_output/husillos2026/mount"
 PS = 2.2054043          # "/px, the FRA500 + 0.7x canonical (docs/CAL_PILEO_STEP2.md)
 #: per-field plate scale, because Station 1 is a different optic. Anything absent uses PS.
 PS_BY_FIELD = {'station1 Mexico zenith': 1.8484826, 'station1 Mexico zenith 2': 1.8484826,

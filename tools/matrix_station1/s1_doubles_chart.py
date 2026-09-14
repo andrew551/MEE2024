@@ -31,10 +31,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from mee2024.MEE2024util import get_data_root
 from tools.analysis_window import WINDOWS
 
-REC = r"D:/MEE2024 output/MEE_output/station1_record"
+REC = r"F:/MEE_output/station1_record"
 OUT = os.path.join(REC, 'charts')
 VER = os.path.join(OUT, 'chart_versions')
-RECORD = r"D:/MEE2024 output/MEE_output/RECORD/mexico2024"
+RECORD = r"F:/MEE_output/RECORD/mexico2024"
 POOLED = os.path.join(REC, 'pooled_fit', 'twopass')
 NX, NY, PS = 9576, 6388, 1.84847
 GR = 1.7512

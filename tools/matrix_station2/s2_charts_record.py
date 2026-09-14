@@ -2,7 +2,7 @@
 
 Douglas asked for a reduced set: the deflection chart, the field chart, the covariance chart
 carrying BOTH methods, and one annotated master per tier. Written to
-`D:\\MEE2024 output\\MEE_output\\RECORD\\mexico2024st2`.
+`F:\\MEE_output\\RECORD\\mexico2024st2`.
 
 Station 2 is the station cell 2 could not be: it has a real eclipse-day bracket, right at
 18:10:32-18:11:21 and left at 18:14:05-18:14:57, so unlike Station 1 it can be reduced BOTH ways.
@@ -38,10 +38,10 @@ from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, covaria
 from matplotlib.patches import Circle
 
 REV = 'rev06'
-OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
+OUT = r"F:/MEE_output/station2_transfer"
 CHARTS = os.path.join(OUT, 'charts')
 VER = os.path.join(CHARTS, 'chart_versions')
-RECORD = r"D:/MEE2024 output/MEE_output/RECORD/mexico2024st2"
+RECORD = r"F:/MEE_output/RECORD/mexico2024st2"
 os.makedirs(CHARTS, exist_ok=True); os.makedirs(VER, exist_ok=True)
 
 NX, NY, PS = 4656, 3520, 1.8672511

@@ -36,8 +36,8 @@ Output: step3_record/atmosphere_nulls.csv and the numbers printed.
 import glob, json, os, sys
 import numpy as np, pandas as pd
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
-OUT = r"D:/MEE2024 output/MEE_output/step3_record"
+RD = r"F:/MEE_output/refraction"
+OUT = r"F:/MEE_output/step3_record"
 os.makedirs(OUT, exist_ok=True)
 PS, NX, NY, W_NORM = 2.2054043, 6248, 4176, 3124.0
 SUNPX, SUNPY = 3171.0, 3232.0

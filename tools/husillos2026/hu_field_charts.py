@@ -53,9 +53,9 @@ from record_charts import SkyFrame, field_chart, scale_bars, bar_frame  # noqa: 
 sys.path.insert(0, os.path.join(REPO, 'tools', 'husillos2026'))
 from hu_record import publish  # noqa: E402
 
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'charts')
-RECORD = r'D:\MEE2024 output\MEE_output\RECORD\husillos2026'
+RECORD = r'F:\MEE_output\RECORD\husillos2026'
 
 NX, NY = 9576, 6388               # Zeus 455M PRO (IMX455)
 R_SUN_AS = 947.1                  # docs/STAGE3_THEORY.md section 3

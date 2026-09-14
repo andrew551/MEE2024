@@ -1,7 +1,7 @@
 # Frozen calibration inputs
 
 These are **inputs to the reduction chain, not outputs of it** — which is why they are
-versioned here rather than left under `D:\MEE2024 output\MEE_output`. Every downstream
+versioned here rather than left under `F:\MEE_output`. Every downstream
 number (the CAL_piLeo plate scale, and through it the deflection constant) is pinned to
 these exact values, so they have to be recoverable byte for byte, independently of whether
 a reduction tree still exists.
@@ -67,7 +67,7 @@ per tree, verified by content hash across `best_windowed`, `inpipeline_windowed`
 | copy | role |
 |---|---|
 | `calibration/zenith_cubic/` | **this one** — the versioned copy, and the one to cite |
-| `D:\MEE2024 output\MEE_output\Claude Code\HANDOFF_zenith_cubic\` | the working copy the campaign ran against |
+| `F:\MEE_output\Claude Code\HANDOFF_zenith_cubic\` | the working copy the campaign ran against |
 | `H:\Claude Code\HANDOFF_zenith_cubic\` | the transfer copy sent to Andrew (read-only) |
 | `I:\MEE Project files\HANDOFF_zenith_cubic\` | returned from Andrew's machine; was formerly on `H:` |
 
@@ -76,7 +76,8 @@ the only place the source trees survive. Beside the handoff it holds
 `v1.4.0-dev_inpipe\<night>\<field>\`, the stage-1 and stage-2 output trees these twelve
 solutions were produced from. That matters because each solution's own `source_data` field
 names `D:\MEE_output\v1.4.0-dev_inpipe\...\centroid_data<stamp>.zip`, and **`D:\MEE_output`
-no longer exists** — the output root was later renamed to `D:\MEE2024 output\MEE_output`.
+no longer exists** — the output root was renamed to `D:\MEE2024 output\MEE_output`,
+and on 2026-09-14 the whole tree moved again, to `F:\MEE_output`.
 The named zips are on `I:` under the identical filenames, so provenance is recoverable;
 it is only the recorded path that rotted.
 

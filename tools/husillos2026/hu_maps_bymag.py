@@ -44,7 +44,7 @@ import os
 import numpy as np
 import pandas as pd
 
-R = r'D:\MEE2024 output\MEE_output'
+R = r'F:\MEE_output'
 HUS = os.path.join(R, 'husillos2026')
 HOR = os.path.join(HUS, 'horizon')
 OUT = os.path.join(HUS, 'atmosphere', 'maps_bymag.csv')

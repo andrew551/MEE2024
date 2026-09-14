@@ -19,9 +19,9 @@ from astropy.io import fits
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"D:/MEE2024 output/MEE_output/f16_cal_pileo_test2"
+OUT = r"F:/MEE_output/f16_cal_pileo_test2"
 REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
-FRAMES = [l.strip() for l in open(r"D:/MEE2024 output/MEE_output/f16_cal_pileo_test/canonical_order.txt")
+FRAMES = [l.strip() for l in open(r"F:/MEE_output/f16_cal_pileo_test/canonical_order.txt")
           if l.strip()]
 SAT, NEAR, BOX = 65535, 60000, 4
 

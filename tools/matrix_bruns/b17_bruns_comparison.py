@@ -15,8 +15,8 @@ import numpy as np, pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 sys.path.insert(0, REPO)
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
-CONV = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_like2024"
+OUT = r"F:/MEE_output/matrix_bruns2017_brunsmethod"
+CONV = r"F:/MEE_output/matrix_bruns2017_like2024"
 PS, NX, NY, W_NORM = 2.0868004, 3296, 2472, 1648.0
 R_SUN_AS = 948.7
 SUNPX, SUNPY = 1645.0, 1741.0

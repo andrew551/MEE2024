@@ -53,7 +53,7 @@ from astropy.io import fits
 
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data/CapObj/2024-04-08_18_12_30Z"
 ECL24 = r"D:/MEE2024 output/Station 1/eclipse fields/CENTROID_OUTPUT20240416232626"
-OUT = r"D:/MEE2024 output/MEE_output/station1_record/cloud_positions"
+OUT = r"F:/MEE_output/station1_record/cloud_positions"
 NX, NY, PS = 9576, 6388, 1.84847
 BIAS = 503.0
 BOX = 20            # half-size of the box read around each star

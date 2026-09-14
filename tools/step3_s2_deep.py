@@ -137,7 +137,7 @@ Uf, rxf, ryf, Rf = unions['FULL']
 gls_block(Uf, rxf, ryf, Rf, '=== (2) GLS, FULL union mag<=12 ===')
 
 # ------------------------------------------------------- CAL witness for rho
-calres = glob.glob(r'D:/MEE2024 output/MEE_output/cal_pileo_step2/'
+calres = glob.glob(r'F:/MEE_output/cal_pileo_step2/'
                    r'canonical_16f_night2refs/**/TWOD_RESIDUALS.csv', recursive=True)[0]
 dc = pd.read_csv(calres)
 cex = dc['dx_arcsec'].values - np.median(dc['dx_arcsec'])

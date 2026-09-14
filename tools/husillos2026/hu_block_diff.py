@@ -37,7 +37,7 @@ from astropy.coordinates import EarthLocation, get_body
 from astropy.time import Time
 import astropy.units as u
 
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 R_SUN_AS = 947.1
 SITE = EarthLocation(lat=42.09293 * u.deg, lon=-4.52702 * u.deg, height=743 * u.m)
 T_MID = '2026-08-12 18:29:40'          # between the two block mid-times

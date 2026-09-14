@@ -29,7 +29,7 @@ import glob, json, os, subprocess, sys
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 SRC = r"G:/Leon Aug 2026/2026-08-12/Zenith"      # G: only -- the authoritative tree
-OUT = r"D:/MEE2024 output/MEE_output/f16_zenith_test"
+OUT = r"F:/MEE_output/f16_zenith_test"
 
 STAGE1 = ['--set','sensitive_mode_stack=True','--set','centroid_gaussian_subtract=False',
           '--set','centroid_gaussian_thresh=5.0','--set','min_area=4',

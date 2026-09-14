@@ -21,7 +21,7 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from astropy.time import Time
 import astropy.units as u
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 OUT = os.path.join(RD, "m3_maps")
 os.makedirs(OUT, exist_ok=True)
 SITE = EarthLocation(lat=42.740470 * u.deg, lon=-5.613780 * u.deg, height=1101 * u.m)

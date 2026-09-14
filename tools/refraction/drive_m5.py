@@ -19,8 +19,8 @@ from astropy.io import fits
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 G = r"G:/Leon Aug 2026"
-RD = r"D:/MEE2024 output/MEE_output/refraction"
-REFROOT = r"D:/MEE2024 output/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
+RD = r"F:/MEE_output/refraction"
+REFROOT = r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
 
 WINDOWS = {
     'N1': dict(date='2026-08-11', refs='08-11', T=23.5, P=896.3, RH=0.371),

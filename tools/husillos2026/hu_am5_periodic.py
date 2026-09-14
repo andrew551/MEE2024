@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ser_track import (find_stars, moments, coarse_shift, similarity_fit,  # noqa: E402
                        sky_level, read_header, read_timestamps, read_frame)
 
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/mount"
+OUT = r"F:/MEE_output/husillos2026/mount"
 PS = 2.2054043
 G = r"G:/Joe Izen Spain 2026"
 

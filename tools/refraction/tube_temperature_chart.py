@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from band_stability import d3000
 from astropy.io import fits
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 REF = 2.2068828
 OFF = 7.74            # K, FOCTEMP minus free-air logger, night-2 measured (+/- 0.67)
 
@@ -25,7 +25,7 @@ ps_pts, cu_pts = [], []
 for night, tag in (("08-12", "n2"), ("08-11", "n1")):
     for fld in Z:
         if night == "08-12" and fld == "Z1_base":
-            r = glob.glob(os.path.join(r"D:/MEE2024 output/MEE_output/cal_pileo_step2",
+            r = glob.glob(os.path.join(r"F:/MEE_output/cal_pileo_step2",
                           "zenith_0812_Z1", "corr_on", "**", "distortion_results.txt"),
                           recursive=True)
         else:
@@ -34,7 +34,7 @@ for night, tag in (("08-12", "n2"), ("08-11", "n1")):
         j = json.load(open(r[0]))
         t = ft_of(rf"G:/Leon Aug 2026/2026-{night}/Zenith/{fld}/*/*00001.fits")
         ps_pts.append((t, (j["platescale (arcseconds/pixel)"]/REF - 1)*1e6, tag))
-        jz = json.load(open(rf"D:/MEE2024 output/MEE_output/Claude Code/"
+        jz = json.load(open(rf"F:/MEE_output/Claude Code/"
                             rf"HANDOFF_zenith_cubic/inpipeline_windowed/{night}_{fld}.txt"))
         cu_pts.append((t, abs(d3000(jz)), tag))
 df = pd.read_csv(os.path.join(RD, "m4_mosaic", "m4_fields.csv"))

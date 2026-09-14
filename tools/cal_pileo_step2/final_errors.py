@@ -9,7 +9,7 @@ import glob, json
 import numpy as np, pandas as pd
 
 W, CX, CY = 3124.0, 3124.0, 2088.0
-B = r"D:/MEE2024 output/MEE_output/cal_pileo_step2"
+B = r"F:/MEE_output/cal_pileo_step2"
 
 def design(px, py):
     x, y = (px-CX)/W, (py-CY)/W

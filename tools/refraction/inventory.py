@@ -61,7 +61,7 @@ for tag, pat in [("REF zenith 08-11", r"I:/Leon 2026/2026-08-11/Zenith/Z1_base/*
             foctemp_C_first=round(float(h['FOCTEMP']),1) if 'FOCTEMP' in h else None,
             foctemp_C_last=None, object=h.get('OBJECT',''), set_temp_C=h.get('SET-TEMP','')))
 
-out = r"D:/MEE2024 output/MEE_output/refraction/INVENTORY.csv"
+out = r"F:/MEE_output/refraction/INVENTORY.csv"
 with open(out, "w", newline="") as fp:
     w = csv.DictWriter(fp, fieldnames=list(rows[0])); w.writeheader(); w.writerows(rows)
 print(f"{len(rows)} blocks -> {out}\n")

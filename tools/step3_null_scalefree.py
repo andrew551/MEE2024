@@ -36,19 +36,19 @@ def report(name, T):
     print(f'{name:48} n={len(T):2d}  M1 null rms {np.sqrt((m1**2).mean()):.3f}"  M2 (scale free) null rms {np.sqrt((m2**2).mean()):.3f}"  '
           f'fitted scale step rms {np.sqrt((T.S_ppm.values**2).mean()):5.1f} ppm')
 
-B1 = sorted(glob.glob(r"D:/MEE2024 output/MEE_output/matrix_bruns2017_atmosphere3/[ELR]C*/**/TWOD_RESIDUALS.csv", recursive=True))
-B2 = sorted(glob.glob(r"D:/MEE2024 output/MEE_output/matrix_bruns2017_atmosphere3/bracket/*/**/TWOD_RESIDUALS.csv", recursive=True))
+B1 = sorted(glob.glob(r"F:/MEE_output/matrix_bruns2017_atmosphere3/[ELR]C*/**/TWOD_RESIDUALS.csv", recursive=True))
+B2 = sorted(glob.glob(r"F:/MEE_output/matrix_bruns2017_atmosphere3/bracket/*/**/TWOD_RESIDUALS.csv", recursive=True))
 bruns = dict(PS=2.0868004, NX=3296, NY=2472, W=1648.0, SUNPX=1645.0, SUNPY=1741.0, RS=948.7, VX=0.447, VY=-0.895)
 report('Bruns one-sided (field vs previous, 6-7 min)', nulls(B1, **bruns))
 report('Bruns bracketed (field vs mean of before/after)', nulls(B2, **bruns))
-Z = sorted(glob.glob(r"D:/MEE2024 output/MEE_output/step3_record/zenith_nulls/*/**/TWOD_RESIDUALS.csv", recursive=True))
+Z = sorted(glob.glob(r"F:/MEE_output/step3_record/zenith_nulls/*/**/TWOD_RESIDUALS.csv", recursive=True))
 leon = dict(PS=2.2054043, NX=6248, NY=4176, W=3124.0, SUNPX=3171.0, SUNPY=3232.0, RS=947.1)
 report('Leon zenith consecutive (2.6 min)', nulls(Z, **leon))
 # Leon M5: per-star medians per window (the gate construction), then M1/M2
 rows = []
 for w in ('N1','N2','N3'):
     acc = {}
-    for f in sorted(glob.glob(rf"D:/MEE2024 output/MEE_output/refraction/m5_rehearsal/{w}/f*/**/TWOD_RESIDUALS.csv", recursive=True)):
+    for f in sorted(glob.glob(rf"F:/MEE_output/refraction/m5_rehearsal/{w}/f*/**/TWOD_RESIDUALS.csv", recursive=True)):
         d = pd.read_csv(f)
         for _, r in d.iterrows(): acc.setdefault(r.ID, []).append((r.px, r.py, r.dx_arcsec, r.dy_arcsec, r.magV))
     P = np.array([[np.median([q[c] for q in v]) for c in range(4)] + [v[0][4]] for v in acc.values() if len(v) >= 20])

@@ -53,9 +53,9 @@ from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, bar_fra
                                  covariance_chart, field_chart as draw_field, reference_curves,
                                  scale_bars)
 
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_brunsmethod"
+OUT = r"F:/MEE_output/matrix_bruns2017_brunsmethod"
 VER = os.path.join(OUT, 'chart_versions')
-RECORD = r"D:/MEE2024 output/MEE_output/RECORD/bruns2017"
+RECORD = r"F:/MEE_output/RECORD/bruns2017"
 os.makedirs(VER, exist_ok=True)
 REV = 'rev12'
 RAWDIR = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"

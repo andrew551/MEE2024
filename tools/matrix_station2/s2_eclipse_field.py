@@ -32,7 +32,7 @@ import sys
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 SRC = r"I:/Station2Export/EclipseImages/eclipse"
-OUT = r"D:/MEE2024 output/MEE_output/station2_transfer/eclipse"
+OUT = r"F:/MEE_output/station2_transfer/eclipse"
 
 # (tag, folder, stage-2 mid-time, frame range or None)
 #

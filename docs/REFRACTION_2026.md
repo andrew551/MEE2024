@@ -1,7 +1,7 @@
 # The Leon refraction data: what it is, and a plan for using it
 
 *(Branch record for `refraction-leon-2026`. The original strategy copy lives at
-`D:\MEE2024 output\MEE_output\refraction\REFRACTION_2026_STRATEGY.md`; this file is the
+`F:\MEE_output\refraction\REFRACTION_2026_STRATEGY.md`; this file is the
 living version and will accumulate results as M2–M8 run.)*
 
 > **Read the status line below as of its date.** The M-ladder has since run, the step-3
@@ -327,7 +327,7 @@ usefully note N2/N3 bracket the mosaic on one night; the pier-flip focus step
   `docs/REFRACTION_2026.md`. **No changes under `mee2024/`**, so nothing on the branch can
   alter a pipeline number; if M6 ever graduates into the package, that is a
   results-changing change and takes the full §6 validation path.
-- Reductions land under `D:\MEE2024 output\MEE_output\refraction\`.
+- Reductions land under `F:\MEE_output\refraction\`.
 - Machine time: M2 ≈ 8–10 h + M4 ≈ 4–5 h, both unattended overnight; analysis on top.
 - Everything above is reproducible from `INVENTORY.csv`, the logger file, and the two
   `.scs` scripts; no hand steps.

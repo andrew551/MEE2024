@@ -63,8 +63,8 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 G = r"G:/Joe Izen Spain 2026"
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/hotpixels"
-TRACK = r"D:/MEE2024 output/MEE_output/husillos2026/mount"
+OUT = r"F:/MEE_output/husillos2026/hotpixels"
+TRACK = r"F:/MEE_output/husillos2026/mount"
 
 NX, NY = 9576, 6388
 #: value given to a flagged pixel in the synthetic dark. Anything over dark_mask's 10 ADU floor
@@ -176,10 +176,10 @@ def check():
     print()
     print('%-34s %8s %10s %12s %12s' % ('stack', 'cent.', 'area<=2px', 'on a hot px',
                                         'of the <=2px'))
-    for root, nm in ((r'D:/MEE2024 output/MEE_output/husillos2026/eclipse', 'sn2_trimmed'),
-                     (r'D:/MEE2024 output/MEE_output/husillos2026/eclipse', 'sn2_masked'),
-                     (r'D:/MEE2024 output/MEE_output/husillos2026/eclipse', 'sun_totality'),
-                     (r'D:/MEE2024 output/MEE_output/husillos2026/zenith_order', 'with_f0')):
+    for root, nm in ((r'F:/MEE_output/husillos2026/eclipse', 'sn2_trimmed'),
+                     (r'F:/MEE_output/husillos2026/eclipse', 'sn2_masked'),
+                     (r'F:/MEE_output/husillos2026/eclipse', 'sun_totality'),
+                     (r'F:/MEE_output/husillos2026/zenith_order', 'with_f0')):
         z = glob.glob(os.path.join(root, 's1_' + nm, 'centroid_data*.zip'))
         if not z:
             continue

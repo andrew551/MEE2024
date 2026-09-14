@@ -33,7 +33,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(REPO, 'tools'))
 from analysis_window import WINDOWS  # noqa: E402
 
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 WIN = WINDOWS['husillos2026']
 NX, NY = 9576, 6388
 PS, R_SUN_AS = 2.2028, 947.1

@@ -23,7 +23,7 @@ rotated into the local alt-az frame through an affine fitted from the field's ow
 table, so "vertical" means vertical on the sky rather than on the sensor.
 
 Outputs a quiver figure and a stats table alongside Leon's, in
-D:/MEE2024 output/MEE_output/matrix_bruns2017_m3/.
+F:/MEE_output/matrix_bruns2017_m3/.
 """
 import glob, json, os, subprocess
 import numpy as np, pandas as pd
@@ -33,8 +33,8 @@ import matplotlib.pyplot as plt
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-NIGHTS = r"D:/MEE2024 output/MEE_output/bruns2017_nights"
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_m3"
+NIGHTS = r"F:/MEE_output/bruns2017_nights"
+OUT = r"F:/MEE_output/matrix_bruns2017_m3"
 NX, NY, PS = 3296, 2472, 2.0868004
 os.makedirs(OUT, exist_ok=True)
 SITE = ['--set','observation_lat=42 44 11 N','--set','observation_long=106 19 05 W',
@@ -43,7 +43,7 @@ SITE = ['--set','observation_lat=42 44 11 N','--set','observation_long=106 19 05
         '--set','observation_wavelength=0.625']
 # the same 15-field cubic average the L/R calibration froze
 NIGHTREFS = json.load(open(glob.glob(
-    r'D:/MEE2024 output/MEE_output/bruns2017_lr/L/stage2/DISTORTION_OUTPUT*/distortion/'
+    r'F:/MEE_output/bruns2017_lr/L/stage2/DISTORTION_OUTPUT*/distortion/'
     r'distortion_results.txt')[0], encoding='utf-8'))['fixed distortion reference files'].split(';')
 
 

@@ -9,7 +9,7 @@ Reads frame results directly; does not touch the running driver's CSV.
 import glob, json, os
 import numpy as np
 
-BASE = r"D:/MEE2024 output/MEE_output/refraction/perframe"
+BASE = r"F:/MEE_output/refraction/perframe"
 ZENITH_ON = 2.2068874          # arcsec/px, 08-12 Z1_base corrections ON, same focus as N2
 
 def load(window, field):

@@ -60,7 +60,7 @@ import pandas as pd
 from mee2024 import distortion_polynomial as dp
 from mee2024.config import get_default_options
 
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/zenith_order"
+OUT = r"F:/MEE_output/husillos2026/zenith_order"
 ORDERS = ('cubic', 'quintic', 'septic')
 
 #: (label, sensor, plate scale, the two independent fits to compare)

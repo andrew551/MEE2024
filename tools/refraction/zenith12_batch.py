@@ -5,7 +5,7 @@ import glob, json, os, subprocess, sys
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"D:/MEE2024 output/MEE_output/refraction/zenith12"
+OUT = r"F:/MEE_output/refraction/zenith12"
 STAGE1 = ['--set','sensitive_mode_stack=True','--set','centroid_gaussian_subtract=False',
           '--set','centroid_gaussian_thresh=5.0','--set','min_area=4',
           '--set','sigma_subtract=3.0','--set','delete_saturated_blob=True',

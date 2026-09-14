@@ -26,7 +26,7 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord, get_sun
 from astropy.time import Time
 import astropy.units as u
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 sys.path.insert(0, REPO)
 
@@ -240,7 +240,7 @@ print('done v2', flush=True)
 import zipfile
 print("\n=== LEON: estimator applied to the rematched star tables ===")
 print(f"{'set':28} {'N':>4} {'L base (as)':>12} {'L v-deg2 (as)':>14}")
-BL = r"D:/MEE2024 output/MEE_output/step3_prelim_L"
+BL = r"F:/MEE_output/step3_prelim_L"
 for tier in ('0p6s', '1p2s'):
     for tag in ('with_anchor', 'sans_anchor'):
         zp = os.path.join(BL, tier, f'stage3_rematched_{tag}', 'distortion_data_rematched.zip')

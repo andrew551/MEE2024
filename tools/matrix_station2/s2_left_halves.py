@@ -22,7 +22,7 @@ import subprocess
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 SRC = r"I:/Station2Export/EclipseImages/eclipse"
-OUT = r"D:/MEE2024 output/MEE_output/station2_transfer"
+OUT = r"F:/MEE_output/station2_transfer"
 DEST = os.path.join(OUT, "lr_halves")
 
 # The eclipse-convention stage-1 settings the bracket was stacked with (s2_stage2.py's LR set).

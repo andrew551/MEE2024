@@ -46,7 +46,7 @@ def radial_decomposition(d, label):
     print(f'  sigma_x = {dx.std(ddof=0):.4f}"  sigma_y = {dy.std(ddof=0):.4f}"  '
           f'ratio = {dy.std(ddof=0)/dx.std(ddof=0):.2f}')
 
-base = r"D:/MEE2024 output/MEE_output/step2_ladder"
+base = r"F:/MEE_output/step2_ladder"
 for tag, run in [("tol 0.5", "tolsweep_0.5/DISTORTION_OUTPUT20260825143416__20260825033557"),
                  ("tol 1.0", "tolsweep_1.0/DISTORTION_OUTPUT20260825143422__20260825033557"),
                  ("tol 5.0", "tolsweep_5.0/DISTORTION_OUTPUT20260825143434__20260825033557")]:

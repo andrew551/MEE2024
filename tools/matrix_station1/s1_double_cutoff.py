@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from mee2024.MEE2024util import get_data_root
 from tools.analysis_window import WINDOWS
 
-REC = r"D:/MEE2024 output/MEE_output/station1_record"
+REC = r"F:/MEE_output/station1_record"
 OUT = os.path.join(REC, 'charts')
 POOLED = os.path.join(REC, 'pooled_fit', 'twopass')
 NX, NY, PS = 9576, 6388, 1.84847
@@ -179,7 +179,7 @@ for cut in (0, 2, 5, 10, 15, 20, 30):
                                    solve(kept)))
 
 # ---------------------------------------------------------------- the zenith fields: the real test
-ZEN = (r"D:/MEE2024 output/MEE_output/station1_record/zenith_nulls_corr/**/"
+ZEN = (r"F:/MEE_output/station1_record/zenith_nulls_corr/**/"
        r"CATALOGUE_MATCHED_ERRORS.csv")
 zf = sorted(__import__('glob').glob(ZEN, recursive=True))
 frames = []

@@ -10,7 +10,7 @@ atmosphere term is quoted in the headline below as the design-matched ±0.059 wh
 table row still says that term was proposed and *not yet applied*. That contradiction is
 unresolved here — do not quote cell 1's total without checking the matrix first.
 
-This file is the index of `D:\MEE2024 output\MEE_output\RECORD\`, and
+This file is the index of `F:\MEE_output\RECORD\`, and
 `tools/sync_record.py` copies it there; the repository copy is the one to edit. Besides the
 three cell folders below, RECORD holds **`refraction/`**: the Leon campaign's six figures
 (two publication-grade, with their caption facts in its `README.md`), the tables

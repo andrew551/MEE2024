@@ -30,7 +30,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 G = r'G:\Joe Izen Spain 2026\2026-08-12'                      # READ ONLY
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 
 #: (label, capture directory, file stem, stage-1 output, frames used)
 BLOCKS = [

@@ -52,7 +52,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ser_track import read_header, read_frame  # noqa: E402
 
 G = r'G:\Joe Izen Spain 2026\2026-08-12'                       # READ ONLY
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'seeing')
 
 BLOCKS = [('gain125', os.path.join(G, 'SunJoe_20260812_182845', '20_28_45.ser'),

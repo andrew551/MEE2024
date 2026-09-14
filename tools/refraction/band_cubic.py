@@ -7,7 +7,7 @@ import glob, json, os, subprocess, sys
 import pandas as pd
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 ks = pd.read_csv(os.path.join(RD, "band_fields.csv")).k.tolist()
 flds = sorted(d for d in os.listdir(os.path.join(RD, "mosaic"))
               if d.startswith("REFR_M") and int(d[6:8]) in ks)

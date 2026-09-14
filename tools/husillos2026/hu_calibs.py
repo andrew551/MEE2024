@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hu_eclipse_frames import scan  # noqa: E402
 
 G = r'G:\Joe Izen Spain 2026\2026-08-12'
-OUT = r'D:\MEE2024 output\MEE_output\husillos2026\calibs'
+OUT = r'F:\MEE_output\husillos2026\calibs'
 CAL = os.path.join(G, 'CalibS_Joe_20260812_183018', '20_30_18.ser')
 
 #: from the site card, `G:\Joe Izen Spain 2026\Husillos Spain.JPG`
@@ -199,7 +199,7 @@ SITE = ['--set', 'enable_corrections=True', '--set', 'enable_corrections_ref=Tru
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PY = os.path.join(REPO, '.venv', 'Scripts', 'python.exe')
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 DARK = os.path.join(HUS, 'hotpixels', 'husillos_synthetic_dark_all.fit')
 REF = os.path.join(HUS, 'step3', 'ref')
 

@@ -52,7 +52,7 @@ from astropy.coordinates import get_sun
 from astropy.time import Time
 import astropy.units as u
 
-REC = r"D:/MEE2024 output/MEE_output/station1_record"
+REC = r"F:/MEE_output/station1_record"
 NX, NY, PS = 9576, 6388, 1.84847
 MAGCUT, RCUT, RMAX = 13.0, 2.0, 9.0
 BLOCKS = [('0p25s_1810', '18:11:12'), ('0p3s_1811', '18:11:58'),

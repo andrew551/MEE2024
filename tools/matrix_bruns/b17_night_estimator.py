@@ -36,8 +36,8 @@ import numpy as np, pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-NIGHTS = r"D:/MEE2024 output/MEE_output/bruns2017_nights"
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017_night_estimator"
+NIGHTS = r"F:/MEE_output/bruns2017_nights"
+OUT = r"F:/MEE_output/matrix_bruns2017_night_estimator"
 NX, NY = 3296, 2472
 RMAX = float(np.hypot(NX/2, NY/2))
 MAXFIELDS = int(os.environ.get('B17_NIGHT_FIELDS', '12'))

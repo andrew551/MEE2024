@@ -55,7 +55,7 @@ import pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"D:/MEE2024 output/MEE_output/husillos2026/zenith_order"
+OUT = r"F:/MEE_output/husillos2026/zenith_order"
 G = r"G:/Joe Izen Spain 2026"
 
 FULL = os.path.join(G, "2026-08-13", "zenith", "00_00_21.ser")     # 50 x 9576x6388, 1.0 s

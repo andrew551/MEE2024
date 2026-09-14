@@ -16,7 +16,7 @@ import numpy as np
 from astropy.io import fits
 
 RAW = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
-OUT = r"D:/MEE2024 output/MEE_output/matrix_bruns2017"
+OUT = r"F:/MEE_output/matrix_bruns2017"
 os.makedirs(OUT, exist_ok=True)
 PS = 2.0868004                 # arcsec/px, the L/R bracket mean (bruns2017_lr canonical)
 SATLEV = 65535

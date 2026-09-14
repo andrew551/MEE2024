@@ -44,7 +44,7 @@ sys.path.insert(0, os.path.join(REPO, 'tools'))
 from record_charts import SkyFrame  # noqa: E402
 
 NX, NY = 9576, 6388  # Zeus 455M PRO (IMX455), from the SER header
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 UNI = os.path.join(HUS, 'step3', 'union', 'host_gain125')
 
 #: Husillos site, from `G:\Joe Izen Spain 2026\Husillos Spain.JPG` (docs/HUSILLOS2026_*.md).

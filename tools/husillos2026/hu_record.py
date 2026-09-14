@@ -17,7 +17,7 @@ import os
 import shutil
 import datetime
 
-RECORD = r'D:\MEE2024 output\MEE_output\RECORD\husillos2026'
+RECORD = r'F:\MEE_output\RECORD\husillos2026'
 
 
 def publish(names, src, record=RECORD):

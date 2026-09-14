@@ -61,7 +61,7 @@ sys.path.insert(0, os.path.join(REPO, 'tools', 'husillos2026'))
 from record_charts import ChartWriter  # noqa: E402
 import hu_record  # noqa: E402
 
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'calibs')
 REV = os.environ.get('HU_REV', 'rev01')
 PS = 2.2028                 # arcsec per px, the cell's plate scale

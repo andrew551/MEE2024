@@ -38,8 +38,8 @@ import astropy.units as u
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-RD = r"D:/MEE2024 output/MEE_output/refraction"
-OUT = r"D:/MEE2024 output/MEE_output/step3_record"
+RD = r"F:/MEE_output/refraction"
+OUT = r"F:/MEE_output/step3_record"
 VER = os.path.join(OUT, 'chart_versions')
 os.makedirs(VER, exist_ok=True)
 REV = os.environ.get('L26_REV', 'rev01')

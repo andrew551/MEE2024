@@ -73,7 +73,7 @@ from analysis_window import WINDOWS  # noqa: E402
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-HUS = r"D:/MEE2024 output/MEE_output/husillos2026"
+HUS = r"F:/MEE_output/husillos2026"
 OUT = os.path.join(HUS, 'step3')
 ZEN = os.path.join(HUS, 'zenith_order', 's1_with_f0')
 

@@ -35,7 +35,7 @@ from s1_caldecomp_fit import table, NX, NY, PS, CD, DF, TMID, MAGCUT, RCUT, RMAX
 ARMS = {'neither': os.path.join(CD, 'neither'),
         'dark only': os.path.join(CD, 'darkonly'),
         'flat only': os.path.join(CD, 'flatonly'),
-        'dark + flat': os.path.join(r"D:/MEE2024 output/MEE_output/station1_record",
+        'dark + flat': os.path.join(r"F:/MEE_output/station1_record",
                                     'eclipse_corona', '0p4s_1812')}
 PSF_SIGMA_PX = 3.2      # measured on these stacks (FWHM 7.5 px at centre)
 

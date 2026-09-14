@@ -105,8 +105,13 @@ several of them said "not yet implemented" long after they were.
 ## Not in this folder
 
 **The outputs.** The repository carries the documents; the figures, star tables and summaries
-they cite live in the output tree on one machine, `D:\MEE2024 output\MEE_output\`, which is
-far too large to version. Its curated index is **`RECORD\`**: for each finished piece of work,
+they cite live in the output tree on one machine, `F:\MEE_output\`, which is
+far too large to version. **It has moved twice**: it was `D:\MEE_output`, then
+`D:\MEE2024 output\MEE_output`, and since 2026-09-14 it is `F:\MEE_output` — the D:
+drive had 28 GB left and this tree was 245 GB of it. Older handoffs, transcripts and the
+paths recorded inside the output files themselves still name the D: locations; they mean
+this tree. The documents and tools here were rewritten at the move, except where they
+recount the history above. Its curated index is **`RECORD\`**: for each finished piece of work,
 the outputs someone would need to check it, re-quote it or publish from it — one folder per
 matrix cell in a common shape (`bruns2017`, `leon2026`, `mexico2024`), plus `refraction` for
 the Leon campaign physics that feeds the atmosphere term. Every file there is a copy of one in
@@ -128,7 +133,7 @@ daily Windows scheduled task named **MEE transcript export**: Douglas' at
 title changed replaces its earlier file.
 
 The **session handoffs** — the running notes that carry one working session into the next —
-live outside the repository, under `D:\MEE2024 output\MEE_output\`, as
+live outside the repository, under `F:\MEE_output\`, as
 `next_session_prompt_<date>.md` plus a current one for the project in hand. They are working
 notes addressed to whoever picks the work up next, not project documentation, and they are
 not a substitute for the records above. A copy of one of them lived here as `NEXT_SESSION.md`

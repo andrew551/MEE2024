@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.join(REPO, 'tools', 'husillos2026'))
 PY = os.path.join(REPO, '.venv', 'Scripts', 'python.exe')
 
 G = r'G:\Joe Izen Spain 2026\2026-08-12'                 # READ ONLY
-HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
+HUS = r'F:\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'halves')
 DARK = os.path.join(HUS, 'hotpixels', 'husillos_synthetic_dark_all.fit')
 REF = os.path.join(HUS, 'step3', 'ref')

@@ -47,7 +47,7 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 
-HOR = r'D:\MEE2024 output\MEE_output\husillos2026\horizon'
+HOR = r'F:\MEE_output\husillos2026\horizon'
 SETS = [('100-frame STACK', os.path.join(HOR, 's1d_h10_g125a')),
         ('frame 50 alone', os.path.join(HOR, 'perframe_h10_g125a', 's1', 'f050', 's1'))]
 NY = 6388

@@ -12,7 +12,7 @@ from drive_mosaic import load_logger
 from band_stability import d3000
 from astropy.io import fits
 
-RD = r"D:/MEE2024 output/MEE_output/refraction"
+RD = r"F:/MEE_output/refraction"
 logger = load_logger()
 REF = 2.2068828
 
@@ -22,7 +22,7 @@ def airT(t):
 
 def zrow(night, fld):
     if night == "08-12" and fld == "Z1_base":
-        r = glob.glob(os.path.join(r"D:/MEE2024 output/MEE_output/cal_pileo_step2",
+        r = glob.glob(os.path.join(r"F:/MEE_output/cal_pileo_step2",
                       "zenith_0812_Z1", "corr_on", "**", "distortion_results.txt"),
                       recursive=True)
     else:
@@ -90,7 +90,7 @@ for _, r in cb.iterrows():
                    rf"REFR_M{int(r.k):02d}_*/*/*00001.fits")[0]
     fts.append(float(fits.getheader(f0)["FOCTEMP"]))
 cb["ft"] = fts
-H = r"D:/MEE2024 output/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
+H = r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
 zc = []
 for night in ("08-12", "08-11"):
     for fld in Z:

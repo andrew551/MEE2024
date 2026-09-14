@@ -150,7 +150,7 @@ That is the whole explanation for why Leon was limited and Bruns was not.
 ## 3. The Bruns 2017 processing settings, as run
 
 Reduction of record: `tools/matrix_bruns/b17_bruns_method.py`, tree
-`D:\MEE2024 output\MEE_output\matrix_bruns2017_brunsmethod\`.
+`F:\MEE_output\matrix_bruns2017_brunsmethod\`.
 
 **Stage 1** (both masters, and the L/R calibration fields):
 
@@ -221,7 +221,7 @@ record, **9.23 ppm**, rather than the windowed pair's 10.3.
 ## 6. The Leon 2026 processing settings, as run (added 2026-09-01)
 
 Reduction of record: the tool chain of `docs/STEP3_2026.md`, tables and charts in
-`D:\MEE2024 output\MEE_output\step3_record\`, copied into `RECORD/leon2026/`.
+`F:\MEE_output\step3_record\`, copied into `RECORD/leon2026/`.
 
 **Stage 1** (CAL_piLeo and the four science tiers alike; `step3_s0_v4.py`,
 `cal_pileo_step2/canonical_16f_night2refs`):

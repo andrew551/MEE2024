@@ -25,8 +25,8 @@ from astropy.io import fits
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 G = r"G:/Leon Aug 2026"
-OUT = r"D:/MEE2024 output/MEE_output/refraction/perframe"
-REFROOT = r"D:/MEE2024 output/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
+OUT = r"F:/MEE_output/refraction/perframe"
+REFROOT = r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
 
 # Weather per capture window from the site logger (local = UTC+2), extracted 2026-08-26;
 # reproduces LEON_2026-08-11.md section 4.4 where they overlap. N1/N2 are at the exact

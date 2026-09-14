@@ -3,7 +3,7 @@ differential (the Method-1-relevant number), and the N2 vs N3 repeat."""
 import glob, json, os
 import numpy as np
 
-BASE = r"D:/MEE2024 output/MEE_output/refraction/perframe"
+BASE = r"F:/MEE_output/refraction/perframe"
 ZENITH_ON = 2.2068874   # arcsec/px, 08-12 Z1_base corrections ON (FOCUSPOS 17041)
 
 def load(window, field):

@@ -50,9 +50,9 @@ import astropy.units as u
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-LK = r"D:/MEE2024 output/MEE_output/leakey_zenith"
+LK = r"F:/MEE_output/leakey_zenith"
 RAW = r"I:/Leakey 2024 data"
-OUT = r"D:/MEE2024 output/MEE_output/step3_record"
+OUT = r"F:/MEE_output/step3_record"
 QF = os.path.join(OUT, 'leakey_quadfree')
 NULLS = os.path.join(OUT, 'leakey_nulls')
 NX, NY = 8288, 5644
