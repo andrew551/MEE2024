@@ -945,3 +945,102 @@ measured on the raw zenith pair** (the estimator is the lever; the background ma
 for the moments); the 2024 moment quintic kept
 until the raw zenith frames are found; corrections flags matched on import and checked by a
 zenith null; the first task of the reduction is the frozen-cubic-at-a-different-focus test.
+
+## Method 3, and what the calibration fields say about it (2026-09-14)
+
+Douglas, 2026-09-14: *"The Bruns 2017 method is to use both the linear and quadratic terms
+from the two external L/R fields. We have recently started deploying different versions of
+Method 2: one which uses the night-time zenith values (this I think can never be correct --
+there is too much thermal change in the telescope between night and day); using the
+coefficients derived from the eclipse field; using the quadratic terms from the external field
+and the linear term from the eclipse field itself. The last method I would like to start
+calling **Method 3** from now on. As a first step, we verify from the Bruns 2017 data and the
+Mexico 2024 Station 2 data the relative stability of the linear and quadratic terms of the L/R
+fields."*
+
+### The name, and a caution about the taxonomy
+
+**Method 3 = the quadratic and above frozen from an external calibration field, the constant
+and linear refitted on the eclipse field itself, and the plate scale fitted in stage 3.** In
+pipeline settings that is `distortion_fixed_coefficients=linear` with
+`distortion_reference_files` pointing at the calibration field, then stage 3 with the scale
+free.
+
+The caution: **"Method 1" and "Method 2" name only what stage 3 does with the PLATE SCALE** --
+pinned to the imported value, or fitted alongside L (`docs/ARCHITECTURE.md`). Which distortion
+orders stage 2 freezes is a *separate* axis, the rung. Method 3 as defined mixes the two axes:
+it is Method 2's stage 3 sitting on a `linear` rung. That is worth stating in the record
+because the old names do not warn you, and a reader who assumes Method 3 is a third way of
+handling the scale will misread every table it appears in. Cell 4 has already run this
+pathway: it is the `linear` row of `HUSILLOS2026_ECLIPSE.md` section 3t, L = 2.244 ± 0.448 ″
+against the record's 2.129 ± 0.430 ″.
+
+### What the calibration fields actually say
+
+`tools/calib_term_stability.py`. Every repeated calibration-field fit in the matrix, with each
+order's contribution evaluated as **the displacement in arcseconds it gives a star at the
+sensor edge** -- the coefficients are already pixels at the normalised edge, so multiplying by
+each fit's own plate scale compares two different instruments with no gauge conversion and
+none of the `rad/px³` trap.
+
+Two things had to be settled before any number could be read.
+
+**The stored linear terms are pure shear.** `_get_corrected_q` folds four linear degrees of
+freedom back into the plate solution after every fit: the two translations become an RA/Dec
+shift, the isotropic scale becomes a new plate scale, and a roll shift zeroes the y-coefficient
+of the x-correction. Iterated to convergence the stored map is `[[a, 0], [b, -a]]` -- trace
+zero, one cross-term zero -- which is the axis-aligned shear `a` and the 45° shear `b/2`, with
+the rotation already gone. So **none of what remains in the linear terms is absorbed
+downstream; all of it contaminates a deflection.** The tool asserts both structural zeros
+rather than assuming them.
+
+**Scatter between two noisy fits is not instability.** The night fields carry 535–1313 stars at
+0.045–0.067 ″ rms; the eclipse-day brackets carry 82–119 at 0.21–0.71 ″. Each fit's own matched
+stars give its design matrix, so the coefficient covariance is σ²(XᵀX)⁻¹ exactly; propagated to
+a displacement field it gives the noise floor, and only `√(observed² − noise²)` is quoted.
+
+| sample | fits | linear scatter | quadratic scatter | what it can say |
+|---|---|---|---|---|
+| Bruns 2017 nights (EC/LC/RC × 10) | 29 | **0.0524 ″** (75 % of its own size) | **0.0293 ″** (27 %) | the only sample precise enough to resolve either |
+| Bruns 2017 eclipse-day L/R bracket | 2 | not resolved (floor 0.030 ″) | 0.0295 ″ | floor is at the nights' instability |
+| Mexico 2024 Station 2 bracket | 2 | not resolved (floor 0.108 ″) | 0.103 ″ | floor above everything |
+
+**Within one regime the linear terms are the less stable half, by 1.8× in displacement and by
+3× relative to their own size.** The two eclipse-day brackets cannot test it: their fits are an
+order of magnitude less precise, and their noise floors sit at or above the instability the
+night series measures. That is itself worth recording — **a two-field bracket of ~100 stars
+cannot measure its own transfer error**, so Bruns' averaging of L and R rests on the design
+argument, not on a measurement.
+
+### The step that matters is night to day, and it falls almost entirely on the linear terms
+
+Repeatability within a regime is not the question Douglas asked; the question is whether a
+calibration survives the walk from one regime to the other. Bruns 2017 is the one dataset with
+both, on the same instrument:
+
+| order | night → eclipse-day step | noise | |
+|---|---|---|---|
+| linear | **0.0992 ″** | 0.0304 ″ | **3.3 σ — real, and large** |
+| quadratic | 0.0310 ″ | 0.0528 ″ | not resolved |
+
+**The linear terms move by 0.10 ″ between night and eclipse day; the quadratic terms do not
+move measurably.** One confound, stated rather than hidden: the bracket fits carry the night
+average as their frozen cubic, so a real day–night change in the cubic is pushed down into the
+bracket's lower orders. That inflates *both* rows, which makes the linear step an upper bound
+and the quadratic's non-detection the more telling of the two — it survived an inflating
+confound and still showed nothing.
+
+**This is the measured case for Method 3**, and it sharpens Douglas' own reasoning. His
+objection to night-time values — too much thermal change between night and day — is confirmed,
+but it is specific: what the thermal change moves is the **linear** part. The quadratic
+transfers across the night–day boundary within 0.05 ″. So a night calibration is not useless;
+it is usable from the quadratic upward and unusable at the linear, which is exactly the split
+Method 3 makes.
+
+**What this does not yet establish.** (i) Whether the 0.10 ″ linear step is thermal, gravity
+flexure at a different pointing, or focus — the three are not separated by one eclipse. (ii)
+Whether the same split holds for the 2024 and 2026 instruments, since only Bruns has both
+regimes measured at useful precision. (iii) What Method 3 does to L on each cell, which is the
+next step, and on cell 4 the answer already exists (§3t). (iv) That the absorption fraction of
+`HUSILLOS2026_ECLIPSE.md` §3s applies to Method 3 too — a free linear on the eclipse field
+still eats part of a 1/r pattern, measured there as f = 0.911, and Method 3 inherits that.
