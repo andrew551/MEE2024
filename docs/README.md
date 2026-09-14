@@ -106,9 +106,9 @@ several of them said "not yet implemented" long after they were.
 
 **The outputs.** The repository carries the documents; the figures, star tables and summaries
 they cite live in the output tree on one machine, `F:\MEE_output\`, which is
-far too large to version. **It has moved twice**: it was `D:\MEE_output`, then
-`D:\MEE2024 output\MEE_output`, and since 2026-09-14 it is `F:\MEE_output` — the D:
-drive had 28 GB left and this tree was 245 GB of it. Older handoffs, transcripts and the
+far too large to version. **It has moved twice in three weeks**: `D:\MEE_output` until
+2026-08-26, then `D:\MEE2024 output\MEE_output`, and since 2026-09-14 `F:\MEE_output`
+— the D: drive had 28 GB left and this tree was 245 GB of it. Older handoffs, transcripts and the
 paths recorded inside the output files themselves still name the D: locations; they mean
 this tree. The documents and tools here were rewritten at the move, except where they
 recount the history above. Its curated index is **`RECORD\`**: for each finished piece of work,

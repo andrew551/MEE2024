@@ -76,22 +76,28 @@ the only place the source trees survive. Beside the handoff it holds
 `v1.4.0-dev_inpipe\<night>\<field>\`, the stage-1 and stage-2 output trees these twelve
 solutions were produced from. That matters because each solution's own `source_data` field
 names `D:\MEE_output\v1.4.0-dev_inpipe\...\centroid_data<stamp>.zip`, and **`D:\MEE_output`
-no longer exists** — the output root was renamed to `D:\MEE2024 output\MEE_output`,
-and on 2026-09-14 the whole tree moved again, to `F:\MEE_output`.
-The named zips are on `I:` under the identical filenames, so provenance is recoverable;
-it is only the recorded path that rotted.
+no longer exists** — that was this machine’s output root until **2026-08-26**, when it
+was renamed to `D:\MEE2024 output\MEE_output`; on **2026-09-14** the whole tree moved
+again, to `F:\MEE_output`. Two renames in three weeks, so read any absolute path in any
+record as dated. The `v1.4.0-dev_inpipe` trees did **not** travel with the output tree —
+they are not in it at all — but the named zips are on `I:` under the identical filenames,
+so provenance is recoverable; it is only the recorded path that rotted.
 
 Two stale pointers to know about, neither of which affects a number:
 
-- **`reference_files.txt`** in each copy (including this one) lists absolute
-  `D:/MEE_output/...` paths, from a machine layout that is gone. The handoff README always
-  said to regenerate it after copying; that instruction is now mandatory rather than
-  advisory.
-- **`source_data`** inside each of the twelve solutions, as above.
+- **`reference_files.txt`** in each copy (including this one) listed absolute
+  `D:/MEE_output/...` paths. Not a foreign machine — the same twelve files, under this
+  tree’s own earlier root name. The handoff travelled with the tree, so this copy has
+  been repointed to `F:/MEE_output/HANDOFF_zenith_cubic/inpipeline_windowed/` and
+  resolves again. The handoff README always said to regenerate it after copying; with
+  the root having changed twice, that instruction is mandatory rather than advisory.
+- **`source_data`** inside each of the twelve solutions, as above. These are the ones
+  that **cannot** be repointed: `v1.4.0-dev_inpipe` is not in the output tree on any
+  drive, only on `I:`, so the field stays as the pipeline wrote it.
 
 The repository itself pointed at three *different* paths for this one dataset before this
 was written: ten `tools/refraction/` scripts at the `D:` path, `tools/cal_pileo_step2/common.sh`
 at the `H:` path, and `docs/LEON_2026-08-11.md` §18.8 at `D:\MEE_output\HANDOFF_zenith_cubic\`,
-which no longer resolves. Since all copies are identical this never moved a result, but it
+which stopped resolving at the first rename and is now repointed to `F:`. Since all copies are identical this never moved a result, but it
 is why this folder exists: **new work should cite `calibration/zenith_cubic/` and nothing
 else.**
