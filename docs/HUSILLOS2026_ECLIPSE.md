@@ -986,6 +986,19 @@ zero is arbitrary, and the rate does not care where the clock started:
 
 > **τ = 9.2 s** after a 10.2° slew (15 windows, r = −0.90). **27 s to 5 %**, 42 s to 1 %.
 
+*(Superseded 2026-09-14 by the displacement fits: **τ = 7.3 ± 0.2 s** on the total, **7.4 ± 0.2 s
+on the RA axis**, 0.9 ± 0.3 s on Dec. Douglas asked where 9.2 came from. `hu_timeline.py` took the
+distance of the field from frame 1, differenced it over ten-frame windows stepped by five to get
+a speed, and fitted a straight line to ln(speed) against time — τ = −1/slope — on the fifteen
+windows with speed above 0.02 ″/s. Two things lengthen that estimate. The speed never falls to
+zero, because the RA axis is still creeping at ~0.5 ″/s at 25 s and the frame-to-frame jitter
+adds to every window, so ln(speed) flattens at late times and the slope comes out shallower
+than the settle's own decay. And its justification for not fitting the displacement — that the
+capture begins part-way through the settle so the zero is arbitrary — was wrong: an exponential
+that starts part-way through is still an exponential with the same τ, only a smaller A. The
+displacement fit was always available and is the better estimator; 9.2 s stays in the record as
+the first number, not the current one, and the chart no longer cites it.)*
+
 *(2026-09-13, on Douglas revisiting the settling question.)* The same 81-frame displacement
 admits a second description, and the record should carry both. Fitted as **exponential plus a
 steady drift** — the settle riding on tracking error — it gives **A = 33.9 ± 1.6 ″, τ = 4.6 ±

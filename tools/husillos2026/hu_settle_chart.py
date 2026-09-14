@@ -65,7 +65,6 @@ HUS = r'D:\MEE2024 output\MEE_output\husillos2026'
 OUT = os.path.join(HUS, 'calibs')
 REV = os.environ.get('HU_REV', 'rev01')
 PS = 2.2028                 # arcsec per px, the cell's plate scale
-TAU_RECORD = 9.2            # s, section 3n, fitted on the rate
 SETTLED_FIRST = 21          # first frame of the settled CalibS stack (hu_calibs.SETTLED_FIRST)
 
 CAPTURES = {
@@ -304,9 +303,7 @@ def chart_calibs(c):
     ax.set_xlim(-0.5, t[-1] + 3.0)
     ax.set_title('CalibS: the AM5 settling after the %.2f° slew from the Sun\n' % c['slew_deg']
                  + 'Stage-1 alignment record of frames 1–81 (`s1_calibs_ecl`). ' + c['gap_note']
-                 + 'Perpendicular scatter %.2f ″ rms.\nThe record\u2019s τ = %.1f s (§3n) was '
-                 'fitted on the rate, not the displacement. Split by axis: '
-                 'calibs_settling_by_axis.png.' % (perp_rms, TAU_RECORD),
+                 + 'Perpendicular scatter %.2f ″ rms.' % perp_rms,
                  fontsize=10.5, color=INK, loc='left')
     axr.axhline(0, color=INK2, lw=1)
     axr.plot(t, r1, 'o', ms=5, color=S1, markeredgecolor=SURFACE, markeredgewidth=1.2,

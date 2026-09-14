@@ -125,8 +125,17 @@ def main():
     tt = np.arange(len(d)) / rows[2]['fps']
     # rate from 10-frame windows, then an exponential fitted to the rate:
     #   rate(t) = (A/tau) exp(-t/tau)   ->   ln(rate) is linear in t with slope -1/tau
-    # The DISPLACEMENT cannot be fitted directly because block 3 begins part-way through the
-    # settle, so its zero is arbitrary; the rate does not care where the clock started.
+    # SUPERSEDED (2026-09-14, record section 3n): this gives 9.2 s where a fit on the
+    # displacement itself gives 7.3 s (hu_settle_chart.py; 7.4 s on the RA axis alone).  The
+    # windowed speed never falls to zero -- the RA axis is still creeping at ~0.5 "/s at 25 s
+    # and the frame-to-frame jitter adds to every window -- so ln(rate) flattens late and the
+    # slope comes out shallower than the settle's own decay.  The reason given below for not
+    # fitting the displacement was wrong: an exponential that starts part-way through the
+    # settle is still an exponential with the same tau, only a smaller A.  Kept so the
+    # record's first number can be reproduced; do not quote it as the settling time.
+    # (Original note: the displacement cannot be fitted directly because block 3 begins
+    # part-way through the settle, so its zero is arbitrary; the rate does not care where the
+    # clock started.)
     ta, ra = [], []
     for a in range(0, len(d) - 10, 5):
         b = a + 10
@@ -140,6 +149,8 @@ def main():
           % (dist[-1], dist[-1] / PS))
     print('   exponential time constant  tau = %.1f s   (fit on %d windows, r = %.2f)'
           % (tau, ok.sum(), float(np.corrcoef(ta[ok], np.log(ra[ok]))[0, 1])))
+    print('   [SUPERSEDED: the displacement fit gives 7.3 s (7.4 s on the RA axis) --'
+          ' hu_settle_chart.py, record section 3n]')
     print('   so after a %.1f deg slew the AM5 needs about %.0f s to fall to 1/e,'
           % (SLEW_DEG, tau))
     print('   %.0f s to 5 %% (3 tau) and %.0f s to 1 %% (4.6 tau).' % (3 * tau, 4.6 * tau))
