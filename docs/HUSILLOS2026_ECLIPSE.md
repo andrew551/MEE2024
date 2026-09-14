@@ -1179,7 +1179,39 @@ fits — but the braking is the controller's business during the slew; what thes
 the mechanical relaxation after it, and that is a property of each axis.
 
 The chart titles that called this slew "mostly in RA" were reading the drift direction (30°
-from the RA axis) as the slew direction, and are corrected. The 40 ″/min steady term is
+from the RA axis) as the slew direction, and are corrected.
+
+**What the swapped "Dec" actually was, and how firm the late RA creep is** (Douglas,
+2026-09-14: *"Does this mean that your previously measured time constant in Dec of 6.0 s was
+completely wrong?"* Yes.) Expressed in the true basis, the swapped components were
+old "RA" = 0.92 × RA + 0.38 × Dec and **old "Dec" = 0.38 × RA − 0.92 × Dec**: the old "Dec"
+(24.5 ″, τ 6.0 s) was two-fifths of the RA settle with the real 6 ″ Dec settle folded in, which
+is why it carried an RA-like time constant. The old "RA" was nine-tenths right, which is why
+its τ barely moved (7.7 → 7.4 s). The 6.0 s was not a poor measurement of Dec; it was a
+measurement of something else. The late-time rates in the by-axis tables are straight-line
+slopes over the final 5 s of points (16 frames) with no exponential involved, so they say
+whether an axis is still moving at the end of the record whatever model one believes. With
+their formal errors: **RA +29 ± 4 ″/min, Dec +9 ± 15 ″/min.** RA is still moving at 25 s at
+seven times its error and twelve times the floor — and faster than the exponential's own late
+velocity of 13 ″/min, which the residual panel shows as the RA points rising off the fit after
+20 s: the RA tail is longer than a single exponential. Dec is consistent with zero and with the
+floor.
+
+**Balance, and an experiment for 2027** (Douglas, 2026-09-14). The Dec axis of a strain-wave
+mount is essentially balanced; the RA axis, run without a counterweight, carries a
+gravitational torque at every pointing and must also turn at the sidereal rate, so it is never
+at rest. In a strain-wave drive the flexspline is a torsional spring, wound up by
+torque ÷ stiffness under a steady load. A slew changes the RA axis's gravity torque — the
+load's hour angle moved 7° — so the equilibrium wind-up changes and the relaxation to it is the
+settle; the balanced Dec axis has almost no torque change to relax, which is what 49 ″ against
+6 ″ looks like. So the hypothesis that an RA counterweight (an option on the AM5) would bring
+the RA settle toward Dec's is physically motivated. It should shrink the *amplitude*, which is
+what a 0.3 ″ tolerance cares about; whether it shortens τ, a property of stiffness and damping,
+is less certain, and the added inertia could lengthen it. It is a two-minute experiment on any
+night: the same ~10° slew with and without the counterweight, read from the alignment record
+or from per-frame solves, and separately an RA-only and a Dec-only slew to isolate the axis
+from the load direction. **Recommended for 2027, before the design fixes the calibration-field
+geometry** — if RA can be made to settle like Dec, the calibration field can sit anywhere. The 40 ″/min steady term is
 suspect: the AM5 tracks at 2.5 ″/min overhead (§HUSILLOS2026_ZENITH) and refraction adds ~8
 ″/min at 8.8°, so ~10 ″/min is what a settled mount should show here, and the excess is more
 plausibly a slower settling component that a 25 s record cannot separate from drift. The
