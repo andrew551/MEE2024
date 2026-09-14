@@ -130,7 +130,8 @@ crash before. `tools/export_transcripts.py` (Andrew's, 2026-08-20; in the reposi
 2026-09-06) writes each session as readable Markdown with an `INDEX.md`, conversation text in
 full and tool output truncated. Each machine keeps its own archive and runs the export on a
 daily Windows scheduled task named **MEE transcript export**: Douglas' at
-`D:\MEE2024 output\MEE_transcripts\`, Andrew's under his OneDrive Documents. The archive on
+`F:\MEE_transcripts\` (on `D:` until 2026-09-14), Andrew's under his OneDrive
+Documents. The archive on
 `I:\MEE_transcripts\` is Andrew's export of 2026-08-25. Re-running is safe; a session whose
 title changed replaces its earlier file.
 

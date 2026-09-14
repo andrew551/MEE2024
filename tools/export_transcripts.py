@@ -8,7 +8,7 @@ has crashed mid-session more than once. Andrew wrote this on 2026-08-20 for his 
 it came into the repository on 2026-09-06 when Douglas' machine turned out to have never
 been exported at all. Paths come from the command line so one copy serves both machines:
 
-    .venv/Scripts/python.exe tools/export_transcripts.py --dst "D:\\MEE2024 output\\MEE_transcripts"
+    .venv/Scripts/python.exe tools/export_transcripts.py --dst "F:\\MEE_transcripts"
 
 --src defaults to the current user's ~/.claude/projects. Re-running is safe: a session
 whose title has changed replaces its earlier export (the session id is the stable part
