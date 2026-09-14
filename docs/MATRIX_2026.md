@@ -1044,3 +1044,59 @@ regimes measured at useful precision. (iii) What Method 3 does to L on each cell
 next step, and on cell 4 the answer already exists (§3t). (iv) That the absorption fraction of
 `HUSILLOS2026_ECLIPSE.md` §3s applies to Method 3 too — a free linear on the eclipse field
 still eats part of a 1/r pattern, measured there as f = 0.911, and Method 3 inherits that.
+
+### The L/R pair on its own says the opposite, and both things are true
+
+Douglas, 2026-09-14: *"look at the L and R fields from Bruns 2017. Compare the two fields and
+tell me whether the quadratic components are more stable than the linear components. Only look
+at these two fields."* `tools/matrix_bruns/b17_lr_coeffs.py`.
+
+**On these two fields alone the answer is no: the linear components agree about ten times
+better than the quadratic.** The stored coefficients, in pixels of displacement at the
+long-axis edge:
+
+| term | L (x) | R8 (x) | diff | L (y) | R8 (y) | diff |
+|---|---|---|---|---|---|---|
+| `x` | +0.073886 | +0.080113 | +0.006227 | −0.089332 | −0.084261 | +0.005071 |
+| `y` | 0 | 0 | 0 | −0.073883 | −0.080109 | −0.006226 |
+| `x²` | +0.021697 | −0.006362 | −0.028059 | −0.093162 | −0.022073 | +0.071088 |
+| `x·y` | −0.073994 | −0.052223 | +0.021771 | −0.079539 | +0.093651 | **+0.173189** |
+| `y²` | +0.021284 | −0.017240 | −0.038524 | −0.052776 | −0.092463 | −0.039688 |
+
+As a displacement at the sensor edge, and with the noise each fit's own design matrix implies:
+
+| order | L | R8 | L − R8 | noise | |
+|---|---|---|---|---|---|
+| linear | 0.1586 ″ | 0.1616 ″ | **0.0115 ″** | ± 0.0607 | 0.2 σ |
+| quadratic | 0.1286 ″ | 0.0891 ″ | **0.1210 ″** | ± 0.1055 | 1.1 σ |
+
+The same two fields in the earlier `bruns2017_lr` reduction give 0.0251 ″ (0.4 σ) and
+0.1420 ″ (1.3 σ): the ordering is a property of the fields, not of one reduction.
+
+**Neither difference is established** — 0.2 σ and 1.1 σ — so the strict reading is that the
+linear agree well inside their noise while the quadratic differ by about their noise.
+
+**Why this does not contradict the night-to-day result above, and what each is good for.**
+L and R8 were shot at the *same minute* (both 17:44 UTC) at 53.47° and 54.20° altitude. The
+instrument was in one thermal and flexure state for both, so the pair tests transfer **across
+the sky at fixed epoch**, which is exactly what Bruns' method needs, since he averages them
+onto an eclipse field midway between and contemporaneous. The night-to-day step tests transfer
+**across time and temperature**, which is what freezing a night calibration into a daytime fit
+needs. They are different questions, and the answers differ:
+
+* at fixed epoch the linear terms repeat to 0.01–0.03 ″, far better than their own noise,
+  because the instrument state is shared — **so Bruns was right to import them**;
+* across the night–day boundary the linear terms move 0.099 ″ at 3.3 σ — **so a night
+  calibration's linear terms should not be imported**, which is Method 3's premise and it
+  stands.
+
+**The practical warning this pair does carry.** The quadratic difference is consistent with
+noise because ~118 stars cannot pin six quadratic coefficients: each field's quadratic is
+uncertain by 0.075 ″, so the L+R mean carries ~0.053 ″. **Method 3 does not remove error, it
+trades one for another** — a thermal error in the linear for the fitting noise of an imported
+quadratic — and on a sparse calibration field the trade can lose. It also has to be paid for
+at the other end: Bruns' own eclipse field has 29–30 stars, and refitting a free linear on 30
+stars is noisier than importing one that repeats to 0.02 ″. **Method 3 is therefore a claim
+about star-rich fields on both sides, and cell 1 is not one of them.** Before it is used
+anywhere, the arithmetic to do is the noise of the imported quadratic against the day–night
+drift it avoids, per cell.
