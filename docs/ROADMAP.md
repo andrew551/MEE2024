@@ -1395,6 +1395,29 @@ linear coefficients reproduce to five significant figures and the dominant cubic
 ratios that look bad are all on terms near zero, which is why the table above is in arcseconds
 of star displacement rather than in ratios.
 
+**And it is not only a comparison of stored files: the 2600MM data can be re-reduced.**
+`data.zip` in that folder is a complete stage-1 archive -- 2112 centroids, plate solved,
+img_shape [4176, 6248] -- so `tools/bruns2600_rerun.py` repackages it (its members sit under a
+`data/` prefix today's reader does not expect), re-runs stage 2 with the settings read out of
+the 2024 results file, and hands the fresh fit to the comparison. Today's MEE against
+MEE-of-March-2024 on identical input:
+
+| | March 2024 | today |
+|---|---|---|
+| stars used | 975 | **727** |
+| rms | 0.0592 ″ | 0.0540 ″ |
+| plate scale | 1.4276575 | 1.4276611 (**+2.6 ppm**) |
+| RA / DEC | agree to 7 mas | |
+| ROLL | agree to 0.0002° | |
+
+**The geometry reproduces; the star set does not, and the two reasons are both known changes
+rather than a regression.** The 2024 reduction predates saturated-star rejection -- its results
+file has no such key and today's says `saturated stars rejected? True`, on a field whose
+brightest matched star is V = 4.3 -- and it used an older catalogue, where today's run reports
+`gaia_dr3_g15`. Against Astrometrica the fresh fit gives 0.195 ″ native and **0.062 ″**
+converted, a factor of 3.1 rather than 5.7, which is what 25 % fewer stars does to a quintic.
+The direction and the conclusion are unchanged.
+
 `distortion_results_TAN.txt` therefore also carries an **`astrometrica form`** block: the same
 mapping as Astrometrica prints it, standard coordinates in radians as a cubic in pixel offsets
 from the image centre. The caution travels with it -- any particular Astrometrica solution may

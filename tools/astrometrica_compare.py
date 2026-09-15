@@ -124,8 +124,14 @@ def linear_residual(a1, a2, b1, b2):
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--mee', default=MEE,
+                    help='a MEE distortion_results.txt for the same image (default: the 2024 '
+                         'one stored in the test folder)')
+    a = ap.parse_args()
     ax, ay = astrometrica_coeffs()
-    j = __import__('json').load(io.open(MEE, encoding='utf-8'))
+    j = __import__('json').load(io.open(a.mee, encoding='utf-8'))
     print('ONE image, two programs')
     print('   Astrometrica 4.13  cubic,  914 stars, dRA = dDe = 0.04 ", 1.43 "/px')
     print('   MEE                %-8s %d stars, rms %.4f ", %.7f "/px'
