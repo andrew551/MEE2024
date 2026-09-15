@@ -1397,7 +1397,7 @@ of star displacement rather than in ratios.
 
 **And it is not only a comparison of stored files: the 2600MM data can be re-reduced.**
 `data.zip` in that folder is a complete stage-1 archive -- 2112 centroids, plate solved,
-img_shape [4176, 6248] -- so `tools/bruns2600_rerun.py` repackages it (its members sit under a
+img_shape [4176, 6248] -- so `tools/bruns_rerun.py --set 2600mm` repackages it (its members sit under a
 `data/` prefix today's reader does not expect), re-runs stage 2 with the settings read out of
 the 2024 results file, and hands the fresh fit to the comparison. Today's MEE against
 MEE-of-March-2024 on identical input:
@@ -1421,7 +1421,7 @@ The direction and the conclusion are unchanged.
 **Like for like, at cubic, the agreement is much better than any of the above.** Douglas,
 2026-09-15: *"Let's redo the previous calculation but only up to cubic terms for MEE (which is
 the default)."* Astrometrica fitted a cubic and `cubic` is MEE's own default (`config.py`), so
-`tools/bruns2600_rerun.py --order cubic` is the comparison that asks the two programs the same
+`tools/bruns_rerun.py --order cubic` is the comparison that asks the two programs the same
 question. It removes the quartic-and-quintic content that was the single largest line in the
 breakdown above, and the rest falls with it:
 
@@ -1441,6 +1441,48 @@ the ratios that still look wild are on coefficients within a few parts in a thou
 either program's own fit error, provided the gauge is converted and the orders match.** Read in
 MEE's native gauge the same fit disagrees by 0.198 ″, which is where the "factor of three"
 folklore came from.
+
+**Four more fields, and a residual that is NOT the gauge (2026-09-15).** `I:\Don Bruns 2024`
+holds four fields -- HIP 29696, 31096, 32740, 33018 -- with an Astrometrica log, a MEE results
+file **and** a stage-1 archive each, all fitted cubic by both programs. Astrometrica read MEE's
+own `STACKED_FLOAT` in every case, so the pairing is exact.
+`tools/astrometrica_compare.py` (no arguments) does all four:
+
+| field | MEE stars / rms | Astrometrica stars / rms | native | converted | factor |
+|---|---|---|---|---|---|
+| HIP 29696 | 1004 / 0.0516 ″ | 661 / 0.030 ″ | 0.2026 ″ | 0.0595 ″ | 3.4 |
+| HIP 31096 | 898 / 0.0524 ″ | 593 / 0.030 ″ | 0.1999 ″ | 0.0575 ″ | 3.5 |
+| HIP 32740 | 879 / 0.0619 ″ | 552 / 0.030 ″ | 0.2113 ″ | 0.0657 ″ | 3.2 |
+| HIP 33018 | 785 / 0.0497 ″ | 496 / 0.030 ″ | 0.2096 ″ | 0.0723 ″ | 2.9 |
+
+**The conversion is confirmed a fifth time** -- 0.206 ″ native against 0.064 ″ converted, and the
+native figure is the same 0.20 ″ on every field, as a universal gauge term must be. **Re-running
+all four through today's pipeline changes nothing**: 0.0532 ″ mean rms against 2024's 0.0539 ″,
+plate scales within **1 ppm**, and the same 0.065 ″ residual (`tools/bruns_rerun.py`). So the
+2024 reductions are reproducible and the pipeline has not drifted.
+
+**But 0.064 ″ is three times the 0.018 ″ the 2600MM field reached, and the per-order breakdown
+says the difference is not the gauge:**
+
+| | constant | linear | quadratic | cubic |
+|---|---|---|---|---|
+| HIP 29696 | 0.042 ″ | 0.009 ″ | **0.073 ″** | 0.010 ″ |
+| HIP 31096 | 0.044 ″ | 0.022 ″ | **0.071 ″** | 0.024 ″ |
+| HIP 32740 | 0.049 ″ | 0.044 ″ | **0.080 ″** | 0.047 ″ |
+| HIP 33018 | 0.045 ″ | 0.021 ″ | **0.085 ″** | 0.023 ″ |
+| 2600MM (20 Mar) | 0.008 ″ | 0.016 ″ | 0.011 ″ | 0.023 ″ |
+
+**The CUBIC terms agree as well on these fields as on the good one** (0.010--0.047 ″ against
+0.023 ″), which is the gauge-sensitive order and the whole point. What disagrees is the
+**quadratic**, coherently, at 0.071--0.085 ″ on all four, with a constant it leaks into through
+the affine step. The 2600MM field shows 0.011 ″ at the same order.
+
+**Open, and not a gauge question.** Astrometrica's settings are byte-identical between the two
+datasets and both used Gaia DR2, so it is not configuration or catalogue. What differs is the
+night: the four are `March 11 Walter shimmed`, the 2600MM field is 20 March, and Astrometrica
+matched 914 reference stars there against 496--661 here. A coherent quadratic across four
+pointings is a systematic, not noise, and it is worth its own look before any coefficient from
+that night is carried across programs.
 
 `distortion_results_TAN.txt` therefore also carries an **`astrometrica form`** block: the same
 mapping as Astrometrica prints it, standard coordinates in radians as a cubic in pixel offsets
