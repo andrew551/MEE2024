@@ -418,6 +418,24 @@ def tangent_plane_coefficients(q, coeff_x, coeff_y, img_shape, options, n=61):
     k = float(np.polyfit(theta_deg[far] ** 3,
                          radial[far] * np.degrees(scale) * 3600.0, 1)[0])
 
+    # ASTROMETRICA FORM. The block above is in MEE's normalised basis, which is not what
+    # Astrometrica prints. Astrometrica writes the standard coordinates themselves, in RADIANS,
+    # as a polynomial in raw pixel offsets from the image centre -- "X = a + b*x' + ..." -- so
+    # the same mapping is fitted again in that form and put beside it. Validated against a real
+    # Astrometrica 4.13 log on a shared image by tools/astrometrica_compare.py: the linear terms
+    # reproduce to five figures and the whole mapping to 0.034 " rms. One thing it cannot know:
+    # any particular Astrometrica solution may sit at a rotation or a mirror from MEE's axes
+    # (det J < 0 in that log), which is a linear map and must be absorbed before the nonlinear
+    # terms are compared.
+    xi, eta = v[:, 1] / v[:, 0], v[:, 2] / v[:, 0]
+    Ax = np.column_stack([np.ones(len(x)), x, y, x * x, x * y, y * y,
+                          x ** 3, x * x * y, x * y * y, y ** 3])
+    axi, *_ = np.linalg.lstsq(Ax, xi, rcond=None)
+    aeta, *_ = np.linalg.lstsq(Ax, eta, rcond=None)
+    aterms = ['1', "x'", "y'", "x'^2", "x'*y'", "y'^2", "x'^3", "x'^2*y'", "x'*y'^2", "y'^3"]
+    a_res = float(np.degrees(np.sqrt(np.mean((xi - Ax @ axi) ** 2
+                                             + (eta - Ax @ aeta) ** 2))) * 3600.0)
+
     ps = np.degrees(scale) * 3600.0
     return {
         'gauge': TAN_GAUGE_MARK,
@@ -443,6 +461,17 @@ def tangent_plane_coefficients(q, coeff_x, coeff_y, img_shape, options, n=61):
                            'constant: it varies with the sensor aspect ratio, and the textbook '
                            'arc-to-tangent 0.3655 "/deg^3 does not apply because MEE is not an '
                            'ARC projection.',
+        'astrometrica form': {
+            'what': "the same mapping as Astrometrica prints it: standard coordinates in "
+                    "RADIANS as a cubic in (x', y'), pixel offsets from the image centre",
+            'caution': 'a given Astrometrica solution may sit at a rotation or a mirror from '
+                       "MEE's axes (det J < 0 is normal); absorb that linear map before "
+                       'comparing the nonlinear terms -- tools/astrometrica_compare.py does',
+            'origin (x0, y0) pixels': [float(img_shape[1] / 2), float(img_shape[0] / 2)],
+            'X': dict(zip(aterms, [float(c) for c in axi])),
+            'Y': dict(zip(aterms, [float(c) for c in aeta])),
+            'cubic refit residual (arcsec)': a_res,
+        },
     }
 
 

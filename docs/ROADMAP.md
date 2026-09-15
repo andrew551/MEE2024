@@ -1364,6 +1364,43 @@ residual, no star position and no deflection. Three checks:
   and reads `"distortion coeffs x"`/`"distortion coeffs y"` from it, so both ends are in MEE's
   gauge.
 
+**VALIDATED against a real Astrometrica log, 2026-09-15.** `I:\Don Bruns 2600MM tests` holds
+the one thing that settles it: a single stacked image, `STACKED_FLOAT20240320154050.fit`, read by
+both programs, each printing its own polynomial. Astrometrica 4.13 fitted 914 stars to
+dRA = dDe = 0.04 ″; MEE fitted 975 to 0.059 ″ rms; and their tangent points agree to under an
+arcsecond, so nothing has to be assumed about where either pointed.
+`tools/astrometrica_compare.py` evaluates both mappings on a grid, absorbs pointing and basis
+into a best-fit linear map (the Jacobian step -- and a fitted 2×2 carries the `det J < 0` mirror
+without special handling), and reports what is left:
+
+| MEE's coefficients read as | residual against Astrometrica |
+|---|---|
+| its own gauge | **0.196 ″ rms**, 0.849 ″ max |
+| the tangent-plane export | **0.034 ″ rms**, 0.296 ″ max |
+
+**The conversion removes five sixths of the disagreement**, and what remains is mostly not a
+disagreement at all:
+
+| where the remaining 0.034 ″ sits | rms |
+|---|---|
+| constant | 0.008 ″ |
+| linear | 0.008 ″ |
+| quadratic | 0.014 ″ |
+| cubic | 0.013 ″ |
+| **above cubic** | **0.031 ″** -- MEE's quartic and quintic, which Astrometrica's cubic model cannot hold |
+
+So within the model the two programs share, they agree to ~0.015 ″ per order -- **below both
+programs' own fit errors** (0.059 ″ and 0.04 ″). Term by term in Astrometrica's own basis the
+linear coefficients reproduce to five significant figures and the dominant cubics to 1--3 %; the
+ratios that look bad are all on terms near zero, which is why the table above is in arcseconds
+of star displacement rather than in ratios.
+
+`distortion_results_TAN.txt` therefore also carries an **`astrometrica form`** block: the same
+mapping as Astrometrica prints it, standard coordinates in radians as a cubic in pixel offsets
+from the image centre. The caution travels with it -- any particular Astrometrica solution may
+sit at a rotation or mirror from MEE's axes, and that linear map must be absorbed before the
+nonlinear terms are compared.
+
 It follows that the 12% disagreement over the constant above is also irrelevant to the
 measurement. It matters only for cross-program conversion.
 
