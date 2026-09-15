@@ -25,11 +25,11 @@ What this then buys is two comparisons instead of one:
 
     .venv/Scripts/python.exe tools/bruns2600_rerun.py
 """
+import argparse
 import glob
 import io
 import json
 import os
-import shutil
 import subprocess
 import sys
 import zipfile
@@ -65,12 +65,23 @@ def settings_from(old):
 
 
 def main():
-    j24, order, mag, tol = settings_from(OLD)
+    ap = argparse.ArgumentParser()
+    # The 2024 run was quintic; Astrometrica fitted a CUBIC, which is also MEE's own default
+    # (config.py). A cubic fit is therefore the like-for-like comparison, and it removes the
+    # quartic/quintic content that was the largest line in the residual breakdown.
+    ap.add_argument('--order', default='cubic',
+                    help="MEE's fit order (default cubic, matching Astrometrica and MEE's own "
+                         'default); pass `as2024` to use whatever the 2024 run used')
+    a = ap.parse_args()
+    j24, order24, mag, tol = settings_from(OLD)
+    order = order24 if a.order == 'as2024' else a.order
     z = repackage()
-    d = os.path.join(OUT, 'stage2')
+    d = os.path.join(OUT, 'stage2_' + order)
     print('re-running stage 2 on the 2024 archive')
-    print('   settings read from the 2024 run: %s, G <= %g, tolerance %g ", corrections off'
-          % (order, mag, tol))
+    print('   settings read from the 2024 run: G <= %g, tolerance %g ", corrections off'
+          % (mag, tol))
+    print('   order: %s%s' % (order, '' if order == order24 else
+                              '   (the 2024 run was %s)' % order24))
     if not glob.glob(os.path.join(d, '**', 'distortion_results.txt'), recursive=True):
         os.makedirs(d, exist_ok=True)
         cmd = [PY, '-m', 'mee2024.cli', 'distortion', z, '--order', order,
@@ -90,6 +101,9 @@ def main():
     new = json.load(io.open(f[0], encoding='utf-8'))
 
     print()
+    if order != order24:
+        print('NOTE: different order from 2024, so the star set and rms below are NOT')
+        print('      like-for-like with it; the pointing and plate scale still are.')
     print('%-34s %18s %18s' % ('', 'March 2024', 'today'))
     for k in ('#stars used', 'final rms error (arcseconds)', 'platescale (arcseconds/pixel)',
               'RA', 'DEC', 'ROLL'):

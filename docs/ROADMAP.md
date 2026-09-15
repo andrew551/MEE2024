@@ -1418,6 +1418,30 @@ brightest matched star is V = 4.3 -- and it used an older catalogue, where today
 converted, a factor of 3.1 rather than 5.7, which is what 25 % fewer stars does to a quintic.
 The direction and the conclusion are unchanged.
 
+**Like for like, at cubic, the agreement is much better than any of the above.** Douglas,
+2026-09-15: *"Let's redo the previous calculation but only up to cubic terms for MEE (which is
+the default)."* Astrometrica fitted a cubic and `cubic` is MEE's own default (`config.py`), so
+`tools/bruns2600_rerun.py --order cubic` is the comparison that asks the two programs the same
+question. It removes the quartic-and-quintic content that was the single largest line in the
+breakdown above, and the rest falls with it:
+
+| MEE's coefficients read as | quintic fit | **cubic fit** |
+|---|---|---|
+| its own gauge | 0.195 ″ rms | 0.198 ″ rms |
+| the tangent-plane export | 0.062 ″ rms | **0.018 ″ rms**, 0.057 ″ max |
+
+**A factor of 11**, and the 0.018 ″ that remains is a quarter of MEE's own fit error on that
+field (0.062 ″) and under half of Astrometrica's (0.04 ″). Its breakdown is constant 0.008 ″,
+linear 0.016 ″, quadratic 0.011 ″, cubic 0.023 ″, and **above cubic 0.0000 ″** -- exactly as it
+should be once both models stop at the same order. Term by term in Astrometrica's basis, all
+four linear coefficients agree to five significant figures and the dominant cubics to 2--7 %;
+the ratios that still look wild are on coefficients within a few parts in a thousand of zero.
+
+**So the answer to "can MEE reproduce Astrometrica's coefficients" is yes, to well inside
+either program's own fit error, provided the gauge is converted and the orders match.** Read in
+MEE's native gauge the same fit disagrees by 0.198 ″, which is where the "factor of three"
+folklore came from.
+
 `distortion_results_TAN.txt` therefore also carries an **`astrometrica form`** block: the same
 mapping as Astrometrica prints it, standard coordinates in radians as a cubic in pixel offsets
 from the image centre. The caution travels with it -- any particular Astrometrica solution may
