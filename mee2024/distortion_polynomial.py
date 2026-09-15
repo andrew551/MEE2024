@@ -329,8 +329,18 @@ def distortion_field(coeff_x, coeff_y, img_shape, options, n=22):
     """Sample the fitted distortion on a grid over the image.
 
     Returns (X, Y, DX, DY) in pixels, where (DX, DY) is the correction ``apply_corrections``
-    would add at each point -- i.e. how far the optics displaced a star from where an ideal
-    gnomonic projection would put it.
+    would add at each point: how far the star sits from where MEE's OWN reference frame --
+    (declination, RA x cos(dec)), see ``transforms.detransform_vectors`` -- would put it.
+
+    It is NOT the deviation from an ideal gnomonic projection, which is what this docstring
+    said until 2026-09-15, and the difference is not cosmetic. A flawless telescope forms a
+    gnomonic image, and in this frame that still draws a field: 0.37 px at the corner of
+    Bruns' 1.19 deg sensor, 0.84 px on Station 2's 1.51 deg, and 8.79 px on Husillos'
+    3.52 deg one, since the term grows as the cube of the field radius. So a reader who takes
+    this chart for "what the optics do" is reading the projection as well as the glass, and on
+    the widest field mostly the projection. ``tangent_plane_coefficients`` converts to the
+    gnomonic gauge for comparison with other programs; ``tests/test_tangent_gauge.py`` pins
+    the sizes above.
     """
     w = (max(img_shape) / 2)
     m = 1
@@ -343,6 +353,97 @@ def distortion_field(coeff_x, coeff_y, img_shape, options, n=22):
     DX = np.einsum('ji,i->j', basis, np.asarray(coeff_x[1:])).reshape(X.shape)
     DY = np.einsum('ji,i->j', basis, np.asarray(coeff_y[1:])).reshape(Y.shape)
     return X, Y, DX, DY
+
+
+#: marks a coefficient set as living in the tangent plane rather than MEE's own frame. Written
+#: into the TAN export and refused by `_open_distortion_files`, because a TAN coefficient fed
+#: back in as a reference injects the whole gauge term into a held-fixed cubic -- the one way
+#: the gauge bites a measurement (docs/ROADMAP.md, "The reference-projection gauge").
+TAN_GAUGE_MARK = 'tangent plane (gnomonic)'
+
+
+def tangent_plane_coefficients(q, coeff_x, coeff_y, img_shape, options, n=61):
+    """The fitted distortion re-expressed in the TANGENT PLANE (gnomonic) gauge.
+
+    MEE fits in its own frame -- `transforms.detransform_vectors` returns
+    (declination, RA x cos(dec)) -- while Astrometrica, ASTAP and every published coefficient
+    table use the tangent plane. The two differ at cubic order, so a coefficient carried across
+    without conversion is wrong by ~0.43 "/deg^3 (see below), which on a 1.2 deg field is 0.37
+    px at the corner and on a 3.5 deg field is 8.8 px.
+
+    HOW THIS IS DERIVED, and why there is no fitted constant in it. The conversion is exact
+    arithmetic, not a calibration: take each pixel, apply MEE's own correction to get where the
+    star ideally sits in MEE's frame, send that through `transforms.icoord_to_vector` to a sky
+    direction, and read that direction off in the tangent plane. The rotation to the sky
+    cancels -- both frames share the boresight -- so only the plate scale is needed, and the
+    result is good to machine precision. An earlier plan for this used the textbook arc-to-
+    tangent term, tan(t) - t = 0.3655 "/deg^3. That was wrong: MEE's frame is not an ARC
+    projection, and the correct figure for it is ~0.434 and drifts with the sensor's aspect
+    ratio, so it is not a universal constant and must not be applied as one.
+
+    Returns a dict ready to serialise: the coefficients in the same normalised basis MEE uses
+    (monomials divided by w = max(img_shape)/2, values in pixels), plus how well the refitted
+    polynomial represents the exact transform and how large the gauge term is here.
+    """
+    scale = q[0]                                   # radians per pixel
+    w = max(img_shape) / 2
+    X, Y, DX, DY = distortion_field(coeff_x, coeff_y, img_shape, options, n=n)
+    x, y = X.ravel(), Y.ravel()
+
+    # where MEE says the star ideally sits, in MEE's frame, as an angle
+    icoords = np.column_stack([(Y + DY).ravel(), (X + DX).ravel()]) * scale
+    v = transforms.icoord_to_vector(icoords)
+    # the same direction in the tangent plane, back in pixels
+    tan_col = v[:, 1] / v[:, 0] / scale
+    tan_row = v[:, 2] / v[:, 0] / scale
+
+    # the TAN-gauge displacement: measured pixel -> gnomonic-ideal pixel
+    d_col, d_row = tan_col - x, tan_row - y
+
+    basis = get_basis(y, x, w, 1, options)
+    A = np.column_stack([np.ones(len(x)), basis])
+    cx, *_ = np.linalg.lstsq(A, d_col, rcond=None)
+    cy, *_ = np.linalg.lstsq(A, d_row, rcond=None)
+    res_col, res_row = d_col - A @ cx, d_row - A @ cy
+    names = get_coeff_names(options)
+
+    # how big the gauge itself is here: the TAN field minus MEE's own, as a radial cubic
+    g_col, g_row = d_col - DX.ravel(), d_row - DY.ravel()
+    r = np.hypot(x, y)
+    ok = r > 1e-9
+    radial = np.zeros_like(r)
+    radial[ok] = (g_col[ok] * x[ok] + g_row[ok] * y[ok]) / r[ok]
+    theta_deg = r * np.degrees(scale) * 3600.0 / 3600.0      # r px * deg/px
+    far = theta_deg > 0.05 * theta_deg.max()
+    k = float(np.polyfit(theta_deg[far] ** 3,
+                         radial[far] * np.degrees(scale) * 3600.0, 1)[0])
+
+    ps = np.degrees(scale) * 3600.0
+    return {
+        'gauge': TAN_GAUGE_MARK,
+        'derived_from': 'distortion_results.txt (MEE angular gauge: declination, RA*cos(dec))',
+        'derivation': 'exact: MEE correction -> sky direction (transforms.icoord_to_vector) '
+                      '-> tangent plane; no fitted constant',
+        'NOT a reference file': 'do not pass this to --fix-distortion or '
+                                'distortion_reference_files; MEE reads references in its own '
+                                'gauge and would inject the gauge term into a frozen cubic',
+        'basis': 'monomials in (x, y) pixels from the image centre, divided by '
+                 'w = max(img_shape)/2; coefficients are a displacement in pixels',
+        'w (pixels)': float(w),
+        'image_size': [int(img_shape[0]), int(img_shape[1])],
+        'platescale (arcseconds/pixel)': float(ps),
+        'distortion order': options['distortionOrder'],
+        'distortion coeffs x': dict(zip(names, [float(v) for v in cx])),
+        'distortion coeffs y': dict(zip(names, [float(v) for v in cy])),
+        'refit residual rms (pixels)': float(np.sqrt(np.mean(res_col ** 2 + res_row ** 2))),
+        'refit residual max (pixels)': float(np.max(np.hypot(res_col, res_row))),
+        'gauge term radial cubic (arcsec/deg^3)': k,
+        'gauge term at the corner (pixels)': float(np.max(np.hypot(g_col, g_row))),
+        'gauge term note': 'MEE gauge minus tangent plane, for THIS geometry. Not a universal '
+                           'constant: it varies with the sensor aspect ratio, and the textbook '
+                           'arc-to-tangent 0.3655 "/deg^3 does not apply because MEE is not an '
+                           'ARC projection.',
+    }
 
 
 def suggest_residual_bins(n_stars, configured=0, lo=4, hi=24, per_cell=8):
@@ -507,6 +608,16 @@ def _open_distortion_files(options):
         else:
             with open(file) as fp:
                 loaded.append(json.load(fp))
+        # A tangent-plane export is the one file that looks like a reference and is not one.
+        # Freezing TAN coefficients into a fit injects the whole gauge term -- 0.37 px at the
+        # corner of a 1.2 deg field, 8.8 px at 3.5 deg -- straight into the held-fixed cubic,
+        # and Bruns' paper is explicit that an error there biases the Einstein coefficient.
+        # Refusing it costs nothing; the reductions that matter never pass one.
+        if loaded[-1].get('gauge') == TAN_GAUGE_MARK:
+            raise ValueError(
+                'distortion reference %s is a TANGENT-PLANE export, not a reference file. '
+                'MEE fits and freezes coefficients in its own gauge; use the '
+                'distortion_results.txt beside it.' % file)
     n = len(loaded)
     coeff_x = defaultdict(float)
     coeff_y = defaultdict(float)

@@ -565,6 +565,18 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     with open(data_dir / 'distortion_results.txt', 'w', encoding="utf-8") as fp:
         json.dump(output_results, fp, sort_keys=False, indent=4)
 
+    # The same distortion in the TANGENT PLANE gauge, for comparison against Astrometrica,
+    # ASTAP or a published table -- nothing in the pipeline reads it (Douglas, 2026-09-15).
+    # Additive only: it is a second file, and a failure here must not cost a reduction that
+    # has already succeeded, hence the guard.
+    try:
+        tan = distortion_polynomial.tangent_plane_coefficients(
+            result, coeff_x, coeff_y, image_size, options)
+        with open(data_dir / 'distortion_results_TAN.txt', 'w', encoding='utf-8') as fp:
+            json.dump(tan, fp, sort_keys=False, indent=4)
+    except Exception as e:                                  # noqa: BLE001
+        print('tangent-plane export skipped: %s' % e)
+
     events.emit(events.METRICS, stage='distortion',
                 rms_mas=float(np.degrees(np.mean(mag_errors**2)**0.5)*3600*1000),
                 n_stars=int(plate2.shape[0]), nn_corr=float(nn_corr),

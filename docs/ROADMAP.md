@@ -1315,8 +1315,34 @@ printed coefficients come from a three-pass fit that folds linear terms back int
 solution each pass. **Do not quote a conversion constant to better than ~10% until that is
 resolved.**
 
+> **CORRECTED 2026-09-15 — the theoretical baseline above was computed for the wrong
+> projection.** `theta^3/3 = 0.3656 "/deg^3` is the ARC-to-tangent term, i.e. what a projection
+> whose radius *is* the angle would give. **MEE is not an ARC projection.**
+> `transforms.detransform_vectors` returns `(declination, RA x cos(dec))`, and its departure
+> from the tangent plane, derived exactly from that code and checked against an ARC control
+> that reproduces 0.3656 to four figures, is **~0.434 "/deg^3**. It is also **not a universal
+> constant**: it varies with the sensor's aspect ratio -- 0.4344 and 0.4350 on the two 4:3
+> sensors, 0.4230 on Husillos' 3:2 -- and a pure radial cubic describes it only to ~10 %,
+> because ~8 % of the field is tangential.
+>
+> Against the corrected baseline the puzzle largely dissolves: this project's own measurement
+> of **+0.4587 ± 0.0106** leaves a remainder of **~0.025 (5 %)**, not 0.093, which is close to
+> its quoted error and comfortably inside the methodological difference. The note's +0.4110 now
+> sits ~0.023 *below* the baseline rather than 0.045 above it. The instruction not to quote a
+> conversion constant still stands, but for a better reason: **there is no single constant to
+> quote.** Use `distortion_polynomial.tangent_plane_coefficients`, which converts exactly and
+> needs no constant at all. `tests/test_tangent_gauge.py` carries the control and the sizes.
+
 Cheap and actionable regardless: **document MEE's reference projection explicitly**, and
-consider a TAN-gauge export. Anyone comparing MEE output against Astrometrica, ASTAP or a
+consider a TAN-gauge export. **Both done, 2026-09-15.** Stage 2 now writes
+`distortion_results_TAN.txt` beside `distortion_results.txt` -- the same distortion in the
+tangent plane, derived by sending MEE's own corrected positions through
+`transforms.icoord_to_vector` and reading them off in the tangent plane, exact to ~1e-4 px with
+no fitted constant anywhere in it. Nothing in the pipeline reads the file, and
+`_open_distortion_files` **refuses** one passed as a reference, which closes the single way the
+gauge was ever going to bite a measurement. On a real Station 2 fit the linear and quadratic
+coefficients are unchanged to five figures and only the cubics move, which is exactly what a
+cubic-order gauge difference should do. Anyone comparing MEE output against Astrometrica, ASTAP or a
 published coefficient without the gauge term will conclude the programs disagree by a factor of
 three. On the evidence here they do not -- centroids agree to 0.012 px median, recovered
 catalogue positions to 8 mas, per-star residuals 0.052" against 0.055".
