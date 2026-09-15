@@ -427,14 +427,25 @@ def tangent_plane_coefficients(q, coeff_x, coeff_y, img_shape, options, n=61):
     # any particular Astrometrica solution may sit at a rotation or a mirror from MEE's axes
     # (det J < 0 in that log), which is a linear map and must be absorbed before the nonlinear
     # terms are compared.
+    # The block follows the FITTED ORDER, not a fixed cubic. Astrometrica 4.13 itself prints a
+    # cubic, but truncating a quintic fit to one silently changes the low-order coefficients --
+    # they absorb what the dropped terms were carrying -- which is why a quintic run and a cubic
+    # run of the same field used to disagree here (Douglas, 2026-09-15). A quintic fit now
+    # exports a quintic, which is a faithful statement of the same mapping; compare it against
+    # Astrometrica only at the order Astrometrica fitted.
     xi, eta = v[:, 1] / v[:, 0], v[:, 2] / v[:, 0]
-    Ax = np.column_stack([np.ones(len(x)), x, y, x * x, x * y, y * y,
-                          x ** 3, x * x * y, x * y * y, y ** 3])
-    axi, *_ = np.linalg.lstsq(Ax, xi, rcond=None)
-    aeta, *_ = np.linalg.lstsq(Ax, eta, rcond=None)
-    aterms = ['1', "x'", "y'", "x'^2", "x'*y'", "y'^2", "x'^3", "x'^2*y'", "x'*y'^2", "y'^3"]
-    a_res = float(np.degrees(np.sqrt(np.mean((xi - Ax @ axi) ** 2
-                                             + (eta - Ax @ aeta) ** 2))) * 3600.0)
+    # fitted in the NORMALISED basis (well conditioned: a raw x^5 reaches 1e17 and the normal
+    # equations fall apart), then rescaled term by term, which is exact
+    An = np.column_stack([np.ones(len(x)), basis])
+    axi_n, *_ = np.linalg.lstsq(An, xi, rcond=None)
+    aeta_n, *_ = np.linalg.lstsq(An, eta, rcond=None)
+    a_res = float(np.degrees(np.sqrt(np.mean((xi - An @ axi_n) ** 2
+                                             + (eta - An @ aeta_n) ** 2))) * 3600.0)
+    degree = [0] + [i for i in range(1, mapping[options['distortionOrder']] + 1)
+                    for _ in range(i + 1)]
+    wpow = np.array([w ** d for d in degree])
+    axi, aeta = axi_n / wpow, aeta_n / wpow
+    aterms = [n.replace('x', "x'").replace('y', "y'").replace(' * ', '*') for n in names]
 
     ps = np.degrees(scale) * 3600.0
     return {
@@ -463,14 +474,17 @@ def tangent_plane_coefficients(q, coeff_x, coeff_y, img_shape, options, n=61):
                            'ARC projection.',
         'astrometrica form': {
             'what': "the same mapping as Astrometrica prints it: standard coordinates in "
-                    "RADIANS as a cubic in (x', y'), pixel offsets from the image centre",
+                    "RADIANS as a polynomial in (x', y'), pixel offsets from the image centre. "
+                    "Astrometrica 4.13 prints a CUBIC; this follows the FITTED order, so "
+                    "compare only at the order Astrometrica itself fitted",
+            'order': options['distortionOrder'],
             'caution': 'a given Astrometrica solution may sit at a rotation or a mirror from '
                        "MEE's axes (det J < 0 is normal); absorb that linear map before "
                        'comparing the nonlinear terms -- tools/astrometrica_compare.py does',
             'origin (x0, y0) pixels': [float(img_shape[1] / 2), float(img_shape[0] / 2)],
             'X': dict(zip(aterms, [float(c) for c in axi])),
             'Y': dict(zip(aterms, [float(c) for c in aeta])),
-            'cubic refit residual (arcsec)': a_res,
+            'refit residual (arcsec)': a_res,
         },
     }
 
