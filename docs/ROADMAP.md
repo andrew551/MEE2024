@@ -1502,6 +1502,26 @@ itself field to field at 0.023--0.048 ″ rms, which is BETTER than its 0.064 �
 with Astrometrica on the same fields.** That makes the quadratic residual above harder to
 blame on MEE's scatter: whatever it is, it is systematic between the two programs rather
 than noise in either. The charts are in `F:\MEE_output\tan_gauge_examples\field_charts_2024`.
+**The 2600MM field charted the same way, and the two nights are NOT the same telescope
+(2026-09-16).** Regenerating HIP 29696 from 20 March at both orders gives four more charts
+in `F:\MEE_output\tan_gauge_examples\field_charts_2600mm`, and two comparisons worth having.
+
+*The fitted order changes the optics-only picture.* Cubic peaks at 2.39 ″ and quintic at
+2.75 ″ on the same stack, and the two fields differ by **0.105 ″ rms, 0.434 ″ max**. The
+quintic picture is visibly squarer and flatter in the middle, which is the structure a cubic
+cannot hold. So an optics-only chart is a statement about the fit as well as the glass, and
+the order belongs in any quotation of it.
+
+*The telescope changed between the nights.* Against the 11 March four-field mean, the
+20 March optics-only field differs by **0.129 ″ rms, 0.400 ″ max**, where the 11 March fields
+differ from their own mean by only 0.023--0.048 ″. That is three to five times the
+within-night repeatability, so it is a real change and not scatter -- and the 11 March path
+is literally `March 11 Walter shimmed`. **The two folders are the same tube in two different
+optical states**, which is worth knowing before any coefficient is carried between them.
+
+It does not, by itself, explain why Astrometrica agrees to 0.018 ″ on one night and 0.064 ″
+on the other -- both programs read the same image on each night -- but it removes the
+assumption that the two datasets should behave alike.
 **Open, and not a gauge question.** Astrometrica's settings are byte-identical between the two
 datasets and both used Gaia DR2, so it is not configuration or catalogue. What differs is the
 night: the four are `March 11 Walter shimmed`, the 2600MM field is 20 March, and Astrometrica
