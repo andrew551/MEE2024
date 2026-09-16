@@ -29,6 +29,9 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mee2024 import distortion_polynomial as dp  # noqa: E402
 import numpy as np  # noqa: E402
+import matplotlib  # noqa: E402
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt  # noqa: E402
 
 #: the output tree moved on 2026-09-14; paths recorded before then name the old roots
 REMAP = [(r'D:\MEE2024 output\MEE_output', r'F:\MEE_output'),
@@ -97,6 +100,12 @@ def main():
     ap.add_argument('paths', nargs='+')
     ap.add_argument('--out', default=None, help='write here instead of beside the fit')
     ap.add_argument('--shape', default=None, help='NY,NX if it cannot be found automatically')
+    # Charts are drawn from the STORED fit, not by re-running stage 2, so they describe the
+    # reduction that is actually there. Re-fitting would also silently apply today's defaults --
+    # the gate moved 0.2 -> 0.5 on 2026-09-16 -- and mix two changes into one picture.
+    ap.add_argument('--charts', action='store_true',
+                    help='also draw Distortion_field.png and Distortion_field_TAN.png '
+                         'from the stored coefficients')
     a = ap.parse_args()
     forced = tuple(int(v) for v in a.shape.split(',')) if a.shape else None
     if a.out:
@@ -128,6 +137,21 @@ def main():
                                  'distortion_results_TAN.txt'))
             with io.open(dest, 'w', encoding='utf-8') as fp:
                 json.dump(tan, fp, sort_keys=False, indent=4)
+            if a.charts:
+                here = a.out or os.path.dirname(os.path.abspath(f))
+                stem = (_name_for(f) + '_') if a.out else ''
+                for suffix, cc_x, cc_y, note in (
+                    ('', j['distortion coeffs x'], j['distortion coeffs y'],
+                     "measured from MEE's own frame, so a perfect lens would not read zero"),
+                    ('_TAN', tan['distortion coeffs x'], tan['distortion coeffs y'],
+                     'the OPTICS alone, against an ideal gnomonic projection'),
+                ):
+                    fig = dp.render_distortion_field(
+                        [cc_x[n] for n in names], [cc_y[n] for n in names], shape, opts,
+                        platescale_arcsec=j['platescale (arcseconds/pixel)'],
+                        save_to=os.path.join(here, stem + 'Distortion_field%s.png' % suffix),
+                        title_note=note + '  (drawn from the stored fit, not re-fitted)')
+                    plt.close(fig)
             print('%s  (%dx%d, %s)  gauge %.4f "/deg^3, %.2f px at the corner\n   -> %s'
                   % (os.path.basename(os.path.dirname(f)), shape[1], shape[0], order,
                      tan['gauge term radial cubic (arcsec/deg^3)'],

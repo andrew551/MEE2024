@@ -1631,6 +1631,33 @@ One tooling fix this turned up: archives written before the flat layout keep eve
 under a `data/` prefix, which `distortion_fitter` has always handled and `tan_export` did
 not -- so all ten `bruns_np101` fits reported "sensor size not found" while the archive they
 named was sitting on `I:` in plain sight. It reads both layouts now.
+**Their field charts, and what the optics-only view shows that the native one hides
+(2026-09-16).** All 30 charts -- both gauges for each of the 15 fits -- are in
+`F:\MEE_output\tan_gauge_examples\field_charts_instruments`, drawn by
+`tools/tan_export.py --charts` **from the stored fits rather than by re-running stage 2**,
+so they describe the reductions that are actually on disk and do not quietly pick up the
+new 0.5 ″ gate.
+
+Each instrument turns out to have its own optical signature, and it is only legible in the
+tangent gauge. Comparing edge midpoints at EQUAL radius -- left against right, top against
+bottom -- rather than max against min, which on a 4:3 sensor is dominated by the aspect
+ratio (the left edge sits 1.32× further out than the top, and a cubic field turns that into
+2.3× on its own):
+
+| telescope | peak | left / right | top / bottom | reading |
+|---|---|---|---|---|
+| FRA500 | 2.0 ″ | **0.47 / 0.87 = 1.85** | 0.28 / 0.27 | strongly decentred across the frame |
+| NP101is | 2.4 ″ | 1.22 / 0.99 = 1.23 | 0.37 / 0.55 | mildly decentred, both ways |
+| TV-85 | 18.3 ″ | 7.99 / 8.49 = 1.06 | **2.79 / 4.35 = 1.56** | well centred across, decentred up |
+
+The TV-85 has nine times the distortion of the other two and is the most symmetric of them
+left to right; the FRA500 has the least distortion and the most lopsided. **Neither fact is
+visible on the native charts**, where the projection term adds to the FRA500, subtracts from
+the NP101is and is lost in the TV-85's 18 ″.
+
+A decentred or tilted sensor is what produces an asymmetry of this kind, so these numbers
+are the quantity a shimming job would be trying to reduce -- which is what Douglas says the
+shims between the telescope and the camera were for.
 **A floor on the displayed scale, and what it does to the arrows (Douglas, 2026-09-16:
 “let’s always limit the displacement scale to a minimum of 0.01 arcsec ... Will that also
 limit the magnitude of the displacement vectors also so that they are rendered as
