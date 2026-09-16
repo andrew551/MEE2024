@@ -1599,6 +1599,38 @@ Run at quintic the simulation makes the point again: the tangent chart peaks at
 are drawn just as boldly. The fit residual goes 1.975e-05 ″ to **2.540e-09 ″** and the largest
 tangent coefficient 7.4e-05 px to 2.8e-08 px. A quintic represents the projection term
 essentially exactly; a cubic does not, and the leftover is the radial wave above.
+**Three more instruments in both gauges, and the native chart is wrong in three different
+directions (Douglas, 2026-09-16).** `carrell_fra500`, `bruns_np101` and `tv85` -- 15 cubic
+fits between them -- converted with `tools/tan_export.py` and compared field by field:
+
+| tree | telescope | corner | native peak | optics (TAN) | gauge | native / optics |
+|---|---|---|---|---|---|---|
+| `carrell_fra500` | FRA500 | 1.75° | 4.36 ″ | **1.96 ″** | 2.41 ″ | **2.2× too big** |
+| `bruns_np101` | NP101is | 1.49° | 0.80 ″ | **2.27 ″** | 1.47 ″ | **2.8× too small** |
+| `tv85` | TV-85 | 1.35° | 19.48 ″ | **18.39 ″** | 1.09 ″ | 1.06×, near enough |
+
+(means over 3, 10 and 2 fields; every field in a tree agrees with its siblings to a few per
+cent.)
+
+**The same correction of a similar size does three different things**, because what matters
+is its sign and size *relative to the optics*:
+
+* the **FRA500**'s distortion runs the same way as the projection, so the two ADD and the
+  native chart shows more than twice the real optical distortion;
+* the **NP101is**' runs against it, so they partly CANCEL and the native chart shows barely
+  a third of it -- this is the instrument whose native chart looked "lopsided";
+* the **TV-85** has 18 ″ of its own distortion, seventeen times the gauge, which therefore
+  barely registers.
+
+**So there is no rule of thumb for reading the native chart**, not even a conservative one:
+it can overstate the optics, understate them, or be near enough right, and which of the
+three it is cannot be told without doing the conversion. That is the case for writing
+`Distortion_field_TAN.png` beside it on every run rather than on request.
+
+One tooling fix this turned up: archives written before the flat layout keep everything
+under a `data/` prefix, which `distortion_fitter` has always handled and `tan_export` did
+not -- so all ten `bruns_np101` fits reported "sensor size not found" while the archive they
+named was sitting on `I:` in plain sight. It reads both layouts now.
 **A floor on the displayed scale, and what it does to the arrows (Douglas, 2026-09-16:
 “let’s always limit the displacement scale to a minimum of 0.01 arcsec ... Will that also
 limit the magnitude of the displacement vectors also so that they are rendered as

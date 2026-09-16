@@ -68,7 +68,11 @@ def shape_from_stage1(j, near):
         if c and os.path.isfile(c):
             try:
                 with zipfile.ZipFile(c) as z:
-                    s = json.load(io.TextIOWrapper(z.open('results.txt'), encoding='utf-8',
+                    # older archives put everything under a `data/` prefix, which is why
+                    # distortion_fitter tries both; without the second name every 2024-era
+                    # archive reported "sensor size not found" even when it was sitting there
+                    member = 'results.txt' if 'results.txt' in z.namelist() else 'data/results.txt'
+                    s = json.load(io.TextIOWrapper(z.open(member), encoding='utf-8',
                                                    errors='replace')).get('img_shape')
                 if s:
                     return int(s[0]), int(s[1])
