@@ -1547,6 +1547,42 @@ the rotation from a results file needs the 180 put back. Without it the stars la
 far side of the field, and the tool's own sanity check -- perfect positions must sit within
 a few pixels of the real ones -- tripped at 4283 px.
 
+**Two things Douglas spotted in the simulation's own output (2026-09-16), one artefact and
+one real.**
+
+*The concentric rings labelled 0.00 in the tangent chart were an artefact* and are fixed.
+The field there spans 6e-6 to 1.2e-4 ″, and matplotlib contoured it anyway, printing every
+ring as "0.00" under a `%.2f` format -- structure that is not there. `render_distortion_field`
+now draws contours only when the peak would not round to zero, and otherwise says **flat to
+the displayed precision** with the peak in exponent form.
+
+*The wave in error-against-radius is NOT an artefact, and Douglas read it correctly*:
+"I recall this is how an uncorrected quintic tends to look". It is exactly that. The
+projection term is not a cubic, so a cubic fit cannot absorb all of it and leaves a
+systematic radial residual. Fitting the same perfect optic at quintic collapses it:
+
+| fit order | residual rms |
+|---|---|
+| cubic | 1.975e-05 ″ |
+| quintic | **2.540e-09 ″** |
+
+A factor of **7 800**. So the MEE-gauge projection term is representable to machine
+precision by a quintic and not by a cubic, and on a cubic fit a small uncorrected piece of
+it always remains. How small, per instrument -- the residual of fitting the projection term
+alone:
+
+| instrument | corner | cubic | quintic |
+|---|---|---|---|
+| Bruns 2017 NP101is | 1.19° | 5.8e-06 ″ | 3.3e-10 ″ |
+| Bruns 2600MM | 1.49° | 1.7e-05 ″ | 1.5e-09 ″ |
+| Mexico Station 2 | 1.51° | 1.9e-05 ″ | 1.8e-09 ″ |
+| Husillos 2026 | 3.52° | **1.2e-03 ″** | 6.0e-07 ″ |
+
+It scales as about the sixth power of the field radius, so it is 200 times larger on
+Husillos than on the NP101is -- and still **1.2 milliarcsec**, which is eighty times below
+that cell's atmosphere term alone. **Negligible everywhere in the matrix**, and the 1.7e-05 ″
+predicted for the 2600MM matches the 1.975e-05 ″ the simulation actually fitted, which is a
+check on both.
 **And the per-order split at cubic, for comparison with the quintic one below.** Same stack,
 same gate:
 

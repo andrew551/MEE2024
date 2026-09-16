@@ -583,9 +583,19 @@ def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arc
 
     ax = axes[1]
     mesh = ax.pcolormesh(X, Y, magnitude * scale, cmap='magma', shading='auto')
-    contours = ax.contour(X, Y, magnitude * scale, colors='white', linewidths=0.7,
-                          alpha=0.75)
-    ax.clabel(contours, inline=True, fontsize=7, fmt='%.2f')
+    # Contours are drawn only if the field has something to contour. On a field that is flat to
+    # the label's own precision -- a simulated perfect optic in the tangent gauge spans 6e-6 to
+    # 1e-4 arcsec -- matplotlib still lays down rings and `%.2f` prints every one of them as
+    # "0.00", which reads as structure that is not there (Douglas, 2026-09-16: "looks a bit odd
+    # with concentric circles of 0.00. Is this a kind of artefact?" -- it was).
+    peak_disp = float(np.max(magnitude) * scale)
+    if peak_disp >= 0.005:                       # i.e. it does not round to 0.00
+        contours = ax.contour(X, Y, magnitude * scale, colors='white', linewidths=0.7,
+                              alpha=0.75)
+        ax.clabel(contours, inline=True, fontsize=7, fmt='%.2f')
+    else:
+        ax.text(0.5, 0.5, 'flat to the displayed precision\n(peak %.1e %s)' % (peak_disp, unit),
+                transform=ax.transAxes, ha='center', va='center', color='white', fontsize=9)
     fig.colorbar(mesh, ax=ax, label=f'displacement ({unit})')
     ax.set_title('Distortion magnitude')
     ax.set_xlabel('x (pixels from centre)')
