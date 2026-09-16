@@ -27,8 +27,13 @@ def test_the_window_is_narrower_than_the_psfs_it_is_meant_for():
     assert get_default_options()['centroid_window_sigma'] == 2.0
 
 
-def test_the_calibration_fit_tolerance_is_a_fifth_of_an_arcsecond():
-    assert get_default_options()['distortion_fit_tol'] == 0.2
+def test_the_calibration_fit_tolerance_is_half_an_arcsecond():
+    """0.2 -> 0.5 on 2026-09-16 (Douglas): the tighter gate was dropping stars the high orders
+    need. Measured on Bruns' 2600MM HIP 29696 against Astrometrica, which read the same stack:
+    the looser gate admits 790 -> 946 stars at cubic and 727 -> 911 at quintic, brings the
+    sample within 4 % of Astrometrica's own 914, and improves agreement with it from 0.0182 to
+    0.0120 " at cubic and 0.0624 to 0.0370 " at quintic. See config.py for the table."""
+    assert get_default_options()['distortion_fit_tol'] == 0.5
 
 
 def test_a_cubic_is_the_default_order():

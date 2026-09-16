@@ -137,15 +137,31 @@ DEFAULT_OPTIONS = {
     'sanity_check_centroids': True,
     'max_star_mag_dist': 12.0,
     'observation_date': '2023-12-01',
-    # Arcseconds. The gate on a star's residual in the distortion fit. Default changed 1.0 ->
-    # 0.2 on v1.4.0-dev, 2026-09-05 (Douglas): right for a cubic on a 2600MM-class sensor,
-    # which is what the Askars give and what the Bruns 2017 and Leon 2026 calibrations used.
-    # A quintic on a full-frame sensor wants a looser gate -- Station 1's 6200MM needed 0.5
-    # so that the corners kept enough stars to pin the high orders (STEP3_2026, "The
-    # reference gate of record moves to 0.5"); the corner-coverage check of
-    # tools/matrix_station1/s1_reference_tolerance.py is the way to set it in such a case.
-    # `--set distortion_fit_tol=1.0` recovers the previous default.
-    'distortion_fit_tol': 0.2,
+    # Arcseconds. The gate on a star's residual in the distortion fit.
+    #
+    # 1.0 -> 0.2 on 2026-09-05 (Douglas), then **0.2 -> 0.5 on 2026-09-16 (Douglas)**: "the
+    # error tolerance of 0.2 that was used was probably too tight and therefore eliminated too
+    # many stars (especially for the quintic, which needs more points)".  The 0.2 was set for a
+    # cubic on a 2600MM-class sensor, which is the case this supersedes; 0.5 was already the
+    # gate of record for Station 1's 6200MM quintic, where it "keeps four times the corner
+    # stars of the 0.1 gate" (STEP3_2026, "The reference gate of record moves to 0.5").
+    #
+    # MEASURED before the change, on the one field where an independent program reduced the
+    # same stack -- Bruns' 2600MM HIP 29696, against Astrometrica 4.13 (914 stars, 0.04 "):
+    #
+    #   order    tol   stars   fit rms    vs Astrometrica
+    #   cubic    0.2     790    0.0623 "         0.0182 "
+    #   cubic    0.5     946    0.0672 "         0.0120 "
+    #   quintic  0.2     727    0.0540 "         0.0624 "
+    #   quintic  0.5     911    0.0632 "         0.0370 "
+    #
+    # The looser gate admits 20-25 % more stars, costs ~0.005 " of fit rms (it is admitting
+    # marginal stars, so the rms rising is the gate working, not the fit worsening), brings the
+    # sample within 4 % of Astrometrica's own, and improves agreement with it by a third at
+    # cubic and two fifths at quintic.  This CHANGES MEASURED NUMBERS on any reduction that
+    # takes the default: re-fit rather than compare across the change.
+    # `--set distortion_fit_tol=0.2` recovers the previous default, 1.0 the one before it.
+    'distortion_fit_tol': 0.5,
     'remove_edgy_centroids': True,
     'sigma_subtract': 3.0,
     'distortionOrder': 'cubic',

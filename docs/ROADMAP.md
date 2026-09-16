@@ -1522,6 +1522,51 @@ optical states**, which is worth knowing before any coefficient is carried betwe
 It does not, by itself, explain why Astrometrica agrees to 0.018 ″ on one night and 0.064 ″
 on the other -- both programs read the same image on each night -- but it removes the
 assumption that the two datasets should behave alike.
+**A perfect telescope, put through the real pipeline (Douglas, 2026-09-16).**
+`tools/simulate_perfect_optic.py` takes the 988 catalogue positions of a real 2600MM
+reduction, projects them GNOMONICALLY with that run's own plate solution -- which is what a
+flawless lens does and all a flawless lens does -- and writes them as the measured pixel
+positions. Stage 2 then plate-solves and matches from scratch, so nothing is handed the
+answer. The perfect positions sit a median 0.23 px and at most 21 px from the real ones,
+which is the actual telescope's distortion and the right size for it.
+
+| | result |
+|---|---|
+| the fit | 984 stars, rms **0.0000 ″** -- there is nothing to find |
+| tangent gauge | peak **0.000 ″** -- flat, as a perfect optic must be |
+| MEE gauge | peak **1.471 ″**, smooth and centrally symmetric |
+
+That 1.471 ″ is the projection term on its own, with no optics in the way, and it matches
+the 1.47 ″ predicted for this sensor from geometry alone. **It is the cleanest statement
+available of what `Distortion_field.png` measures from**: the chart of a flawless telescope
+is not blank.
+
+One trap the simulation caught, worth having in writing: `distortion_fitter` writes ROLL as
+`degrees(q[3]) - 180` (its own comment calls it "this dodgy +/- 180 thing"), so rebuilding
+the rotation from a results file needs the 180 put back. Without it the stars land on the
+far side of the field, and the tool's own sanity check -- perfect positions must sit within
+a few pixels of the real ones -- tripped at 4283 px.
+
+**And the per-order split at cubic, for comparison with the quintic one below.** Same stack,
+same gate:
+
+| order | cubic fit | quintic fit |
+|---|---|---|
+| linear | 0.190 ″ | 0.188 ″ |
+| quadratic | 0.339 ″ | 0.494 ″ |
+| cubic | **2.171 ″** | 1.736 ″ |
+| quartic | -- | 0.228 ″ |
+| quintic | -- | **0.825 ″** |
+| total drawn | 2.392 ″ | 2.517 ″ |
+| sum of the parts | 2.700 ″ | 3.471 ″ |
+
+**In the cubic fit the cubic term simply IS the field** -- 2.171 ″ of a 2.392 ″ total, with
+only 13 % cancellation. Fitted at quintic, the same physical curve is redistributed: the
+cubic drops to 1.736 ″, a 0.825 ″ quintic appears, and the cancellation rises to 38 %, while
+the totals agree to 5 %. So the quintic term is not new distortion, it is part of the same
+curve relabelled -- which is what Douglas' "the telescope has very little quintic" already
+said. (At the old 0.2 ″ gate the spurious quintic was larger still, 1.18 ″; the looser gate
+steadies the high orders as well as admitting more stars.)
 **Two things about reading these charts (Douglas, 2026-09-16).**
 
 *“The telescope has very little quintic distortion, so why does the quintic chart suggest
