@@ -1343,7 +1343,7 @@ no fitted constant anywhere in it. Stage 2 also DRAWS it: **`Distortion_field_TA
 the same normalised basis and so need no conversion. The two charts answer different
 questions and both are kept: the native one is what the pipeline applies, the TAN one is
 what the glass does. On the 2600MM field the difference is not subtle -- the native chart
-peaks at **0.95 ″** and is lopsided, because the projection partly cancels the optics,
+peaks at **0.95 ″** and looks more lopsided than the optics really are (see below),
 while the TAN chart is centrally symmetric and peaks at **2.39 ″**. So the plotted native
 magnitude is not even an upper bound on the real distortion. Nothing in the pipeline reads the file, and
 `_open_distortion_files` **refuses** one passed as a reference, which closes the single way the
@@ -1522,6 +1522,36 @@ optical states**, which is worth knowing before any coefficient is carried betwe
 It does not, by itself, explain why Astrometrica agrees to 0.018 ″ on one night and 0.064 ″
 on the other -- both programs read the same image on each night -- but it removes the
 assumption that the two datasets should behave alike.
+**Two things about reading these charts (Douglas, 2026-09-16).**
+
+*“The telescope has very little quintic distortion, so why does the quintic chart suggest
+otherwise?”* Because the chart draws the TOTAL field, and because a per-order split of a
+monomial fit is not a measurement of that order. Splitting the 2600MM quintic fit by order
+gives peaks of 0.17 ″ linear, 0.47 ″ quadratic, **1.65 ″ cubic**, 0.42 ″ quartic and
+**1.18 ″ quintic** -- which sums to 3.89 ″ against a total of 2.75 ″, so the orders are
+**cancelling each other**. Over a rectangular field x³ and x⁵ are strongly correlated, so a
+fit spreads one physical curve across several orders with large anti-correlated
+coefficients. A big quintic coefficient is not a big quintic distortion.
+
+The question that does have a physical answer is whether the quintic model PREDICTS
+different star positions than the cubic, and there it is **0.096 ″ rms inside the
+star-covered radius** against a 2.4 ″ total field -- the cubic carries about 96 % of it,
+which is what “cubic is sufficient” means. One caveat on that number: the two fits admitted
+different star sets (790 against 727), so part of the 0.096 ″ is the sample rather than the
+order. Fitting both orders to one star list would separate them and has not been done.
+
+*“Lopsided, because the projection partly cancels the optics” -- what that means.* Both
+fields point outward and both are null at the sensor centre; what differs is how the
+magnitude varies with direction. The optics alone read 1.32 ″ at the left edge midpoint,
+0.80 ″ at the right, 0.32 ″ top and 0.44 ″ bottom -- already asymmetric, and much stronger
+across the frame than up it. The projection term is **symmetric**, the same 1.47 ″ into every
+corner. Subtracting something symmetric from something asymmetric leaves a remainder that is
+MORE asymmetric, not less: left against right goes from 1.65:1 in the optics to **3.5:1** as
+plotted (0.63 ″ against 0.18 ″), because the cancellation is nearly complete on the right and
+poor on the left. So the native chart exaggerates the asymmetry of the optics, and the
+tangent-plane chart is the one to read it off. A left-right asymmetry of that kind is what a
+tilted sensor gives, which is what the shims in `March 11 Walter shimmed` were presumably
+for.
 **Open, and not a gauge question.** Astrometrica's settings are byte-identical between the two
 datasets and both used Gaia DR2, so it is not configuration or catalogue. What differs is the
 night: the four are `March 11 Walter shimmed`, the 2600MM field is 20 March, and Astrometrica
