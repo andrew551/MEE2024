@@ -361,6 +361,13 @@ def distortion_field(coeff_x, coeff_y, img_shape, options, n=22):
 #: the gauge bites a measurement (docs/ROADMAP.md, "The reference-projection gauge").
 TAN_GAUGE_MARK = 'tangent plane (gnomonic)'
 
+#: The smallest displacement the field charts will scale to, in the unit being displayed
+#: (arcsec when a plate scale is known, else pixels). Below it both panels read as flat instead
+#: of stretching noise to fill the colour map. 0.01 is Douglas' choice, 2026-09-16: well under
+#: anything that matters to a measurement -- the smallest atmosphere term in the matrix is
+#: 0.10 arcsec -- and well above the 1e-4 arcsec a cubic leaves of the projection term.
+DISPLAY_FLOOR = 0.01
+
 
 def tangent_plane_coefficients(q, coeff_x, coeff_y, img_shape, options, n=61):
     """The fitted distortion re-expressed in the TANGENT PLANE (gnomonic) gauge.
@@ -569,17 +576,31 @@ def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arc
         scale = platescale_arcsec
         unit = 'arcsec'
 
+    # A FLOOR ON THE DISPLAYED SCALE (Douglas, 2026-09-16: "let's always limit the displacement
+    # scale to a minimum of 0.01 arcsec"). Both panels are drawn against max(peak, FLOOR), so a
+    # field below the floor reads as flat rather than being stretched to fill the colour map --
+    # which is what made a perfect optic's 1e-4 arcsec look like structure. Pinning the quiver's
+    # `scale` to the same reference is what carries the floor into the ARROWS: without it they
+    # are autoscaled per chart and stay full length however small the field is. With it, a field
+    # a hundredth of the floor draws arrows a hundredth as long, i.e. points.
+    peak_disp = float(np.max(magnitude) * scale)
+    ref = max(peak_disp, DISPLAY_FLOOR)
+    # the reference magnitude spans this fraction of the axes width, so arrows stay readable at
+    # the floor and shrink proportionally below it
+    q_scale = ref / 0.09
+
     ax = axes[0]
     # No `scale` is passed, so matplotlib normalises the arrows to THIS chart's own data range:
     # a field of 1e-4 arcsec draws arrows the same length as a field of 2 arcsec. The direction
     # is real, the length is not comparable between charts, and the magnitude lives in the
     # colour and the colourbar. Said on the chart because it is invisible otherwise -- Douglas,
     # 2026-09-16: "shouldn't the TANGENT gauge show no arrows at all if the optic is perfect?"
-    ax.quiver(X, Y, DX, DY, magnitude * scale, cmap='viridis', angles='xy',
-              pivot='middle', width=0.004)
+    ax.quiver(X, Y, DX * scale, DY * scale, magnitude * scale, cmap='viridis', angles='xy',
+              scale=q_scale, scale_units='width', pivot='middle', width=0.004,
+              clim=(0.0, ref))
     ax.set_title(f'Distortion displacement ({options["distortionOrder"]} fit)')
-    ax.set_xlabel('x (pixels from centre)\narrow length is autoscaled to this chart; '
-                  'the magnitude is the colour')
+    ax.set_xlabel('x (pixels from centre)\narrow length and colour are to a common scale of '
+                  '%.2f %s (floor %.2f)' % (ref, unit, DISPLAY_FLOOR))
     ax.set_ylabel('y (pixels from centre)')
     ax.set_aspect('equal')
     # y is a row offset, so it increases downward. Left to itself matplotlib puts it the
@@ -588,19 +609,19 @@ def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arc
     ax.grid(alpha=0.25)
 
     ax = axes[1]
-    mesh = ax.pcolormesh(X, Y, magnitude * scale, cmap='magma', shading='auto')
-    # Contours are drawn only if the field has something to contour. On a field that is flat to
-    # the label's own precision -- a simulated perfect optic in the tangent gauge spans 6e-6 to
-    # 1e-4 arcsec -- matplotlib still lays down rings and `%.2f` prints every one of them as
-    # "0.00", which reads as structure that is not there (Douglas, 2026-09-16: "looks a bit odd
-    # with concentric circles of 0.00. Is this a kind of artefact?" -- it was).
-    peak_disp = float(np.max(magnitude) * scale)
-    if peak_disp >= 0.005:                       # i.e. it does not round to 0.00
+    mesh = ax.pcolormesh(X, Y, magnitude * scale, cmap='magma', shading='auto',
+                         vmin=0.0, vmax=ref)
+    # Contours are drawn only if the field reaches the floor. Below it matplotlib still lays
+    # down rings and `%.2f` prints every one of them as "0.00", which reads as structure that is
+    # not there (Douglas, 2026-09-16: "looks a bit odd with concentric circles of 0.00. Is this
+    # a kind of artefact?" -- it was).
+    if peak_disp >= DISPLAY_FLOOR:
         contours = ax.contour(X, Y, magnitude * scale, colors='white', linewidths=0.7,
                               alpha=0.75)
         ax.clabel(contours, inline=True, fontsize=7, fmt='%.2f')
     else:
-        ax.text(0.5, 0.5, 'flat to the displayed precision\n(peak %.1e %s)' % (peak_disp, unit),
+        ax.text(0.5, 0.5, 'flat below the %.2f %s floor\n(peak %.1e %s)'
+                % (DISPLAY_FLOOR, unit, peak_disp, unit),
                 transform=ax.transAxes, ha='center', va='center', color='white', fontsize=9)
     fig.colorbar(mesh, ax=ax, label=f'displacement ({unit})')
     ax.set_title('Distortion magnitude')

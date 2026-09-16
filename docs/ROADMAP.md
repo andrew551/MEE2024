@@ -1599,6 +1599,35 @@ Run at quintic the simulation makes the point again: the tangent chart peaks at
 are drawn just as boldly. The fit residual goes 1.975e-05 ″ to **2.540e-09 ″** and the largest
 tangent coefficient 7.4e-05 px to 2.8e-08 px. A quintic represents the projection term
 essentially exactly; a cubic does not, and the leftover is the radial wave above.
+**A floor on the displayed scale, and what it does to the arrows (Douglas, 2026-09-16:
+“let’s always limit the displacement scale to a minimum of 0.01 arcsec ... Will that also
+limit the magnitude of the displacement vectors also so that they are rendered as
+points?”).** Yes -- but only because the arrows were pinned to the same reference at the
+same time. Both panels now scale to `max(peak, 0.01 ″)`, and `quiver` is given an explicit
+`scale` built from that reference instead of being left to normalise itself. **The colour
+floor alone would not have touched the arrows**, since the two are independent: that is why
+a perfect optic used to draw full-length arrows over a field of 1e-4 ″.
+
+On the septic perfect optic, whose tangent field peaks at 1.3e-09 ″, the magnitude panel is
+uniformly black with **flat below the 0.01 arcsec floor** written across it and the arrows
+are dots. A real 1.47 ″ field is untouched and now states its scale under the axis. 0.01 ″
+is well under anything that matters -- the smallest atmosphere term in the matrix is
+0.10 ″ -- and well above the 1e-3 ″ a cubic leaves of the projection term on the widest
+sensor.
+
+**Septic, for completeness.** The perfect optic fitted at three orders, where the projection
+term is the only thing there is to fit:
+
+| order | fit residual | worst star | largest tangent coefficient |
+|---|---|---|---|
+| cubic | 1.975e-05 ″ | 7.400e-04 ″ | 7.4e-05 px |
+| quintic | 2.540e-09 ″ | 1.873e-08 ″ | 2.8e-08 px |
+| septic | **8.055e-10 ″** | 1.344e-09 ″ | 1.6e-09 px |
+
+The quintic does essentially all the work -- four orders of magnitude on the cubic -- and
+the septic buys a further factor of three, which is the `tan(t) - t` series' next term and
+nothing a measurement will ever care about. **There is no case for fitting a septic to
+chase the gauge.**
 **And the per-order split at cubic, for comparison with the quintic one below.** Same stack,
 same gate:
 
