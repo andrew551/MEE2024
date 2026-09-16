@@ -553,7 +553,7 @@ def analysis_payload(plate, corrections, residuals, coeff_x, coeff_y, img_shape,
 
 
 def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arcsec=None,
-                            save_to=None):
+                            save_to=None, title_note=''):
     """Draw the distortion field: arrows plus a magnitude map. Returns the figure.
 
     Replaces the three rotatable 3-D matplotlib windows the old code opened, which showed
@@ -594,7 +594,8 @@ def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arc
 
     peak = float(np.max(magnitude) * scale)
     fig.suptitle(f'peak displacement {peak:.2f} {unit}'
-                 + ('' if platescale_arcsec else ' (pixels)'), fontsize=10)
+                 + ('' if platescale_arcsec else ' (pixels)')
+                 + (('\n' + title_note) if title_note else ''), fontsize=10)
     fig.tight_layout()
     if save_to is not None:
         fig.savefig(save_to, dpi=200, bbox_inches='tight')

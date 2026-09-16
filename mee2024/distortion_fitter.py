@@ -569,6 +569,7 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     # ASTAP or a published table -- nothing in the pipeline reads it (Douglas, 2026-09-15).
     # Additive only: it is a second file, and a failure here must not cost a reduction that
     # has already succeeded, hence the guard.
+    tan = None          # the field plot below needs it; None if the export could not be made
     try:
         tan = distortion_polynomial.tangent_plane_coefficients(
             result, coeff_x, coeff_y, image_size, options)
@@ -631,14 +632,40 @@ def match_and_fit_distortion(path_data, options, debug_folder=None):
     plt.close()
 
     if options.get('distortion_field_plot', True):
+        _ps_as = np.degrees(result[0]) * 3600
         field_fig = distortion_polynomial.render_distortion_field(
             coeff_x, coeff_y, image_size, options,
-            platescale_arcsec=np.degrees(result[0]) * 3600,
-            save_to=output_dir / 'Distortion_field.png')
+            platescale_arcsec=_ps_as,
+            save_to=output_dir / 'Distortion_field.png',
+            title_note="measured from MEE's own frame, so a perfect lens would not read zero"
+                       ' -- see Distortion_field_TAN.png for the optics alone')
         events.png_event('distortion_field', figure=field_fig)
         if options['flag_display2']:
             plt.show()
         plt.close(field_fig)
+
+        # The same field against a PERFECT LENS: the tangent-plane coefficients, which are in
+        # the same normalised basis, so the renderer takes them unchanged (Douglas, 2026-09-16:
+        # "if we want to represent this instead, can we do that with the tangent-plane export
+        # data that we already generate?"). The two charts answer different questions -- this
+        # one is what the glass does, the other is what the pipeline applies -- so both are
+        # written rather than one replacing the other. Guarded: an extra picture must not cost
+        # a reduction that has already succeeded.
+        try:
+            if tan is None:
+                raise ValueError('no tangent-plane export was produced')
+            _names = distortion_polynomial.get_coeff_names(options)
+            _tan_fig = distortion_polynomial.render_distortion_field(
+                [tan['distortion coeffs x'][n] for n in _names],
+                [tan['distortion coeffs y'][n] for n in _names],
+                image_size, options, platescale_arcsec=_ps_as,
+                save_to=output_dir / 'Distortion_field_TAN.png',
+                title_note='the OPTICS alone, against an ideal gnomonic projection'
+                           ' (tangent-plane gauge)')
+            events.png_event('distortion_field_tan', figure=_tan_fig)
+            plt.close(_tan_fig)
+        except Exception as e:                              # noqa: BLE001
+            print('tangent-plane field plot skipped: %s' % e)
 
     # the surfaces and the residual-correlation map the app draws on demand. Emitted
     # regardless of the field-plot setting: it costs one basis evaluation and no figure,

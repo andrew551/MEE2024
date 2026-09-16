@@ -1338,7 +1338,14 @@ consider a TAN-gauge export. **Both done, 2026-09-15.** Stage 2 now writes
 `distortion_results_TAN.txt` beside `distortion_results.txt` -- the same distortion in the
 tangent plane, derived by sending MEE's own corrected positions through
 `transforms.icoord_to_vector` and reading them off in the tangent plane, exact to ~1e-4 px with
-no fitted constant anywhere in it. Nothing in the pipeline reads the file, and
+no fitted constant anywhere in it. Stage 2 also DRAWS it: **`Distortion_field_TAN.png`** beside the existing
+`Distortion_field.png`, the same renderer fed the tangent-plane coefficients, which sit in
+the same normalised basis and so need no conversion. The two charts answer different
+questions and both are kept: the native one is what the pipeline applies, the TAN one is
+what the glass does. On the 2600MM field the difference is not subtle -- the native chart
+peaks at **0.95 ″** and is lopsided, because the projection partly cancels the optics,
+while the TAN chart is centrally symmetric and peaks at **2.39 ″**. So the plotted native
+magnitude is not even an upper bound on the real distortion. Nothing in the pipeline reads the file, and
 `_open_distortion_files` **refuses** one passed as a reference, which closes the single way the
 gauge was ever going to bite a measurement. On a real Station 2 fit the linear and quadratic
 coefficients are unchanged to five figures and only the cubics move, which is exactly what a
