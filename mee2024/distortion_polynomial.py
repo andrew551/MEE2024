@@ -570,10 +570,16 @@ def render_distortion_field(coeff_x, coeff_y, img_shape, options, platescale_arc
         unit = 'arcsec'
 
     ax = axes[0]
+    # No `scale` is passed, so matplotlib normalises the arrows to THIS chart's own data range:
+    # a field of 1e-4 arcsec draws arrows the same length as a field of 2 arcsec. The direction
+    # is real, the length is not comparable between charts, and the magnitude lives in the
+    # colour and the colourbar. Said on the chart because it is invisible otherwise -- Douglas,
+    # 2026-09-16: "shouldn't the TANGENT gauge show no arrows at all if the optic is perfect?"
     ax.quiver(X, Y, DX, DY, magnitude * scale, cmap='viridis', angles='xy',
               pivot='middle', width=0.004)
     ax.set_title(f'Distortion displacement ({options["distortionOrder"]} fit)')
-    ax.set_xlabel('x (pixels from centre)')
+    ax.set_xlabel('x (pixels from centre)\narrow length is autoscaled to this chart; '
+                  'the magnitude is the colour')
     ax.set_ylabel('y (pixels from centre)')
     ax.set_aspect('equal')
     # y is a row offset, so it increases downward. Left to itself matplotlib puts it the

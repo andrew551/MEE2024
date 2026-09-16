@@ -1576,6 +1576,7 @@ alone:
 | Bruns 2017 NP101is | 1.19° | 5.8e-06 ″ | 3.3e-10 ″ |
 | Bruns 2600MM | 1.49° | 1.7e-05 ″ | 1.5e-09 ″ |
 | Mexico Station 2 | 1.51° | 1.9e-05 ″ | 1.8e-09 ″ |
+| Mexico Station 1 | 2.96° | 5.1e-04 ″ | 1.8e-07 ″ |
 | Husillos 2026 | 3.52° | **1.2e-03 ″** | 6.0e-07 ″ |
 
 It scales as about the sixth power of the field radius, so it is 200 times larger on
@@ -1583,6 +1584,21 @@ Husillos than on the NP101is -- and still **1.2 milliarcsec**, which is eighty t
 that cell's atmosphere term alone. **Negligible everywhere in the matrix**, and the 1.7e-05 ″
 predicted for the 2600MM matches the 1.975e-05 ″ the simulation actually fitted, which is a
 check on both.
+**What the arrows mean, and why a perfect optic still draws them (Douglas, 2026-09-16:
+“shouldn’t the TANGENT gauge show no arrows at all if the optic is perfect?”).** It should,
+and the reason it does not is a property of the plot rather than of the fit. `ax.quiver` is
+called without a `scale`, so **matplotlib normalises the arrows to each chart’s own data
+range**: a field of 1e-4 ″ gets arrows the same length as a field of 2 ″. The direction is
+real and the magnitude is in the colour and the colourbar; **the length is not comparable
+between two charts and is not an absolute quantity at all.** The left panel now says so
+under its x axis, which is the honest fix -- pinning an absolute scale would make a 2 ″ field
+and a 1e-4 ″ field unreadable in turn.
+
+Run at quintic the simulation makes the point again: the tangent chart peaks at
+**3.8e-08 ″** (38 nanoarcsec, machine precision, against 1.2e-04 ″ at cubic) and its arrows
+are drawn just as boldly. The fit residual goes 1.975e-05 ″ to **2.540e-09 ″** and the largest
+tangent coefficient 7.4e-05 px to 2.8e-08 px. A quintic represents the projection term
+essentially exactly; a cubic does not, and the leftover is the radial wave above.
 **And the per-order split at cubic, for comparison with the quintic one below.** Same stack,
 same gate:
 
