@@ -1484,6 +1484,24 @@ says the difference is not the gauge:**
 **quadratic**, coherently, at 0.071--0.085 ″ on all four, with a constant it leaks into through
 the affine step. The 2600MM field shows 0.011 ″ at the same order.
 
+**The optics-only charts agree across the four, which narrows it further (2026-09-16).**
+Regenerating the field charts for all four fields gives a `Distortion_field_TAN.png` each --
+the optics against a perfect lens, the same telescope on the same night, four different
+pointings:
+
+| field | optics-only peak | difference from the four-field mean |
+|---|---|---|
+| HIP 29696 | 2.43 ″ | 0.048 ″ rms, 0.132 ″ max |
+| HIP 31096 | 2.31 ″ | 0.023 ″ rms, 0.061 ″ max |
+| HIP 32740 | 2.25 ″ | 0.038 ″ rms, 0.117 ″ max |
+| HIP 33018 | 2.30 ″ | 0.026 ″ rms, 0.066 ″ max |
+
+Mean peak 2.32 ″, and the 20 March 2600MM field gives 2.39 ″ on the same instrument, so the
+optical distortion is stable across pointings and across the two nights. **MEE agrees with
+itself field to field at 0.023--0.048 ″ rms, which is BETTER than its 0.064 ″ disagreement
+with Astrometrica on the same fields.** That makes the quadratic residual above harder to
+blame on MEE's scatter: whatever it is, it is systematic between the two programs rather
+than noise in either. The charts are in `F:\MEE_output\tan_gauge_examples\field_charts_2024`.
 **Open, and not a gauge question.** Astrometrica's settings are byte-identical between the two
 datasets and both used Gaia DR2, so it is not configuration or catalogue. What differs is the
 night: the four are `March 11 Walter shimmed`, the 2600MM field is 20 March, and Astrometrica
