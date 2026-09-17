@@ -1631,6 +1631,43 @@ One tooling fix this turned up: archives written before the flat layout keep eve
 under a `data/` prefix, which `distortion_fitter` has always handled and `tan_export` did
 not -- so all ten `bruns_np101` fits reported "sensor size not found" while the archive they
 named was sitting on `I:` in plain sight. It reads both layouts now.
+**Does the tangent representation get WORSE on very large sensors, since gnomonic distorts
+at large angles? (Douglas, 2026-09-17.)** It gets relatively better, and the angular gauge
+is the one that degrades. The premise is true of gnomonic as a MAP projection and false of
+it here, because **a telescope is a gnomonic projector**: a perfect lens puts a star at
+f·tan(theta) and nowhere else, so the tangent plane is not a choice imposed on the optics,
+it is what the optics do. In that gauge a flawless telescope is **exactly linear at any
+field angle**, and its polynomial residual is zero by construction -- which the perfect-optic
+simulation showed directly.
+
+MEE's angular frame has to carry `tan(theta) - theta` instead, and that grows as theta^3.
+Swept over field size on a 6000 px square sensor, for a perfect optic, the residual left in
+**MEE's gauge** is:
+
+| corner | cubic | quintic | septic |
+|---|---|---|---|
+| 1° | 2.6e-06 ″ | 1.1e-10 ″ | 2.6e-13 ″ |
+| 3.5° (Husillos) | 1.4e-03 ″ | 7.0e-07 ″ | 3.7e-10 ″ |
+| 5° | 8.1e-03 ″ | 8.6e-06 ″ | 9.2e-09 ″ |
+| 10° | **0.27 ″** | 1.1e-03 ″ | 4.8e-06 ″ |
+| 20° | 9.2 ″ | 0.16 ″ | 2.8e-03 ″ |
+| 30° | 80 ″ | 3.3 ″ | 0.14 ″ |
+
+The tangent column would be zero at every row. **Past about 10 degrees a cubic in MEE's gauge
+stops being good enough on its own** -- 0.27 ″ is inside the range a deflection measurement
+cares about -- while the tangent gauge is still exact. Nothing in the matrix is near that:
+the widest sensor is Husillos at 3.5°, where the cubic penalty is 1.4 milliarcsec.
+
+**Where gnomonic really does fail is theta -> 90 degrees**, where tan diverges. No telescope
+reaches it, and MEE's frame has its own singularity there anyway (it is (dec, RA·cos dec),
+which degenerates at the pole).
+
+**The general rule, which is the useful form of the answer: the right gauge is the one that
+matches the lens's own projection.** For a normal telescope that is gnomonic. For an
+equidistant lens -- a fisheye, where image height goes as theta rather than tan(theta) --
+the angular gauge would be the natural one and the TANGENT gauge would carry exactly the
+same `tan(theta) - theta` burden, with the same table applying to it instead. MEE's frame is
+not wrong; it is simply not the frame this class of instrument images in.
 **Is the sign flip just opposite roll conventions, and should the export correct for it?
 (Douglas, 2026-09-17.)** Nearly, and no -- and the "nearly" is what decides the "no".
 
