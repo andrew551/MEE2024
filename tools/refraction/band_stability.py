@@ -26,7 +26,7 @@ def d3000(res_json):
     return float(np.mean(rad)) * ps                 # px (w-normalised basis) -> arcsec
 
 # validate against the handoff (published: 08-11 mean 3.1799", 08-12 mean 3.0297")
-H = r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
+H = r"F:/MEE_output/leon2026/HANDOFF_zenith_cubic/inpipeline_windowed"
 for night in ("08-11", "08-12"):
     vals = [abs(d3000(json.load(open(f)))) for f in sorted(glob.glob(f"{H}/{night}_Z*.txt"))]
     print(f"validator: {night} handoff d(3000) mean {np.mean(vals):.4f} arcsec "

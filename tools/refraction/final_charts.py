@@ -90,7 +90,7 @@ for _, r in cb.iterrows():
                    rf"REFR_M{int(r.k):02d}_*/*/*00001.fits")[0]
     fts.append(float(fits.getheader(f0)["FOCTEMP"]))
 cb["ft"] = fts
-H = r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed"
+H = r"F:/MEE_output/leon2026/HANDOFF_zenith_cubic/inpipeline_windowed"
 zc = []
 for night in ("08-12", "08-11"):
     for fld in Z:

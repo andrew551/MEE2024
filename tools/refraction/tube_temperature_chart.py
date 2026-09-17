@@ -34,7 +34,7 @@ for night, tag in (("08-12", "n2"), ("08-11", "n1")):
         j = json.load(open(r[0]))
         t = ft_of(rf"G:/Leon Aug 2026/2026-{night}/Zenith/{fld}/*/*00001.fits")
         ps_pts.append((t, (j["platescale (arcseconds/pixel)"]/REF - 1)*1e6, tag))
-        jz = json.load(open(rf"F:/MEE_output/Claude Code/"
+        jz = json.load(open(rf"F:/MEE_output/leon2026/"
                             rf"HANDOFF_zenith_cubic/inpipeline_windowed/{night}_{fld}.txt"))
         cu_pts.append((t, abs(d3000(jz)), tag))
 df = pd.read_csv(os.path.join(RD, "m4_mosaic", "m4_fields.csv"))
