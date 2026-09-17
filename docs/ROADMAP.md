@@ -1814,30 +1814,54 @@ not of a particular night.
 
 **The gauge term depends on the sensor's ASPECT RATIO, and now there is enough of a
 spread to see the law.** Each export records its own `gauge term radial cubic
-(arcsec/deg^3)`; across five sensor shapes it sorts monotonically, the squarer the sensor
-the larger the term:
+(arcsec/deg^3)`, and the perfect-optic value beside it sorts monotonically across all five
+sensor shapes: the squarer the sensor, the larger the term. The measured values follow it to
+better than 1 % (the correction below works through the exceptions):
 
-| sensor | aspect | field | k |
-|---|---|---|---|
-| 3008×3008 (65PHQ) | 1.000 | 1.10° | **0.4484** ″/deg³ |
-| 4656×3520 (FRA500) | 1.323 | 1.75° | 0.4349 ″/deg³ |
-| 4656×3520 (TV-85) | 1.323 | 1.34° | 0.4315 ″/deg³ |
-| 8288×5644 (Leakey) | 1.468 | 1.60° | 0.4249 ″/deg³ |
-| 6248×4176 (NP101is) | 1.496 | 1.49° | **0.4243** ″/deg³ |
+| sensor | aspect | instrument | field | perfect-optic k | measured k | dev |
+|---|---|---|---|---|---|---|
+| 3008×3008 | 1.000 | 65PHQ London | 1.10° | **0.4489** | 0.4484 | -0.11 % |
+| 4656×3520 | 1.323 | Carrell FRA500 | 1.75° | 0.4353 | 0.4349 | -0.10 % |
+| 4656×3520 | 1.323 | Bruns TV-85 | 1.34° | 0.4353 | 0.4315 | **-0.87 %** |
+| 8288×5644 | 1.468 | Leakey Zenith | 1.60° | 0.4260 | 0.4249 | -0.25 % |
+| 6248×4176 | 1.496 | Bruns NP101is | 1.49° | 0.4242 | 0.4243 | +0.02 % |
+| 6248×4176 | 1.496 | Portland FRA500 | 2.31° | 0.4244 | 0.4237 | -0.16 % |
+| 6248×4176 | 1.496 | Leon FRA500 | 2.30° | 0.4244 | 0.4237 | -0.16 % |
+| 9576×6388 | 1.499 | Mexico Station 1 | 2.96° | **0.4244** | 0.4258 | +0.33 % |
 
 **65PHQ London is the only square sensor in the matrix and it defines the top of the
 range.** The whole spread is 0.424-0.448, i.e. ± 3 % about the 0.434 ″/deg³ quoted in
 CLAUDE.md -- and every one of them is 16-23 % above the textbook ARC value 0.3655, which
 is the arithmetic reason MEE is not ARC.
 
-The **second, weaker driver is field size**, visible because two pairs nearly control for
-aspect ratio: the two 4:3 sensors are identical in shape and differ only in field (1.34°
-vs 1.75°), and the larger field carries the larger k (0.4315 -> 0.4349); the same holds
-for the near-3:2 pair (1.49° -> 1.60°, 0.4243 -> 0.4249). That is the expected sign: k
-is fitted as a CUBIC to tan θ - θ, whose next term is quintic, so a wider field leaks more
-quintic into the cubic. The effect is ≈ 1 % over this range of fields against ≈ 6 % for
-aspect ratio. **Neither is a constant that can be memorised** -- read k from the run's own
-export.
+**CORRECTION (2026-09-17): the "field size" driver recorded here on 2026-09-17 was wrong,
+and three more instruments show why.** The earlier text claimed field size was a second
+driver worth about 1 %, inferred from two pairs. One of those pairs (NP101is 1.49° against
+Leakey 1.60°) does not control aspect ratio at all -- 1.496 against 1.468 -- so it was
+measuring the aspect effect again. The other (TV-85 1.34° against FRA500 1.75°) does
+control it exactly, both being 4656×3520, but points the other way from the new 3:2 group
+(NP101is 1.49° -> Portland 2.31° runs 0.4243 -> 0.4237, *down* as the field grows).
+
+**`k` is a property of geometry alone and can be computed rather than inferred**, because
+the optics cancel out of it -- `tangent_plane_coefficients` on a zero-distortion fit returns
+it directly. Doing that settles all three variables:
+
+* **Aspect ratio sets it, essentially entirely**: 0.4489 at 1:1, 0.4353 at 4:3, 0.4260 at
+  1.47:1, 0.4242 at 3:2. A 6 % range.
+* **Field size is worth +0.1 %** across 1.0-3.0°, not 1 %. Negligible.
+* **Fitted order does nothing**: cubic and quintic give 0.4244 on the same geometry, equal
+  to four decimals.
+
+What the earlier pairs were actually showing is the **residual scatter of real instruments
+about their geometric value**, which the new column above makes visible: -0.87 % to +0.33 %,
+and it grows with the size of the optics. The five instruments with under 5 ″ of distortion
+all sit within 0.16 % of the perfect-optic value; the two most distorted, the TV-85 (18.4 ″)
+and Station 1 (20.0 ″), are the two outliers. So the optics couple weakly back into the
+regression that extracts k -- second order, under 1 %, and of either sign.
+
+Practically this is a simplification: **k follows from the sensor shape**, so it is
+predictable in advance and the run's own exported value is a check on it rather than the
+only way to get it. Every instrument here still sits 16-23 % above the textbook ARC 0.3655.
 
 Edge midpoints at equal radius for the two new instruments, in the same form as the table
 above:
@@ -1854,6 +1878,71 @@ on a 4:3 sensor the two pairs sit at different radii and only each pair is inter
 comparable. Leakey's 1.37 top/bottom against 1.18 left/right is the signature of a sensor
 decentred mostly in one axis, the same pattern as the NP101is and the TV-85 and the
 quantity a shimming job would target.
+
+**Three more telescopes, and the first matched pair (Douglas, 2026-09-17: "let's add some
+more telescopes").** Eight instruments now, 78 fits and 156 charts:
+
+* **Portland FRA500** -- `F:\MEE_output\portland_zenith`, 6 cubic fits, six pointings.
+* **Leon FRA500** -- the reduced zenith is **in the repo**, `calibration/zenith_cubic/`,
+  not under `F:\MEE_output`: twelve self-contained fits, of which the **six `08-12`** ones
+  are the night Douglas asked for (`G:\Leon Aug 2026\2026-08-12\Zenith` is the same data
+  as the `Zenith 2` source they name; the frame timestamps match). They carry no
+  `img_shape` and their `source_data` points at the one genuinely absent tree,
+  `D:\MEE_output\v1.4.0-dev_inpipe`, so the sensor size came from the FITS header on `G:`
+  and was passed as `--shape 4176,6248`. *Note the date: this is Leon **2026**-08-12, not
+  2024.*
+* **Mexico Station 1** -- `F:\MEE_output\station1_record\zenith_recentroid`, 17 quintic
+  fits. That folder is the freely-fitted one (`fixed distortion order: None`); the other
+  twenty-odd `zenith_*` folders there are constrained against references and would show the
+  reference, not the instrument.
+
+| telescope | fits | order | sensor | field | native | optics | native reads | gauge |
+|---|---|---|---|---|---|---|---|---|
+| Mexico Station 1 | 17 | quintic | 9576×6388 | 2.96° | 11.94 ″ | **20.03 ″** | 1.7× too small | 11.52 ″ |
+| Bruns TV-85 | 2 | cubic | 4656×3520 | 1.34° | 19.48 ″ | **18.39 ″** | 1.06× | 1.09 ″ |
+| Leakey Zenith | 18 | cubic | 8288×5644 | 1.60° | 6.15 ″ | **4.34 ″** | 1.42× too big | 1.83 ″ |
+| Bruns NP101is | 10 | cubic | 6248×4176 | 1.49° | 0.80 ″ | **2.27 ″** | 2.8× too small | 1.47 ″ |
+| Carrell FRA500 | 3 | cubic | 4656×3520 | 1.75° | 4.36 ″ | **1.96 ″** | 2.2× too big | 2.41 ″ |
+| Leon FRA500 | 6 | cubic | 6248×4176 | 2.30° | 6.97 ″ | **1.58 ″** | 4.4× too big | 5.43 ″ |
+| 65PHQ London | 16 | cubic | 3008×3008 | 1.10° | 2.03 ″ | **1.42 ″** | 1.43× too big | 0.61 ″ |
+| Portland FRA500 | 6 | cubic | 6248×4176 | 2.31° | 6.39 ″ | **1.18 ″** | 5.4× too big | 5.45 ″ |
+
+**Mexico Station 1 is the strongest case yet for reading the tangent chart.** It has the
+widest field in the matrix at 2.96°, so its gauge term is **11.52 ″** -- larger than the
+entire distortion of five of the other seven instruments. Its native chart peaks at 11.94 ″
+while the optics are **20.03 ″**, the largest measured here: the projection runs against the
+glass and hides nearly half of it. Anyone reading that native chart as "what this telescope
+does" is wrong by 1.7×, in the direction that flatters the instrument.
+
+**Portland and Leon are the same optical configuration, and that is the useful part.** Both
+are an FRA500 with a 0.7× reducer and an ASI2600MM (6248×4176, 350 mm; their plate scales
+are 2.2098 and 2.2074 ″/px, 0.1 % apart). Their gauge terms agree to four decimals
+(k = 0.4237 both, 5.45 and 5.43 ″ at the corner) -- which is a check on the whole
+conversion, since two independent reductions of the same geometry must land on the same
+gauge. Their **optics** agree to the same degree, 1.18 against 1.58 ″, the two lowest
+distortions in the matrix.
+
+What does *not* agree is the asymmetry, and only the tangent gauge shows it:
+
+| telescope | peak | left / right | top / bottom | reading |
+|---|---|---|---|---|
+| Portland FRA500 | 1.2 ″ | 0.81 / 0.77 = 1.06 | 0.28 / 0.35 = 1.24 | well centred |
+| Leon FRA500 | 1.6 ″ | 1.11 / 0.10 = **11.65** | 0.50 / 0.36 = 1.41 | grossly decentred across the frame |
+| Mexico Station 1 | 20.0 ″ | 17.39 / 15.10 = 1.15 | 6.57 / 7.03 = 1.07 | the most symmetric field in the matrix, despite being the most distorted |
+
+**Leon's 11.65× left/right is the largest asymmetry measured in any instrument here** --
+the field almost vanishes at one edge (0.10 ″) and reaches 1.11 ″ at the other. Same
+telescope, same reducer, same camera model as Portland, which is 1.06. That is not the
+glass; it is how the camera sits. It is also independent corroboration of something already
+recorded from the refraction work: `calibration/zenith_cubic/README.md` notes that the Leon
+telescope was transported between night 1 and eclipse day and measurably changed, with the
+**tilt dipole doubling** (`docs/REFRACTION_2026.md` 16.2-16.3). The field chart is a second,
+independent view of that tilt.
+
+And Station 1 makes the point that **size and symmetry are unrelated**: 20 ″ of distortion,
+the most here, but 1.15 and 1.07 edge ratios, the most symmetric here. A big, well-centred
+field is a different thing from a small, tilted one, and the native charts distinguish
+neither.
 
 **A floor on the displayed scale, and what it does to the arrows (Douglas, 2026-09-16:
 “let’s always limit the displacement scale to a minimum of 0.01 arcsec ... Will that also
