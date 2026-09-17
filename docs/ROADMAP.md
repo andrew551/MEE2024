@@ -1668,6 +1668,16 @@ equidistant lens -- a fisheye, where image height goes as theta rather than tan(
 the angular gauge would be the natural one and the TANGENT gauge would carry exactly the
 same `tan(theta) - theta` burden, with the same table applying to it instead. MEE's frame is
 not wrong; it is simply not the frame this class of instrument images in.
+
+*More exactly (Douglas, 2026-09-17, asking whether a telescope is still gnomonic when the
+image lands on a retina rather than a plate):* the gauge is set by the mapping from sky
+angle to **detector coordinate**, which depends on the **shape of the detector** as much as
+on the optics. The `tan` comes from the PLANE, not from the glass -- a ray at theta reaching
+a flat surface at distance f lands at f·tan(theta). A detector curved as a sphere of radius f
+about the rear nodal point gives f·theta instead, i.e. **the angular gauge exactly**, and
+MEE's frame would then be the natural one with nothing to correct. Every detector in this
+matrix is a flat CMOS sensor, so gnomonic is right here; curved sensors exist, and for one of
+those the choice would reverse.
 **Is the sign flip just opposite roll conventions, and should the export correct for it?
 (Douglas, 2026-09-17.)** Nearly, and no -- and the "nearly" is what decides the "no".
 
