@@ -19,7 +19,9 @@ date (Douglas, 2026-09-09):
 | **Leon 2026** | **matrix cell 3** — the project's own station at León (42.60° N, 5.57° W). `G:\Leon Aug 2026`, an ASI2600 on a Celestron AVX. |
 | **Husillos 2026** | **matrix cell 4** — Joe Izen's station at Husillos (below). `G:\Joe Izen Spain 2026` on the drive, a Zeus 455M PRO on a ZWO AM5. |
 
-"Spain 2026" was used for Joe's data in `spain2026_prompt.md`, in this project's tools and in the
+"Spain 2026" was used for Joe's data in the cell-4 handoff prompt -- which was itself still
+named `spain2026_prompt.md` until 2026-09-17, and is now
+`F:\MEE_output\prompts\husillos2026_prompt.md` -- in this project's tools and in the
 first version of this document. **That was wrong and is now corrected throughout**: León is in
 Spain too, so the label cannot distinguish the two stations. The drive folder still reads
 `G:\Joe Izen Spain 2026` and is left alone — it is read-only input.
