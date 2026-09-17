@@ -127,7 +127,9 @@ with one campaign's working folders scattered across it -- thirteen `matrix_brun
 beside ten `step3_*` beside `cal_pileo_step2`, in alphabetical order and therefore in no
 order at all.
 
-The tree is **12 folders** now, one per dataset, with the instrument work beside them.
+The tree is **14 folders** now, one per dataset, with the instrument work beside them
+and `prompts/` and `andrew/` taking what used to be loose at the root. Nothing is loose
+there now but the tree's own README.
 Eclipse campaigns: `bruns2017\`, `mexico2024\` (both stations), `leon2026\`,
 `husillos2026\`, and `refraction\`. Instrument and calibration work:
 `bruns_calibrations\`, `askar65phq\`, `carrell2024\`, `portland2026\`, `perfect_optic\`
