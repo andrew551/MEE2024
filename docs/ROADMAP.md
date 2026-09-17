@@ -1631,6 +1631,38 @@ One tooling fix this turned up: archives written before the flat layout keep eve
 under a `data/` prefix, which `distortion_fitter` has always handled and `tan_export` did
 not -- so all ten `bruns_np101` fits reported "sensor size not found" while the archive they
 named was sitting on `I:` in plain sight. It reads both layouts now.
+**Is the sign flip just opposite roll conventions, and should the export correct for it?
+(Douglas, 2026-09-17.)** Nearly, and no -- and the "nearly" is what decides the "no".
+
+It is a **handedness** difference, of which the opposite-signed roll is a consequence rather
+than a separate fact. Measuring the determinant of each program's pixel-to-standard-coordinate
+linear map:
+
+| | determinant | on |
+|---|---|---|
+| MEE | **positive**, right-handed | NP101is, FRA500, TV-85 and a simulated perfect optic |
+| Astrometrica 4.13 | **negative**, left-handed | all five logs held, every one "Image flipped: no" |
+
+and the magnitudes agree exactly -- +4.791e-11 against -4.791e-11 on the NP101is. A pure
+mirror, no scale or shape in it. So the convention difference is **stable**, not per-image,
+which is the case for correcting it in the file.
+
+**Against, and it wins: a flip is not enough.** Removing a plain x flip from the
+MEE-to-Astrometrica map on the four Bruns 2024 fields leaves a rotation of **-2.48 to
+-2.51 degrees** every time. Two and a half degrees mixes x into y at 4 %, which is larger
+than several of the coefficient differences the comparison is trying to resolve. **Matching
+the signs would make the file look agreed without making it agree**, and would leave a reader
+treating a 4 % rotation leak as physics.
+
+Two further reasons not to bake it in. The file would stop describing MEE's own fit, so
+anyone using it for ASTAP, a lens prescription or a published table -- not just Astrometrica
+-- would inherit a sign error. And five logs from one camera and one program version is not
+a guarantee about the sixth; this is the same gauge whose mishandling was "discovered twice
+and written up as a bug once".
+
+**What was done instead**: the `astrometrica form` block now states its own handedness and
+the determinant it came from, records what Astrometrica did on every log checked, and says
+plainly that flipping signs is not a shortcut for absorbing the linear map.
 **Their field charts, and what the optics-only view shows that the native one hides
 (2026-09-16).** All 30 charts -- both gauges for each of the 15 fits -- are in
 `F:\MEE_output\tan_gauge_examples\field_charts_instruments`, drawn by

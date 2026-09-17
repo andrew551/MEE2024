@@ -453,6 +453,9 @@ def tangent_plane_coefficients(q, coeff_x, coeff_y, img_shape, options, n=61):
     wpow = np.array([w ** d for d in degree])
     axi, aeta = axi_n / wpow, aeta_n / wpow
     aterms = [n.replace('x', "x'").replace('y', "y'").replace(' * ', '*') for n in names]
+    # the handedness of the pixel -> standard-coordinate map, which is what differs between
+    # programs; stated rather than corrected for (see 'caution' below)
+    _det = float(axi[1] * aeta[2] - axi[2] * aeta[1])
 
     ps = np.degrees(scale) * 3600.0
     return {
@@ -485,9 +488,19 @@ def tangent_plane_coefficients(q, coeff_x, coeff_y, img_shape, options, n=61):
                     "Astrometrica 4.13 prints a CUBIC; this follows the FITTED order, so "
                     "compare only at the order Astrometrica itself fitted",
             'order': options['distortionOrder'],
-            'caution': 'a given Astrometrica solution may sit at a rotation or a mirror from '
-                       "MEE's axes (det J < 0 is normal); absorb that linear map before "
-                       'comparing the nonlinear terms -- tools/astrometrica_compare.py does',
+            'caution': 'these are MEE\'s axes and are NOT sign-matched to Astrometrica. Absorb '
+                       'the full linear map before comparing nonlinear terms -- '
+                       'tools/astrometrica_compare.py does. Flipping signs is NOT a shortcut: '
+                       'measured on the four Bruns 2024 fields, an axis flip alone still leaves '
+                       'a ~2.5 deg rotation, which mixes x into y at the 4 % level.',
+            'handedness': ('right-handed (det %+.3e)' % _det
+                           if _det > 0 else 'left-handed (det %+.3e)' % _det),
+            'handedness note': 'the sign of the determinant of the linear part. MEE came out '
+                               'right-handed on every instrument checked (NP101is, FRA500, '
+                               'TV-85, and a simulated perfect optic); Astrometrica 4.13 came '
+                               'out left-handed on all five logs available, with the same '
+                               'magnitude. So the two differ by a mirror -- but see the '
+                               'caution: a mirror is not the whole of it.',
             'origin (x0, y0) pixels': [float(img_shape[1] / 2), float(img_shape[0] / 2)],
             'X': dict(zip(aterms, [float(c) for c in axi])),
             'Y': dict(zip(aterms, [float(c) for c in aeta])),
