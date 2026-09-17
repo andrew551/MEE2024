@@ -1253,6 +1253,72 @@ the same change.
 Bruns and Leon do not move. Apply only with the revalidation agreed.
 
 
+### F32 — A stage-1 stack cache, so an A/B study stops re-stacking the same frames
+
+**The observation (2026-09-17).** Stage 1 writes the stack *before* it centroids it:
+`write_stacked_fits` and `write_float_stack` at `stacker_implementation.py:1546` and
+`:1571`, `get_centroids_blur` on the stack at `:1574`. Every A/B study in this project
+varies an option consumed at or after that point, so each arm re-runs the whole of stage 1
+and produces a **bit-for-bit identical stack**. Two axes gives four copies. Measured across
+the output tree: **97 sets, 13.5 GB**, 80 % of it from that one mechanism.
+
+The disk cost is already recovered — `tools/dedupe_stacks.py` collapsed those onto hard
+links. **The remaining prize is time.** `s1_zenith_raw_ab.py` is four conventions over three
+fields of nineteen 61-Mpx frames, ~25 min in two processes (`docs/STEP3_2026.md`), and three
+quarters of its stacking is redundant. The per-frame trees are the same shape at larger
+scale.
+
+**What actually determines the stacked array**, and so what a cache key must cover:
+
+1. the input file list — paths *and* content;
+2. the calibration applied — dark, flat and the hot-pixel mask, with
+   `hot_pixel_sigmas` and `hot_pixel_dark_free`;
+3. everything in `open_img_and_preprocess`, including the blob and eclipse masking
+   (`delete_saturated_blob`, `blob_saturation_level`, `blob_radius_extra`,
+   `centroid_gap_blob`, `eclipse_mask_mode`, `eclipse_disk_margin_px`) and
+   **`coronal_subtract`** with its sigma and pedestal;
+4. the alignment — the per-frame centroids, hence most centroid options, then the shift;
+5. the stacking arithmetic itself.
+
+**Two properties the code already guarantees, and they are why this is feasible at all.**
+Per-frame centroids are taken with `centroid_refine_window` **forced to False**
+(`stacker_implementation.py:1191-1195`, which says why: the alignment measures a difference,
+so a static centroid bias cancels). And the shift is **rounded to whole pixels** and applied
+with `np.roll` — no interpolation (`:962-971`). So the estimator axis cannot reach the stack
+by construction, and sub-pixel changes on the other axes are absorbed unless they move a
+rounded shift across a half-pixel boundary.
+
+**The risk, and it is the serious kind.** `background_subtraction_mode` is *not* forced in
+the alignment path — it reaches `get_centroids_blur` at `:822` through the per-frame call —
+so it can in principle change the shifts and therefore the stack. On the fields measured it
+did not: all four `zenith_raw_ab` arms, annular and Gaussian alike, share one stack. That is
+the rounding absorbing it, not a guarantee.
+
+And the tree already holds a case where a stacking option **did** change the pixels while
+leaving the file superficially identical. Two runs of the Leon `1p2s` field —
+`step3_gate` and `step3_s0_blursub` — produce `STACKED_FLOAT` files of the *same size* whose
+*first and last 4 MB agree* and whose middles differ, because blur subtraction changes the
+illuminated centre and not the margins. A cache keyed on anything less than the full set of
+determinants would reuse one of those for the other and report a number computed from the
+wrong image, silently. This is also why `dedupe_stacks.py` decides on a full hash and treats
+the edge fingerprint only as a filter — the fingerprint proposed 99 sets and the full hash
+rejected files from three of them.
+
+**Proposed shape.** Key = hash(input file list with per-file size and content hash) +
+hash(the stacking-relevant option subset, enumerated explicitly rather than by exclusion) +
+the code version. Store one stack per key; each run folder gets a hard link to it, so every
+existing per-folder glob keeps working and nothing downstream changes.
+
+**Stage it, because this can alter a measured number** (§6: a change that moves a fit needs
+its own validation on real data). First ship it in **verify-only mode**: compute the key, and
+on a hit still re-stack and compare the arrays, logging any mismatch. That measures whether
+the key is complete at zero risk, across the matrix, for as long as it takes to be
+convincing. Only then enable reuse. An option added later that reaches the stack and is not
+in the key is the permanent hazard, so the enumeration wants a test that fails when a new
+option appears in `open_img_and_preprocess` without being classified.
+
+**Not scheduled.** The disk is recovered and the time cost is real but bounded; this is worth
+doing when stage 1 is next opened for other reasons, not on its own.
 ## 3a. External sources, and what they do and do not settle
 
 Three documents in `I:\Papers` constrain this work and were not previously cited anywhere in
