@@ -38,7 +38,7 @@ import astropy.units as u
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 OUT = os.path.join(REC, 'moments_on_corona')
 NX, NY, PS = 9576, 6388, 1.84847
 RCUT, RMAX, MAG = 2.0, 10.0, 13.0

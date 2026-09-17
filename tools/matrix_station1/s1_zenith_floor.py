@@ -38,7 +38,7 @@ REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 Z = r"D:/MEE2024 output/Station 1/zenith calibrations"
 F = r"D:/MEE2024 output/Station 1/zenith fields"
-OUT = r"F:/MEE_output/station1_record"
+OUT = r"F:/MEE_output/mexico2024/station1_record"
 # The 2024 quintics were fitted against APPARENT places -- refraction and aberration on, the
 # site below, 10 C / 760 mb / RH 0.25, and a placeholder 05:45 UTC for all seventeen -- so the
 # refits must be too. Run with them OFF (the first pass, kept as *_nocorr.*) every field

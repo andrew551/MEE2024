@@ -28,7 +28,7 @@ import astropy.units as u
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 RECEN = os.path.join(REC, 'zenith_recentroid')
 CORONA = os.path.join(REC, 'eclipse_corona')
 OUT = os.path.join(REC, 'septic_test')

@@ -83,7 +83,7 @@ from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, covaria
                                  scale_bars)
 
 REV = 'rev05'
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 OUT = os.path.join(REC, 'charts')
 VER = os.path.join(OUT, 'chart_versions')
 RECORD = r"F:/MEE_output/RECORD/mexico2024"

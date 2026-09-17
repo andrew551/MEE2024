@@ -37,7 +37,7 @@ import numpy as np, pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 F = r"D:/MEE2024 output/Station 1/zenith fields"
-OUT = r"F:/MEE_output/station1_record/zenith_recentroid"
+OUT = r"F:/MEE_output/mexico2024/station1_record/zenith_recentroid"
 NX, NY = 9576, 6388
 S1 = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract=True',
       '--set', 'centroid_gaussian_thresh=4.0', '--set', 'min_area=2',

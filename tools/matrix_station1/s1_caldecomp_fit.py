@@ -27,7 +27,7 @@ from astropy.io import fits
 from astropy.time import Time
 import astropy.units as u
 
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 CD = os.path.join(REC, 'eclipse_caldecomp')
 DF = os.path.join(REC, 'darks_flats')
 NX, NY, PS = 9576, 6388, 1.84847

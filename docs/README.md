@@ -120,22 +120,45 @@ husillos2026 folder "is a nice way to organise things ... this mirrors the organ
 `F:\MEE_output\RECORD`"). It was not always: until 2026-09-17 the top level held 59 entries
 with one campaign's working folders scattered across it -- thirteen `matrix_bruns2017_*`
 beside ten `step3_*` beside `cal_pileo_step2`, in alphabetical order and therefore in no
-order at all. Forty-one folders were collected into **`bruns2017\`**, **`leon2026\`** and
-**`bruns2024\`**, leaving 19 at the top level. Nothing was renamed, so every old basename
-still identifies its folder and every rewritten path was a prefix insertion.
+order at all.
 
-Two traps met in doing it, both worth stating because the names invite the error:
+The tree is **12 folders** now, one per dataset, with the instrument work beside them.
+Eclipse campaigns: `bruns2017\`, `mexico2024\` (both stations), `leon2026\`,
+`husillos2026\`, and `refraction\`. Instrument and calibration work:
+`bruns_calibrations\`, `askar65phq\`, `carrell2024\`, `portland2026\`, `perfect_optic\`
+and `tan_gauge_examples\`. Folders were moved, not renamed, so every old basename still
+identifies its folder and almost every rewritten path was a prefix insertion.
 
-* **`bruns_np101`, `bruns_rerun` and `bruns2600_rerun` are not Bruns 2017.** They are the
-  2024 instrument and shim tests, sourced from `E:\ZenithCals` and `ZenithCals Temp`, a
-  different dataset seven years apart from the eclipse. They went to `bruns2024\`. Every
-  folder was classified by reading the `source_files` recorded inside its own results
-  files, not by its name; `step3_record` likewise turns out to hold 39 Leakey 2024 files
-  beside its 52 Leon ones, as the controls for that analysis.
-* **`refraction` is Leon data but stays a sibling**, because `RECORD\` keeps `refraction`
-  and `leon2026` as siblings and this tree mirrors it. It is also the one folder whose name
-  collides with an ordinary English word used several hundred times in these documents, so
-  a path rewrite there has to match the path and not the word.
+Three things are worth stating because each was a trap:
+
+* **A folder name is not evidence of what is in it.** `bruns_np101`, `bruns_rerun` and
+  `bruns2600_rerun` are the 2024 instrument and shim tests from `E:\ZenithCals`, not the
+  2017 eclipse; `tv85` is Bruns data from **2022**, not 2024; and `step3_record` holds 39
+  Leakey 2024 files beside its 52 Leon ones as controls, so the first results file found in
+  it names the wrong dataset. Every folder was classified by reading `source_files` and
+  `observation_date` inside its own results files.
+* **One folder is deliberately not named for a year.** `bruns_calibrations\` spans 2022 and
+  2024, so no year fits it. It was `bruns2024\` for about an hour before `tv85` joined it.
+* **`refraction\` is Leon data but stays a sibling of `leon2026\`**, because `RECORD\`
+  keeps the same split. It is also the one folder whose name is an ordinary English word
+  used several hundred times in these documents -- 575 mentions, of which 32 are paths -- so
+  a rewrite there has to match the path and not the word.
+
+`askar65phq\` groups by **telescope** rather than campaign: Leakey (2024) and London (2026)
+are two owners of one instrument, and the comparison between them is the point. The FITS
+headers confirm it rather than the plate scales alone -- `TELESCOP = Askar 65PHQ` and
+`TELESCOP = 65PHQ`, `FOCALLEN = 416`.
+
+The rewrites were done in two passes, 175 references then 132, and checked by resolving
+every `MEE_output` path mentioned anywhere: 388 resolve and none still names a moved folder.
+**Only `F:` paths were repointed.** A drive letter is part of the history here: the first
+pass matched any drive and rewrote `docs/LEON_2026-08-11.md` §18.8 as quoted in
+`calibration/README.md`, which records that the folder once sat at
+`D:\MEE_output\HANDOFF_zenith_cubic\` -- a statement about August, not a live path. It was
+undone by hand, and the second pass carries an explicit non-`F:` guard. That guard silently
+matched nothing on its first writing, because the captured prefix ends in the separator and
+the drive letter is therefore not at the end of it; a unit test on sample paths caught it
+before the pass ran.
 
 The 175 path references in the repository and the TAN exports were rewritten and then
 checked by resolving every `MEE_output` path mentioned anywhere: 385 resolve, none still

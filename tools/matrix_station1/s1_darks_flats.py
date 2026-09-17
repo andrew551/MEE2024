@@ -41,7 +41,7 @@ import numpy as np
 from astropy.io import fits
 
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data"
-OUT = r"F:/MEE_output/station1_record/darks_flats"
+OUT = r"F:/MEE_output/mexico2024/station1_record/darks_flats"
 NX, NY, PS = 9576, 6388, 1.84847
 FWHM_PX = 3.74
 SIG = FWHM_PX/2.355

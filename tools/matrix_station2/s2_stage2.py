@@ -46,7 +46,7 @@ import sys
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"F:/MEE_output/station2_transfer"
+OUT = r"F:/MEE_output/mexico2024/station2_transfer"
 ZEN = os.path.join(OUT, "zenith")                 # zenith convention, as stage 1 wrote it
 LR = os.path.join(OUT, "lr_trimmed")              # eclipse convention, ends of totality trimmed
 

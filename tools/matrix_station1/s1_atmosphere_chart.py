@@ -30,7 +30,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 OUT = os.path.join(REC, 'atmosphere_chart.png')
 N = pd.read_csv(os.path.join(REC, 'zenith_nulls.csv'))
 F = pd.read_csv(os.path.join(REC, 'zenith_floor.csv'))

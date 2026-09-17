@@ -36,7 +36,7 @@ import glob, json, os, zipfile
 import numpy as np, pandas as pd
 from astropy.io import fits
 
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 DF = os.path.join(REC, 'darks_flats')
 EC = os.path.join(REC, 'eclipse_convention')
 TIER = r"G:/Mexico April 2024/Station-1-Eclipse-Data/CapObj/2024-04-08_18_12_30Z"

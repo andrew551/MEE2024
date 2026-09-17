@@ -32,7 +32,7 @@ from astropy.coordinates import get_sun
 from astropy.time import Time
 import astropy.units as u
 
-TIERS = r"F:/MEE_output/station1_record/eclipse_tiers"
+TIERS = r"F:/MEE_output/mexico2024/station1_record/eclipse_tiers"
 STACK = r"D:/MEE2024 output/Station 1/eclipse fields/CENTROID_OUTPUT20240416232626/STACKED20240416232626.fit"
 NX, NY, PS = 9576, 6388, 1.84847
 REF = 'stage2_F_17field_windowed'

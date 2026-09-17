@@ -26,7 +26,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from tools.analysis_window import WINDOWS
 
-OUT = r"F:/MEE_output/station2_transfer"
+OUT = r"F:/MEE_output/mexico2024/station2_transfer"
 TIERS = (("100ms", "eclipse/100ms/stage2"), ("075ms", "eclipse/075ms/stage2_rmt36"))
 
 NX, NY, PS = 4656, 3520, 1.8672511

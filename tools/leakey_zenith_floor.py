@@ -50,7 +50,7 @@ import astropy.units as u
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-LK = r"F:/MEE_output/leakey_zenith"
+LK = r"F:/MEE_output/askar65phq/leakey_zenith"
 RAW = r"I:/Leakey 2024 data"
 OUT = r"F:/MEE_output/leon2026/step3_record"
 QF = os.path.join(OUT, 'leakey_quadfree')

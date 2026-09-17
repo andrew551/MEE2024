@@ -1787,7 +1787,7 @@ layout.
 
 The two additions:
 
-* **Leakey Zenith** -- `F:\MEE_output\leakey_zenith\zenith2`, which mixes cubic and
+* **Leakey Zenith** -- `F:\MEE_output\askar65phq\leakey_zenith\zenith2`, which mixes cubic and
   quintic fits; the **18 cubic** ones were taken and the 3 quintic left out, so every row
   of the table below is a cubic fit and the orders are comparable.
 * **65PHQ London** -- `D:\MEE2024 output\65PHQ\Zenith 2026-08-06 m13`, 16 fits,
@@ -1882,7 +1882,7 @@ quantity a shimming job would target.
 **Three more telescopes, and the first matched pair (Douglas, 2026-09-17: "let's add some
 more telescopes").** Eight instruments now, 84 fits and 168 charts (Leon carries both of its nights):
 
-* **Portland FRA500** -- `F:\MEE_output\portland_zenith`, 6 cubic fits, six pointings.
+* **Portland FRA500** -- `F:\MEE_output\portland2026\portland_zenith`, 6 cubic fits, six pointings.
 * **Leon FRA500** -- the reduced zenith is **in the repo**, `calibration/zenith_cubic/`,
   not under `F:\MEE_output`: twelve self-contained fits, of which the **six `08-12`** ones
   are the night Douglas asked for (`G:\Leon Aug 2026\2026-08-12\Zenith` is the same data
@@ -1891,7 +1891,7 @@ more telescopes").** Eight instruments now, 84 fits and 168 charts (Leon carries
   `D:\MEE_output\v1.4.0-dev_inpipe`, so the sensor size came from the FITS header on `G:`
   and was passed as `--shape 4176,6248`. *Note the date: this is Leon **2026**-08-12, not
   2024.*
-* **Mexico Station 1** -- `F:\MEE_output\station1_record\zenith_recentroid`, 17 quintic
+* **Mexico Station 1** -- `F:\MEE_output\mexico2024\station1_record\zenith_recentroid`, 17 quintic
   fits. That folder is the freely-fitted one (`fixed distortion order: None`); the other
   twenty-odd `zenith_*` folders there are constrained against references and would show the
   reference, not the instrument.

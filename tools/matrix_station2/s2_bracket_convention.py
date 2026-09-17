@@ -28,7 +28,7 @@ import sys
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"F:/MEE_output/station2_transfer"
+OUT = r"F:/MEE_output/mexico2024/station2_transfer"
 LR = os.path.join(OUT, "lr_trimmed")
 ECL = os.path.join(OUT, "eclipse")
 TIERS = (("100ms", "18:12:07"), ("075ms", "18:13:20"))

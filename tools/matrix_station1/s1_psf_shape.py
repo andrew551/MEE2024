@@ -40,10 +40,10 @@ import glob, json, os, zipfile
 import numpy as np, pandas as pd
 from astropy.io import fits
 
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 Z24 = r"D:/MEE2024 output/Station 1/zenith fields"
 LEON = r"F:/MEE_output/refraction/zenith12"
-LEAKEY = r"F:/MEE_output/leakey_zenith/zenith1"
+LEAKEY = r"F:/MEE_output/askar65phq/leakey_zenith/zenith1"
 BRUNS = r"F:/MEE_output/bruns2017/matrix_bruns2017_brunsmethod"
 BRUNS_NIGHTS = r"F:/MEE_output/bruns2017/bruns2017_nights"
 EDGES = [0, 0.3, 0.5, 0.7, 0.85, 1.0]

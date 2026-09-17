@@ -168,7 +168,7 @@ def fit(d, nx, ny, magterm=False, vet=True):
 
 rows = []
 # the two Station 1 conventions come from the tier union already on disk
-S1 = r"F:/MEE_output/station1_record/eclipse_tiers"
+S1 = r"F:/MEE_output/mexico2024/station1_record/eclipse_tiers"
 for est in ('windowed', 'moments'):
     p = os.path.join(S1, 'union_%s.csv' % est)
     if os.path.exists(p):

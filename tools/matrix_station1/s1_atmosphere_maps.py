@@ -32,7 +32,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 QF = os.path.join(REC, 'zenith_quadfree_corr')
 OUT = os.path.join(REC, 'atmosphere_night_maps.png')
 NX, NY = 9576, 6388

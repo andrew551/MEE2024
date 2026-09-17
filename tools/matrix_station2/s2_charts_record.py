@@ -38,7 +38,7 @@ from tools.record_charts import (ChartWriter, SkyFrame, arcsinh_stretch, covaria
 from matplotlib.patches import Circle
 
 REV = 'rev08'
-OUT = r"F:/MEE_output/station2_transfer"
+OUT = r"F:/MEE_output/mexico2024/station2_transfer"
 CHARTS = os.path.join(OUT, 'charts')
 VER = os.path.join(CHARTS, 'chart_versions')
 RECORD = r"F:/MEE_output/RECORD/mexico2024st2"

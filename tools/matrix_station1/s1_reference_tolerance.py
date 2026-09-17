@@ -32,7 +32,7 @@ import numpy as np, pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-REC = r"F:/MEE_output/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1_record"
 RECEN = os.path.join(REC, 'zenith_recentroid')
 TOLDIR = os.path.join(REC, 'zenith_recentroid_tol')
 SITE = ['--set', 'enable_corrections=True', '--set', 'enable_corrections_ref=True',
