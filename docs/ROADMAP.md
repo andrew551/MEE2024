@@ -1776,6 +1776,85 @@ the NP101is and is lost in the TV-85's 18 ″.
 A decentred or tilted sensor is what produces an asymmetry of this kind, so these numbers
 are the quantity a shimming job would be trying to reduce -- which is what Douglas says the
 shims between the telescope and the camera were for.
+
+**Five instruments, one layout, and what sets the gauge term (Douglas, 2026-09-17:
+"combine the three instruments into folders ... let's add some more instrument
+comparisons").** `field_charts_instruments` now holds one folder per telescope, each with
+its own TAN exports beside its own charts -- **49 fits, 98 charts** across five
+instruments. The shared `_TAN_json` folder is gone; the two new instruments arrived with
+their JSON beside their charts and the three original ones were brought to the same
+layout.
+
+The two additions:
+
+* **Leakey Zenith** -- `F:\MEE_output\leakey_zenith\zenith2`, which mixes cubic and
+  quintic fits; the **18 cubic** ones were taken and the 3 quintic left out, so every row
+  of the table below is a cubic fit and the orders are comparable.
+* **65PHQ London** -- `D:\MEE2024 output\65PHQ\Zenith 2026-08-06 m13`, 16 fits,
+  exported with `--out` so that nothing was written to the read-only input tree.
+
+All five, averaged over each instrument's own fits, on one grid (n = 201). *The three
+original rows are restated here on that common basis, which moves them by a few per cent
+from the single-fit numbers in the table above and changes no reading.*
+
+| telescope | fits | sensor | aspect | field | native peak | optics peak | native reads | gauge | gauge / optics |
+|---|---|---|---|---|---|---|---|---|---|
+| Bruns TV-85 | 2 | 4656×3520 | 1.32 | 1.34° | 19.48 ″ | **18.39 ″** | 1.06×, near enough | 1.09 ″ | 6 % |
+| Leakey Zenith | 18 | 8288×5644 | 1.47 | 1.60° | 6.15 ″ | **4.34 ″** | 1.42× too big | 1.83 ″ | 42 % |
+| Bruns NP101is | 10 | 6248×4176 | 1.50 | 1.49° | 0.80 ″ | **2.27 ″** | 2.8× too small | 1.47 ″ | 65 % |
+| Carrell FRA500 | 3 | 4656×3520 | 1.32 | 1.75° | 4.36 ″ | **1.96 ″** | 2.2× too big | 2.41 ″ | 123 % |
+| 65PHQ London | 16 | 3008×3008 | 1.00 | 1.10° | 2.03 ″ | **1.42 ″** | 1.43× too big | 0.61 ″ | 43 % |
+
+Ordered by how much real optical distortion each has, the range is **thirteen-fold**, 1.4
+to 18.4 ″. The last column is why the native chart cannot be read as optics: the
+projection term is 6 % of the TV-85's distortion and **larger than all of it** on the
+FRA500. Within an instrument the optics peak is stable to a few per cent across fits
+(worst: Leakey, 4.34 ± 0.10 ″ over 18 fits), so these are properties of the telescope,
+not of a particular night.
+
+**The gauge term depends on the sensor's ASPECT RATIO, and now there is enough of a
+spread to see the law.** Each export records its own `gauge term radial cubic
+(arcsec/deg^3)`; across five sensor shapes it sorts monotonically, the squarer the sensor
+the larger the term:
+
+| sensor | aspect | field | k |
+|---|---|---|---|
+| 3008×3008 (65PHQ) | 1.000 | 1.10° | **0.4484** ″/deg³ |
+| 4656×3520 (FRA500) | 1.323 | 1.75° | 0.4349 ″/deg³ |
+| 4656×3520 (TV-85) | 1.323 | 1.34° | 0.4315 ″/deg³ |
+| 8288×5644 (Leakey) | 1.468 | 1.60° | 0.4249 ″/deg³ |
+| 6248×4176 (NP101is) | 1.496 | 1.49° | **0.4243** ″/deg³ |
+
+**65PHQ London is the only square sensor in the matrix and it defines the top of the
+range.** The whole spread is 0.424-0.448, i.e. ± 3 % about the 0.434 ″/deg³ quoted in
+CLAUDE.md -- and every one of them is 16-23 % above the textbook ARC value 0.3655, which
+is the arithmetic reason MEE is not ARC.
+
+The **second, weaker driver is field size**, visible because two pairs nearly control for
+aspect ratio: the two 4:3 sensors are identical in shape and differ only in field (1.34°
+vs 1.75°), and the larger field carries the larger k (0.4315 -> 0.4349); the same holds
+for the near-3:2 pair (1.49° -> 1.60°, 0.4243 -> 0.4249). That is the expected sign: k
+is fitted as a CUBIC to tan θ - θ, whose next term is quintic, so a wider field leaks more
+quintic into the cubic. The effect is ≈ 1 % over this range of fields against ≈ 6 % for
+aspect ratio. **Neither is a constant that can be memorised** -- read k from the run's own
+export.
+
+Edge midpoints at equal radius for the two new instruments, in the same form as the table
+above:
+
+| telescope | peak | left / right | top / bottom | reading |
+|---|---|---|---|---|
+| Leakey Zenith | 4.3 ″ | 2.60 / 2.21 = 1.18 | 0.34 / 0.46 = **1.37** | mildly decentred both ways, like the NP101is |
+| 65PHQ London | 1.4 ″ | 0.42 / 0.46 = 1.09 | 0.55 / 0.53 = **1.04** | the most symmetric field in the matrix |
+
+**The 65PHQ is the cleanest optic measured here on both counts** -- least distortion
+(1.4 ″) and least asymmetry (4-9 %) -- and being square, its left/right and top/bottom
+comparisons are at the same radius as each other, which no other instrument here offers:
+on a 4:3 sensor the two pairs sit at different radii and only each pair is internally
+comparable. Leakey's 1.37 top/bottom against 1.18 left/right is the signature of a sensor
+decentred mostly in one axis, the same pattern as the NP101is and the TV-85 and the
+quantity a shimming job would target.
+
 **A floor on the displayed scale, and what it does to the arrows (Douglas, 2026-09-16:
 “let’s always limit the displacement scale to a minimum of 0.01 arcsec ... Will that also
 limit the magnitude of the displacement vectors also so that they are rendered as
