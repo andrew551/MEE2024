@@ -47,7 +47,7 @@
 
 **Date:** 2026-08-26. Every number here was produced this week on `v1.4.0-dev` from the raw
 frames on `I:\Leon 2026\2026-08-12\Eclipse\CAL_piLeo`. Reductions under
-`F:\MEE_output\cal_pileo_step2\`.
+`F:\MEE_output\leon2026\cal_pileo_step2\`.
 
 This is step 2 of the three-step chain of `LEON_2026-08-11.md` §16 — the eclipse-day
 calibration, which imports the zenith cubic and re-fits the low orders at the eclipse-day

@@ -43,8 +43,8 @@ ORDERS = {'linear': ['x', 'y'], 'quadratic': ['x^2', 'x * y', 'y^2']}
 PAIRS = {
     'bruns': dict(
         label='Bruns 2017 L / R8 -- the bracket his method averages',
-        tree=r'F:\MEE_output\matrix_bruns2017_like2024',
-        alt=r'F:\MEE_output\bruns2017_lr',
+        tree=r'F:\MEE_output\bruns2017\matrix_bruns2017_like2024',
+        alt=r'F:\MEE_output\bruns2017\bruns2017_lr',
         fields=('L', 'R8'), shape=(2472, 3296),
         note='both fields quadratic-free with the 15-night cubic frozen'),
     's2': dict(

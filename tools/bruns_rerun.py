@@ -18,7 +18,7 @@ apart, and it is the same archives either way.
 
 Three things the archives need. Their members sit under a `data/` prefix where today's reader
 expects them at the root, so they are repackaged. `I:` is READ ONLY, so everything is written to
-`F:\\MEE_output\\bruns_rerun`. And the settings are READ from each field's own 2024 results file
+`F:\\MEE_output\\bruns2024\\bruns_rerun`. And the settings are READ from each field's own 2024 results file
 -- magnitude cut, tolerance, observation date, and the order inferred from the coefficient count
 -- rather than chosen here.
 
@@ -42,7 +42,7 @@ sys.path.insert(0, os.path.join(REPO, 'tools'))
 from tools.astrometrica_compare import compare, pairs_2024, SETS  # noqa: E402
 
 PY = os.path.join(REPO, '.venv', 'Scripts', 'python.exe')
-OUT = r'F:\MEE_output\bruns_rerun'
+OUT = r'F:\MEE_output\bruns2024\bruns_rerun'
 ORDER_OF = {6: 'quadratic', 10: 'cubic', 15: 'quartic', 21: 'quintic'}
 
 

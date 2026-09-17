@@ -88,7 +88,7 @@ Two stale pointers to know about, neither of which affects a number:
 - **`reference_files.txt`** in each copy (including this one) listed absolute
   `D:/MEE_output/...` paths. Not a foreign machine — the same twelve files, under this
   tree’s own earlier root name. The handoff travelled with the tree, so this copy has
-  been repointed to `F:/MEE_output/HANDOFF_zenith_cubic/inpipeline_windowed/` and
+  been repointed to `F:/MEE_output/leon2026/HANDOFF_zenith_cubic/inpipeline_windowed/` and
   resolves again. The handoff README always said to regenerate it after copying; with
   the root having changed twice, that instruction is mandatory rather than advisory.
 - **`source_data`** inside each of the twelve solutions, as above. These are the ones

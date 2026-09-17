@@ -31,12 +31,12 @@ from mee2024.distortion_polynomial import apply_corrections, _cubic_helper, _ope
 from mee2024.starcat import providers
 from mee2024.MEE2024util import date_string_to_float
 
-NIGHTS = r"F:/MEE_output/bruns2017_nights"
-OUTM3 = r"F:/MEE_output/matrix_bruns2017_m3"
+NIGHTS = r"F:/MEE_output/bruns2017/bruns2017_nights"
+OUTM3 = r"F:/MEE_output/bruns2017/matrix_bruns2017_m3"
 NX, NY = 3296, 2472
 DATE, TIME = '2017-08-19', '04:26:20'
 NIGHTREFS = json.load(open(glob.glob(
-    r'F:/MEE_output/bruns2017_lr/L/stage2/DISTORTION_OUTPUT*/distortion/'
+    r'F:/MEE_output/bruns2017/bruns2017_lr/L/stage2/DISTORTION_OUTPUT*/distortion/'
     r'distortion_results.txt')[0], encoding='utf-8'))['fixed distortion reference files']
 
 OPTS = dict(observation_date=DATE, observation_time=TIME,

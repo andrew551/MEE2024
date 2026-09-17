@@ -12,7 +12,7 @@ from astropy.io import fits
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-RD = r"F:/MEE_output/cal_pileo_step2"
+RD = r"F:/MEE_output/leon2026/cal_pileo_step2"
 REFS = sorted(glob.glob(r"F:/MEE_output/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed/08-1[12]_Z*.txt"))
 assert len(REFS) == 12
 G = r"G:\Leon Aug 2026\2026-08-12\Eclipse\CAL_piLeo"

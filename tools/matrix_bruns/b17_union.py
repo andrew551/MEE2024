@@ -35,7 +35,7 @@ from mee2024.distortion_polynomial import apply_corrections
 from mee2024.starcat import providers
 from mee2024.MEE2024util import date_string_to_float
 
-B = r"F:/MEE_output/matrix_bruns2017"
+B = r"F:/MEE_output/bruns2017/matrix_bruns2017"
 PS, NX, NY, W_NORM = 2.0868004, 3296, 2472, 1648.0
 L_REF = 1.7512
 LIMIT_MAG = float(os.environ.get('B17_LIMIT_MAG', '11.0'))

@@ -26,7 +26,7 @@ def zen_points(night, tag):
     for fld in ("Z1_base", "Z2_mid_left", "Z3_top_left", "Z4_top_right",
                 "Z5_mid_right", "Z6_bottom_right"):
         if night == "08-12" and fld == "Z1_base":
-            r = glob.glob(os.path.join(r"F:/MEE_output/cal_pileo_step2",
+            r = glob.glob(os.path.join(r"F:/MEE_output/leon2026/cal_pileo_step2",
                           "zenith_0812_Z1", "corr_on", "**", "distortion_results.txt"),
                           recursive=True)
         else:

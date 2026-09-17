@@ -31,8 +31,8 @@ from mee2024.distortion_polynomial import apply_corrections, get_coeff_names
 from mee2024.starcat import providers
 from mee2024.MEE2024util import date_string_to_float
 
-B = r"F:/MEE_output/step3_prelim_L"
-V4 = r"F:/MEE_output/step3_s0_v4"
+B = r"F:/MEE_output/leon2026/step3_prelim_L"
+V4 = r"F:/MEE_output/leon2026/step3_s0_v4"
 MIDT = {'0p6s': '18:28:33', '1p2s': '18:28:32'}
 MATCH_AS = 3.0                      # arcsec, pass-2 association radius
 OPTS = dict(observation_date='2026-08-12', observation_lat=42.740470,

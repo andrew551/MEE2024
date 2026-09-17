@@ -60,9 +60,9 @@ from mee2024.distortion_polynomial import apply_corrections
 from mee2024.starcat import providers
 from mee2024.MEE2024util import date_string_to_float
 
-MAIN = r"F:/MEE_output/matrix_bruns2017"          # preprocessed frames
-CONV = os.environ.get('B17M_CONV', r"F:/MEE_output/matrix_bruns2017_like2024")  # convention-of-record tree
-OUT = os.environ.get('B17M_OUT', r"F:/MEE_output/matrix_bruns2017_brunsmethod")
+MAIN = r"F:/MEE_output/bruns2017/matrix_bruns2017"          # preprocessed frames
+CONV = os.environ.get('B17M_CONV', r"F:/MEE_output/bruns2017/matrix_bruns2017_like2024")  # convention-of-record tree
+OUT = os.environ.get('B17M_OUT', r"F:/MEE_output/bruns2017/matrix_bruns2017_brunsmethod")
 REF_L = glob.glob(os.path.join(CONV, 'L', 'stage2', '**', 'distortion_results.txt'), recursive=True)[0]
 REF_R = glob.glob(os.path.join(CONV, 'R8', 'stage2', '**', 'distortion_results.txt'), recursive=True)[0]
 PS, NX, NY, W_NORM = 2.0868004, 3296, 2472, 1648.0

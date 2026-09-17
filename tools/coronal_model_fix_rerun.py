@@ -48,11 +48,11 @@ PEDESTAL, BLUR_SIGMA, SAT = 2000.0, 10.0, 65535
 DISK_MARGIN = 10
 
 BRUNS_RAW = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
-BRUNS_OUT = r"F:/MEE_output/matrix_bruns2017_modelfix"
+BRUNS_OUT = r"F:/MEE_output/bruns2017/matrix_bruns2017_modelfix"
 BRUNS_RSAT = {'EA': 901, 'E2': 646, 'EB': 902}          # measured, b17_inventory.py
 BRUNS_RSUN_PX = 948.7/2.0868004
 LEON_RAW = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"
-LEON_OUT = r"F:/MEE_output/step3_modelfix"
+LEON_OUT = r"F:/MEE_output/leon2026/step3_modelfix"
 LEON_RSAT = {'0p1s': 612, '0p3s': 679, '0p6s': 736, '1p2s': 801}
 LEON_RSUN_PX = 947.1/2.2054043
 
@@ -166,7 +166,7 @@ which = sys.argv[1] if len(sys.argv) > 1 else 'both'
 
 if which in ('both', 'bruns'):
     print('=== Bruns 2017, masked-blur coronal model ===', flush=True)
-    refs = [glob.glob(r'F:/MEE_output/matrix_bruns2017_like2024/%s/stage2/'
+    refs = [glob.glob(r'F:/MEE_output/bruns2017/matrix_bruns2017_like2024/%s/stage2/'
                       r'**/distortion_results.txt' % t, recursive=True)[0]
             for t in ('L', 'R8')]
     for tier in ('EA', 'E2', 'EB'):
@@ -177,7 +177,7 @@ if which in ('both', 'bruns'):
 
 if which in ('both', 'leon'):
     print('\n=== Leon 2026, masked-blur coronal model ===', flush=True)
-    cal = glob.glob(r'F:/MEE_output/step3_bruns_convention/cal_pileo/'
+    cal = glob.glob(r'F:/MEE_output/leon2026/step3_bruns_convention/cal_pileo/'
                     r'stage2/**/distortion_results.txt', recursive=True)
     if not cal:
         print('no Bruns-convention CAL_piLeo; run tools/step3_leon_bruns_convention.py first')

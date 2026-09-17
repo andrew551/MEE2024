@@ -4,7 +4,7 @@ Sun centre. Mag to 12 (the pipeline matches to 13; the design field is G<=11).""
 import glob, json, zipfile
 import numpy as np, pandas as pd
 from mee2024.starcat import providers
-B = r'F:/MEE_output/step3_s0_v4'
+B = r'F:/MEE_output/leon2026/step3_s0_v4'
 SUN = (3171.0, 3232.0); PS, RSUN = 2.2054043, 947.1
 
 ds = [pd.read_csv(glob.glob(B+f'/{t}/stage2/**/CATALOGUE_MATCHED_ERRORS.csv', recursive=True)[0])

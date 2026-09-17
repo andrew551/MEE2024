@@ -35,7 +35,7 @@ from skimage.registration import phase_cross_correlation
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 SRC = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"
-OUT = r"F:/MEE_output/step3_s0_blursub"
+OUT = r"F:/MEE_output/leon2026/step3_s0_blursub"
 REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
 SIGMA, PED = 10.0, 2000.0
 assert len(REFS) == 6

@@ -29,8 +29,8 @@ import numpy as np, pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-NIGHTS = r"F:/MEE_output/bruns2017_nights"
-OUT = r"F:/MEE_output/matrix_bruns2017_atmosphere3"
+NIGHTS = r"F:/MEE_output/bruns2017/bruns2017_nights"
+OUT = r"F:/MEE_output/bruns2017/matrix_bruns2017_atmosphere3"
 BR = os.path.join(OUT, 'bracket')
 PS, NX, NY, W_NORM = 2.0868004, 3296, 2472, 1648.0
 R_SUN_AS = 948.7

@@ -16,7 +16,7 @@ SAT = 65535          # 16-bit full scale; the ASI2600 writes clipped pixels here
 NEAR = 60000         # "near-clip" -- the cut the v1.3.6 stacks were checked against
 BOX = 4
 
-B = r"F:/MEE_output/cal_pileo_step2"
+B = r"F:/MEE_output/leon2026/cal_pileo_step2"
 z = zipfile.ZipFile(glob.glob(f"{B}/s1_combined17/centroid_data*.zip")[0])
 meta = json.load(z.open('results.txt'))
 shifts = [(round(s[0]), round(s[1])) for s in meta['alignment']['shifts_px']]

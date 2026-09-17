@@ -30,7 +30,7 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from astropy.time import Time
 import astropy.units as u
 
-NIGHTS = r"F:/MEE_output/bruns2017_nights"
+NIGHTS = r"F:/MEE_output/bruns2017/bruns2017_nights"
 PS, NX, NY, W_NORM = 2.0868004, 3296, 2472, 1648.0
 R_SUN_AS, L_REF = 948.7, 1.7512
 SUNPX, SUNPY = 1645.0, 1741.0          # the eclipse field's measured Sun pixel

@@ -72,9 +72,9 @@ DEPTH = {'constant': 0, 'linear': 1, 'quadratic': 2, 'cubic': 3, 'quartic': 4, '
 #: do not agree on depth -- the Bruns ones interpose a `stage2\` level, Station 2's does not --
 #: so a field's name is the first path component under its root, never a count of separators.
 DATASETS = [
-    ('bruns_nights', r'F:\MEE_output\bruns2017_nights', r'*\**\distortion_results.txt',
+    ('bruns_nights', r'F:\MEE_output\bruns2017\bruns2017_nights', r'*\**\distortion_results.txt',
      (2472, 3296), 'Bruns 2017 night calibrations, three pointings x 10, 19-20 Aug'),
-    ('bruns_bracket', r'F:\MEE_output\matrix_bruns2017_like2024', r'{L,R8}\**\distortion_results.txt',
+    ('bruns_bracket', r'F:\MEE_output\bruns2017\matrix_bruns2017_like2024', r'{L,R8}\**\distortion_results.txt',
      (2472, 3296), "Bruns 2017 eclipse-day L/R bracket -- the pair his method averages"),
     ('s2_bracket', r'F:\MEE_output\station2_transfer\bracket_quadfree', r'*\**\distortion_results.txt',
      (3520, 4656), 'Mexico 2024 Station 2 eclipse-day bracket'),

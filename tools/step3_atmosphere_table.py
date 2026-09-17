@@ -33,9 +33,9 @@ Writes `step3_record/atmosphere_floor_table.csv` and prints the markdown.
 import glob, os
 import numpy as np, pandas as pd
 
-LEON = r"F:/MEE_output/step3_record/atmosphere_maps_stats.csv"
-BRUNS = r"F:/MEE_output/matrix_bruns2017_m3/b17_m3_stats.csv"
-OUT = r"F:/MEE_output/step3_record"
+LEON = r"F:/MEE_output/leon2026/step3_record/atmosphere_maps_stats.csv"
+BRUNS = r"F:/MEE_output/bruns2017/matrix_bruns2017_m3/b17_m3_stats.csv"
+OUT = r"F:/MEE_output/leon2026/step3_record"
 ZQF = os.path.join(OUT, 'zenith_quadfree')
 
 leon = pd.read_csv(LEON)

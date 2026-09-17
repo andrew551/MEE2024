@@ -35,9 +35,9 @@ import glob, json, os, subprocess, sys, zipfile
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 BRUNS_RAW = r"I:/2017 eclipse images Don Bruns/2017 Eclipse images/eclipse"
-BRUNS_OUT = r"F:/MEE_output/matrix_bruns2017_pipeline"
+BRUNS_OUT = r"F:/MEE_output/bruns2017/matrix_bruns2017_pipeline"
 LEON_RAW = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"
-LEON_OUT = r"F:/MEE_output/step3_pipeline"
+LEON_OUT = r"F:/MEE_output/leon2026/step3_pipeline"
 
 S1 = ['--set','sensitive_mode_stack=True','--set','centroid_gaussian_subtract=True',
       '--set','centroid_gaussian_thresh=4.0','--set','min_area=2',
@@ -116,7 +116,7 @@ which = sys.argv[1] if len(sys.argv) > 1 else 'both'
 
 if which in ('both', 'bruns'):
     print('=== Bruns 2017 through the pipeline path ===', flush=True)
-    refs = [glob.glob(r'F:/MEE_output/matrix_bruns2017_like2024/%s/stage2/'
+    refs = [glob.glob(r'F:/MEE_output/bruns2017/matrix_bruns2017_like2024/%s/stage2/'
                       r'**/distortion_results.txt' % t, recursive=True)[0]
             for t in ('L', 'R8')]
     for tier in ('EA', 'E2', 'EB'):
@@ -125,7 +125,7 @@ if which in ('both', 'bruns'):
 
 if which in ('both', 'leon'):
     print('\n=== Leon 2026 through the pipeline path ===', flush=True)
-    cal = glob.glob(r'F:/MEE_output/step3_bruns_convention/cal_pileo/'
+    cal = glob.glob(r'F:/MEE_output/leon2026/step3_bruns_convention/cal_pileo/'
                     r'stage2/**/distortion_results.txt', recursive=True)
     if not cal:
         print('no Bruns-convention CAL_piLeo available')

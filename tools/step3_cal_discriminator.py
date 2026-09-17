@@ -10,7 +10,7 @@ from astropy.time import Time
 import astropy.units as u
 import pandas as pd
 
-OUTP = r"F:/MEE_output/step3_s2_plots"
+OUTP = r"F:/MEE_output/leon2026/step3_s2_plots"
 SITE = EarthLocation(lat=42.740470*u.deg, lon=-5.613780*u.deg, height=1101*u.m)
 T = Time("2026-08-12T18:28:32", scale="utc")
 U, rx, ry, R = build_union(('0p6s','1p2s'))
@@ -34,7 +34,7 @@ fig.tight_layout(); fig.savefig(os.path.join(OUTP, 'field_altaz.png'), dpi=140);
 print('alt-az field written; field spans alt', f'{aa.alt.deg.min():.1f}-{aa.alt.deg.max():.1f} deg')
 
 # ---- CAL_piLeo as the daytime nuisance discriminator
-calres = glob.glob(r'F:/MEE_output/cal_pileo_step2/canonical_16f_night2refs/**/TWOD_RESIDUALS.csv', recursive=True)[0]
+calres = glob.glob(r'F:/MEE_output/leon2026/cal_pileo_step2/canonical_16f_night2refs/**/TWOD_RESIDUALS.csv', recursive=True)[0]
 dc = pd.read_csv(calres)
 cdx, cdy = dc['dx_arcsec'].values, dc['dy_arcsec'].values
 cdx, cdy = cdx - np.median(cdx), cdy - np.median(cdy)

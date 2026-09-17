@@ -39,7 +39,7 @@ from scipy.spatial.transform import Rotation
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = os.path.join(REPO, '.venv', 'Scripts', 'python.exe')
 #: a real reduction of Bruns' 2600MM field, for its stars and its plate solution
-REAL = r'F:\MEE_output\bruns_rerun\2600mm_HIP29696\stage2_cubic'
+REAL = r'F:\MEE_output\bruns2024\bruns_rerun\2600mm_HIP29696\stage2_cubic'
 OUT = r'F:\MEE_output\perfect_optic'
 
 

@@ -219,7 +219,7 @@ if os.path.exists(pl):
     tl = pd.read_csv(pl)
     cells.append(('Leon 2026', tl.drop_duplicates('gaia_id')[['gaia_id', 'ra_cat', 'dec_cat', 'mag']],
                   'gaia_id', 'mag', 'ra_cat', 'dec_cat'))
-pb = glob.glob(r"F:/MEE_output/matrix_bruns2017_brunsmethod/master062/"
+pb = glob.glob(r"F:/MEE_output/bruns2017/matrix_bruns2017_brunsmethod/master062/"
                r"**/CATALOGUE_MATCHED_ERRORS.csv", recursive=True)
 if pb:
     tb = pd.read_csv(pb[0]).rename(columns={'RA(catalog)': 'ra', 'DEC(catalog)': 'dec'})

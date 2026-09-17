@@ -31,7 +31,7 @@ import numpy as np, pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 RD = r"F:/MEE_output/refraction"
-BRUNS = r"F:/MEE_output/matrix_bruns2017_atmosphere3"
+BRUNS = r"F:/MEE_output/bruns2017/matrix_bruns2017_atmosphere3"
 L_REF = 1.7512
 
 

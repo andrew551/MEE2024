@@ -41,8 +41,8 @@ factor is closer to 1.5") recomputed on our star distribution.
 import glob, json, os, zipfile
 import numpy as np, pandas as pd
 
-CONV = r"F:/MEE_output/matrix_bruns2017_like2024"
-WIND = r"F:/MEE_output/bruns2017_lr"
+CONV = r"F:/MEE_output/bruns2017/matrix_bruns2017_like2024"
+WIND = r"F:/MEE_output/bruns2017/bruns2017_lr"
 NX, NY = 3296, 2472
 HIS_RMS, HIS_N, HIS_SIGMA = 0.077, 96, 3.34e-6
 

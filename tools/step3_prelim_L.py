@@ -23,9 +23,9 @@ import numpy as np
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-V4 = r"F:/MEE_output/step3_s0_v4"
-OUT = r"F:/MEE_output/step3_prelim_L"
-CAL = glob.glob(r"F:/MEE_output/cal_pileo_step2/canonical_16f_night2refs/DISTORTION_OUTPUT*/distortion/distortion_results.txt")[0]
+V4 = r"F:/MEE_output/leon2026/step3_s0_v4"
+OUT = r"F:/MEE_output/leon2026/step3_prelim_L"
+CAL = glob.glob(r"F:/MEE_output/leon2026/cal_pileo_step2/canonical_16f_night2refs/DISTORTION_OUTPUT*/distortion/distortion_results.txt")[0]
 MIDT = {'0p6s': '18:28:33', '1p2s': '18:28:32'}
 
 COMMON = ['--set','enable_corrections=True','--set','enable_corrections_ref=True',

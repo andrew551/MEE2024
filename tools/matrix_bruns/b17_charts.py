@@ -28,7 +28,7 @@ print(f'INNER sans G7.52: N={len(Ux)} h={h:.1f} Rsun^2  L base {Lb:+.3f} +- {boo
       f'L v-deg2 {Lv:+.3f} +- {boot(Ux,rxx,ryx,Rx,2):.3f} (stat)')
 
 # ---- charts: field + deflection vs radius (v-deg2, R>2 default union)
-OUTP = r'F:/MEE_output/matrix_bruns2017'
+OUTP = r'F:/MEE_output/bruns2017/matrix_bruns2017'
 U, rx, ry, R = build_union(('EA','EB'), 2.0)
 A, labels = design(U.px.values, U.py.values, rx, ry, R, 2)
 b = np.concatenate([U.dx.values, U.dy.values])

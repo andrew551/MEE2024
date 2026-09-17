@@ -25,7 +25,7 @@ from astropy.io import fits
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 Z12 = r"F:/MEE_output/refraction/zenith12"
-OUT = r"F:/MEE_output/step3_record"
+OUT = r"F:/MEE_output/leon2026/step3_record"
 NULLS = os.path.join(OUT, 'zenith_nulls_allpairs')
 G = r"G:/Leon Aug 2026"
 PS, NX, NY, W_NORM = 2.2054043, 6248, 4176, 3124.0

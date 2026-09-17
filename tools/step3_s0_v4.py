@@ -39,9 +39,9 @@ from scipy.ndimage import gaussian_filter, binary_dilation
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-FROZEN = r"F:/MEE_output/step3_s0_blursub"
+FROZEN = r"F:/MEE_output/leon2026/step3_s0_blursub"
 RAW = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"
-OUT = r"F:/MEE_output/step3_s0_v4"
+OUT = r"F:/MEE_output/leon2026/step3_s0_v4"
 REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
 SUN = (3171.0, 3232.0)                 # (x, y) px, ephemeris through the V3 affine
 PS, RSUN, PED = 2.2054043, 947.1, 2000.0

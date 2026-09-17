@@ -33,7 +33,7 @@ from astropy.io import fits
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 SRC = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"        # G: only
-OUT = r"F:/MEE_output/step3_s0"
+OUT = r"F:/MEE_output/leon2026/step3_s0"
 REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
 assert len(REFS) == 6, REFS
 

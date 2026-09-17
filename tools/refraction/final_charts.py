@@ -22,7 +22,7 @@ def airT(t):
 
 def zrow(night, fld):
     if night == "08-12" and fld == "Z1_base":
-        r = glob.glob(os.path.join(r"F:/MEE_output/cal_pileo_step2",
+        r = glob.glob(os.path.join(r"F:/MEE_output/leon2026/cal_pileo_step2",
                       "zenith_0812_Z1", "corr_on", "**", "distortion_results.txt"),
                       recursive=True)
     else:

@@ -63,12 +63,12 @@ REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 sys.path.insert(0, REPO)
 from mee2024 import calibration                                          # noqa: E402
 
-V4 = r"F:/MEE_output/step3_s0_v4"
+V4 = r"F:/MEE_output/leon2026/step3_s0_v4"
 RAW = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"
 LIB = r"G:/MEE_output/Library 1"
 CALIBRATED = '--calibrated' in sys.argv
-OUT = r"F:/MEE_output/SCI_tier_stacks" + ('_calibrated' if CALIBRATED else '')
-RAW_OUT = r"F:/MEE_output/SCI_tier_stacks"
+OUT = r"F:/MEE_output/leon2026/SCI_tier_stacks" + ('_calibrated' if CALIBRATED else '')
+RAW_OUT = r"F:/MEE_output/leon2026/SCI_tier_stacks"
 TIERS = {'0p1s': 0.1, '0p3s': 0.3, '0p6s': 0.6, '1p2s': 1.2}
 os.makedirs(OUT, exist_ok=True)
 

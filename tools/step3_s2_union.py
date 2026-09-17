@@ -41,8 +41,8 @@ from mee2024.distortion_polynomial import apply_corrections
 from mee2024.starcat import providers
 from mee2024.MEE2024util import date_string_to_float
 
-BL = r"F:/MEE_output/step3_prelim_L"
-V4 = r"F:/MEE_output/step3_s0_v4"
+BL = r"F:/MEE_output/leon2026/step3_prelim_L"
+V4 = r"F:/MEE_output/leon2026/step3_s0_v4"
 PS, NX, NY, W_NORM = 2.2054043, 6248, 4176, 3124.0
 SUNPX, SUNPY = 3171.0, 3232.0
 R_SUN_AS, L_REF = 947.1, 1.7512

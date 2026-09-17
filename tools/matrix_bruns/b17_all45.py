@@ -25,8 +25,8 @@ import numpy as np, pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 sys.path.insert(0, REPO)
-B = r"F:/MEE_output/matrix_bruns2017"
-LR = r"F:/MEE_output/bruns2017_lr"
+B = r"F:/MEE_output/bruns2017/matrix_bruns2017"
+LR = r"F:/MEE_output/bruns2017/bruns2017_lr"
 REF_L = glob.glob(os.path.join(LR, 'L', 'stage2', 'DISTORTION_OUTPUT*', 'distortion', 'distortion_results.txt'))[0]
 REF_R = glob.glob(os.path.join(LR, 'R8', 'stage2', 'DISTORTION_OUTPUT*', 'distortion', 'distortion_results.txt'))[0]
 MIDT = '17:43:47'

@@ -113,7 +113,39 @@ paths recorded inside the output files themselves still name the D: locations; t
 this tree. The documents and tools here were rewritten at the move, except where they
 recount the history above. All three stages were then re-run from F: on a real capture
 and reproduced the recorded run field for field, down to the 49-frame alignment record
-(`tools/husillos2026/hu_pipeline_check.py`). Its curated index is **`RECORD\`**: for each finished piece of work,
+(`tools/husillos2026/hu_pipeline_check.py`). 
+
+**The tree is organised by dataset, one folder per campaign** (Douglas, 2026-09-17: the
+husillos2026 folder "is a nice way to organise things ... this mirrors the organisation in
+`F:\MEE_output\RECORD`"). It was not always: until 2026-09-17 the top level held 59 entries
+with one campaign's working folders scattered across it -- thirteen `matrix_bruns2017_*`
+beside ten `step3_*` beside `cal_pileo_step2`, in alphabetical order and therefore in no
+order at all. Forty-one folders were collected into **`bruns2017\`**, **`leon2026\`** and
+**`bruns2024\`**, leaving 19 at the top level. Nothing was renamed, so every old basename
+still identifies its folder and every rewritten path was a prefix insertion.
+
+Two traps met in doing it, both worth stating because the names invite the error:
+
+* **`bruns_np101`, `bruns_rerun` and `bruns2600_rerun` are not Bruns 2017.** They are the
+  2024 instrument and shim tests, sourced from `E:\ZenithCals` and `ZenithCals Temp`, a
+  different dataset seven years apart from the eclipse. They went to `bruns2024\`. Every
+  folder was classified by reading the `source_files` recorded inside its own results
+  files, not by its name; `step3_record` likewise turns out to hold 39 Leakey 2024 files
+  beside its 52 Leon ones, as the controls for that analysis.
+* **`refraction` is Leon data but stays a sibling**, because `RECORD\` keeps `refraction`
+  and `leon2026` as siblings and this tree mirrors it. It is also the one folder whose name
+  collides with an ordinary English word used several hundred times in these documents, so
+  a path rewrite there has to match the path and not the word.
+
+The 175 path references in the repository and the TAN exports were rewritten and then
+checked by resolving every `MEE_output` path mentioned anywhere: 385 resolve, none still
+names a moved folder. One rewrite had to be undone by hand -- `docs/LEON_2026-08-11.md`
+§18.8 is quoted in `calibration/README.md` as having pointed at
+`D:\MEE_output\HANDOFF_zenith_cubic\`, and that is a statement about where the folder was
+in August, not a live path. A drive letter is part of the history here: only `F:` paths
+were repointed.
+
+Its curated index is **`RECORD\`**: for each finished piece of work,
 the outputs someone would need to check it, re-quote it or publish from it — one folder per
 matrix cell in a common shape (`bruns2017`, `leon2026`, `mexico2024`), plus `refraction` for
 the Leon campaign physics that feeds the atmosphere term. Every file there is a copy of one in

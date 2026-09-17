@@ -74,11 +74,11 @@ def run(path, label, drift_px):
     print(f'  mean vertical residual {(dn*np.cos(q)+de*np.sin(q)).mean():+.4f}" '
           f'(se {spread_along(dn,de,q.mean())/np.sqrt(n):.4f})')
 
-z = zipfile.ZipFile(r'F:\MEE_output\step2_ladder\A_none\centroid_data20260825033557.zip')
+z = zipfile.ZipFile(r'F:\MEE_output\leon2026\step2_ladder\A_none\centroid_data20260825033557.zip')
 drift = json.load(z.open('results.txt'))['alignment']['shifts_px'][-1]
 print(f'stage-1 total drift over the stack: {drift[0]:.2f} px (py), {drift[1]:.2f} px (px)')
 
-base = r"F:/MEE_output/step2_ladder"
+base = r"F:/MEE_output/leon2026/step2_ladder"
 for tag, r_ in [("tol 0.5", "tolsweep_0.5/DISTORTION_OUTPUT20260825143416__20260825033557"),
                 ("tol 1.0", "tolsweep_1.0/DISTORTION_OUTPUT20260825143422__20260825033557"),
                 ("tol 5.0", "tolsweep_5.0/DISTORTION_OUTPUT20260825143434__20260825033557")]:

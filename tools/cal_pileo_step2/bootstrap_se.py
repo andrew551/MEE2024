@@ -48,7 +48,7 @@ def run(path, label, nboot=20000):
           f'bootstrap {boot:6.2f} ppm   (boot/HC0 = {boot/rep["HC0"]:.2f})')
     return rep, boot
 
-base = r"F:/MEE_output/cal_pileo_step2"
+base = r"F:/MEE_output/leon2026/cal_pileo_step2"
 print('plate-scale standard error, three estimators, definitive 17-frame stack:')
 for tag, sub in [("tol 0.5", "definitive_tol0.5"), ("tol 1.0", "definitive_tol1.0"),
                  ("tol 999", "definitive_tol999")]:
