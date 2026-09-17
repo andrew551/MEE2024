@@ -1880,7 +1880,7 @@ decentred mostly in one axis, the same pattern as the NP101is and the TV-85 and 
 quantity a shimming job would target.
 
 **Three more telescopes, and the first matched pair (Douglas, 2026-09-17: "let's add some
-more telescopes").** Eight instruments now, 78 fits and 156 charts:
+more telescopes").** Eight instruments now, 84 fits and 168 charts (Leon carries both of its nights):
 
 * **Portland FRA500** -- `F:\MEE_output\portland_zenith`, 6 cubic fits, six pointings.
 * **Leon FRA500** -- the reduced zenith is **in the repo**, `calibration/zenith_cubic/`,
@@ -1930,14 +1930,44 @@ What does *not* agree is the asymmetry, and only the tangent gauge shows it:
 | Leon FRA500 | 1.6 ″ | 1.11 / 0.10 = **11.65** | 0.50 / 0.36 = 1.41 | grossly decentred across the frame |
 | Mexico Station 1 | 20.0 ″ | 17.39 / 15.10 = 1.15 | 6.57 / 7.03 = 1.07 | the most symmetric field in the matrix, despite being the most distorted |
 
-**Leon's 11.65× left/right is the largest asymmetry measured in any instrument here** --
-the field almost vanishes at one edge (0.10 ″) and reaches 1.11 ″ at the other. Same
-telescope, same reducer, same camera model as Portland, which is 1.06. That is not the
-glass; it is how the camera sits. It is also independent corroboration of something already
-recorded from the refraction work: `calibration/zenith_cubic/README.md` notes that the Leon
-telescope was transported between night 1 and eclipse day and measurably changed, with the
-**tilt dipole doubling** (`docs/REFRACTION_2026.md` 16.2-16.3). The field chart is a second,
-independent view of that tilt.
+**Leon's 11.65× left/right is the largest ratio measured in any instrument here** --
+the field almost vanishes at one edge (0.10 ″) and reaches 1.11 ″ at the other, against
+Portland's 1.06 on the same telescope, reducer and camera model.
+
+**CORRECTION (2026-09-17), from splitting Leon into its two nights.** The sentences that
+stood here called that asymmetry "not the glass, but how the camera sits" and read it as
+independent corroboration of the transport change recorded in
+`calibration/zenith_cubic/README.md` -- the m=1 tilt dipole doubling between night 1 and
+eclipse day. Both readings were wrong, and the pre-transport night says why.
+
+| Leon night | n | plate scale | optics peak | L - R | T - B | L / R |
+|---|---|---|---|---|---|---|
+| 08-11, before the eclipse | 6 | 2.20780 ″/px | 1.834 ± 0.102 ″ | **+1.012 ± 0.045 ″** | +0.203 ± 0.040 ″ | 8.32 |
+| 08-12, after the eclipse | 6 | 2.20738 ″/px | 1.583 ± 0.070 ″ | **+1.012 ± 0.037 ″** | +0.145 ± 0.020 ″ | 11.65 |
+
+**The left-right dipole is +1.012 ″ on both nights, identical to three decimals**, across a
+dismount, a car journey and a remount. So it is not evidence of the transport change at all,
+and the two ratios differing (8.32 against 11.65) is an artefact: the right edge sits near a
+zero crossing of the field, so the ratio is a quotient of a stable number by a small and
+unstable one. **L - R is the statistic to quote; L / R is not.** That is the same trap as the
+max-against-min comparison this section already warns about, met a second way.
+
+The tilt dipole in the refraction record is also **a different measurement** -- it is a PSF
+shape quantity, from star image elongation, alongside radial FWHM growth. The distortion
+field's dipole and the PSF's dipole are not the same thing, so the one was never
+corroboration of the other.
+
+What the transport *did* move, and these charts do show: the **optics peak fell 1.834 -> 1.583 ″**
+(0.251 ± 0.051 ″, about 5× its error), the T - B dipole shrank 0.203 -> 0.145 ″, and the
+plate scale stepped **-189 ppm** -- the magnitude the refraction record carries as 197 ppm,
+reached here from the plain mean of six free fits per night rather than through the reference
+chain, which is a fair independent check on that number.
+
+That a large decentring dipole survived the journey **intact** is itself the finding. The
+assembly came off the mount, not the camera off the telescope, so the camera-to-telescope
+alignment travelled undisturbed while the mounting did not -- which places the dipole in the
+optical train, not in how the instrument was mounted. It is still the largest such term in
+the matrix and still invisible in the native gauge.
 
 And Station 1 makes the point that **size and symmetry are unrelated**: 20 ″ of distortion,
 the most here, but 1.15 and 1.07 edge ratios, the most symmetric here. A big, well-centred
