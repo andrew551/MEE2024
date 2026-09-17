@@ -1631,6 +1631,45 @@ One tooling fix this turned up: archives written before the flat layout keep eve
 under a `data/` prefix, which `distortion_fitter` has always handled and `tan_export` did
 not -- so all ten `bruns_np101` fits reported "sensor size not found" while the archive they
 named was sitting on `I:` in plain sight. It reads both layouts now.
+**Which projection IS MEE's frame, and was it the wrong choice? (Douglas, 2026-09-17.)**
+It is **SFL**, the global sinusoidal or Sanson-Flamsteed projection -- FITS WCS code `SFL`.
+Checked against the formula rather than inferred: `detransform_vectors` reproduces
+`x = alpha·cos(delta), y = delta` about the boresight to **0.000e+00 rad**, while differing
+from gnomonic by 9.5e-05 rad on the same directions. SFL is a real projection, pseudo-
+cylindrical and equal-area, designed for **whole-sky maps**. Nothing about a camera produces
+it.
+
+**Was it wrong? Not in the sense that matters most, and yes in a sense that costs.** It has
+never produced a wrong measurement: the gauge term lands entirely in the fitted polynomial,
+changes no residual, no star position and no deflection, and calibration transfer preserves
+the cancellation because both ends are read in MEE's own gauge. At the matrix's field sizes
+the un-absorbed remainder is 1.2 milliarcsec at worst. **It is also not the frame the
+instrument images in**, and that costs in five places:
+
+1. **One genuine first-order risk.** A coefficient typed in from outside -- Bruns' Table 1,
+   an Astrometrica log, ASTAP, any published table -- is in TAN, and MEE treats it as SFL,
+   injecting ~0.43 ″/deg³ into a frozen cubic. Bruns is explicit that an error there biases
+   the Einstein coefficient. `_open_distortion_files` now refuses a TAN *export*, but no
+   guard catches a hand-typed number.
+2. **The coefficients do not mean what they say.** The cubic carries the projection, so a
+   per-order split is not a measurement of that order, and the native field chart overstates
+   the optics by 2.2× on the FRA500, understates them by 2.8× on the NP101is, and is about
+   right on the TV-85 -- with no way to tell which without converting.
+3. **Polynomial order is spent on geometry rather than glass.** A perfect lens needs a cubic
+   and above in SFL and nothing at all in TAN, and the requirement scales as ~theta^6.
+4. **Cross-program comparison needs a conversion nobody knew was there**, which is where the
+   "factor of three" folklore and the withdrawn 16× came from.
+5. **It is not what a reader assumes.** Almost everyone reading a camera's coefficients
+   assumes TAN.
+
+**Should it be changed? Not now.** Refitting in TAN would put the optics in the coefficients
+and leave the polynomial nothing geometric to absorb -- the cleaner design. But it is a
+change to the core of the pipeline that moves every measured number, and it would invalidate
+every stored reference: `calibration/zenith_cubic/`, the 15-field night averages, every
+frozen cubic in the matrix. Against that it buys **no accuracy** below ~5°, which is every
+instrument here. The export, the refusal guard and the paired charts take the benefit without
+the risk. **The case would change if a field wider than about 5-10° were ever used**, where a
+cubic in SFL stops being sufficient for a flawless telescope.
 **Does the tangent representation get WORSE on very large sensors, since gnomonic distorts
 at large angles? (Douglas, 2026-09-17.)** It gets relatively better, and the angular gauge
 is the one that degrades. The premise is true of gnomonic as a MAP projection and false of

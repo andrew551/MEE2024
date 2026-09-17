@@ -22,6 +22,18 @@ v: array of shape (n, 3) : n 3-vectors of star positions
 outputs: array of shape (n, 2): n 2-vectors of intermediate (i.e. pixel-like) coordinates
 '''
 def detransform_vectors(x, v):
+    """Sky vectors -> MEE's plate coordinates, divided by the plate scale.
+
+    The projection is (declination, RA x cos(dec)) about the boresight, which is **SFL**, the
+    global sinusoidal or Sanson-Flamsteed projection (FITS WCS code SFL) -- verified against
+    the formula to machine precision, 2026-09-17. It is pseudo-cylindrical and equal-area, and
+    it is NOT what a camera with a flat sensor images in: that is gnomonic, TAN. The difference
+    is ~0.43 "/deg^3 of radial cubic and is absorbed by the fitted distortion polynomial, so it
+    costs no accuracy here, but it means a coefficient from any TAN-gauge source (Astrometrica,
+    ASTAP, a published table) must be converted before being frozen into a fit. See
+    docs/ROADMAP.md, "The reference-projection gauge", and
+    distortion_polynomial.tangent_plane_coefficients.
+    """
     scale, ra, dec, roll = x[0], x[1], x[2], x[3]
 
     r = Rotation.from_euler('zyx', [-ra, dec, -roll])
