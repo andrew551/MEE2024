@@ -58,10 +58,10 @@ MAGCUT, RCUT, RMAX = 12.0, 2.0, 9.0
 
 # tag, raw block, dark set, first frame to use, mid-time
 BLOCKS = {
-    '0p25s_1810': ('2024-04-08_18_10_26Z', 'dark-250ms', 15, '18:11:12'),
-    '0p3s_1811':  ('2024-04-08_18_11_28Z', 'dark-300ms', 0,  '18:11:58'),
-    '0p4s_1812':  ('2024-04-08_18_12_30Z', 'dark-400ms', 0,  '18:13:00'),
-    '0p3s_1813':  ('2024-04-08_18_13_31Z', 'dark-300ms', 0,  '18:14:02'),
+    '0p25s_1810': ('light-1-250ms', 'dark-250ms', 15, '18:11:12'),
+    '0p3s_1811':  ('light-2-300ms', 'dark-300ms', 0,  '18:11:58'),
+    '0p4s_1812':  ('light-3-400ms', 'dark-400ms', 0,  '18:13:00'),
+    '0p3s_1813':  ('light-4-300ms', 'dark-300ms', 0,  '18:14:02'),
 }
 S1 = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract=True',
       '--set', 'centroid_gaussian_thresh=4.0', '--set', 'min_area=2',
@@ -101,11 +101,12 @@ def stack(tag):
     z = glob.glob(os.path.join(d, 'centroid_data*.zip'))
     if z:
         return z[0], d
-    frames = sorted(glob.glob(os.path.join(G, 'CapObj', block, '*.FIT')))[first:]
+    frames = sorted(glob.glob(os.path.join(G, 'eclipse', block, '*.FIT')))[first:]
+    assert frames, 's1_eclipse_corona: no frames for %s -- the G: capture tree moved once already (2026-09-17); a silent [] here would be reduced as if it were data' % block
     print('  %s: stacking %d frames from %s with %s + flat, disk occulter, coronal subtract'
           % (tag, len(frames), block, darkset), flush=True)
     run([PY, '-m', 'mee2024.cli', 'stack', *frames,
-         '--dark', os.path.join(G, darkset, 'CapObj', '*', '*.FIT'),
+         '--dark', os.path.join(G, 'dark', darkset, 'CapObj', '*', '*.FIT'),
          '--flat', os.path.join(G, 'flat', 'CapObj', '2024-04-08*', '*.FIT'),
          *S1, '--no-scan', '--no-display', '--quiet', '-o', d], os.path.join(d, 'stage1.log'))
     z = glob.glob(os.path.join(d, 'centroid_data*.zip'))

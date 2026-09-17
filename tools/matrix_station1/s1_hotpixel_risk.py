@@ -39,7 +39,7 @@ from astropy.io import fits
 REC = r"F:/MEE_output/mexico2024/station1"
 DF = os.path.join(REC, 'darks_flats')
 EC = os.path.join(REC, 'eclipse_convention')
-TIER = r"G:/Mexico April 2024/Station-1-Eclipse-Data/CapObj/2024-04-08_18_12_30Z"
+TIER = r"G:/Mexico April 2024/Station-1-Eclipse-Data/eclipse/light-3-400ms"
 NX, NY, PS = 9576, 6388, 1.84847
 HOT_ADU = 200
 MIN_DITHER_PX = 3.0          # hotpixels.MIN_DITHER_PX
@@ -54,6 +54,7 @@ MIN_DITHER_PX = 3.0          # hotpixels.MIN_DITHER_PX
 # finding.
 print('=== 1. the dither ===')
 fs = sorted(glob.glob(os.path.join(TIER, '*.FIT')))
+assert fs, 's1_hotpixel_risk: no frames under TIER -- the G: capture tree moved once already (2026-09-17); a silent [] here would be reduced as if it were data'
 S, blk = 2048, 64
 
 

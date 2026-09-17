@@ -33,7 +33,7 @@ import astropy.units as u
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data"
-TIER = os.path.join(G, 'CapObj', '2024-04-08_18_12_30Z')
+TIER = os.path.join(G, 'eclipse', 'light-3-400ms')
 Z24 = r"D:/MEE2024 output/Station 1/zenith calibrations"
 RECEN = r"F:/MEE_output/mexico2024/station1/zenith_recentroid"
 UNCAL = r"F:/MEE_output/mexico2024/station1/eclipse_convention/windowed"
@@ -76,7 +76,7 @@ def stack():
     # has a command-line length limit that 203 full paths would come close to
     run([PY, '-m', 'mee2024.cli', 'stack', os.path.join(TIER, '*.FIT'),
          # the sets are <name>/CapObj/<timestamp>/*.FIT, one level deeper than they look
-         '--dark', os.path.join(G, 'dark-400ms', 'CapObj', '*', '*.FIT'),
+         '--dark', os.path.join(G, 'dark', 'dark-400ms', 'CapObj', '*', '*.FIT'),
          '--flat', os.path.join(G, 'flat', 'CapObj', '2024-04-08*', '*.FIT'),
          *S1, '--no-scan', '--no-display', '--quiet', '-o', OUT],
         os.path.join(OUT, 'stage1.log'))

@@ -10,7 +10,7 @@ to a star reaches the deflection fit unchallenged. It also says its measurements
 
 Station 1 needs its own answer for three reasons: a full-frame sensor with real vignetting,
 0.25-0.4 s eclipse exposures, and a calibration set taken 50-75 minutes AFTER totality --
-`G:\\Mexico April 2024\\Station-1-Eclipse-Data\\{bias,dark-250ms,dark-300ms,dark-400ms,
+`G:\\Mexico April 2024\\Station-1-Eclipse-Data\\{bias,dark\\dark-250ms,dark\\dark-300ms,dark\\dark-400ms,
 darkflats,flat}`, 40 frames each, 19:00-19:26 UTC, at CCD-TEMP **25-27 C** against the
 eclipse frames' **-10 C**.
 
@@ -72,7 +72,10 @@ def master(name, limit=40):
     p = os.path.join(OUT, 'master_%s.fits' % name)
     if os.path.exists(p):
         return fits.getdata(p).astype(np.float32)
-    fs = sorted(glob.glob(os.path.join(G, name, '**', '*.FIT'), recursive=True))[:limit]
+    # the dark sets moved under dark/ when G: was realigned with the archival backup on
+    # 2026-09-17; bias, flat and darkflats stayed at the top level
+    sub = os.path.join('dark', name) if name.startswith('dark-') else name
+    fs = sorted(glob.glob(os.path.join(G, sub, '**', '*.FIT'), recursive=True))[:limit]
     if not fs:
         return None
     m = median_stack(fs)
@@ -110,7 +113,8 @@ for t in (20, 50, 200, 1000):
 print('  so at 0.4 s even at 25 C the dark is a bias plus a defect map: the median excess is'
       ' %.2f ADU. Dark CURRENT is not the issue; the %d hot pixels are.' % (np.median(ex), (ex > HOT_ADU).sum()))
 
-fs = sorted(glob.glob(os.path.join(G, 'CapObj', '2024-04-08_18_12_30Z', '*.FIT')))
+fs = sorted(glob.glob(os.path.join(G, 'eclipse', 'light-3-400ms', '*.FIT')))
+assert fs, 's1_darks_flats: no 0.4 s eclipse frames -- the G: capture tree moved once already (2026-09-17); a silent [] here would be reduced as if it were data'
 print('\n  the eclipse frames at their real -10 C (median of 12 of %d, corona removed by a 64 px block background):' % len(fs))
 E = median_stack(fs[:12])
 Eb = E - block_background(E)

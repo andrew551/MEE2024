@@ -15,7 +15,7 @@ Sun masked by `delete_saturated_blob` at level 95, `blob_radius_extra` 200 and
 `centroid_refine_window` flipped is a clean single-axis test -- and it is also step one of
 the eclipse re-stack the reduction needs anyway.
 
-Frames: `G:\\Mexico April 2024\\Station-1-Eclipse-Data\\CapObj\\2024-04-08_18_12_30Z`, the
+Frames: `G:\\Mexico April 2024\\Station-1-Eclipse-Data\\eclipse\\light-3-400ms`, the
 0.4 s tier at totality, 123 frames (the archive of record used _0000 through _0122).
 
 Each stack is then fitted constant-only against both the 2024 seventeen-field moments
@@ -34,7 +34,7 @@ import astropy.units as u
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-TIER = r"G:/Mexico April 2024/Station-1-Eclipse-Data/CapObj/2024-04-08_18_12_30Z"
+TIER = r"G:/Mexico April 2024/Station-1-Eclipse-Data/eclipse/light-3-400ms"
 Z24 = r"D:/MEE2024 output/Station 1/zenith calibrations"
 AB = r"F:/MEE_output/mexico2024/station1/zenith_raw_ab"
 OUT = r"F:/MEE_output/mexico2024/station1/eclipse_convention"

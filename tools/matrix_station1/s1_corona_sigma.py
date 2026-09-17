@@ -24,10 +24,10 @@ SIG = float(sys.argv[1]) if len(sys.argv) > 1 else 15.0
 TAG = 's%g' % SIG
 OUT = os.path.join(REC, 'eclipse_corona_' + TAG)
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data"
-RAW = {'0p25s_1810': ('2024-04-08_18_10_26Z', 'dark-250ms', 15),
-       '0p3s_1811':  ('2024-04-08_18_11_28Z', 'dark-300ms', 0),
-       '0p4s_1812':  ('2024-04-08_18_12_30Z', 'dark-400ms', 0),
-       '0p3s_1813':  ('2024-04-08_18_13_31Z', 'dark-300ms', 0)}
+RAW = {'0p25s_1810': ('light-1-250ms', 'dark-250ms', 15),
+       '0p3s_1811':  ('light-2-300ms', 'dark-300ms', 0),
+       '0p4s_1812':  ('light-3-400ms', 'dark-400ms', 0),
+       '0p3s_1813':  ('light-4-300ms', 'dark-300ms', 0)}
 S1 = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract=True',
       '--set', 'centroid_gaussian_thresh=4.0', '--set', 'min_area=2',
       '--set', 'sigma_subtract=0.0', '--set', 'background_subtraction_mode=annular',
@@ -43,11 +43,12 @@ def restack(tag):
     block, darkset, first = RAW[tag]
     d = os.path.join(OUT, tag); os.makedirs(d, exist_ok=True)
     if not glob.glob(os.path.join(d, 'centroid_data*.zip')):
-        frames = sorted(glob.glob(os.path.join(G, 'CapObj', block, '*.FIT')))[first:]
+        frames = sorted(glob.glob(os.path.join(G, 'eclipse', block, '*.FIT')))[first:]
+        assert frames, 's1_corona_sigma: no frames for %s -- the G: capture tree moved once already (2026-09-17); a silent [] here would be reduced as if it were data' % block
         print('  %s: stacking %d raw frames, coronal blur sigma %g px...' % (tag, len(frames), SIG), flush=True)
         with open(os.path.join(d, 'stage1.log'), 'w') as fh:
             subprocess.run([PY, '-m', 'mee2024.cli', 'stack', *frames,
-                            '--dark', os.path.join(G, darkset, 'CapObj', '*', '*.FIT'),
+                            '--dark', os.path.join(G, 'dark', darkset, 'CapObj', '*', '*.FIT'),
                             '--flat', os.path.join(G, 'flat', 'CapObj', '2024-04-08*', '*.FIT'),
                             *S1, '--no-scan', '--no-display', '--quiet', '-o', d],
                            cwd=REPO, stdout=fh, stderr=subprocess.STDOUT)

@@ -852,7 +852,37 @@ hygiene) is drawn as a cross-check chart, not quoted.
 ## Cell 2 — Mexico 2024 (Station 1), opened 2026-09-02
 
 Full record in `docs/STEP3_2026.md` §"Cell 2 opened". Tools in `tools/matrix_station1/`;
-outputs in `F:\MEE_output\mexico2024\station1\`. Measured on the 2024-era
+outputs in `F:\MEE_output\mexico2024\station1\`.
+
+**The `G:` capture tree was reorganised on 2026-09-17** to match the remote archival
+backup, and the Station 1 tools were repointed. Two levels moved; `bias`, `darkflats` and
+`flat` did not:
+
+| tier | was | is now | EXPTIME | frames |
+|---|---|---|---|---|
+| `0p25s_1810` | `CapObj\2024-04-08_18_10_26Z` | `eclipse\light-1-250ms` | 0.250 s | 124 |
+| `0p3s_1811` | `CapObj\2024-04-08_18_11_28Z` | `eclipse\light-2-300ms` | 0.300 s | 124 |
+| `0p4s_1812` | `CapObj\2024-04-08_18_12_30Z` | `eclipse\light-3-400ms` | 0.400 s | 123 |
+| `0p3s_1813` | `CapObj\2024-04-08_18_13_31Z` | `eclipse\light-4-300ms` | 0.300 s | 124 |
+| dark sets | `dark-<exp>\CapObj\` | `dark\dark-<exp>\CapObj\` | | 40 each |
+
+The mapping was established from `DATE-OBS` and `EXPTIME` on each folder's first frame,
+not from the folder names, and it agrees with the tier names the tools already carried.
+Nine tools in `tools/matrix_station1/` held 19 references to the old layout.
+
+**They failed silently, which is the part worth remembering.** `glob.glob` over a renamed
+folder returns `[]` and raises nothing, so every one of those tools would have re-run and
+reported a number computed from zero frames. Six of them now carry an `assert` on the frame
+list. This is the second instance in one day -- the same shape as the six tools that globbed
+the frozen zenith references out of `calibration/` after it left the repository.
+
+The 359 `source_files` entries recorded under `mexico2024\station1\` still name the old
+paths. Those are provenance -- a record of what was actually read at the time -- and are
+deliberately left as the pipeline wrote them.
+
+*Verified after the move: all four tiers resolve at 124/124/123/124 frames, matching the
+counts under the old names, and both copies of the capture tree (`G:` and the `I:` backup)
+are byte-identical across all 1471 files, 89.9 GB, SHA-256.* Measured on the 2024-era
 archives; two of the seventeen raw zenith blocks were then found and put in
 `I:\Mexico 2024\Station 1 Zenith\` (fields 1–2, 05:32:53Z and 05:35:48Z); the other fifteen
 are not on this machine. The raw eclipse frames and their bias/dark/flat sets are on `G:`.

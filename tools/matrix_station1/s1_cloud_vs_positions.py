@@ -51,7 +51,7 @@ import glob, json, os, zipfile
 import numpy as np, pandas as pd
 from astropy.io import fits
 
-G = r"G:/Mexico April 2024/Station-1-Eclipse-Data/CapObj/2024-04-08_18_12_30Z"
+G = r"G:/Mexico April 2024/Station-1-Eclipse-Data/eclipse/light-3-400ms"
 ECL24 = r"D:/MEE2024 output/Station 1/eclipse fields/CENTROID_OUTPUT20240416232626"
 OUT = r"F:/MEE_output/mexico2024/station1/cloud_positions"
 NX, NY, PS = 9576, 6388, 1.84847
@@ -97,6 +97,7 @@ def windowed(sub, x0, y0):
 
 
 fs = sorted(glob.glob(os.path.join(G, '*.FIT')))
+assert fs, 's1_cloud_vs_positions: no frames under G -- the G: capture tree moved once already (2026-09-17); a silent [] here would be reduced as if it were data'
 rows = []
 for i, f in enumerate(fs):
     with fits.open(f) as h:
