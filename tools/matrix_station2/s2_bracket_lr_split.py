@@ -29,7 +29,7 @@ from tools.analysis_window import WINDOWS
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-OUT = r"F:/MEE_output/mexico2024/station2_transfer"
+OUT = r"F:/MEE_output/mexico2024/station2"
 ECL = os.path.join(OUT, "eclipse")
 NX, NY, PS = 4656, 3520, 1.8672511
 SUNPX, SUNPY, R_SUN_AS = 2485.0, 771.0, 958.2

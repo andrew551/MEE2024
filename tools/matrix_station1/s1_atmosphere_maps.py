@@ -11,7 +11,7 @@ Same construction as `matrix_bruns/b17_m3_maps.py` and `step3_atmosphere_maps.py
 field re-fitted with the quintic-and-above FROZEN from the seventeen-field average and the
 quadratic FREE -- exactly how a calibration field is reduced -- so what is left is quintic-
 and-above model error plus quasi-static atmosphere. Those re-fits already exist, in
-`station1_record/zenith_quadfree_corr/`, built by `s1_zenith_floor.py` with the 2024
+`station1/zenith_quadfree_corr/`, built by `s1_zenith_floor.py` with the 2024
 corrections flags matched.
 
 Held identical to the other cells so the three can be read side by side:
@@ -32,7 +32,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-REC = r"F:/MEE_output/mexico2024/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1"
 QF = os.path.join(REC, 'zenith_quadfree_corr')
 OUT = os.path.join(REC, 'atmosphere_night_maps.png')
 NX, NY = 9576, 6388

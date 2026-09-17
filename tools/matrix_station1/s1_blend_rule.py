@@ -37,7 +37,7 @@ from mee2024.MEE2024util import get_data_root
 from tools.analysis_window import WINDOWS
 
 SEARCH_AS = 60.0
-REC1 = r"F:/MEE_output/mexico2024/station1_record"
+REC1 = r"F:/MEE_output/mexico2024/station1"
 POOLED = os.path.join(REC1, 'pooled_fit', 'twopass')
 ZEN = os.path.join(REC1, 'zenith_nulls_corr', '**', 'CATALOGUE_MATCHED_ERRORS.csv')
 NX, NY, PS1 = 9576, 6388, 1.84847
@@ -208,7 +208,7 @@ cells = []
 t1 = pd.read_csv(os.path.join(POOLED, 'pooled_rows.csv'))
 s1 = t1.drop_duplicates('key')[['key', 'ra', 'dec', 'magV']]
 cells.append(('Mexico 2024 Station 1', s1, 'key', 'magV', 'ra', 'dec'))
-p2 = r"F:/MEE_output/mexico2024/station2_transfer/charts/station2_star_table.csv"
+p2 = r"F:/MEE_output/mexico2024/station2/charts/station2_star_table.csv"
 if os.path.exists(p2):
     t2 = pd.read_csv(p2)
     if 'ra' in t2.columns:

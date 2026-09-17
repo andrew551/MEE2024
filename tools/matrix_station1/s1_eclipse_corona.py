@@ -50,9 +50,9 @@ import astropy.units as u
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data"
-RECEN = r"F:/MEE_output/mexico2024/station1_record/zenith_recentroid"
-OLD = r"F:/MEE_output/mexico2024/station1_record/eclipse_tiers"
-OUT = r"F:/MEE_output/mexico2024/station1_record/eclipse_corona"
+RECEN = r"F:/MEE_output/mexico2024/station1/zenith_recentroid"
+OLD = r"F:/MEE_output/mexico2024/station1/eclipse_tiers"
+OUT = r"F:/MEE_output/mexico2024/station1/eclipse_corona"
 NX, NY, PS = 9576, 6388, 1.84847
 MAGCUT, RCUT, RMAX = 12.0, 2.0, 9.0
 

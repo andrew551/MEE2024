@@ -31,10 +31,12 @@ import datetime as dt, glob, json, os, subprocess, sys
 from astropy.io import fits
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
+CALIB = r"F:/MEE_output/leon2026/calibration"   # moved out of the repo 2026-09-17; docs/CALIBRATION_INPUTS.md
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 SRC = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"        # G: only
 OUT = r"F:/MEE_output/leon2026/step3_s0"
-REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
+REFS = sorted(glob.glob(os.path.join(CALIB, "zenith_cubic", "08-12_Z*.txt")))
+assert len(REFS) == 6, "expected the six 08-12 zenith references, got %d -- see docs/CALIBRATION_INPUTS.md" % len(REFS)
 assert len(REFS) == 6, REFS
 
 STAGE1 = ['--set','sensitive_mode_stack=True','--set','centroid_gaussian_subtract=True',

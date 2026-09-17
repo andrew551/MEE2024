@@ -34,13 +34,13 @@ his fields hold few stars and his bright ones do not saturate. Frame size is rea
 the plate scale from its stage-2 results. sigma is the second moment of the clipped footprint --
 smaller than the full PSF sigma -- so read ratios and signs, not absolute widths.
 
-Writes station1_record/psf_shape.csv.
+Writes station1/psf_shape.csv.
 """
 import glob, json, os, zipfile
 import numpy as np, pandas as pd
 from astropy.io import fits
 
-REC = r"F:/MEE_output/mexico2024/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1"
 Z24 = r"D:/MEE2024 output/Station 1/zenith fields"
 LEON = r"F:/MEE_output/refraction/zenith12"
 LEAKEY = r"F:/MEE_output/askar65phq/leakey_zenith/zenith1"

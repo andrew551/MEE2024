@@ -45,7 +45,7 @@ now wrong:
 
 2. **`common.sh` sets `REFDIR` to `H:/Claude Code/HANDOFF_zenith_cubic/inpipeline_windowed`.**
    `H:` is the read-only transfer folder to Andrew. The references now live in
-   `calibration/zenith_cubic/`, and the canonical chain uses the **six `08-12` files only**
+   `F:\MEE_output\leon2026\calibration\zenith_cubic\`, and the canonical chain uses the **six `08-12` files only**
    — not the twelve that path resolves to.
 
 3. **`run_stage1.sh` sources `common.sh` from a session scratchpad directory** that no
@@ -58,8 +58,8 @@ copy.
 ## Reproducing the canonical reduction
 
 Settings are in `docs/CAL_PILEO_STEP2.md` under "Reproducing". The frame list is
-`calibration/cal_pileo_frames.txt` (sixteen `G:` paths), the references are the six
-`08-12` files in `calibration/zenith_cubic/`, and `observation_time` is **18:29:35**.
+`F:\MEE_output\leon2026\calibration\cal_pileo_frames.txt` (sixteen `G:` paths), the references are the six
+`08-12` files in `F:\MEE_output\leon2026\calibration\zenith_cubic\`, and `observation_time` is **18:29:35**.
 That gives 2.2054043 ″/px, 74 stars, rms 0.5318 ″.
 
 One scripting note that has bitten twice: the reference path contains a space, and an

@@ -15,7 +15,7 @@ reads those stage-2 tables and answers three things:
 
 The first run of this decomposition lived in an inline script and its numbers survived only
 as a printout; this file exists so that the record has an artifact. It writes
-station1_record/eclipse_caldecomp/caldecomp_{arms,common,radial}.csv.
+station1/eclipse_caldecomp/caldecomp_{arms,common,radial}.csv.
 
 `table` and `fit` are copied from `s1_eclipse_corona.py`, which cannot be imported without
 running its stacks; `coincides` from `s1_hotpixel_risk.py`.
@@ -27,7 +27,7 @@ from astropy.io import fits
 from astropy.time import Time
 import astropy.units as u
 
-REC = r"F:/MEE_output/mexico2024/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1"
 CD = os.path.join(REC, 'eclipse_caldecomp')
 DF = os.path.join(REC, 'darks_flats')
 NX, NY, PS = 9576, 6388, 1.84847

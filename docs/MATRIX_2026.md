@@ -852,7 +852,7 @@ hygiene) is drawn as a cross-check chart, not quoted.
 ## Cell 2 — Mexico 2024 (Station 1), opened 2026-09-02
 
 Full record in `docs/STEP3_2026.md` §"Cell 2 opened". Tools in `tools/matrix_station1/`;
-outputs in `F:\MEE_output\mexico2024\station1_record\`. Measured on the 2024-era
+outputs in `F:\MEE_output\mexico2024\station1\`. Measured on the 2024-era
 archives; two of the seventeen raw zenith blocks were then found and put in
 `I:\Mexico 2024\Station 1 Zenith\` (fields 1–2, 05:32:53Z and 05:35:48Z); the other fifteen
 are not on this machine. The raw eclipse frames and their bias/dark/flat sets are on `G:`.

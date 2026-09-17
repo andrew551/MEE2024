@@ -28,7 +28,7 @@ thousand "centroids" on the disk edge and the plate solve fails. That is what th
 did. The record's own windowed stacks were built from raw with the same command, so this is
 the like-for-like construction: the record's stacking with one flag changed.
 
-Writes station1_record/moments_on_corona/<tag>/ (stage 1 and stage 2) and lmag_table.csv.
+Writes station1/moments_on_corona/<tag>/ (stage 1 and stage 2) and lmag_table.csv.
 """
 import glob, json, os, subprocess, zipfile
 import numpy as np, pandas as pd
@@ -38,7 +38,7 @@ import astropy.units as u
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-REC = r"F:/MEE_output/mexico2024/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1"
 OUT = os.path.join(REC, 'moments_on_corona')
 NX, NY, PS = 9576, 6388, 1.84847
 RCUT, RMAX, MAG = 2.0, 10.0, 13.0

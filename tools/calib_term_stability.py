@@ -76,7 +76,7 @@ DATASETS = [
      (2472, 3296), 'Bruns 2017 night calibrations, three pointings x 10, 19-20 Aug'),
     ('bruns_bracket', r'F:\MEE_output\bruns2017\matrix_bruns2017_like2024', r'{L,R8}\**\distortion_results.txt',
      (2472, 3296), "Bruns 2017 eclipse-day L/R bracket -- the pair his method averages"),
-    ('s2_bracket', r'F:\MEE_output\mexico2024\station2_transfer\bracket_quadfree', r'*\**\distortion_results.txt',
+    ('s2_bracket', r'F:\MEE_output\mexico2024\station2\bracket_quadfree', r'*\**\distortion_results.txt',
      (3520, 4656), 'Mexico 2024 Station 2 eclipse-day bracket'),
 ]
 

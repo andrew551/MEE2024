@@ -21,7 +21,7 @@ candidates, before anything is re-stacked.
      stage-2 per-star residual of each arm. A 250 mas systematic and a 250 mas noise term look
      the same in a mean; they differ in whether the shift correlates with anything at all.
 
-Writes station1_record/eclipse_caldecomp/flat_mechanism.csv and prints the table.
+Writes station1/eclipse_caldecomp/flat_mechanism.csv and prints the table.
 """
 import glob, json, os, zipfile
 import numpy as np, pandas as pd
@@ -35,7 +35,7 @@ from s1_caldecomp_fit import table, NX, NY, PS, CD, DF, TMID, MAGCUT, RCUT, RMAX
 ARMS = {'neither': os.path.join(CD, 'neither'),
         'dark only': os.path.join(CD, 'darkonly'),
         'flat only': os.path.join(CD, 'flatonly'),
-        'dark + flat': os.path.join(r"F:/MEE_output/mexico2024/station1_record",
+        'dark + flat': os.path.join(r"F:/MEE_output/mexico2024/station1",
                                     'eclipse_corona', '0p4s_1812')}
 PSF_SIGMA_PX = 3.2      # measured on these stacks (FWHM 7.5 px at centre)
 

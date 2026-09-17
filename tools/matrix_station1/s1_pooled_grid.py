@@ -6,7 +6,7 @@ science set is G <= 12 while stage 2 matches to G 13 -- what do G 11, 12 and 13 
 Plus the vet, whose median + 4 MAD needed explaining: what do no vet, 3 MAD and 5 MAD do?
 
 Runs `s1_pooled_fit.py` over the grid (bootstrap shortened to 300 samples per cell, which
-puts +-0.005" on each sigma) and tabulates. Writes station1_record/pooled_fit/grid.csv.
+puts +-0.005" on each sigma) and tabulates. Writes station1/pooled_fit/grid.csv.
 """
 import json, os, subprocess, sys
 import pandas as pd
@@ -14,7 +14,7 @@ import pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 TOOL = os.path.join(REPO, 'tools', 'matrix_station1', 's1_pooled_fit.py')
-REC = r"F:/MEE_output/mexico2024/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1"
 REF = sys.argv[1] if len(sys.argv) > 1 else 'twopass'
 
 cells = []

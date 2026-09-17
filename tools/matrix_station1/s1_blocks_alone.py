@@ -22,7 +22,7 @@ Three chains are tabulated so the effect of each change is visible block by bloc
 record's corona-subtracted windowed stacks. All three are fitted two-pass against the 0.5"
 reference; the 2025 stacks' stage 2 is run here if it is missing.
 
-Writes station1_record/blocks_alone.csv.
+Writes station1/blocks_alone.csv.
 """
 import glob, json, os, subprocess, zipfile
 import numpy as np, pandas as pd
@@ -32,7 +32,7 @@ import astropy.units as u
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-REC = r"F:/MEE_output/mexico2024/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1"
 NX, NY, PS = 9576, 6388, 1.84847
 RCUT, RMAX, MAG = 2.0, 10.0, 13.0
 GR = 1.7512

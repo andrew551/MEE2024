@@ -799,8 +799,8 @@ with `CentroidsStackGood*.png`, `TWOD_RESIDUALS*.png`, `USEDSTARS*.png`,
 `triangle_matches.png` and `LOG*.txt` alongside.
 
 Working files for cell 4 live under **`F:\MEE_output\husillos2026\`**
-(`zenith_order/`, `track/`, `mount/`, `vs_station1/`, `stacks/`), beside `station1_record`,
-`station2_transfer`, `portland_zenith` and the rest. **`RECORD/` is for finished record charts
+(`zenith_order/`, `track/`, `mount/`, `vs_station1/`, `stacks/`), beside `station1`,
+`station2`, `portland_zenith` and the rest. **`RECORD/` is for finished record charts
 only** and cell 4 has none yet. The one stack that matters is copied out under a name that says
 what it is, with an index:
 

@@ -28,7 +28,7 @@ re-centroided windowed + annular under the matrix's held-constant stage-1 set, t
 free quintic with corrections on at the Station 1 site and the block's true mid-time (taken
 from the 2024 archive's `source_files`, since the fits themselves carry a placeholder 05:45).
 
-Writes station1_record/zenith_recentroid/<stamp>/ and a summary CSV. The seventeen
+Writes station1/zenith_recentroid/<stamp>/ and a summary CSV. The seventeen
 `distortion_results.txt` it leaves behind are the windowed reference of record.
 """
 import glob, json, os, re, subprocess, zipfile
@@ -37,7 +37,7 @@ import numpy as np, pandas as pd
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 F = r"D:/MEE2024 output/Station 1/zenith fields"
-OUT = r"F:/MEE_output/mexico2024/station1_record/zenith_recentroid"
+OUT = r"F:/MEE_output/mexico2024/station1/zenith_recentroid"
 NX, NY = 9576, 6388
 S1 = ['--set', 'sensitive_mode_stack=True', '--set', 'centroid_gaussian_subtract=True',
       '--set', 'centroid_gaussian_thresh=4.0', '--set', 'min_area=2',

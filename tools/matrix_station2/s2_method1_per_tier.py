@@ -20,7 +20,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 from tools.analysis_window import WINDOWS
 
-OUT = r"F:/MEE_output/mexico2024/station2_transfer"
+OUT = r"F:/MEE_output/mexico2024/station2"
 NX, NY, PS = 4656, 3520, 1.8672511
 SUNPX, SUNPY, R_SUN_AS = 2485.0, 771.0, 958.2
 _W = WINDOWS['mexico2024_station2']          # 2-10 R_sun, G <= 13; see the registry

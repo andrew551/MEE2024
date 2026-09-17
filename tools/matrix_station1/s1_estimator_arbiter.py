@@ -43,7 +43,7 @@ from astropy.coordinates import get_sun
 from astropy.time import Time
 import astropy.units as u
 
-EC = r"F:/MEE_output/mexico2024/station1_record/eclipse_convention"
+EC = r"F:/MEE_output/mexico2024/station1/eclipse_convention"
 NX, NY, PS = 9576, 6388, 1.84847
 T_MID = '2024-04-08T18:12:30'
 MAGCUT, RCUT, RMAX, GREF = 12.0, 2.0, 9.0, 10.0

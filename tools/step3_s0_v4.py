@@ -38,11 +38,13 @@ from astropy.io import fits
 from scipy.ndimage import gaussian_filter, binary_dilation
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
+CALIB = r"F:/MEE_output/leon2026/calibration"   # moved out of the repo 2026-09-17; docs/CALIBRATION_INPUTS.md
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 FROZEN = r"F:/MEE_output/leon2026/step3_s0_blursub"
 RAW = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"
 OUT = r"F:/MEE_output/leon2026/step3_s0_v4"
-REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
+REFS = sorted(glob.glob(os.path.join(CALIB, "zenith_cubic", "08-12_Z*.txt")))
+assert len(REFS) == 6, "expected the six 08-12 zenith references, got %d -- see docs/CALIBRATION_INPUTS.md" % len(REFS)
 SUN = (3171.0, 3232.0)                 # (x, y) px, ephemeris through the V3 affine
 PS, RSUN, PED = 2.2054043, 947.1, 2000.0
 RSAT_PX = {'0p1s': 612, '0p3s': 679, '0p6s': 736, '1p2s': 801}   # measured 99th-pct radii

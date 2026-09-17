@@ -17,7 +17,7 @@ means nothing.
 
 Settings are the handoff's, exactly (zenith stage-1 regime; stage 2 cubic, tol 0.2, mag 13,
 corrections OFF), so the control arm is comparable with the twelve reference files in
-calibration/zenith_cubic/.
+F:/MEE_output/leon2026/calibration/zenith_cubic/.
 
 Note the stack-based limitation: `peak_value` measures the stacked image, so this is a fair
 test only because the zenith frames share one exposure -- a star clipped in all 30 sits at

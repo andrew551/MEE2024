@@ -34,11 +34,13 @@ only by the convention.
 import glob, json, os, subprocess, sys, zipfile
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
+CALIB = r"F:/MEE_output/leon2026/calibration"   # moved out of the repo 2026-09-17; docs/CALIBRATION_INPUTS.md
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 V4 = r"F:/MEE_output/leon2026/step3_s0_v4"
 OUT = r"F:/MEE_output/leon2026/step3_bruns_convention"
-REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
-FRAMES = [l.strip() for l in open(os.path.join(REPO, "calibration", "cal_pileo_frames.txt"),
+REFS = sorted(glob.glob(os.path.join(CALIB, "zenith_cubic", "08-12_Z*.txt")))
+assert len(REFS) == 6, "expected the six 08-12 zenith references, got %d -- see docs/CALIBRATION_INPUTS.md" % len(REFS)
+FRAMES = [l.strip() for l in open(os.path.join(CALIB, "cal_pileo_frames.txt"),
                                   encoding="utf-8") if l.strip()]
 assert len(REFS) == 6 and len(FRAMES) == 16
 

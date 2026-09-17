@@ -18,9 +18,11 @@ import numpy as np, pandas as pd
 from astropy.io import fits
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
+CALIB = r"F:/MEE_output/leon2026/calibration"   # moved out of the repo 2026-09-17; docs/CALIBRATION_INPUTS.md
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 OUT = r"F:/MEE_output/leon2026/f16_cal_pileo_test2"
-REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
+REFS = sorted(glob.glob(os.path.join(CALIB, "zenith_cubic", "08-12_Z*.txt")))
+assert len(REFS) == 6, "expected the six 08-12 zenith references, got %d -- see docs/CALIBRATION_INPUTS.md" % len(REFS)
 FRAMES = [l.strip() for l in open(r"F:/MEE_output/leon2026/f16_cal_pileo_test/canonical_order.txt")
           if l.strip()]
 SAT, NEAR, BOX = 65535, 60000, 4

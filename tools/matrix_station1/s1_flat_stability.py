@@ -30,7 +30,7 @@ Reports:
      `s1_darks_flats.py` uses -- which is the number that matters, because it is what fails
      to cancel between the calibration side and the eclipse side.
 
-Writes station1_record/darks_flats/master_flat_zenith.fits and a summary.
+Writes station1/darks_flats/master_flat_zenith.fits and a summary.
 """
 import glob, os
 import numpy as np
@@ -38,7 +38,7 @@ from astropy.io import fits
 
 ZEN = r"I:/Mexico 2024/Station 1 Zenith/Flats"
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data"
-OUT = r"F:/MEE_output/mexico2024/station1_record/darks_flats"
+OUT = r"F:/MEE_output/mexico2024/station1/darks_flats"
 NX, NY, PS = 9576, 6388, 1.84847
 FWHM_PX = 3.74
 SIG = FWHM_PX/2.355

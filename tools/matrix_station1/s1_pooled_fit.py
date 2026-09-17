@@ -44,7 +44,7 @@ The error terms:
     Cells 1 and 3 quote a scale term because they IMPORT a scale (Method 1) whose error is not
     in the fit; cell 2 cannot import one and so has no separate term to add.
 
-Writes station1_record/pooled_fit/<ref>/pooled_rows.csv, pooled_summary.json, bootstrap.csv.
+Writes station1/pooled_fit/<ref>/pooled_rows.csv, pooled_summary.json, bootstrap.csv.
 """
 import argparse, glob, json, os, zipfile
 import numpy as np, pandas as pd
@@ -52,7 +52,7 @@ from astropy.coordinates import get_sun
 from astropy.time import Time
 import astropy.units as u
 
-REC = r"F:/MEE_output/mexico2024/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1"
 NX, NY, PS = 9576, 6388, 1.84847
 MAGCUT, RCUT, RMAX = 13.0, 2.0, 9.0
 BLOCKS = [('0p25s_1810', '18:11:12'), ('0p3s_1811', '18:11:58'),

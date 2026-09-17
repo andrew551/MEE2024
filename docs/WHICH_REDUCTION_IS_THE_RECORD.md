@@ -122,13 +122,13 @@ absorbed into it — never compare one of those with a published scale.
 
 | step | what | where |
 |---|---|---|
-| calibration | 17 zenith fields, quintic, reference fit at a **0.5 ″ gate** (chosen on corner coverage, not on rms) | `station1_record/zenith_recentroid_tol/tol0p5/` (the per-field fits under `zenith_recentroid/<timestamp>/`; the 0.1, 0.2 and 1.0 gates beside it) |
-| preprocessing | per-frame coronal subtraction (blur σ 10 px, 2000 ADU pedestal) with the disk occulter, dark + flat | `station1_record/eclipse_corona/<tier>/`, four tiers `0p25s_1810`, `0p3s_1811`, `0p3s_1813`, `0p4s_1812`, re-stacked from raw |
-| stage 1 + 2 | windowed + annular centroids; **two-pass match**, gates 20 ″ then 3 ″, `distortion_free_scale` | `station1_record/eclipse_corona/<tier>/stage2_twopass_reftol0p5/` (`mee2024/distortion_fitter.py`; the other gates' trees beside it) |
-| stage 3 | pooled Method 2 over **every observation** of the four exposure tiers: per-block offset, rotation and scale, one L, 17 parameters on 1278 coordinates, one 4-MAD vet | **`station1_record/pooled_fit/twopass/`** (`pooled_rows.csv`, `pooled_summary.json`; `tools/matrix_station1/s1_pooled_fit.py --ref twopass`). `pooled_fit/twopass_reftol0p5/` is the same fit from the gate scan, L identical, bootstrap 0.081 against 0.084 from its seed |
-| the star sample | G ≤ 13, 2–10 R☉ — 639 observations of 192 stars. The outer cut is set by the zenith-vs-eclipse annulus comparison, not by L | `station1_record/reference_tolerance*.csv`, `blocks_alone.csv` (`s1_reference_tolerance.py`, `s1_blocks_alone.py`) |
+| calibration | 17 zenith fields, quintic, reference fit at a **0.5 ″ gate** (chosen on corner coverage, not on rms) | `station1/zenith_recentroid_tol/tol0p5/` (the per-field fits under `zenith_recentroid/<timestamp>/`; the 0.1, 0.2 and 1.0 gates beside it) |
+| preprocessing | per-frame coronal subtraction (blur σ 10 px, 2000 ADU pedestal) with the disk occulter, dark + flat | `station1/eclipse_corona/<tier>/`, four tiers `0p25s_1810`, `0p3s_1811`, `0p3s_1813`, `0p4s_1812`, re-stacked from raw |
+| stage 1 + 2 | windowed + annular centroids; **two-pass match**, gates 20 ″ then 3 ″, `distortion_free_scale` | `station1/eclipse_corona/<tier>/stage2_twopass_reftol0p5/` (`mee2024/distortion_fitter.py`; the other gates' trees beside it) |
+| stage 3 | pooled Method 2 over **every observation** of the four exposure tiers: per-block offset, rotation and scale, one L, 17 parameters on 1278 coordinates, one 4-MAD vet | **`station1/pooled_fit/twopass/`** (`pooled_rows.csv`, `pooled_summary.json`; `tools/matrix_station1/s1_pooled_fit.py --ref twopass`). `pooled_fit/twopass_reftol0p5/` is the same fit from the gate scan, L identical, bootstrap 0.081 against 0.084 from its seed |
+| the star sample | G ≤ 13, 2–10 R☉ — 639 observations of 192 stars. The outer cut is set by the zenith-vs-eclipse annulus comparison, not by L | `station1/reference_tolerance*.csv`, `blocks_alone.csv` (`s1_reference_tolerance.py`, `s1_blocks_alone.py`) |
 | errors | star bootstrap and a cluster-robust sandwich, which agree; a weighted mean over blocks is too small because the blocks share their stars | in `pooled_summary.json` above |
-| atmosphere term | 16 zenith Method-2 nulls (±0.109 ″) scaled by airmass^0.73 to the eclipse altitude — mostly the estimator floor, not the sky | `station1_record/zenith_nulls/`, `zenith_nulls.csv`, `zenith_floor.csv` |
+| atmosphere term | 16 zenith Method-2 nulls (±0.109 ″) scaled by airmass^0.73 to the eclipse altitude — mostly the estimator floor, not the sky | `station1/zenith_nulls/`, `zenith_nulls.csv`, `zenith_floor.csv` |
 
 Reported **beside** the budget rather than folded into it: the admission rule 0.05 ″, the
 model order 0.03 ″, the reference gate 0.01–0.02 ″, the coronal blur 0.01 ″. The flat's
@@ -138,11 +138,11 @@ reductions on stars each of them chose for itself is the mistake that produced i
 **Graphical output — start at `RECORD/mexico2024\`**: `record_deflection.png` (with
 `_all4` and `_per_star`), `record_field.png`, `record_covariance.png`, the four
 `master_<tier>_annotated.png`, `station1_star_table.csv` and `record_summary.json`; chart
-revision 5, every revision under `station1_record/charts/chart_versions/`, superseded copies
+revision 5, every revision under `station1/charts/chart_versions/`, superseded copies
 in dated `superseded_*` folders. Built by `tools/matrix_station1/s1_charts_record.py`; the
-originals are in `station1_record/charts/`.
+originals are in `station1/charts/`.
 
-Everything else under `station1_record/` (24.7 GB) is the work that chose those settings —
+Everything else under `station1/` (24.7 GB) is the work that chose those settings —
 `eclipse_tiers/` (moments against windowed, per tier), `eclipse_corona_s15/` (the 15 px
 blur), `moments_on_corona/`, `septic_test/` and `order_test/` (model order), `darks_flats/`
 and `eclipse_caldecomp/` (the calibration arms), `zenith_flat_test*/` and
@@ -166,7 +166,7 @@ vet grid). Each is named in the cell-2 block of `MATRIX_2026.md` where its numbe
 | `matrix_bruns2017_night_estimator/` | Bruns' 29 night fields under each estimator (`b17_night_estimator.py`) | feeds the zenith-row and estimator comparisons in `MATRIX_2026.md`; not a reduction of L |
 | `F16_ladder/` | CAL_piLeo's 18 frames stacked in sensitive mode without calibration, 2026-08-24 — the first F16 (saturated stars) exposure-ladder test | superseded by `f16_cal_pileo_test/`, `_test2/` (2026-08-29) and `cal_pileo_step2/`; **deleted 2026-09-06** (1.1 GB), the only folder removed in the housekeeping pass |
 | `bruns2017_freecubic/` | free-cubic fits of Bruns' 2017-08-19 night calibration, 2026-08-25 | the night-to-night cubic variation (4.8 %) that `INSTRUMENT_COMPARISON.md` builds on; evidence, 3 MB |
-| `station2_transfer/`, and its record set `RECORD/mexico2024st2/` (rev06, 2026-09-09) | Mexico 2024 **Station 2**: fifteen zenith fields, the L/R bracket (quadratic-free, the Bruns/Leon convention), and the eclipse field under the Station 1 technique at the documented 2–10 R⊙ window — 17 stars per tier, 34 observations of 18 stars, pooled Method 2 with ONE shared plate scale **L = 1.570 ± 0.672 (stat) ± 0.12 (atm) ″**, no double-star cut; Method 1 2.265 ± 0.284 ± 0.372 (imported scale) | not a cell: the bar spans Einstein and Newton. Kept as a record set because it carries the second NP101is's atmosphere null (±0.12 ″), the night-to-day scale drop (−725 ppm), and the bracket studies. Earlier revisions are parked in dated `superseded_*` folders. `docs/STEP3_2026.md`, "Station 2" sections |
+| `station2/`, and its record set `RECORD/mexico2024st2/` (rev06, 2026-09-09) | Mexico 2024 **Station 2**: fifteen zenith fields, the L/R bracket (quadratic-free, the Bruns/Leon convention), and the eclipse field under the Station 1 technique at the documented 2–10 R⊙ window — 17 stars per tier, 34 observations of 18 stars, pooled Method 2 with ONE shared plate scale **L = 1.570 ± 0.672 (stat) ± 0.12 (atm) ″**, no double-star cut; Method 1 2.265 ± 0.284 ± 0.372 (imported scale) | not a cell: the bar spans Einstein and Newton. Kept as a record set because it carries the second NP101is's atmosphere null (±0.12 ″), the night-to-day scale drop (−725 ppm), and the bracket studies. Earlier revisions are parked in dated `superseded_*` folders. `docs/STEP3_2026.md`, "Station 2" sections |
 | `psf_carrell/`, `psf_london/` | `stars.json` PSF profiles for Carrell's FRA500 + ASI1600 and London's ASI533, 2026-08-26 | two of the six trains in `INSTRUMENT_COMPARISON.md`'s PSF section, beside the cited `psf_leakey/`, `psf_portland/`, `psf_bruns2017/`; evidence, 3 MB |
 
 ## Known defects in the record, measured and bounded

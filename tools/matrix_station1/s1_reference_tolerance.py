@@ -23,7 +23,7 @@ the seventeen fields of the displacement each field's own quintic predicts, on a
 mas; (c) the difference between the seventeen-field average model at 0.1 or 0.2 and the
 record's at 0.3, on the same grid.
 
-Writes station1_record/zenith_recentroid_tol/tol0pX/<stamp>/, eclipse_corona/<block>/
+Writes station1/zenith_recentroid_tol/tol0pX/<stamp>/, eclipse_corona/<block>/
 stage2_twopass_reftol0pX/, pooled_fit/twopass_reftol0pX/, reference_tolerance.csv and
 reference_tolerance_geometry.csv.
 """
@@ -32,7 +32,7 @@ import numpy as np, pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-REC = r"F:/MEE_output/mexico2024/station1_record"
+REC = r"F:/MEE_output/mexico2024/station1"
 RECEN = os.path.join(REC, 'zenith_recentroid')
 TOLDIR = os.path.join(REC, 'zenith_recentroid_tol')
 SITE = ['--set', 'enable_corrections=True', '--set', 'enable_corrections_ref=True',

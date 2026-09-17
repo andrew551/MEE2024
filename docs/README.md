@@ -153,20 +153,24 @@ The rewrites were done in two passes, 175 references then 132, and checked by re
 every `MEE_output` path mentioned anywhere: 388 resolve and none still names a moved folder.
 **Only `F:` paths were repointed.** A drive letter is part of the history here: the first
 pass matched any drive and rewrote `docs/LEON_2026-08-11.md` §18.8 as quoted in
-`calibration/README.md`, which records that the folder once sat at
+the calibration README (now at `F:\MEE_output\leon2026\calibration\`), which
+records that the folder once sat at
 `D:\MEE_output\HANDOFF_zenith_cubic\` -- a statement about August, not a live path. It was
 undone by hand, and the second pass carries an explicit non-`F:` guard. That guard silently
 matched nothing on its first writing, because the captured prefix ends in the separator and
 the drive letter is therefore not at the end of it; a unit test on sample paths caught it
 before the pass ran.
 
-The 175 path references in the repository and the TAN exports were rewritten and then
-checked by resolving every `MEE_output` path mentioned anywhere: 385 resolve, none still
-names a moved folder. One rewrite had to be undone by hand -- `docs/LEON_2026-08-11.md`
-§18.8 is quoted in `calibration/README.md` as having pointed at
-`D:\MEE_output\HANDOFF_zenith_cubic\`, and that is a statement about where the folder was
-in August, not a live path. A drive letter is part of the history here: only `F:` paths
-were repointed.
+**The frozen calibration inputs left the repository on 2026-09-17.** The Leon zenith
+solutions and the CAL_piLeo frame list were versioned here as `calibration/` from
+2026-08-28, on the argument that they are inputs to the chain rather than outputs and every
+published number is pinned to them. Douglas: *"I am uncomfortable with output data like ...
+calibration ending up in the repo."* They are now
+`F:\MEE_output\leon2026\calibration\`, with the reasoning and a **SHA-256 manifest of all
+eighteen files** kept here as `docs/CALIBRATION_INPUTS.md`. The manifest is the point: the
+output tree has no version history, so a checksum under version control is what still lets
+anyone confirm the pinned values have not moved. A copy of it sits beside the data as
+`SHA256SUMS.tsv`, and `sha256sum -c` against it reports 18 of 18 OK.
 
 Its curated index is **`RECORD\`**: for each finished piece of work,
 the outputs someone would need to check it, re-quote it or publish from it — one folder per

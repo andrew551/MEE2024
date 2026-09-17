@@ -1665,7 +1665,7 @@ instrument images in**, and that costs in five places:
 **Should it be changed? Not now.** Refitting in TAN would put the optics in the coefficients
 and leave the polynomial nothing geometric to absorb -- the cleaner design. But it is a
 change to the core of the pipeline that moves every measured number, and it would invalidate
-every stored reference: `calibration/zenith_cubic/`, the 15-field night averages, every
+every stored reference: `F:\MEE_output\leon2026\calibration\zenith_cubic\`, the 15-field night averages, every
 frozen cubic in the matrix. Against that it buys **no accuracy** below ~5°, which is every
 instrument here. The export, the refusal guard and the paired charts take the benefit without
 the risk. **The case would change if a field wider than about 5-10° were ever used**, where a
@@ -1883,15 +1883,18 @@ quantity a shimming job would target.
 more telescopes").** Eight instruments now, 84 fits and 168 charts (Leon carries both of its nights):
 
 * **Portland FRA500** -- `F:\MEE_output\portland2026\portland_zenith`, 6 cubic fits, six pointings.
-* **Leon FRA500** -- the reduced zenith is **in the repo**, `calibration/zenith_cubic/`,
-  not under `F:\MEE_output`: twelve self-contained fits, of which the **six `08-12`** ones
+* **Leon FRA500** -- the reduced zenith is `F:\MEE_output\leon2026\calibration\zenith_cubic\`
+  -- twelve self-contained fits, of which the **six `08-12`** ones
   are the night Douglas asked for (`G:\Leon Aug 2026\2026-08-12\Zenith` is the same data
   as the `Zenith 2` source they name; the frame timestamps match). They carry no
   `img_shape` and their `source_data` points at the one genuinely absent tree,
   `D:\MEE_output\v1.4.0-dev_inpipe`, so the sensor size came from the FITS header on `G:`
   and was passed as `--shape 4176,6248`. *Note the date: this is Leon **2026**-08-12, not
   2024.*
-* **Mexico Station 1** -- `F:\MEE_output\mexico2024\station1_record\zenith_recentroid`, 17 quintic
+  These lived in the repository as `calibration/` until 2026-09-17, when they were moved to
+  the output tree; `docs/CALIBRATION_INPUTS.md` carries the reasoning and a SHA-256
+  manifest so the pinned values stay verifiable from here.
+* **Mexico Station 1** -- `F:\MEE_output\mexico2024\station1\zenith_recentroid`, 17 quintic
   fits. That folder is the freely-fitted one (`fixed distortion order: None`); the other
   twenty-odd `zenith_*` folders there are constrained against references and would show the
   reference, not the instrument.
@@ -1937,7 +1940,7 @@ Portland's 1.06 on the same telescope, reducer and camera model.
 **CORRECTION (2026-09-17), from splitting Leon into its two nights.** The sentences that
 stood here called that asymmetry "not the glass, but how the camera sits" and read it as
 independent corroboration of the transport change recorded in
-`calibration/zenith_cubic/README.md` -- the m=1 tilt dipole doubling between night 1 and
+`F:\MEE_output\leon2026\calibration\zenith_cubic\README.md` -- the m=1 tilt dipole doubling between night 1 and
 eclipse day. Both readings were wrong, and the pre-transport night says why.
 
 | Leon night | n | plate scale | optics peak | L - R | T - B | L / R |

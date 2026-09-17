@@ -99,7 +99,7 @@ plate-scale comparison would not reveal.
 **Date:** 2026-09-03. Douglas asked whether calibration frames, immaterial for Bruns 2017 and
 Leon 2026, would be needed for Mexico 2024. They are — but for the one reason this document
 predicted, and not for either of the usual ones. Tools: `tools/matrix_station1/s1_darks_flats.py`
-and `s1_hotpixel_risk.py`; masters in `station1_record/darks_flats/`.
+and `s1_hotpixel_risk.py`; masters in `station1/darks_flats/`.
 
 The set is complete and lives on `G:\Mexico April 2024\Station-1-Eclipse-Data`: bias,
 `dark-250ms`, `dark-300ms`, `dark-400ms`, `darkflats`, `flat`, 40 frames each. The eclipse

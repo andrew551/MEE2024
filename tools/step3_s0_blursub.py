@@ -33,10 +33,12 @@ from scipy.ndimage import gaussian_filter, shift as nd_shift
 from skimage.registration import phase_cross_correlation
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
+CALIB = r"F:/MEE_output/leon2026/calibration"   # moved out of the repo 2026-09-17; docs/CALIBRATION_INPUTS.md
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
 SRC = r"G:/Leon Aug 2026/2026-08-12/Eclipse/SCI_ladder"
 OUT = r"F:/MEE_output/leon2026/step3_s0_blursub"
-REFS = sorted(glob.glob(os.path.join(REPO, "calibration", "zenith_cubic", "08-12_Z*.txt")))
+REFS = sorted(glob.glob(os.path.join(CALIB, "zenith_cubic", "08-12_Z*.txt")))
+assert len(REFS) == 6, "expected the six 08-12 zenith references, got %d -- see docs/CALIBRATION_INPUTS.md" % len(REFS)
 SIGMA, PED = 10.0, 2000.0
 assert len(REFS) == 6
 

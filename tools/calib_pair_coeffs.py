@@ -49,8 +49,8 @@ PAIRS = {
         note='both fields quadratic-free with the 15-night cubic frozen'),
     's2': dict(
         label='Mexico 2024 Station 2 left / right bracket',
-        tree=r'F:\MEE_output\mexico2024\station2_transfer\bracket_quadfree',
-        alt=r'F:\MEE_output\mexico2024\station2_transfer\bracket_freecubic',
+        tree=r'F:\MEE_output\mexico2024\station2\bracket_quadfree',
+        alt=r'F:\MEE_output\mexico2024\station2\bracket_freecubic',
         fields=('left', 'right'), shape=(3520, 4656),
         note='quadratic-free, the convention Bruns and Leon used (s2_bracket_convention.py);'
              ' the check tree leaves the cubic free too'),

@@ -39,10 +39,10 @@
 > **Versioned into the repository 2026-08-28.** This document lived only on
 > `F:\MEE_output` until then, and that copy has been deleted so there is no
 > rival. Three artefacts it refers to moved with it:
-> `cal_pileo_step2_frames.txt` → `calibration/cal_pileo_frames.txt`;
+> `cal_pileo_step2_frames.txt` → `F:\MEE_output\leon2026\calibration\cal_pileo_frames.txt`;
 > `cal_pileo_step2/analysis/` → `tools/cal_pileo_step2/` (with a README recording that its
 > shell drivers still point at the superseded `I:\Leon 2026` copy and at `H:`);
-> the zenith references → `calibration/zenith_cubic/`. The **reductions** stay on `D:` —
+> the zenith references → `F:\MEE_output\leon2026\calibration\zenith_cubic\`. The **reductions** stay on `D:` —
 > they are regenerable from `G:` and this code, which is the line between the two places.
 
 **Date:** 2026-08-26. Every number here was produced this week on `v1.4.0-dev` from the raw
@@ -436,7 +436,7 @@ peak read there:
 >
 > A reproduction trap found on the way: the sixteen frames in a *different order* give 112
 > centroids and rms 0.5698 ″, because the stacker aligns to the first frame in the list.
-> `calibration/cal_pileo_frames.txt` is now stored in the canonical order and says so.
+> `F:\MEE_output\leon2026\calibration\cal_pileo_frames.txt` is now stored in the canonical order and says so.
 
 **This confirms the ROADMAP's dilution argument quantitatively.** A stack-based test sees 43 378
 and finds nothing to reject; the per-frame test finds a star clipped in six frames. (The ROADMAP

@@ -36,7 +36,7 @@ from astropy.io import fits
 
 RAW = r"I:/Mexico 2024/Station 1 Zenith"
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data/CapObj"
-AB = r"F:/MEE_output/mexico2024/station1_record/zenith_raw_ab"
+AB = r"F:/MEE_output/mexico2024/station1/zenith_raw_ab"
 Z24 = r"D:/MEE2024 output/Station 1/zenith calibrations"
 BLOCKS = [('f1', '2024-04-08_05_32_53Z', '20240417201719'),
           ('f2', '2024-04-08_05_35_48Z', '20240417202159'),
