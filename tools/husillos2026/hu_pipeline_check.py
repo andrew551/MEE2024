@@ -5,9 +5,21 @@ Douglas, 2026-09-14, after the output tree moved from `D:\\MEE2024 output\\MEE_o
 
 A green test suite would not answer that question -- the suite never touches the output tree.
 What answers it is a real reduction: raw frames off the read-only input drive, a dark and a
-distortion reference read from F:, and all three stages writing to F:.  The engine has not
-been committed to since these results were recorded (`git log -- mee2024/`), so a correct run
-reproduces them to the digit, and any difference is the move's doing rather than the code's.
+distortion reference read from F:, and all three stages writing to F:.  A correct run
+reproduces the recorded numbers to the digit, so a difference is the environment's doing
+rather than the code's.
+
+That last sentence originally rested on the engine being untouched since the references were
+recorded on 2026-09-12/13.  It is no longer: four commits landed on mee2024/ on 2026-09-16
+and -17.  Re-checked 2026-09-18 and the reasoning survives, but on narrower ground -- three
+of them are additive or cosmetic (the tangent-plane export, the chart display floor, a
+docstring), and the one that can move a number is f792b67, which took the distortion_fit_tol
+DEFAULT from 0.2 to 0.5 and so changes which stars stage 2 admits.  It cannot reach this
+check because hu_horizon_reduce sets the tolerance explicitly -- `--set
+distortion_fit_tol=3.0` -- and 3.0 is what the recorded reference used.  Before trusting a
+PASS after any further engine work, re-run that argument: `git log --since=<reference date>
+-- mee2024/`, and for each commit ask whether it reaches stage 1's stack, stage 2's fit or
+stage 3's estimator, and whether the driver pins whatever it changed.
 
   stage 1   23_44_06, frames 1-49, the DEEP detection settings, against the synthetic
             hot-pixel dark on F:          -> compare to horizon/s1d_h10_g125d

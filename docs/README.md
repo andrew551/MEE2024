@@ -113,7 +113,12 @@ paths recorded inside the output files themselves still name the D: locations; t
 this tree. The documents and tools here were rewritten at the move, except where they
 recount the history above. All three stages were then re-run from F: on a real capture
 and reproduced the recorded run field for field, down to the 49-frame alignment record
-(`tools/husillos2026/hu_pipeline_check.py`). 
+(`tools/husillos2026/hu_pipeline_check.py`). **Re-run and passed again on 2026-09-18**,
+after the tree was reorganised by dataset, the calibration inputs left the repository and
+138 stacks became hard links: stage 1 reproduced 7608 centroids, 49 frames stacked and all
+49 alignment shifts identical; stage 2 matched RA, DEC, roll, plate scale, rms, 972 stars
+and the frozen quadratic rung; stage 3 matched 75 stars and the deflection constant. Stage 1
+takes about 65 minutes on 49 full-frame captures, so run it in the background. 
 
 **The tree is organised by dataset, one folder per campaign** (Douglas, 2026-09-17: the
 husillos2026 folder "is a nice way to organise things ... this mirrors the organisation in
