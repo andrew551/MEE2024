@@ -172,6 +172,30 @@ output tree has no version history, so a checksum under version control is what 
 anyone confirm the pinned values have not moved. A copy of it sits beside the data as
 `SHA256SUMS.tsv`, and `sha256sum -c` against it reports 18 of 18 OK.
 
+**Identical stacks are hard-linked, not copied (2026-09-17).** Stage 1 writes the stack
+before it centroids it, so every A/B study that varies a *centroiding* option --
+`centroid_refine_window`, `background_subtraction_mode`, the corona/moments variants --
+re-runs the whole of stage 1 and writes a bit-for-bit identical `STACKED*.fit` into its own
+arm folder. Two axes gives four copies. Measured across the tree: **97 sets, 13.5 GB**, of
+which 80 % was that one mechanism; the rest was the Leon 08-12 Z1 zenith field reduced
+independently by four campaigns, plus a few probe runs later repeated for real.
+
+`tools/dedupe_stacks.py` collapses them onto hard links -- same bytes, one allocation, and
+every tool's per-folder glob still finds a file where it expects one. It is idempotent and
+reports by default; `--apply` does the work and then re-hashes every member. Two things it
+gets right that a naive version would not:
+
+* **A full hash decides, never a fingerprint.** Size plus the first and last 4 MB proposed
+  99 sets; the full hash rejected **7 files** from them -- stacks of the same field that
+  agree at both edges and differ in between. Linking those would have replaced one
+  reduction's output with another's, silently.
+* **Link beside, then `os.replace`.** The path is never absent: it is the old file or the
+  new link, never nothing.
+
+What this does NOT fix is the cause. An A/B study over post-stack options still pays for a
+full re-stack per arm in time as well as disk; a stage-1 cache keyed on the options that
+actually affect stacking would, and that is a change to `stacker_implementation.py` rather
+than a cleanup.
 Its curated index is **`RECORD\`**: for each finished piece of work,
 the outputs someone would need to check it, re-quote it or publish from it — one folder per
 matrix cell in a common shape (`bruns2017`, `leon2026`, `mexico2024`), plus `refraction` for
