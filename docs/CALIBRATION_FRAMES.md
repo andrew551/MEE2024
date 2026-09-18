@@ -340,6 +340,32 @@ excursions faults rather than weather. `#2.csv` is the same data reformatted, an
 stretch and the excursion both survive the wrangling; `#0.csv` has 64 data rows and `#1.csv`
 has **2**, both aborted starts.
 
+**It cannot be rescued by fixing the clock, and it is worth recording why so that nobody
+spends an afternoon trying.** Two further facts, established 2026-09-18.
+
+First, **the logger had no real-time clock.** Every working sensor file in this folder
+carries a true modification time (2024-04-08 22:31 through 2024-04-09 02:56); this one is
+dated **1980-01-01**, the FAT epoch, which is what a device writes when it does not know the
+date. So its internal timestamps cannot be assumed correct -- which is the obvious
+explanation for the missing eclipse, and the obvious thing to try to correct.
+
+Second, **correcting it does not help.** Scanning time offsets across plus or minus 12 hours
+and matching its barometric pressure against the Pasco's:
+
+| | |
+|---|---|
+| Pasco pressure range, whole day | **267 Pa** |
+| 3D station pressure range, whole day | **13 227 Pa** |
+| best alignment | −490 min, median disagreement **174 Pa** over 129 bins |
+
+The real atmospheric signal that day was 267 Pa peak to peak -- a flat day. The 3D station
+swings fifty times that, and the best offset still disagrees by most of the true daily range,
+which is two unrelated series sitting near each other rather than an alignment. **The fault
+is in the measurements, not in the timestamps.**
+
+The file is kept on `I:` as the record that the station was deployed and failed, which is
+provenance worth 2.2 MB. It is deliberately absent from the `H:` archive.
+
 
 ## What this does not say
 
