@@ -733,7 +733,7 @@ Neither needs reading off an axis, because stage 1 records both — `alignment.d
 | **Leon Z1** | **AVX** | 30 | **13.841** | 30.55 | **14.33** | 0.157 px |
 
 All three are measured, none eyeballed. Station 1's raw zenith frames do exist, at
-**`I:\Mexico 2024\Station 1 Zenith`** — four sessions of 20 × 3.0 s at gain 100 on an
+**`I:\Mexico 2024\Station 1\Station 1 Zenith`** — four sessions of 20 × 3.0 s at gain 100 on an
 ASI6200MM, which an earlier pass of this document failed to find and therefore reduced to a
 number read off a plot axis (~2.9 px, ~4 ″/min — close, but eyeballed). `hu_mount_compare.py`
 now tracks them with the same estimator as the other two; the field whose plot started this

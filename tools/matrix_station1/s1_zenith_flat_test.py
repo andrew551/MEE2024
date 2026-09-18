@@ -32,9 +32,9 @@ import numpy as np
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-RAW = r"I:/Mexico 2024/Station 1 Zenith"
+RAW = r"I:/Mexico 2024/Station 1/Station 1 Zenith"
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data"
-ZFLAT = r"I:/Mexico 2024/Station 1 Zenith/Flats/2024-04-08_06_28_18Z"
+ZFLAT = r"I:/Mexico 2024/Station 1/Station 1 Zenith/Flats/2024-04-08_06_28_18Z"
 AB = r"F:/MEE_output/mexico2024/station1/zenith_raw_ab/windowed_annular"
 OUT = r"F:/MEE_output/mexico2024/station1/zenith_flat_test2"
 NX, NY = 9576, 6388

@@ -34,7 +34,7 @@ import glob, json, os
 import numpy as np
 from astropy.io import fits
 
-RAW = r"I:/Mexico 2024/Station 1 Zenith"
+RAW = r"I:/Mexico 2024/Station 1/Station 1 Zenith"
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data/eclipse"
 AB = r"F:/MEE_output/mexico2024/station1/zenith_raw_ab"
 Z24 = r"D:/MEE2024 output/Station 1/zenith calibrations"

@@ -6,7 +6,7 @@ um pixels -- so a comparison of per-frame pointing is fair as long as the same e
 both.
 
 **Mexico Station 1 is in the table too** (added 2026-09-09 when Douglas pointed at
-`I:/Mexico 2024/Station 1 Zenith`, which an earlier pass had failed to find and had therefore
+`I:/Mexico 2024/Station 1/Station 1 Zenith`, which an earlier pass had failed to find and had therefore
 reduced to a number eyeballed off a plot axis).  It is a third Celestron AVX, a different optic
 (432 mm f/5, ASI6200MM at 1.8485 "/px) and a 3.0 s cadence -- so its PLATE SCALE is not the
 others' and the conversion to arcsec is per field, not global.  Its 20 frames span 65.9 s, within
@@ -63,7 +63,7 @@ PS_BY_FIELD = {'station1 Mexico zenith': 1.8484826, 'station1 Mexico zenith 2': 
 WINDOW = 60             # s: the common window every field is also measured on
 
 HUSILLOS = r"G:/Joe Izen Spain 2026"
-S1Z = r"I:/Mexico 2024/Station 1 Zenith"
+S1Z = r"I:/Mexico 2024/Station 1/Station 1 Zenith"
 LEON = r"G:/Leon Aug 2026"
 
 #: (label, kind, path, mount).  Night, 1 s or 4 s, star fields, no Sun anywhere.

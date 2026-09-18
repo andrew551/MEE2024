@@ -1,6 +1,6 @@
 """Cell 2, Station 1: the 2 x 2 convention test on the two raw zenith fields Douglas found.
 
-`I:/Mexico 2024/Station 1 Zenith/` holds the source frames of the first THREE 2024 zenith
+`I:/Mexico 2024/Station 1/Station 1 Zenith/` holds the source frames of the first THREE 2024 zenith
 fields -- blocks 2024-04-08_05_32_53Z, 05_35_48Z and (found 2026-09-03) 05_38_32Z, 3 s at
 gain 100, full 9576 x 6388 frame, the 2024 archives 201719 / 202159 / 203538 having used
 frames 0001-0019 of each. The third block is one frame short of that, 18 rather than 19.
@@ -32,7 +32,7 @@ import numpy as np, pandas as pd
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-RAW = r"I:/Mexico 2024/Station 1 Zenith"
+RAW = r"I:/Mexico 2024/Station 1/Station 1 Zenith"
 OUT = r"F:/MEE_output/mexico2024/station1/zenith_raw_ab"
 NX, NY, PS = 9576, 6388, 1.84847
 SUNPX, SUNPY, R_SUN_AS = 4309.0, 2730.0, 958.2

@@ -135,7 +135,7 @@ needed.**
 ### And the flat did not change across the refocus — so it cancels anyway
 
 *Added 2026-09-03, on Douglas finding the zenith session's own flats at
-`I:\Mexico 2024\Station 1 Zenith\Flats\2024-04-08_06_28_18Z`.* The verdict above rested on
+`I:\Mexico 2024\Station 1\Station 1 Zenith\Flats\2024-04-08_06_28_18Z`.* The verdict above rested on
 each side's flat-fielding being small. It left the harder question open: the calibration
 fields were shot at 05:32–06:15 UTC and the eclipse at 18:12, with a daytime refocus between
 them worth −600 ppm of plate scale, and dust shadows change size with focus. A flat that

@@ -884,7 +884,7 @@ deliberately left as the pipeline wrote them.
 counts under the old names, and both copies of the capture tree (`G:` and the `I:` backup)
 are byte-identical across all 1471 files, 89.9 GB, SHA-256.* Measured on the 2024-era
 archives; two of the seventeen raw zenith blocks were then found and put in
-`I:\Mexico 2024\Station 1 Zenith\` (fields 1–2, 05:32:53Z and 05:35:48Z); the other fifteen
+`I:\Mexico 2024\Station 1\Station 1 Zenith\` (fields 1–2, 05:32:53Z and 05:35:48Z); the other fifteen
 are not on this machine. The raw eclipse frames and their bias/dark/flat sets are on `G:`.
 
 | measurement | result |
@@ -898,7 +898,7 @@ are not on this machine. The raw eclipse frames and their bias/dark/flat sets ar
 | eclipse field, Method 1 | +15.9″ — the eclipse scale is −600 ppm from the zenith mean (daytime refocus + 5 °C) |
 | eclipse field, Method 2 isotropic | 1.677 ± 0.278″ (base), 1.815 ± 0.287″ (vertical-deg-2), S +599 ppm, 156 stars, rms 0.39″/axis |
 | anisotropy test | Sy − Sx = +10 ± 16 ppm, skew +8 ± 6 ppm, ΔL −0.009″ — one isotropic S is enough |
-| **2 × 2 on the raw zenith pair** (`I:\Mexico 2024\Station 1 Zenith`, fields 1–2 of 17) | outer-field bias, mas/mag: moments + annular +13–17, moments + Gaussian +1–16, **windowed + annular +1–4**, windowed + Gaussian +0–10; 2024 σ_sub-3 moments +26–32. Precision identical (rms G ≤ 12: 47–56 mas in every cell). Null pair: windowed within 0.01″ on every estimator, moments within 0.05″, 2024 within 0.09″ |
+| **2 × 2 on the raw zenith pair** (`I:\Mexico 2024\Station 1\Station 1 Zenith`, fields 1–2 of 17) | outer-field bias, mas/mag: moments + annular +13–17, moments + Gaussian +1–16, **windowed + annular +1–4**, windowed + Gaussian +0–10; 2024 σ_sub-3 moments +26–32. Precision identical (rms G ≤ 12: 47–56 mas in every cell). Null pair: windowed within 0.01″ on every estimator, moments within 0.05″, 2024 within 0.09″ |
 | modern stack vs its own 2024 quintic, same frames | scale residual −2.6 / −2.0 ppm, transfer rms 0.11–0.12″/axis (G ≤ 13): the right files, and the pipelines agree |
 | **eclipse-field convention** (2026-09-03, `s1_eclipse_convention.py`) | re-stacking the same 123 frames windowed vs moments moves L by **−0.27″ (base) / −0.19″ (v-deg 2)**; windowed has a 26 % tighter per-star residual (0.318″ vs 0.431″) and 27 % smaller σ_L (0.235″ vs 0.320″) |
 | reference convention, on the same 2 × 2 | −0.018″ / −0.032″ — the two axes are independent, and only the field's own convention matters |

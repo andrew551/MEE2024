@@ -1,6 +1,6 @@
 """Cell 2: did the flat survive the refocus? The zenith-session flat against the post-eclipse one.
 
-Douglas, 2026-09-03, having found `I:\\Mexico 2024\\Station 1 Zenith\\Flats\\2024-04-08_06_28_18Z`.
+Douglas, 2026-09-03, having found `I:\\Mexico 2024\\Station 1\\Station 1 Zenith\\Flats\\2024-04-08_06_28_18Z`.
 
 This is the measurement the earlier flat verdict could not make. `s1_darks_flats.py` showed
 the POST-ECLIPSE flat (`G:` set, 19:21 UTC, gain 0, 27.6 C) moves a centroid by only
@@ -36,7 +36,7 @@ import glob, os
 import numpy as np
 from astropy.io import fits
 
-ZEN = r"I:/Mexico 2024/Station 1 Zenith/Flats"
+ZEN = r"I:/Mexico 2024/Station 1/Station 1 Zenith/Flats"
 G = r"G:/Mexico April 2024/Station-1-Eclipse-Data"
 OUT = r"F:/MEE_output/mexico2024/station1/darks_flats"
 NX, NY, PS = 9576, 6388, 1.84847

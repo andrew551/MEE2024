@@ -168,7 +168,7 @@ def do_mount():
              RIGS['Husillos zenith']['ps'], 64.67),
             ('Leon Z1', 'AVX', HUS + '/zenith_order/s1_leonZ1/centroid_data*.zip',
              RIGS['Leon zenith']['ps'], 127.95)]
-    # Station 1's raw zenith frames DO exist -- I:/Mexico 2024/Station 1 Zenith, four sessions,
+    # Station 1's raw zenith frames DO exist -- I:/Mexico 2024/Station 1/Station 1 Zenith, four sessions,
     # 20 x 3.0 s at gain 100 -- and `hu_mount_compare.py` now tracks them with the same
     # estimator as the other two. Its span is 3.047 px = 5.63 " = 4.86 "/min, which retires the
     # number an earlier pass read off a plot axis (~2.9 px, ~4 "/min: close, but eyeballed).
@@ -184,7 +184,7 @@ def do_mount():
           % ('Station 1 Mexico', 'AVX', 20, 3.047, 5.63, 4.86, '(tracked)'))
     print()
     print('  Station 1\'s row is measured too, by hu_mount_compare.py on the raw frames at')
-    print('  I:/Mexico 2024/Station 1 Zenith -- not from its stage-1 zip, which predates the')
+    print('  I:/Mexico 2024/Station 1/Station 1 Zenith -- not from its stage-1 zip, which predates the')
     print('  alignment record. Its four sessions run 1.58-17.43 "/min; the one whose plot')
     print('  started this comparison is the 3.96 "/min field.')
     print()

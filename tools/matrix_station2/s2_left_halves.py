@@ -21,7 +21,7 @@ import subprocess
 
 REPO = r"C:/Users/dpesm/OneDrive/Documents/GitHub/MEE2024"
 PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-SRC = r"I:/Station2Export/EclipseImages/eclipse"
+SRC = r"I:/Mexico 2024/Station 2/EclipseImages/eclipse"
 OUT = r"F:/MEE_output/mexico2024/station2"
 DEST = os.path.join(OUT, "lr_halves")
 
