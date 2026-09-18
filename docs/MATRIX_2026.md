@@ -1004,7 +1004,66 @@ sidecar's `Brightness`. Median pedestal 603 ADU against 13 ADU. The change coinc
 A constant pedestal should be absorbed by local background subtraction, but absolute-level
 logic -- `hot_pixel_min_adu`, the saturation checks -- does not see the same baseline on both
 sides. **Not acted on**, and recorded here because it is cheaper to find in a record than to
-rediscover.
+rediscover. The offset change also clips the low tail -- see below.
+
+### The three sessions were not run from one script (2026-09-18)
+
+Douglas asked why April 7 carries different numbers from April 5 when both should have come off
+the same capture script. They did not: every parameter was set afresh each night, and one of
+the choices is measurably better than the other.
+
+| | April 4 | April 5 | April 7 |
+|---|---|---|---|
+| blocks | 6, plus 3 acquisition | 20 | 17 |
+| frames per block | 20 | 20, and seven blocks of **60** | 20 |
+| exposure | 2 s | 3 s | 3 s |
+| gain | 300 | **79** | **100** |
+| offset | 108 | 110 | **60, then 1 from 05:51** |
+| sensor temperature | +1.1 → −11.3 °C, cooling through the lights | **−10.0/−10.1 °C across all twenty** | −11.2, restart to +5.6 at 05:51, re-cool |
+| its own darks and flats | yes | **none, on disk or in the archive** | yes |
+
+**Gain 100 is worth 1.78× in read noise over gain 79, and that is the HCG threshold.** April 5
+and April 7 compare directly -- both 3 s, both at the zenith, both dark nights -- so this is
+measured rather than argued. Background sigma taken from the difference of two consecutive
+frames, which cancels fixed pattern and static sky, then rescaled onto the electron scale of
+gain 100 through ZWO's 0.1 dB gain law:
+
+| night | gain | σ on a common electron scale |
+|---|---|---|
+| April 5 | 79 | **9.35** |
+| April 7 | 100 | **5.24** |
+| April 4 Mystery | 235 | 4.65 |
+| April 4 zenith | 300 | 3.88 |
+
+The gain law is already divided out, so the 1.78 is a step the law does not explain, at exactly
+gain 100 -- where the IMX455 switches into high conversion gain. Above the threshold the
+improvement resumes but slowly: 4.65 → 3.88 is 1.20× over 6.5 dB, against 1.78× over 2.1 dB at
+the step. So April 7 used the lowest gain that gets HCG, and April 5 sat just under it and paid
+nearly double the read noise for nothing. The difference sigma still carries sky shot noise,
+which is common to both nights on the electron scale and inflates both, so 1.78 is a lower
+bound on the read-noise ratio rather than an upper one.
+
+**Offset 1 clips the low tail; offset 60 and 110 do not.** The pedestal runs at about ten times
+the offset -- 110 → 1101 ADU, 108 → 1082, 60 → 604, 50 → 504, **1 → 14**. At offset 1 that
+pedestal is 14 ADU against a read noise of 4.45 ADU, about 3σ, and **0.96 % of pixels sit at
+exactly zero**, frame minimum 0. At offset 60 and 110 nothing clips at all: frame minima 439 and
+814 ADU. A Gaussian at that pedestal would put 0.08 % below zero, so the low tail is about
+twelve times fatter than Gaussian.
+
+The fourteen April-7 blocks from 05:51 onward -- most of the record's seventeen -- therefore
+carry a clipped low tail that f1--f3 do not, on top of the offset-pedestal mismatch against the
+dark. The consequence should be small: clipping biases the local background estimate slightly
+high, roughly uniformly, and a uniform background error largely cancels in a centroid. It is
+recorded as an asymmetry between the two halves of the session, not as a correction to anything.
+
+**April 5 cannot be used as it stands.** It has no darks and no flats -- `April 5th/Station 1/`
+in the archive holds `Zenith` and nothing else -- and its gain 79 matches no dark anywhere on
+this machine, so there is nothing to calibrate it with and nothing to pool it with. Against
+that, it is the best-conditioned of the three thermally: −10.0/−10.1 °C across all twenty
+blocks, no restart and no cooldown transient, where April 4 was still cooling through its lights
+and April 7 restarted mid-session. Its structure is ten 20-frame blocks at 04:22--04:38 UTC, a
+1 h 36 m gap, then 18- and 60-frame blocks from 06:14. **No April 5 block has been solved**, so
+its pointing, and whether it dithers, are unknown.
 
 | measurement | result |
 |---|---|
