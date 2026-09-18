@@ -887,6 +887,125 @@ archives; two of the seventeen raw zenith blocks were then found and put in
 `I:\Mexico 2024\Station 1\Station 1 Zenith\` (fields 1–2, 05:32:53Z and 05:35:48Z); the other fifteen
 are not on this machine. The raw eclipse frames and their bias/dark/flat sets are on `G:`.
 
+*Superseded 2026-09-18: all seventeen are on this machine now.* They came out of the project's
+AWS archive along with an entire second calibration night nobody had looked at.
+`G:\Mexico April 2024\Station-1-Zenith-Data\` holds 2613 files.
+
+### The zenith tree held two nights in one folder (2026-09-18)
+
+Its folder labels mean **the local date the session began**, not the date on the frames. The
+site is UTC−6, so every session runs past local midnight and every frame inside carries the
+next day's UTC date. The convention holds in all four folders: `April 5` holds 2024-04-06Z
+blocks (22:22--00:59 local), `April 7` holds 2024-04-08Z (23:32--00:15 local).
+
+By that convention `April 7` was wrong. It also held **six 2024-04-05Z blocks -- 00:34--00:42
+local on April 5, the session that began the evening of April 4** -- and `April 7 DarksFlatsEtc`
+held that session's own dark, flats and dark-flats. Three things said so, none of them the
+folder name:
+
+- the archive files those six blocks under **both** `April 4th/Station 1/Zenith/` and
+  `April 7th/Station 1/Zenith/`, at identical counts and sizes (241 files, 13.8 GiB);
+- the 2024 reduction logs name the original capture tree,
+  `C:\Users\Toby Dittrich\Desktop\Station 1\{Zenith,DarksFlatsEtc}`, which is what the
+  archive's `April 4th/Station 1/` reproduces and what the April-7 folder does not;
+- the calibration matches the April-4 lights exactly -- 2 s / gain 300 / offset 108, flats at
+  0.4 s -- and matches nothing on April 7.
+
+Split accordingly: 357 files, 20.4 GiB, moved within the drive, verified by file count and byte
+total per folder before and after, the tree unchanged at 2613 files.
+
+```
+Station-1-Zenith-Data\April 4\
+    Zenith\          the six 2024-04-05Z blocks
+    DarksFlatsEtc\   Dark\2024-04-05_06_44, Flats\_06_48, DarkFlats\_06_49
+    Mystery Data\    formerly the top-level "April 4 Mystery Data"
+```
+
+No tool referenced these paths, so unlike the eclipse-tree rename above, nothing broke.
+`April 7` now holds its seventeen blocks alone.
+
+**The April-4 night is a 2 × 2 dither** -- RA 184.42/184.98 × DEC 23.069/23.607, corners about
+0.5° apart -- reduced block by block in 2024, dark and flat applied, in nine `CENTROID_OUTPUT`
+runs dated 2024-04-05. Four solved at 1.8508--1.8520 ″/px; `06_39_27Z` crashed three times
+before centroiding and `06_42_29Z` stacked six frames and would not solve, which is what the
+operator's folder annotations record. It is **not** a drop-in addition to the seventeen: 2 s at
+gain 300 against their 3 s at gain 100, and its lights were shot during the cooldown at +1.1 to
+−11.3 °C against a dark at −10.1 °C, so its first two blocks sit 5--11 °C above their own dark.
+
+### The "Mystery Data" is Station 1 acquisition, and it points nearest the zenith
+
+Three blocks, 7 + 7 + 6 frames, 2.28 GiB, six minutes ahead of the zenith series. It carries
+**no pointing information at all** -- identical 32-card ASICap sets, no `OBJCTRA`, no `ALT`, no
+`OBJECT` -- so it was solved to find out. Same camera, and one continuous sensor cooldown runs
+across the join: +5.5 → +4.9 °C over the Mystery blocks, +1.1 → −11.3 °C over the zenith blocks.
+
+| block | RA | DEC | zenith distance | centroids |
+|---|---|---|---|---|
+| 06:27:05 | 184.8665° | +23.8417° | **0.420°** | 20 778 from 7 frames |
+| 06:28:51 | 184.4180° | +23.0706° | 1.520° | 20 418 from 6 frames |
+
+**06:28:51 lands 18.6″ (10 px) from block `06_34_55Z`'s pointing**: the acquisition run ends
+exactly where the science run begins. Confirmed catalogue-free, before either solve, by
+histogramming every pairwise offset between bright sources -- 299 matching pairs at one
+translation against a random level of 1.06 per bin, where the same test against an April-7
+frame peaks at 5 and the control reproduces the known dither step to 3 %.
+
+The frames are sound: FWHM 1.4 px, elongation 1.20, drift under 2 px per block, all
+indistinguishable from the science blocks. **They are still not usable for astrometry**, for one
+decisive reason and three supporting ones. There is **no dark anywhere in the tree at 3 s /
+gain 235 / offset 50**, and cell 2's pathway is dark+flat; 6--7 frames against 20; sensor ~15 °C
+above the settled setpoint; and gain, offset and USB limit all differ from both nights, so it
+pools with neither. Keep it as the record of how the session started, and as the one field that
+is nearly overhead.
+
+### Zenith distance: the seventeen span 0.8--7.8°, not 1--3°
+
+`tools/matrix_station1/s1_atmosphere_maps.py` says **z = 1--3°**, in its docstring and in the
+chart subtitle it draws. Measured from the solved centres, the range is **0.811° to 7.751°**,
+and **only three of the seventeen fall inside 1--3°** -- two sit below 1° and twelve above 3°.
+
+| set | zenith distance |
+|---|---|
+| Mystery, two blocks | **0.420°**, 1.520° |
+| April-7 seventeen | 0.811° -- **7.751°** |
+| April-4 four | 2.475° -- 3.361° |
+
+The cause is that the mount was not re-pointed to follow the zenith: the hour angle runs
+1.2° → 8.5° while the zenith's right ascension advances 10.7° across the 42.5-minute session,
+reset once at 05:51:25 when the camera was also restarted. The docstring uses its claim to
+justify drawing no altitude arrow, on the ground that the altitude direction is not meaningful
+that close to the zenith. At 7.75° it is meaningful.
+
+**Not acted on.** This is the closed cell 2; the atmosphere term (±0.11 ″, quoted at airmass
+1.001) rests on the consecutive null pairs rather than on this range, and re-deriving either
+needs its own validation (§6).
+
+*Method note. Computed with astropy's ICRS→AltAz transform and checked against the angular
+separation from the ICRS zenith point at the same instant -- 0.8305° by both routes. A hand
+formula using apparent LST minus J2000 right ascension disagrees by 0.32°, which is the
+J2000-to-2024 precession in RA, not an error in the transform. The seventeen archives are named
+by reduction time, not capture time, so they were paired with the block times in capture order;
+that pairing is not assumed -- the first four carry RA 173.7045 / 173.6802 / 172.5712 / 178.3771
+against the independent raw re-solves' 173.7045 / 173.6801 / 172.5716 / 178.3780.*
+
+### Two hazards in the tree itself
+
+**A stray Siril re-save sits inside `April 4\Zenith\2024-04-05_06_34_55Z`:**
+`...CapObj_0000.FIT.fit`, 122 MB, written 2024-04-15, and present in the archive too, so it is
+not ours. Windows globbing is case-insensitive, so `*.FIT` matches it and frame 0000 gets
+stacked **twice** -- which is what happened to the first control run here before it was caught.
+Any glob over these blocks needs an explicit `.fit` exclusion.
+
+**The April-7 session changed camera offset mid-run.** Blocks `05_32_53`, `05_35_48` and
+`05_38_32` -- f1, f2, f3 in `s1_zenith_raw_ab.py` -- were shot at **offset 60**; the other
+fourteen *and the dark* at **offset 1**. Two witnesses: the FITS `OFFSET` card and the ASICap
+sidecar's `Brightness`. Median pedestal 603 ADU against 13 ADU. The change coincides with the
+05:51:25 restart (sensor back to +5.6 °C, the +50 ppm scale outlier of `s1_scale_vs_temp.py`).
+A constant pedestal should be absorbed by local background subtraction, but absolute-level
+logic -- `hot_pixel_min_adu`, the saturation checks -- does not see the same baseline on both
+sides. **Not acted on**, and recorded here because it is cheaper to find in a record than to
+rediscover.
+
 | measurement | result |
 |---|---|
 | §18.3 moment bias (17 zenith fits) | radial only, +3/+12/+22/+31/+10 mas/mag by radius bin, 17/17 same sign, bright inward, −34 mas beyond 2500 px (Leon +299) |
