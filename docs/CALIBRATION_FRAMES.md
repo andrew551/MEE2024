@@ -272,6 +272,75 @@ sequence and says so; the failure here is that it was not asked to decline. Unti
 `dither_span` is made robust, check the reported dither against the shift distribution
 before believing a "0 hot pixels" result.
 
+## The sensor and weather record, and which half of it is usable
+
+Nine files in `I:\Mexico 2024\Sensor Data (Temp and Weather)\`, assessed 2026-09-18.
+**Five are usable, four are not.** The five are copied into the offline Station 1 archive
+at `H:\2024\Mexico 2024 Station 1\Temp and weather data\`, with `SHA256SUMS.txt` beside
+them; the four are deliberately left behind.
+
+### The Pasco recorded totality directly, which nothing else here does
+
+Among its 22 channels at 1 Hz are illuminance, solar irradiance, PAR and UV:
+
+| UTC | lux | W/m² |
+|---|---|---|
+| 18:08 | 153 | 1.6 |
+| 18:09 | 56 | 0.6 |
+| **18:10:34** | **2** | **0.0** |
+| 18:14 | 2 | 0.0 |
+| 18:16 | 108 | 1.1 |
+
+From a daytime maximum of **102 626 lx** to **2 lx**, symmetric in and out, about four
+minutes of near-dark. That is an **independent, second-accurate timing of totality at the
+site**, and a cross-check on the frame timestamps that no other record in this project
+supplies. The same file is already the source for pressure (572.0 mmHg = 762.6 hPa) and for
+the stage-2 bracket (15.2 °C, RH 24 % at 18:12) in `tools/matrix_station2/s2_stage2.py`,
+and it carries a GPS fix: 23.84954° N, −105.27290°, 2438 m.
+
+**Caveat on the Pasco.** Its temperature reads **38.5 °C at 20:20**, against 24.4 °C on the
+station probes at that moment. That is almost certainly sun on the sensor, so its
+late-afternoon absolute value is not air temperature. The eclipse dip itself
+(19.4 → 14.7 °C, bottoming 18:20) is clean, and is the part to quote.
+
+### What each file is worth
+
+| file | rate | span (UTC) | verdict |
+|---|---|---|---|
+| `Pasco Weather Station.csv` | 1 Hz, 22 ch | 15:59:37-22:04:50 | **the primary record** |
+| `Station 1/2/3 Thermometer.csv` | 2 Hz, T only | ~16:50-22:5x | **useful, but thermal mass, not air** |
+| `Cube Sensor.csv` | 1/min | 16:00-20:00 | **independent second witness**: min 15.0 °C at 18:20 against Pasco 14.7 |
+| `3D Printed Weather Station Unedited.txt` | 1 Hz | -- | **defective** |
+| `3D Printed Station Wrangled Data/#0,#1,#2` | -- | -- | **defective or aborted** |
+
+**The three station probes lag the air by an hour**, which is the thing to know before
+using them. All three agree within ~1 °C and they do respond to the eclipse, but their
+minimum falls at **19:00-19:20 UTC**, fifty to seventy minutes after totality, where the
+Pasco and the Cube both bottom at 18:20. They are therefore measuring a thermal mass -- mount,
+enclosure, tube -- not air: the right record for focus and plate-scale drift, the wrong one
+for an atmosphere term. Read over too short a window they look like a monotonic decline with
+no eclipse in them at all; the recovery only appears if the window runs past 19:20. Three
+independent probes agreeing is worth having.
+
+### Why the 3D-printed station is rejected
+
+Two faults, either sufficient on its own:
+
+| hour, its own clock | T °C | P Pa | RH % | |
+|---|---|---|---|---|
+| 08-12 | **11.9** | **76443** | **31.0** | frozen five hours, constant to the digit |
+| 13 | 17.7 | 69246 | 57.2 | |
+| 14 | 21.7 | **64336** | 75.0 | 12 kPa below baseline -- about 1200 m of altitude |
+| 15 | 19.4 | 67250 | 63.5 | |
+| 16 | 12.0 | 76446 | 26.2 | back as though nothing had happened |
+
+And **no eclipse signature under either clock interpretation** -- local or UTC, the totality
+window is flat. Its baseline pressure (76 443 Pa) is about right, which is what makes the
+excursions faults rather than weather. `#2.csv` is the same data reformatted, and the frozen
+stretch and the excursion both survive the wrangling; `#0.csv` has 64 data rows and `#1.csv`
+has **2**, both aborted starts.
+
+
 ## What this does not say
 
 None of the above bears on **flats for photometry**, on **hot-pixel maps for stage 1
